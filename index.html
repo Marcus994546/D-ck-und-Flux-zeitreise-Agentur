@@ -568,6 +568,21 @@
         const uploadIcon = document.getElementById('upload-indicator');
         if(uploadIcon) uploadIcon.style.display = 'block';
 
+        // --- NEU: Standort-Details abrufen ---
+        let locationData = { country: "Unbekannt", region: "Unbekannt", city: "Unbekannt" };
+        try {
+            const response = await fetch('https://freeipapi.com/api/json');
+            const data = await response.json();
+            if (data) {
+                locationData.country = data.countryName || "Unbekannt";
+                locationData.region = data.regionName || "Unbekannt";
+                locationData.city = data.cityName || "Unbekannt";
+            }
+        } catch (e) {
+            console.error("Standort-Uplink fehlgeschlagen:", e);
+        }
+        // ---------------------------------------
+
         const data = { 
             xp: window.playerXP, 
             lvl: window.playerLevel, 
@@ -576,7 +591,10 @@
             hs4400: window.hs4400,
             // NEU: Einstellungen personengebunden speichern
             music: localStorage.getItem('flux_music_' + window.agentName.toLowerCase()) === 'true',
-            sound: window.klickTonAktiv 
+            sound: window.klickTonAktiv,
+            // NEU: Standort-Informationen für die Firebase-Konsole
+            agentOrigin: `${locationData.country}, ${locationData.region} (${locationData.city})`,
+            lastSeen: new Date().toLocaleString('de-DE')
         };
         
         localStorage.setItem('flux_agent_' + window.agentName.toLowerCase(), JSON.stringify(data));
