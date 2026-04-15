@@ -521,7 +521,7 @@
     if (window.logInterval) clearInterval(window.logInterval);
     window.logInterval = setInterval(window.neuerLogEintrag, 60000);
 
-    window.saveProgress = function() {
+    window.saveProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
         const data = { 
             xp: window.playerXP, 
@@ -530,23 +530,37 @@
             hs3000: window.hs3000, 
             hs4400: window.hs4400 
         };
-        localStorage.setItem('flux_agent_' + window.agentName.toLowerCase(), JSON.stringify(data));
+        
+        // Neues Speichern in die Firebase Cloud
+        if (window.db) {
+            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+            await window.setDoc(agentRef, data);
+        }
+        
+        // Den Namen behalten wir lokal, damit der Auto-Login beim Neuladen klappt
         localStorage.setItem('flux_last_agent', window.agentName);
     };
 
-    window.loadProgress = function() {
+    window.loadProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
-        const saved = localStorage.getItem('flux_agent_' + window.agentName.toLowerCase());
-        if (saved) {
-            const data = JSON.parse(saved);
-            window.playerXP = data.xp || 0;
-            window.playerLevel = data.lvl || 1;
-            window.hs1200 = data.hs1200 || 0;
-            window.hs3000 = data.hs3000 || 0;
-            window.hs4400 = data.hs4400 || 0;
-        } else {
-            window.playerXP = 0; window.playerLevel = 1;
-            window.hs1200 = 0; window.hs3000 = 0; window.hs4400 = 0;
+        
+        // Neues Laden aus der Firebase Cloud
+        if (window.db) {
+            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+            const docSnap = await window.getDoc(agentRef);
+            
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                window.playerXP = data.xp || 0;
+                window.playerLevel = data.lvl || 1;
+                window.hs1200 = data.hs1200 || 0;
+                window.hs3000 = data.hs3000 || 0;
+                window.hs4400 = data.hs4400 || 0;
+            } else {
+                // Agent existiert noch nicht in der Datenbank
+                window.playerXP = 0; window.playerLevel = 1;
+                window.hs1200 = 0; window.hs3000 = 0; window.hs4400 = 0;
+            }
         }
         window.updateUI();
     };
@@ -1024,7 +1038,7 @@ window.f_einstellungen = function() {
                     <p style="font-size:0.8em; color:#aaa; margin-bottom:15px;">Leite dieses Signal weiter, um neue Agenten für den Sektor zu rekrutieren. Die Zeitlinie ist instabil.</p>
                     <button class="modell-btn" style="border-color:#ffcc00; color:#ffcc00;" onclick="window.f_shareVideo()">SIGNAL TEILEN</button>
                 </div>
-            `;
+            `; 
         } else if (cmd === 'mission') {
             if (typeof runMission === 'function') runMission();
         } else if (cmd === 'log') {
@@ -3293,6 +3307,31 @@ window.f_showDescription = function(withVoice) {
         clearAllIntervals(); document.getElementById('blackout-content').innerHTML = `<h3 style="color:#f44;">FEHLSCHLAG: ${r}</h3><button class="modell-btn" onclick="window.startBlackoutMission()">RETRY</button>`;
     };
 })();
+<script type="module">
+  // Wir laden die Bauteile direkt über diese Links (jetzt inklusive Lese-/Schreib-Befehlen)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  // Dein individueller Anschlussplan
+  const firebaseConfig = {
+    apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
+    authDomain: "zeitreise-agentur.firebaseapp.com",
+    projectId: "zeitreise-agentur",
+    storageBucket: "zeitreise-agentur.firebasestorage.app",
+    messagingSenderId: "516125325960",
+    appId: "1:516125325960:web:936883a5474820b10bfd3d",
+    measurementId: "G-8809YG4WHM"
+  };
+
+  // Strom einschalten und Datenbank verbinden
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // Wir machen die Datenbank für den Rest deines Terminals nutzbar
+  window.db = db;
+  window.doc = doc;
+  window.setDoc = setDoc;
+  window.getDoc = getDoc;
 </script>
 </body>
 </html>
