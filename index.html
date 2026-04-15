@@ -15,6 +15,25 @@
     <meta property="og:description" content="Bereit für den Sprung? Werde Agent im Gummersbach-Sektor und stabilisiere die Zeitlinie.">
     <meta property="og:image" content="https://www.planet-schule.de/schwerpunkt/die-erde/1762773427231%2Cerde-planeten-milchstrasse-100~_v-16x7@2dM_-03f2ec8e043634bddf06d1d3200e0f3e485744ee.jpg">
     <style>
+        #upload-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            color: #0f8;
+            font-family: monospace;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #0f8;
+            display: none;
+            z-index: 99999;
+            animation: blinkUpload 0.2s infinite;
+        }
+        @keyframes blinkUpload {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    
         :root {
             --neon-color: #00ffcc;
             --bg-dark: #0b0e14;
@@ -144,6 +163,7 @@
 <div class="background-overlay"></div>
 
 <div class="portal-container">
+    <div id="upload-indicator">▲ UPLINK...</div>
     <header>
         <img src="https://www.planet-schule.de/schwerpunkt/die-erde/1762773427231%2Cerde-planeten-milchstrasse-100~_v-16x7@2dM_-03f2ec8e043634bddf06d1d3200e0f3e485744ee.jpg" class="banner-bild" alt="Weltraum">
         <div class="system-time" id="clock">00:00:00 TX</div>
@@ -520,8 +540,14 @@
 
     if (window.logInterval) clearInterval(window.logInterval);
     window.logInterval = setInterval(window.neuerLogEintrag, 60000);
+
     window.saveProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
+        
+        // Symbol einblenden
+        const uploadIcon = document.getElementById('upload-indicator');
+        if(uploadIcon) uploadIcon.style.display = 'block';
+
         const data = { 
             xp: window.playerXP, 
             lvl: window.playerLevel, 
@@ -530,11 +556,9 @@
             hs4400: window.hs4400 
         };
         
-        // 1. Lokales Backup (Sicherheit geht vor)
         localStorage.setItem('flux_agent_' + window.agentName.toLowerCase(), JSON.stringify(data));
         localStorage.setItem('flux_last_agent', window.agentName);
 
-        // 2. Cloud-Funk (nur wenn Firebase bereit ist)
         if (window.db && window.setDoc) {
             try {
                 const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
@@ -543,40 +567,32 @@
                 console.error("Cloud-Speicherfehler:", e);
             }
         }
+
+        // Symbol nach 1 Sekunde wieder ausblenden
+        setTimeout(() => {
+            if(uploadIcon) uploadIcon.style.display = 'none';
+        }, 1000);
     };
 
     window.loadProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
         
-        // 1. Erstmal lokale Daten laden (für schnellen Start)
-        const saved = localStorage.getItem('flux_agent_' + window.agentName.toLowerCase());
-        if (saved) {
-            const data = JSON.parse(saved);
-            window.playerXP = data.xp || 0;
-            window.playerLevel = data.lvl || 1;
-            window.hs1200 = data.hs1200 || 0;
-            window.hs3000 = data.hs3000 || 0;
-            window.hs4400 = data.hs4400 || 0;
-        } else {
-            window.playerXP = 0; window.playerLevel = 1;
-            window.hs1200 = 0; window.hs3000 = 0; window.hs4400 = 0;
-        }
-
-        // 2. Cloud-Update (Daten aus der Datenbank holen und drüberschreiben)
-        if (window.db && window.getDoc) {
-            try {
-                const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
-                const docSnap = await window.getDoc(agentRef);
-                if (docSnap.exists()) {
-                    const cData = docSnap.data();
-                    window.playerXP = cData.xp;
-                    window.playerLevel = cData.lvl;
-                    window.hs1200 = cData.hs1200 || 0;
-                    window.hs3000 = cData.hs3000 || 0;
-                    window.hs4400 = cData.hs4400 || 0;
-                }
-            } catch (e) {
-                console.error("Cloud-Ladefehler:", e);
+        // Neues Laden aus der Firebase Cloud
+        if (window.db) {
+            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+            const docSnap = await window.getDoc(agentRef);
+            
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                window.playerXP = data.xp || 0;
+                window.playerLevel = data.lvl || 1;
+                window.hs1200 = data.hs1200 || 0;
+                window.hs3000 = data.hs3000 || 0;
+                window.hs4400 = data.hs4400 || 0;
+            } else {
+                // Agent existiert noch nicht in der Datenbank
+                window.playerXP = 0; window.playerLevel = 1;
+                window.hs1200 = 0; window.hs3000 = 0; window.hs4400 = 0;
             }
         }
         window.updateUI();
