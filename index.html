@@ -4,6 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dück & Flux Zeitreiseagentur | Zentral-Terminal</title>
+    <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
+    authDomain: "zeitreise-agentur.firebaseapp.com",
+    projectId: "zeitreise-agentur",
+    storageBucket: "zeitreise-agentur.firebasestorage.app",
+    messagingSenderId: "516125325960",
+    appId: "1:516125325960:web:936883a5474820b10bfd3d",
+    measurementId: "G-8809YG4WHM"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  window.db = getFirestore(app);
+  window.doc = doc;
+  window.setDoc = setDoc;
+  window.getDoc = getDoc;
+  console.log("UPLINK AKTIV");
+</script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
         <meta name="description" content="Dück & Flux Zeitreiseagentur - Das ultimative Terminal-Browsergame im Gummersbach-Sektor. Erfülle Missionen, sammle XP und stabilisiere die Zeitlinie.">
     <meta name="keywords" content="Zeitreise, Zeitagentur, Dück & Flux, Marcus Dück, Terminal Game, Retro Terminal, Sci-Fi Simulator, Browsergame, Gummersbach, Flux-Kondensator, Minigame, Zeitstränge, Cyberpunk, Text-Adventure, Zeitmaschine, Paradoxon, Zeitlinie, Gummersbach Sektor, Zeitreise buchen, Zeit-Agent">
@@ -558,24 +579,21 @@
         localStorage.setItem('flux_agent_' + window.agentName.toLowerCase(), JSON.stringify(data));
         localStorage.setItem('flux_last_agent', window.agentName);
 
+        // Wir prüfen, ob die Werkzeuge bereit sind
         if (window.db && window.setDoc) {
             try {
                 const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
                 await window.setDoc(agentRef, data);
-                
-                // ULTIMATIVER BEWEIS: Das ploppt nur auf, wenn Firebase die Daten hat
-                alert("UPLINK BESTÄTIGT: Spielstand ist im Briefkasten gelandet!");
-                
             } catch (e) {
-                alert("Cloud-Fehler: " + e.message);
+                console.error("Cloud-Fehler:", e);
             }
-        } else {
-            alert("System-Warnung: Firebase-Verbindung fehlt!");
         }
 
-        if(uploadIcon) uploadIcon.style.display = 'none';
+        setTimeout(() => {
+            if(uploadIcon) uploadIcon.style.display = 'none';
+        }, 1000);
     };
-    
+
     window.loadProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
         
@@ -779,24 +797,7 @@ window.f_einstellungen = function() {
     // Führt das Laden automatisch kurz nach dem Start aus
     setTimeout(window.loadAudioSettings, 500);
 </script>
-<style>
-    /* Block 2 Terminal-Eingabe Design */
-    #terminal-input-area {
-        display: flex !important;
-        flex-direction: row !important;
-        width: 85% !important;
-        margin: 15px auto !important;
-        padding: 10px;
-        background: rgba(0, 255, 204, 0.05);
-        border: 1px solid rgba(0, 255, 204, 0.2);
-        box-sizing: border-box;
-        align-items: center;
-        z-index: 100;
-        border-radius: 4px;
-    }
-    #terminal-input-area span { color: #00ffcc; font-family: monospace; font-size: 13px; margin-right: 10px; white-space: nowrap; }
-    #terminal-input-field { background: transparent; border: none; color: #00ffcc; font-family: monospace; font-size: 14px; flex-grow: 1; outline: none; width: 100%; }
-    
+<style>    
     #back-button-global {
         display: none; margin: 20px auto; padding: 12px 30px; border: 1px solid #0f8; color: #0f8;
         font-family: monospace; font-size: 14px; cursor: pointer; background: rgba(0, 255, 136, 0.1);
@@ -833,12 +834,6 @@ window.f_einstellungen = function() {
 </div>
 
 <div id="back-button-global" onclick="window.fullSystemRestore()">ZURÜCK ZUR BASIS</div>
-
-<div id="terminal-input-area">
-    <span id="term-prefix">ADM@FLUX:~$</span>
-    <input type="text" id="terminal-input-field" placeholder="Befehl (help)..." autocomplete="off">
-</div>
-
 <script>
 (function() {
     const overlay = document.createElement('div');
@@ -1097,223 +1092,7 @@ window.f_einstellungen = function() {
     }, 100);
 })();
 </script>
-<script>
-    window.zeitstrahlListe = [];
-    let activeEpoch = null;
-
-    window.registerEpoch = function(data) {
-        window.zeitstrahlListe.push(data);
-    };
-
-<style>
-    #terminal-input-area {
-        display: flex !important;
-        flex-direction: row !important;
-        width: 85% !important;
-        margin: 15px auto !important;
-        padding: 10px;
-        background: rgba(0, 255, 204, 0.05);
-        border: 1px solid rgba(0, 255, 204, 0.2);
-        box-sizing: border-box;
-        align-items: center;
-        z-index: 100;
-        border-radius: 4px;
-    }
-    #terminal-input-area span { color: #00ffcc; font-family: monospace; font-size: 13px; margin-right: 10px; white-space: nowrap; }
-    #terminal-input-field { background: transparent; border: none; color: #00ffcc; font-family: monospace; font-size: 14px; flex-grow: 1; outline: none; width: 100%; }
-    
-    #back-button-global {
-        display: none; margin: 20px auto; padding: 12px 30px; border: 1px solid #0f8; color: #0f8;
-        font-family: monospace; font-size: 14px; cursor: pointer; background: rgba(0, 255, 136, 0.1);
-        text-align: center; width: fit-content; z-index: 101; text-transform: uppercase; border-radius: 4px; font-weight: bold;
-    }
-
-    #reboot-layer {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: #000 !important; z-index: 30000; display: none;
-        flex-direction: column; justify-content: center; align-items: center;
-        color: #f44; font-family: monospace; text-align: center;
-    }
-    #reboot-bar-container { width: 60%; height: 4px; background: rgba(255,255,255,0.1); border: 1px solid #fff; display: none; margin-top: 20px; position: relative; overflow: hidden; }
-    #reboot-bar-fill { width: 0%; height: 100%; background: #fff; position: absolute; left: 0; transition: width 0.4s ease-out; }
-
-    @keyframes digital-energy-surge {
-        0% { filter: brightness(1) contrast(1); transform: scale(1); }
-        5% { filter: brightness(5) contrast(2) invert(0.2); transform: scale(1.02) skewX(1deg); }
-        10% { filter: brightness(1) contrast(1.2); transform: scale(1) skewX(0); }
-        15% { filter: brightness(7) contrast(3); transform: translateX(2px); }
-        20% { filter: brightness(1); transform: translateX(0); }
-        100% { filter: brightness(1); }
-    }
-    .flicker-active { animation: digital-energy-surge 0.1s infinite !important; }
-
-    #emp-flare { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #fff; z-index: 40000; display: none; pointer-events: none; }
-</style>
-
-<div id="emp-flare"></div>
-<div id="reboot-layer">
-    <div id="reboot-header" style="font-size: 24px; margin-bottom: 20px; letter-spacing: 5px; color: #fff;">[ SYSTEM RESET ]</div>
-    <div id="reboot-bar-container"><div id="reboot-bar-fill"></div></div>
-    <div id="reboot-status" style="font-size: 16px; margin-top: 20px;">Initialisiere...</div>
-</div>
-
-<div id="back-button-global" onclick="window.fullSystemRestore()">ZURÜCK ZUR BASIS</div>
-
-<div id="terminal-input-area">
-    <span id="term-prefix">ADM@FLUX:~$</span>
-    <input type="text" id="terminal-input-field" placeholder="Befehl (help)..." autocomplete="off">
-</div>
-
-<script>
-(function() {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; color:#0f8; z-index:10001; display:none; flex-direction:column; justify-content:center; align-items:center; padding:20px; font-family:monospace; text-align:center; box-sizing:border-box;";
-    document.body.appendChild(overlay);
-
-    let mStartTime;
-    let missionHistory = [];
-
-    function missionSpeak(text) {
-        window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = 'de-DE'; msg.pitch = 0.8;
-        window.speechSynthesis.speak(msg);
-    }
-
-    function startResetSequence(isEMP = false) {
-        const rbLayer = document.getElementById('reboot-layer');
-        const rbBar = document.getElementById('reboot-bar-container');
-        const rbFill = document.getElementById('reboot-bar-fill');
-        const rbStatus = document.getElementById('reboot-status');
-        const rbHeader = document.getElementById('reboot-header');
-
-        // BELOHNUNG: +50 XP wenn Reset während Warnung/Instabilität erfolgt
-        const currentStatus = document.getElementById('status-val').innerText;
-        if (currentStatus === "WARNUNG" || currentStatus === "INSTABIL") {
-            if (typeof updateXP === 'function') updateXP(50);
-        }
-
-        rbLayer.style.display = 'flex';
-        rbBar.style.display = 'block';
-        rbStatus.style.display = 'block';
-        rbStatus.style.color = "#f44";
-        rbFill.style.transition = "none";
-        rbFill.style.width = "100%";
-        
-        const shutdownSteps = [
-            { text: "Beende Chrono-Prozesse...", w: "85%", t: 500 },
-            { text: "Deaktiviere Zeit-Relais...", w: "65%", t: 1500 },
-            { text: "Sichere Agenten-Logbuch...", w: "40%", t: 2800 },
-            { text: "Fahre Hardware-Kern herunter...", w: "15%", t: 4200 },
-            { text: "SYSTEM OFFLINE.", w: "0%", t: 5500 }
-        ];
-
-        shutdownSteps.forEach(step => {
-            setTimeout(() => {
-                rbFill.style.transition = "width 1.3s ease-in-out";
-                rbStatus.innerText = step.text;
-                rbFill.style.width = step.w;
-            }, step.t);
-        });
-
-        setTimeout(() => {
-            rbBar.style.display = 'none'; rbStatus.style.display = 'none'; rbHeader.style.display = 'none';
-        }, 7200);
-
-        setTimeout(() => {
-            rbHeader.style.display = 'block'; rbHeader.innerText = "[ SYSTEM REBOOT ]";
-            rbBar.style.display = 'block'; rbStatus.style.display = 'block'; rbStatus.style.color = "#0f8";
-            rbFill.style.width = "0%";
-            
-            const bootSteps = [
-                { text: "Initialisiere BIOS V5.2...", w: "20%", t: 0 },
-                { text: "Fuchs Generator wird geladen...", w: "40%", t: 1500, glitch: true },
-                { text: "Fuchs Generator: Energie-Synchronisation...", w: "40%", t: 3500, glitch: true }, 
-                { text: "Spannung stabilisiert. Lade Chrono-Matrix...", w: "65%", t: 5500, glitch: false },
-                { text: "Verbinde mit Sektoren...", w: "90%", t: 7500 },
-                { text: "Systemstarting...", w: "100%", t: 9500 }
-            ];
-
-            bootSteps.forEach(step => {
-                setTimeout(() => {
-                    rbStatus.innerText = step.text;
-                    rbFill.style.transition = "width 1s linear";
-                    rbFill.style.width = step.w;
-                    if (step.glitch) rbLayer.classList.add('flicker-active');
-                    else rbLayer.classList.remove('flicker-active');
-                }, step.t);
-            });
-        }, 8500);
-
-        setTimeout(() => {
-            if (typeof starteSynchronenZyklus === 'function') starteSynchronenZyklus(); 
-            window.fullSystemRestore();
-            rbLayer.classList.remove('flicker-active');
-            rbHeader.innerText = "[ SYSTEM RESET ]";
-        }, 19500);
-    }
-
-    window.fullSystemRestore = function() {
-        overlay.style.display = 'none';
-        document.getElementById('reboot-layer').style.display = 'none';
-        document.getElementById('back-button-global').style.display = 'none';
-        ['header', 'nav', '#xp-leiste-auto'].forEach(s => {
-            const el = document.querySelector(s);
-            if(el) el.style.setProperty('display', s.includes('xp') ? 'flex' : 'block', 'important');
-        });
-        const anzeige = document.getElementById('anzeige');
-        if (anzeige) anzeige.innerHTML = '<div id="scanline" class="scanline"></div><div id="content-body"></div>';
-        if (typeof f_start === 'function') setTimeout(f_start, 50);
-    };
-
-    document.addEventListener('keydown', function(e) {
-        const field = document.getElementById('terminal-input-field');
-        if (!field || e.target !== field || e.key !== 'Enter') return;
-        const cmd = field.value.toLowerCase().trim();
-        field.value = '';
-        if (cmd === '') return;
-
-        const anzeige = document.getElementById('anzeige');
-        ['header', 'nav', '#xp-leiste-auto'].forEach(s => { const el = document.querySelector(s); if(el) el.style.display = 'none'; });
-        document.getElementById('back-button-global').style.display = 'block';
-
-        if (cmd === 'flux-reset') {
-            startResetSequence(false);
-        } else if (cmd === 'emp') {
-            missionSpeak("E M P Schockwelle.");
-            startResetSequence(true);
-        } else if (cmd === '/flux-boost') {
-            if (typeof updateXP === 'function') updateXP(100);
-            anzeige.innerHTML = '<div style="color:#00ffcc; font-family:monospace; text-align:center; margin-top:10vh;">[ ADMIN-OVERRIDE ]<br>> +100 Level transferiert.<br>> Zeitlinie wird stabilisiert...</div>';
-            setTimeout(() => { window.fullSystemRestore(); }, 2000);
-        } else if (cmd === '/flux-test') {
-            if (typeof triggerSystemMalfunction === 'function') triggerSystemMalfunction();
-            anzeige.innerHTML = '<div style="color:#ff8800; font-family:monospace; text-align:center; margin-top:10vh;">[ DIAGNOSE ]<br>> Statusmeldung: WARNUNG<br>> Kritische Instabilität detektiert!</div>';
-            setTimeout(() => { window.fullSystemRestore(); }, 3000);
-        } else if (cmd === 'help') {
-            anzeige.innerHTML = '<div style="color:#0f8; padding:20px;">[ BEFEHLE ]<br>> help, mission, log, emp, flux-reset, /flux-boost, /flux-test</div>';
-        } else if (cmd === 'mission') {
-            if (typeof runMission === 'function') runMission();
-        } else if (cmd === 'log') {
-            let logH = '<div style="color:#0f8; padding:20px;"><h3>Missions-Log</h3>';
-            missionHistory.forEach(m => { logH += `<div>[${m.date}] ${m.status}</div>`; });
-            anzeige.innerHTML = logH + "</div>";
-        } else {
-            anzeige.innerHTML = `<p style="color:#f44; padding:20px;">UNBEKANNT: ${cmd}</p>`;
-        }
-    });
-
-    const mount = setInterval(() => {
-        const p = document.querySelector('.portal-container');
-        const f = document.querySelector('footer');
-        if(p && f) {
-            p.insertBefore(document.getElementById('terminal-input-area'), f);
-            p.insertBefore(document.getElementById('back-button-global'), f);
-            clearInterval(mount);
-        }
-    }, 100);
-})();
-</script>
+  
 <div class="xp-wrapper" id="xp-leiste-auto">
     <div class="lvl-badge">LVL <span id="lvl-val">1</span></div>
     <div class="xp-container">
@@ -2318,145 +2097,6 @@ window.finishStartupSetup = function() {
     }
 </style>
 <style>
-    .glitch-retro { animation: g-retro 0.3s ease-in-out; }
-    @keyframes g-retro {
-        0% { transform: translateX(0); }
-        25% { transform: translateX(-5px); filter: grayscale(1); }
-        50% { transform: translateX(5px); }
-        75% { transform: translateX(-2px); }
-        100% { transform: translateX(0); }
-    }
-    .glitch-cyber { animation: g-cyber 0.4s ease-in-out; }
-    @keyframes g-cyber {
-        0% { filter: drop-shadow(0 0 0 #0ff); }
-        20% { filter: drop-shadow(-5px 0 0 #f0f) drop-shadow(5px 0 0 #0ff); transform: skewX(2deg); }
-        40% { filter: drop-shadow(5px 0 0 #f0f) drop-shadow(-5px 0 0 #0ff); transform: skewX(-2deg); }
-        60% { filter: drop-shadow(-2px 0 0 #f0f) drop-shadow(2px 0 0 #0ff); }
-        100% { filter: drop-shadow(0 0 0 #0ff); transform: skewX(0); }
-    }
-    .glitch-warp { animation: g-warp 0.5s ease-in-out; }
-    @keyframes g-warp {
-        0% { filter: invert(0) blur(0); transform: scale(1); }
-        20% { filter: invert(1) blur(2px); transform: scale(1.05); }
-        40% { filter: invert(0) blur(5px) hue-rotate(90deg); transform: scale(0.95); }
-        60% { filter: invert(1) blur(1px) hue-rotate(180deg); transform: scale(1.02); }
-        100% { filter: invert(0) blur(0) hue-rotate(0); transform: scale(1); }
-    }
-</style>
-<style>
-    .glitch-retro { animation: g-retro 0.3s ease-in-out; }
-    @keyframes g-retro {
-        0% { transform: translateX(0); }
-        25% { transform: translateX(-5px); filter: grayscale(1); }
-        50% { transform: translateX(5px); }
-        75% { transform: translateX(-2px); }
-        100% { transform: translateX(0); }
-    }
-    .glitch-cyber { animation: g-cyber 0.4s ease-in-out; }
-    @keyframes g-cyber {
-        0% { filter: drop-shadow(0 0 0 #0ff); }
-        20% { filter: drop-shadow(-5px 0 0 #f0f) drop-shadow(5px 0 0 #0ff); transform: skewX(2deg); }
-        40% { filter: drop-shadow(5px 0 0 #f0f) drop-shadow(-5px 0 0 #0ff); transform: skewX(-2deg); }
-        60% { filter: drop-shadow(-2px 0 0 #f0f) drop-shadow(2px 0 0 #0ff); }
-        100% { filter: drop-shadow(0 0 0 #0ff); transform: skewX(0); }
-    }
-    .glitch-warp { animation: g-warp 0.5s ease-in-out; }
-    @keyframes g-warp {
-        0% { filter: invert(0) blur(0); transform: scale(1); }
-        20% { filter: invert(1) blur(2px); transform: scale(1.05); }
-        40% { filter: invert(0) blur(5px) hue-rotate(90deg); transform: scale(0.95); }
-        60% { filter: invert(1) blur(1px) hue-rotate(180deg); transform: scale(1.02); }
-        100% { filter: invert(0) blur(0) hue-rotate(0); transform: scale(1); }
-    }
-</style>
-<style>
-    .glitch-retro { animation: g-retro 0.3s ease-in-out; }
-    @keyframes g-retro {
-        0% { transform: translateX(0); }
-        25% { transform: translateX(-5px); filter: grayscale(1); }
-        50% { transform: translateX(5px); }
-        75% { transform: translateX(-2px); }
-        100% { transform: translateX(0); }
-    }
-    .glitch-cyber { animation: g-cyber 0.4s ease-in-out; }
-    @keyframes g-cyber {
-        0% { filter: drop-shadow(0 0 0 #0ff); }
-        20% { filter: drop-shadow(-5px 0 0 #f0f) drop-shadow(5px 0 0 #0ff); transform: skewX(2deg); }
-        40% { filter: drop-shadow(5px 0 0 #f0f) drop-shadow(-5px 0 0 #0ff); transform: skewX(-2deg); }
-        60% { filter: drop-shadow(-2px 0 0 #f0f) drop-shadow(2px 0 0 #0ff); }
-        100% { filter: drop-shadow(0 0 0 #0ff); transform: skewX(0); }
-    }
-    .glitch-warp { animation: g-warp 0.5s ease-in-out; }
-    @keyframes g-warp {
-        0% { filter: invert(0) blur(0); transform: scale(1); }
-        20% { filter: invert(1) blur(2px); transform: scale(1.05); }
-        40% { filter: invert(0) blur(5px) hue-rotate(90deg); transform: scale(0.95); }
-        60% { filter: invert(1) blur(1px) hue-rotate(180deg); transform: scale(1.02); }
-        100% { filter: invert(0) blur(0) hue-rotate(0); transform: scale(1); }
-    }
-</style>
-<style>
-    .glitch-retro { animation: g-retro 0.3s ease-in-out; }
-    @keyframes g-retro {
-        0% { transform: translateX(0); }
-        25% { transform: translateX(-5px); filter: grayscale(1); }
-        50% { transform: translateX(5px); }
-        75% { transform: translateX(-2px); }
-        100% { transform: translateX(0); }
-    }
-    .glitch-cyber { animation: g-cyber 0.4s ease-in-out; }
-    @keyframes g-cyber {
-        0% { filter: drop-shadow(0 0 0 #0ff); }
-        20% { filter: drop-shadow(-5px 0 0 #f0f) drop-shadow(5px 0 0 #0ff); transform: skewX(2deg); }
-        40% { filter: drop-shadow(5px 0 0 #f0f) drop-shadow(-5px 0 0 #0ff); transform: skewX(-2deg); }
-        60% { filter: drop-shadow(-2px 0 0 #f0f) drop-shadow(2px 0 0 #0ff); }
-        100% { filter: drop-shadow(0 0 0 #0ff); transform: skewX(0); }
-    }
-    .glitch-warp { animation: g-warp 0.5s ease-in-out; }
-    @keyframes g-warp {
-        0% { filter: invert(0) blur(0); transform: scale(1); }
-        20% { filter: invert(1) blur(2px); transform: scale(1.05); }
-        40% { filter: invert(0) blur(5px) hue-rotate(90deg); transform: scale(0.95); }
-        60% { filter: invert(1) blur(1px) hue-rotate(180deg); transform: scale(1.02); }
-        100% { filter: invert(0) blur(0) hue-rotate(0); transform: scale(1); }
-    }
-</style>
-<style>
-    .glitch-retro { animation: g-retro 0.3s ease-in-out; }
-    @keyframes g-retro {
-        0% { transform: translateX(0); }
-        25% { transform: translateX(-5px); filter: grayscale(1); }
-        50% { transform: translateX(5px); }
-        75% { transform: translateX(-2px); }
-        100% { transform: translateX(0); }
-    }
-    .glitch-cyber { animation: g-cyber 0.4s ease-in-out; }
-    @keyframes g-cyber {
-        0% { filter: drop-shadow(0 0 0 #0ff); }
-        20% { filter: drop-shadow(-5px 0 0 #f0f) drop-shadow(5px 0 0 #0ff); transform: skewX(2deg); }
-        40% { filter: drop-shadow(5px 0 0 #f0f) drop-shadow(-5px 0 0 #0ff); transform: skewX(-2deg); }
-        60% { filter: drop-shadow(-2px 0 0 #f0f) drop-shadow(2px 0 0 #0ff); }
-        100% { filter: drop-shadow(0 0 0 #0ff); transform: skewX(0); }
-    }
-    .glitch-warp { animation: g-warp 0.5s ease-in-out; }
-    @keyframes g-warp {
-        0% { filter: invert(0) blur(0); transform: scale(1); }
-        20% { filter: invert(1) blur(2px); transform: scale(1.05); }
-        40% { filter: invert(0) blur(5px) hue-rotate(90deg); transform: scale(0.95); }
-        60% { filter: invert(1) blur(1px) hue-rotate(180deg); transform: scale(1.02); }
-        100% { filter: invert(0) blur(0) hue-rotate(0); transform: scale(1); }
-    }
-</style>
-<style>
-    .glitch-retro { animation: g-retro 0.3s ease-in-out; }
-    @keyframes g-retro {
-        0% { transform: translateX(0); }
-        25% { transform: translateX(-5px); filter: grayscale(1); }
-        50% { transform: translateX(5px); }
-        75% { transform: translateX(-2px); }
-        100% { transform: translateX(0); }
-    }
-    .glitch-cyber { animation: g-cyber 0.4s ease-in-out; }
     @keyframes g-cyber {
         0% { filter: drop-shadow(0 0 0 #0ff); }
         20% { filter: drop-shadow(-5px 0 0 #f0f) drop-shadow(5px 0 0 #0ff); transform: skewX(2deg); }
@@ -3342,31 +2982,6 @@ window.f_showDescription = function(withVoice) {
         clearAllIntervals(); document.getElementById('blackout-content').innerHTML = `<h3 style="color:#f44;">FEHLSCHLAG: ${r}</h3><button class="modell-btn" onclick="window.startBlackoutMission()">RETRY</button>`;
     };
 })();
-<script type="module">
-  // Wir laden alle Werkzeuge (jetzt inklusive doc, setDoc und getDoc)
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
-    authDomain: "zeitreise-agentur.firebaseapp.com",
-    projectId: "zeitreise-agentur",
-    storageBucket: "zeitreise-agentur.firebasestorage.app",
-    messagingSenderId: "516125325960",
-    appId: "1:516125325960:web:936883a5474820b10bfd3d",
-    measurementId: "G-8809YG4WHM"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  // Diese Zeilen verbinden das Modul mit deinem Spiel
-  window.db = db;
-  window.doc = doc;
-  window.setDoc = setDoc;
-  window.getDoc = getDoc;
-  
-  console.log("Firebase Uplink: BEREIT");
 </script>
 </body>
 </html>
