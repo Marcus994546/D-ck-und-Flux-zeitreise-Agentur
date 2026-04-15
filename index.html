@@ -562,26 +562,28 @@
     if (window.logInterval) clearInterval(window.logInterval);
     window.logInterval = setInterval(window.neuerLogEintrag, 60000);
 
-    window.saveProgress = async function() {
+        window.saveProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
         
         const uploadIcon = document.getElementById('upload-indicator');
         if(uploadIcon) uploadIcon.style.display = 'block';
 
-        // --- NEU: Standort-Details abrufen ---
+        // --- ROBUSTER STANDORT-CHECK (STUFE 2) ---
         let locationData = { country: "Unbekannt", region: "Unbekannt", city: "Unbekannt" };
         try {
-            const response = await fetch('https://freeipapi.com/api/json');
+            // Wir nutzen ipapi.co über HTTPS für maximale Stabilität
+            const response = await fetch('https://ipapi.co/json/');
             const data = await response.json();
-            if (data) {
-                locationData.country = data.countryName || "Unbekannt";
-                locationData.region = data.regionName || "Unbekannt";
-                locationData.city = data.cityName || "Unbekannt";
+            
+            if (data && !data.error) {
+                locationData.country = data.country_name || "Unbekannt";
+                locationData.region = data.region || "Unbekannt";
+                locationData.city = data.city || "Unbekannt";
             }
         } catch (e) {
             console.error("Standort-Uplink fehlgeschlagen:", e);
         }
-        // ---------------------------------------
+        // ------------------------------------------
 
         const data = { 
             xp: window.playerXP, 
@@ -589,10 +591,10 @@
             hs1200: window.hs1200, 
             hs3000: window.hs3000, 
             hs4400: window.hs4400,
-            // NEU: Einstellungen personengebunden speichern
+            // Einstellungen personengebunden speichern
             music: localStorage.getItem('flux_music_' + window.agentName.toLowerCase()) === 'true',
             sound: window.klickTonAktiv,
-            // NEU: Standort-Informationen für die Firebase-Konsole
+            // Standort-Daten für deine Firebase-Konsole
             agentOrigin: `${locationData.country}, ${locationData.region} (${locationData.city})`,
             lastSeen: new Date().toLocaleString('de-DE')
         };
