@@ -564,8 +564,13 @@
                 const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
                 await window.setDoc(agentRef, data);
             } catch (e) {
+                // NEUER ALARM: Zeigt den direkten Firebase-Fehler an
+                alert("Cloud-Fehler: " + e.message);
                 console.error("Cloud-Speicherfehler:", e);
             }
+        } else {
+            // NEUER ALARM: Zeigt an, ob die Datenbank überhaupt geladen wurde
+            alert("System-Warnung: Firebase-Verbindung fehlt! (window.db ist nicht geladen)");
         }
 
         // Symbol nach 1 Sekunde wieder ausblenden
@@ -573,7 +578,7 @@
             if(uploadIcon) uploadIcon.style.display = 'none';
         }, 1000);
     };
-
+    
     window.loadProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
         
