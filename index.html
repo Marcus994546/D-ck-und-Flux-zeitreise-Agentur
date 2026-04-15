@@ -597,8 +597,14 @@
     window.loadProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
         
+        // WARTESCHLEIFE: Falls Firebase noch lädt, warten wir kurz und probieren es nochmal
+        if (!window.db) {
+            setTimeout(window.loadProgress, 200);
+            return;
+        }
+
         // Neues Laden aus der Firebase Cloud
-        if (window.db) {
+        try {
             const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
             const docSnap = await window.getDoc(agentRef);
             
@@ -610,10 +616,12 @@
                 window.hs3000 = data.hs3000 || 0;
                 window.hs4400 = data.hs4400 || 0;
             } else {
-                // Agent existiert noch nicht in der Datenbank
+                // Agent existiert wirklich noch nicht
                 window.playerXP = 0; window.playerLevel = 1;
                 window.hs1200 = 0; window.hs3000 = 0; window.hs4400 = 0;
             }
+        } catch (e) {
+            console.error("Cloud-Ladefehler:", e);
         }
         window.updateUI();
     };
@@ -2032,7 +2040,6 @@ window.finishStartupSetup = function() {
     window.agentName = nameInput;
     window.isAgentVerified = true; 
 
-    // --- ADMIN MERKER PRÜFUNG ---
     if (window.agentName.toLowerCase() === "admin_dück_994645") {
         window.adminMerkerAktiv = true;
     } else {
@@ -2041,11 +2048,9 @@ window.finishStartupSetup = function() {
 
     clearInterval(matrixInterval);
 
-    // --- NEUE LOGIK: PROFIL LADEN & AUTO-LOGIN SPEICHERN ---
+    // Löst den Fehler: Wir laden NUR den Spielstand. Es wird nichts mehr direkt überschrieben.
     if (typeof window.loadProgress === 'function') window.loadProgress();
-    if (typeof window.saveProgress === 'function') window.saveProgress();
 
-    // Screen aktualisieren (mit Sicherheits-Check für die Anleitung)
     if (typeof window.f_desc_choice === 'function') {
         window.f_desc_choice(); 
     } else {
