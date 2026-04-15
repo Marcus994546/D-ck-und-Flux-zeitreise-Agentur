@@ -573,13 +573,15 @@
             lvl: window.playerLevel, 
             hs1200: window.hs1200, 
             hs3000: window.hs3000, 
-            hs4400: window.hs4400 
+            hs4400: window.hs4400,
+            // NEU: Einstellungen personengebunden speichern
+            music: localStorage.getItem('flux_music_' + window.agentName.toLowerCase()) === 'true',
+            sound: window.klickTonAktiv 
         };
         
         localStorage.setItem('flux_agent_' + window.agentName.toLowerCase(), JSON.stringify(data));
         localStorage.setItem('flux_last_agent', window.agentName);
 
-        // Wir prüfen, ob die Werkzeuge bereit sind
         if (window.db && window.setDoc) {
             try {
                 const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
@@ -588,22 +590,13 @@
                 console.error("Cloud-Fehler:", e);
             }
         }
-
-        setTimeout(() => {
-            if(uploadIcon) uploadIcon.style.display = 'none';
-        }, 1000);
+        setTimeout(() => { if(uploadIcon) uploadIcon.style.display = 'none'; }, 1000);
     };
 
     window.loadProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
-        
-        // WARTESCHLEIFE: Falls Firebase noch lädt, warten wir kurz und probieren es nochmal
-        if (!window.db) {
-            setTimeout(window.loadProgress, 200);
-            return;
-        }
+        if (!window.db) { setTimeout(window.loadProgress, 200); return; }
 
-        // Neues Laden aus der Firebase Cloud
         try {
             const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
             const docSnap = await window.getDoc(agentRef);
@@ -615,14 +608,18 @@
                 window.hs1200 = data.hs1200 || 0;
                 window.hs3000 = data.hs3000 || 0;
                 window.hs4400 = data.hs4400 || 0;
-            } else {
-                // Agent existiert wirklich noch nicht
-                window.playerXP = 0; window.playerLevel = 1;
-                window.hs1200 = 0; window.hs3000 = 0; window.hs4400 = 0;
+                
+                // NEU: Persönliche Audio-Werte aus der Cloud übernehmen
+                window.klickTonAktiv = data.sound !== undefined ? data.sound : true;
+                localStorage.setItem('flux_music_' + window.agentName.toLowerCase(), data.music || false);
+                
+                const bgMusic = document.getElementById('bg-music');
+                if (bgMusic) {
+                    if (data.music) bgMusic.play().catch(e => {});
+                    else bgMusic.pause();
+                }
             }
-        } catch (e) {
-            console.error("Cloud-Ladefehler:", e);
-        }
+        } catch (e) { console.error("Cloud-Ladefehler:", e); }
         window.updateUI();
     };
     
@@ -742,49 +739,33 @@ window.f_einstellungen = function() {
     };
 
     window.saveAudioSettings = function(musicState, soundState) {
-        localStorage.setItem('flux_music', musicState);
-        localStorage.setItem('flux_sound', soundState);
+        // Speicherplatz pro Agent reservieren
+        localStorage.setItem('flux_music_' + window.agentName.toLowerCase(), musicState);
+        localStorage.setItem('flux_sound_' + window.agentName.toLowerCase(), soundState);
+        window.saveProgress(); // Sofort in den Briefkasten schieben
     };
 
     window.loadAudioSettings = function() {
-        let isMusicOn = localStorage.getItem('flux_music') === 'true';
-        let isSoundOn = localStorage.getItem('flux_sound') !== 'false'; 
+        if(!window.agentName) return;
+        let isMusicOn = localStorage.getItem('flux_music_' + window.agentName.toLowerCase()) === 'true';
+        let isSoundOn = localStorage.getItem('flux_sound_' + window.agentName.toLowerCase()) !== 'false'; 
 
-        // FEHLER 1 BEHOBEN: Richtige Variable für deine Klickgeräusche setzen
         window.klickTonAktiv = isSoundOn; 
-
         const bgMusic = document.getElementById('bg-music');
-        const panel = document.getElementById('audio-control-panel');
-
         if (bgMusic) {
             bgMusic.volume = 0.4;
-
-            // FEHLER 2 BEHOBEN: Wir hacken kurz die "Play" Funktion. 
-            // So verhindern wir, dass dein altes Skript am Ende der Datei die Musik beim ersten Klick heimlich wieder anmacht!
-            let originalPlay = bgMusic.play;
-            bgMusic.play = function() {
-                if (localStorage.getItem('flux_music') !== 'true') {
-                    return Promise.resolve(); // Blockiert das Abspielen, wenn Musik AUS gespeichert ist
-                }
-                return originalPlay.apply(this, arguments);
-            };
-
             if (isMusicOn) {
-                // Browser erlauben Audio erst nach dem ersten Klick des Nutzers
                 const startMusic = () => {
-                    if (localStorage.getItem('flux_music') === 'true') {
+                    if (localStorage.getItem('flux_music_' + window.agentName.toLowerCase()) === 'true') {
                         bgMusic.play().catch(e => {});
-                        if(panel) { panel.innerText = "🎵 AUDIO: AN"; panel.style.color = "#0f8"; panel.style.borderColor = "#0f8"; }
                     }
                     document.removeEventListener('click', startMusic);
                 };
                 document.addEventListener('click', startMusic);
-            } else {
-                bgMusic.pause();
-                if(panel) { panel.innerText = "🎵 AUDIO: AUS"; panel.style.color = "#f44"; panel.style.borderColor = "#f44"; }
-            }
+            } else { bgMusic.pause(); }
         }
     };
+
         window.f_logout_confirm = function() {
         if (typeof triggerScan === 'function') triggerScan();
         document.getElementById('content-body').innerHTML = `
