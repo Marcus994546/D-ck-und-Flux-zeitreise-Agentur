@@ -3343,11 +3343,10 @@ window.f_showDescription = function(withVoice) {
     };
 })();
 <script type="module">
-  // Wir laden die Bauteile direkt über diese Links (jetzt inklusive Lese-/Schreib-Befehlen)
+  // Wir laden alle Werkzeuge (jetzt inklusive doc, setDoc und getDoc)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // Dein individueller Anschlussplan
   const firebaseConfig = {
     apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
     authDomain: "zeitreise-agentur.firebaseapp.com",
@@ -3358,15 +3357,16 @@ window.f_showDescription = function(withVoice) {
     measurementId: "G-8809YG4WHM"
   };
 
-  // Strom einschalten und Datenbank verbinden
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // Wir machen die Datenbank für den Rest deines Terminals nutzbar
+  // Diese Zeilen verbinden das Modul mit deinem Spiel
   window.db = db;
   window.doc = doc;
   window.setDoc = setDoc;
   window.getDoc = getDoc;
+  
+  console.log("Firebase Uplink: BEREIT");
 </script>
 </body>
 </html>
