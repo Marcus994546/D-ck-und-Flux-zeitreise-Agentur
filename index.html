@@ -520,7 +520,6 @@
 
     if (window.logInterval) clearInterval(window.logInterval);
     window.logInterval = setInterval(window.neuerLogEintrag, 60000);
-
     window.saveProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
         const data = { 
@@ -531,35 +530,53 @@
             hs4400: window.hs4400 
         };
         
-        // Neues Speichern in die Firebase Cloud
-        if (window.db) {
-            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
-            await window.setDoc(agentRef, data);
-        }
-        
-        // Den Namen behalten wir lokal, damit der Auto-Login beim Neuladen klappt
+        // 1. Lokales Backup (Sicherheit geht vor)
+        localStorage.setItem('flux_agent_' + window.agentName.toLowerCase(), JSON.stringify(data));
         localStorage.setItem('flux_last_agent', window.agentName);
+
+        // 2. Cloud-Funk (nur wenn Firebase bereit ist)
+        if (window.db && window.setDoc) {
+            try {
+                const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+                await window.setDoc(agentRef, data);
+            } catch (e) {
+                console.error("Cloud-Speicherfehler:", e);
+            }
+        }
     };
 
     window.loadProgress = async function() {
         if (!window.agentName || window.agentName === "") return;
         
-        // Neues Laden aus der Firebase Cloud
-        if (window.db) {
-            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
-            const docSnap = await window.getDoc(agentRef);
-            
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                window.playerXP = data.xp || 0;
-                window.playerLevel = data.lvl || 1;
-                window.hs1200 = data.hs1200 || 0;
-                window.hs3000 = data.hs3000 || 0;
-                window.hs4400 = data.hs4400 || 0;
-            } else {
-                // Agent existiert noch nicht in der Datenbank
-                window.playerXP = 0; window.playerLevel = 1;
-                window.hs1200 = 0; window.hs3000 = 0; window.hs4400 = 0;
+        // 1. Erstmal lokale Daten laden (für schnellen Start)
+        const saved = localStorage.getItem('flux_agent_' + window.agentName.toLowerCase());
+        if (saved) {
+            const data = JSON.parse(saved);
+            window.playerXP = data.xp || 0;
+            window.playerLevel = data.lvl || 1;
+            window.hs1200 = data.hs1200 || 0;
+            window.hs3000 = data.hs3000 || 0;
+            window.hs4400 = data.hs4400 || 0;
+        } else {
+            window.playerXP = 0; window.playerLevel = 1;
+            window.hs1200 = 0; window.hs3000 = 0; window.hs4400 = 0;
+        }
+
+        // 2. Cloud-Update (Daten aus der Datenbank holen und drüberschreiben)
+        if (window.db && window.getDoc) {
+            try {
+                const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+                const docSnap = await window.getDoc(agentRef);
+                if (docSnap.exists()) {
+                    const cData = docSnap.data();
+                    window.playerXP = cData.xp;
+                    window.playerLevel = cData.lvl;
+                    window.hs1200 = cData.hs1200 || 0;
+                    window.hs3000 = cData.hs3000 || 0;
+                    window.hs4400 = cData.hs4400 || 0;
+                }
+            } catch (e) {
+                console.error("Cloud-Ladefehler:", e);
             }
         }
         window.updateUI();
