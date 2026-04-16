@@ -2319,46 +2319,66 @@ window.f_showDescription = function(withVoice) {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: #000; z-index: 60000; display: none;
         flex-direction: column; justify-content: center; align-items: center;
+        perspective: 1200px; /* Basis für den 3D-Effekt */
     }
     #cinematic-video {
-        width: 100%; height: 100%; 
-        object-fit: contain; /* Verhindert das reinzoomen! */
-        background: #000;
-    }
-    #cinematic-terminal {
-        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        background: rgba(0, 20, 0, 0.9); border: 2px solid #0f8; padding: 30px;
-        box-shadow: 0 0 25px rgba(0, 255, 204, 0.4); display: none;
-        flex-direction: column; align-items: center; font-family: 'Orbitron', monospace; z-index: 60001;
-        width: 80%; max-width: 400px; text-align: center;
-    }
-    #cinematic-date-input {
-        background: #000; color: #0f8; border: 1px solid #0f8; 
-        padding: 12px; font-family: monospace; font-size: 1.2em; 
-        text-align: center; margin-bottom: 20px; width: 90%; outline: none;
-    }
-    .energy-flash {
-        animation: flash-overload 1.5s ease-in-out forwards;
-    }
-    @keyframes flash-overload {
-        0% { filter: brightness(1) contrast(1); }
-        40% { filter: brightness(15) contrast(3); background: #fff; }
-        60% { filter: brightness(15) contrast(3); background: #fff; }
-        100% { filter: brightness(1) contrast(1); background: transparent; }
-    }
-    #cinematic-play-btn {
-        position: absolute; display: none; z-index: 60002;
-        padding: 15px 30px; background: rgba(0, 20, 0, 0.9); border: 2px solid #0f8;
-        color: #0f8; font-family: 'Orbitron', monospace; font-size: 1.2em; cursor: pointer;
-        box-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
+        width: 100%; height: 100%; object-fit: contain; background: #000;
     }
     
-    /* Der Rotations-Blocker */
+    /* Punkt 2: 3D-Anpassung an das Video-Display */
+    #cinematic-terminal {
+        position: absolute; top: 48%; left: 50%;
+        transform: translate(-50%, -50%) rotateX(12deg); /* Neigung passend zum Video-Pult */
+        background: rgba(0, 30, 10, 0.7); 
+        backdrop-filter: blur(4px);
+        border: 2px solid rgba(0, 255, 136, 0.6);
+        padding: 20px;
+        box-shadow: 0 0 40px rgba(0, 255, 136, 0.2), inset 0 0 20px rgba(0, 255, 136, 0.1);
+        display: none; flex-direction: column; align-items: center;
+        font-family: 'Orbitron', monospace; z-index: 60001;
+        width: 85%; max-width: 320px; border-radius: 10px;
+        pointer-events: auto;
+    }
+
+    /* Scanline-Effekt für das Display-Gefühl */
+    #cinematic-terminal::before {
+        content: " "; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 255, 136, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+        background-size: 100% 3px, 3px 100%; pointer-events: none; border-radius: 10px;
+    }
+
+    #cinematic-display-screen {
+        background: #000; color: #0f8; border: 1px solid #0f8;
+        width: 90%; height: 45px; margin-bottom: 15px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.4em; letter-spacing: 3px; box-shadow: inset 0 0 10px #0f8;
+    }
+
+    /* Punkt 3 (Weg B): Das Ziffernblatt */
+    .keypad {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 95%;
+    }
+    .key {
+        background: rgba(0, 255, 136, 0.1); border: 1px solid #0f8;
+        color: #0f8; padding: 12px; font-size: 1.1em; cursor: pointer;
+        font-family: 'Orbitron', monospace; border-radius: 4px;
+        transition: all 0.1s; text-align: center;
+    }
+    .key:active { background: #0f8; color: #000; transform: scale(0.95); }
+    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.3); font-weight: bold; margin-top: 5px; }
+    .key.del { color: #f44; border-color: #f44; }
+
     #rotate-blocker {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background: #000; color: #0f8; z-index: 60010;
         display: none; flex-direction: column; justify-content: center; align-items: center;
         text-align: center; font-family: 'Orbitron', monospace;
+    }
+    
+    #cinematic-play-btn {
+        position: absolute; display: none; z-index: 60002;
+        padding: 15px 30px; background: rgba(0, 20, 0, 0.9); border: 2px solid #0f8;
+        color: #0f8; font-family: 'Orbitron', monospace; font-size: 1.2em;
     }
 </style>
 
@@ -2366,50 +2386,56 @@ window.f_showDescription = function(withVoice) {
     <div id="rotate-blocker">
         <span style="font-size: 3em; margin-bottom: 20px;">🔄</span>
         <h3 style="margin-top: 0;">ATMOSPHÄREN-BRUCH</h3>
-        <p style="color: #aaa; font-size: 0.9em; max-width: 80%;">Bitte Gerät quer halten (Landscape), um den temporalen Sprung durchzuführen.</p>
+        <p style="color: #aaa; font-size: 0.9em; max-width: 80%;">Bitte Gerät quer halten, um das Terminal zu bedienen.</p>
     </div>
 
     <video id="cinematic-video" playsinline preload="auto"></video>
-    <button id="cinematic-play-btn">VIDEO STARTEN</button>
+    <button id="cinematic-play-btn">VERBINDUNG STARTEN</button>
     
     <div id="cinematic-terminal">
-        <h3 style="color: #0f8; margin-top: 0; font-size: 1em;">ZIELKOORDINATEN ERFORDERLICH</h3>
-        <p style="color: #aaa; font-size: 0.8em; margin-bottom: 20px;">Bitte das Zieljahr für den temporalen Sprung verifizieren:</p>
-        <input type="text" id="cinematic-date-input" placeholder="JAHR..." autocomplete="off">
-        <button class="modell-btn" onclick="executeTimeJump()" style="width: 100%;">SPRUNG INITIALISIEREN</button>
+        <div style="font-size: 0.7em; color: #0f8; margin-bottom: 10px; letter-spacing: 1px;">ZIEL-KOORDINATEN</div>
+        <div id="cinematic-display-screen">____</div>
+        
+        <div class="keypad">
+            <div class="key" onclick="kpIn(7)">7</div><div class="key" onclick="kpIn(8)">8</div><div class="key" onclick="kpIn(9)">9</div>
+            <div class="key" onclick="kpIn(4)">4</div><div class="key" onclick="kpIn(5)">5</div><div class="key" onclick="kpIn(6)">6</div>
+            <div class="key" onclick="kpIn(1)">1</div><div class="key" onclick="kpIn(2)">2</div><div class="key" onclick="kpIn(3)">3</div>
+            <div class="key del" onclick="kpIn('DEL')">DEL</div><div class="key" onclick="kpIn(0)">0</div><div class="key" onclick="kpIn('.')">.</div>
+            <div class="key exe" onclick="executeTimeJump()">SPRUNG INITIALISIEREN</div>
+        </div>
     </div>
 </div>
 
 <script>
-    // Überwacht die Drehung des Handys
+    let kpVal = "";
+
+    window.kpIn = function(val) {
+        if (typeof playBeep === 'function') playBeep(1200, 0.02);
+        const screen = document.getElementById('cinematic-display-screen');
+        
+        if (val === 'DEL') {
+            kpVal = kpVal.slice(0, -1);
+        } else {
+            if (kpVal.length < 10) kpVal += val;
+        }
+        screen.innerText = kpVal || "____";
+    };
+
     window.addEventListener('resize', () => {
         const overlay = document.getElementById('cinematic-overlay');
-        const blocker = document.getElementById('rotate-blocker');
-        const video = document.getElementById('cinematic-video');
-        const terminal = document.getElementById('cinematic-terminal');
-        const playBtn = document.getElementById('cinematic-play-btn');
-
         if (overlay.style.display === 'flex') {
-            if (window.innerHeight > window.innerWidth) {
-                // Hochformat (Portrait)
-                blocker.style.display = 'flex';
-                video.pause();
-            } else {
-                // Querformat (Landscape)
-                blocker.style.display = 'none';
-                if (terminal.style.display !== 'flex' && playBtn.style.display !== 'block') {
-                    video.play().catch(e => {});
-                }
+            const isPortrait = window.innerHeight > window.innerWidth;
+            document.getElementById('rotate-blocker').style.display = isPortrait ? 'flex' : 'none';
+            if (isPortrait) document.getElementById('cinematic-video').pause();
+            else if (document.getElementById('cinematic-terminal').style.display !== 'flex') {
+                document.getElementById('cinematic-video').play().catch(e => {});
             }
         }
     });
 
     window.startCinematicMission = function() {
         const bgMusic = document.getElementById('bg-music');
-        if (bgMusic && !bgMusic.paused) {
-            bgMusic.pause();
-            window.wasMusicPlaying = true;
-        }
+        if (bgMusic) { bgMusic.pause(); window.wasMusicPlaying = true; }
 
         const overlay = document.getElementById('cinematic-overlay');
         const video = document.getElementById('cinematic-video');
@@ -2420,81 +2446,43 @@ window.f_showDescription = function(withVoice) {
         overlay.style.display = 'flex';
         terminal.style.display = 'none';
         playBtn.style.display = 'none';
-        video.classList.remove('energy-flash');
+        kpVal = "";
+        document.getElementById('cinematic-display-screen').innerText = "____";
         
         video.src = "hanger.mp4";
         video.load();
 
-        // Prüfen, ob das Gerät direkt beim Start quer gehalten wird
         if (window.innerHeight > window.innerWidth) {
             blocker.style.display = 'flex';
         } else {
             blocker.style.display = 'none';
-            let playPromise = video.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    playBtn.style.display = 'block';
-                    playBtn.onclick = function() {
-                        playBtn.style.display = 'none';
-                        video.play();
-                    };
-                });
-            }
+            video.play().catch(() => { playBtn.style.display = 'block'; });
         }
+
+        playBtn.onclick = () => { playBtn.style.display = 'none'; video.play(); };
 
         video.onended = function() {
             terminal.style.display = 'flex';
-            document.getElementById('cinematic-date-input').focus();
         };
     };
 
     window.executeTimeJump = function() {
-        const dateInput = document.getElementById('cinematic-date-input').value;
-        if (!dateInput) return;
-
+        if (!kpVal) return;
         const video = document.getElementById('cinematic-video');
         const terminal = document.getElementById('cinematic-terminal');
-        const playBtn = document.getElementById('cinematic-play-btn');
-        const blocker = document.getElementById('rotate-blocker');
 
         terminal.style.display = 'none';
         video.classList.add('energy-flash');
-        
-        if (typeof playBeep === 'function') {
-            playBeep(200, 0.8);
-            setTimeout(() => playBeep(800, 0.5), 200);
-            setTimeout(() => playBeep(1400, 0.3), 400);
-        }
+        if (typeof playBeep === 'function') playBeep(200, 0.5);
 
         setTimeout(() => {
             video.src = "zeitmaschine.mp4";
             video.load();
-            
-            // Nur abspielen, wenn das Handy quer ist
-            if (window.innerHeight <= window.innerWidth) {
-                let playPromise = video.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        video.classList.remove('energy-flash');
-                        playBtn.style.display = 'block';
-                        playBtn.onclick = function() {
-                            playBtn.style.display = 'none';
-                            video.classList.add('energy-flash');
-                            video.play();
-                        };
-                    });
-                }
-            } else {
-                blocker.style.display = 'flex';
-            }
+            video.play();
             
             video.onended = function() {
                 document.getElementById('cinematic-overlay').style.display = 'none';
-                
-                if (typeof runMission === 'function') {
-                    runMission(); 
-                }
-                
+                if (typeof runMission === 'function') runMission(); 
                 if (window.wasMusicPlaying) {
                     const bgM = document.getElementById('bg-music');
                     if(bgM) bgM.play().catch(e => {});
