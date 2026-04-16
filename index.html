@@ -2332,23 +2332,29 @@ window.f_showDescription = function(withVoice) {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: #000; z-index: 60000; display: none;
         flex-direction: column; justify-content: center; align-items: center;
-        perspective: 800px;
-        overflow: hidden; /* Verhindert Scrollbalken beim Zoomen */
+        perspective: 1000px;
+        overflow: hidden;
     }
     
     #cinematic-video {
         width: 100%; height: 100%; object-fit: contain; background: #000;
-        transform-origin: center center; /* Wichtig für den Zoom */
+        transform-origin: center center;
     }
     
-    /* Der grüne Kasten ist weg, nur noch ein unsichtbarer Container für die Position */
+    /* Der Überfluss-Layer für die Energie-Entladung */
+    #white-flash-transition {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: #fff; opacity: 0; z-index: 60005;
+        pointer-events: none;
+    }
+    
     #cinematic-terminal {
         position: absolute; 
-        top: 42%; /* Weiter nach oben geschoben */
+        top: 42%; 
         left: 50%;
-        /* Punkt 2: Schräglage erhöht auf 14deg */
-        transform: translate(-50%, -50%) rotateX(14deg); 
-        background: transparent; /* Kasten komplett entfernt */
+        /* Punkt 2: Schräglage auf 16deg erhöht */
+        transform: translate(-50%, -50%) rotateX(16deg); 
+        background: transparent; 
         border: none;
         box-shadow: none;
         display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -2357,45 +2363,41 @@ window.f_showDescription = function(withVoice) {
         pointer-events: auto;
     }
 
-    /* Punkt 1: Dieser Wrapper macht das Tastenfeld noch kleiner */
+    /* Punkt 1: Tastenfeld noch kleiner (45% / 180px) */
     .terminal-inner-wrapper {
-        width: 50%; /* Tastenfeld noch schmaler (von 55% auf 50%) */
-        max-width: 200px; /* Max-Breite reduziert (von 220px auf 200px) */
+        width: 45%; 
+        max-width: 180px; 
         display: flex; flex-direction: column; align-items: center;
     }
 
     #cinematic-display-screen {
         background: rgba(0,0,0,0.8); color: #0f8; border: 1px solid rgba(0, 255, 136, 0.5);
-        width: 100%; height: 35px; margin-bottom: 15px; 
+        width: 100%; height: 30px; margin-bottom: 12px; 
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.2em; letter-spacing: 3px; box-shadow: inset 0 0 10px rgba(0,255,136,0.2);
+        font-size: 1.1em; letter-spacing: 3px; box-shadow: inset 0 0 10px rgba(0,255,136,0.2);
     }
 
     .keypad {
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; 
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; 
     }
     .key {
         background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.4);
-        color: #0f8; padding: 10px; font-size: 0.9em; cursor: pointer; 
+        color: #0f8; padding: 8px; font-size: 0.85em; cursor: pointer; 
         font-family: 'Orbitron', monospace; border-radius: 4px;
         transition: all 0.1s; text-align: center;
     }
     .key:active { background: #0f8; color: #000; transform: scale(0.95); }
-    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.3); font-weight: bold; margin-top: 5px; padding: 12px; }
+    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.3); font-weight: bold; margin-top: 5px; padding: 10px; font-size: 0.9em; }
     .key.del { color: #f44; border-color: rgba(255, 68, 68, 0.5); }
 
-    /* Die neue Zoom-Glitch-Animation */
+    /* Zoom-Effekt für den Sprung-Start */
     .warp-jump {
         animation: warp-zoom 0.8s ease-in-out forwards;
     }
     @keyframes warp-zoom {
-        0% { transform: scale(1); filter: brightness(1) contrast(1) blur(0px); }
-        20% { transform: scale(1.05) skewX(2deg); filter: brightness(1.2) contrast(1.5); }
-        /* Punkt 3: Weißer Höhepunkt länger gehalten */
-        50% { transform: scale(2.5) skewX(-2deg); filter: brightness(3) contrast(2) hue-rotate(45deg) blur(2px); }
-        60% { transform: scale(2.5) skewX(-2deg); filter: brightness(3) contrast(2) hue-rotate(45deg) blur(2px); } /* Hält den Höhepunkt */
-        80% { transform: scale(1.1) skewX(1deg); filter: brightness(1.5) contrast(1.2) blur(1px); }
-        100% { transform: scale(1); filter: brightness(1) contrast(1) blur(0px); }
+        0% { transform: scale(1); filter: brightness(1); }
+        50% { transform: scale(2.2); filter: brightness(3); }
+        100% { transform: scale(2.5); filter: brightness(5); }
     }
 
     #rotate-blocker {
@@ -2413,6 +2415,8 @@ window.f_showDescription = function(withVoice) {
 </style>
 
 <div id="cinematic-overlay">
+    <div id="white-flash-transition"></div>
+
     <div id="rotate-blocker">
         <span style="font-size: 3em; margin-bottom: 20px;">🔄</span>
         <h3 style="margin-top: 0;">ATMOSPHÄREN-BRUCH</h3>
@@ -2424,7 +2428,7 @@ window.f_showDescription = function(withVoice) {
     
     <div id="cinematic-terminal">
         <div class="terminal-inner-wrapper">
-            <div style="font-size: 0.8em; color: #0f8; margin-bottom: 10px; letter-spacing: 1px; text-shadow: 0 0 5px #0f8;">ZIEL-KOORDINATEN</div>
+            <div style="font-size: 0.7em; color: #0f8; margin-bottom: 8px; letter-spacing: 1px; text-shadow: 0 0 5px #0f8;">ZIEL-KOORDINATEN</div>
             <div id="cinematic-display-screen">____</div>
             
             <div class="keypad">
@@ -2467,7 +2471,6 @@ window.f_showDescription = function(withVoice) {
 
     window.startCinematicMission = function() {
         const bgMusic = document.getElementById('bg-music');
-        
         if (bgMusic && !bgMusic.paused) { 
             bgMusic.pause(); 
             window.wasMusicPlaying = true; 
@@ -2480,14 +2483,15 @@ window.f_showDescription = function(withVoice) {
         const terminal = document.getElementById('cinematic-terminal');
         const playBtn = document.getElementById('cinematic-play-btn');
         const blocker = document.getElementById('rotate-blocker');
+        const flash = document.getElementById('white-flash-transition');
         
         overlay.style.display = 'flex';
         terminal.style.display = 'none';
         playBtn.style.display = 'none';
+        flash.style.opacity = '0';
+        flash.style.transition = 'none';
         kpVal = "";
         document.getElementById('cinematic-display-screen').innerText = "____";
-        
-        // Stellt sicher, dass alte Animationen zurückgesetzt werden
         video.classList.remove('warp-jump');
         
         video.src = "hanger.mp4";
@@ -2511,33 +2515,47 @@ window.f_showDescription = function(withVoice) {
         if (!kpVal) return;
         const video = document.getElementById('cinematic-video');
         const terminal = document.getElementById('cinematic-terminal');
+        const flash = document.getElementById('white-flash-transition');
 
         terminal.style.display = 'none';
-        
         if (typeof playBeep === 'function') {
             playBeep(200, 0.8);
             setTimeout(() => playBeep(800, 0.5), 200);
         }
 
-        // Startet den extremen Warp-Zoom-Effekt
+        // 1. Zoom startet
         video.classList.add('warp-jump');
 
-        // Genau beim Höhepunkt des Zooms (bei 400ms) wird das Video im Hintergrund getauscht
+        // 2. Kurz vor Ende des Zooms auf Weiß schalten
         setTimeout(() => {
-            video.src = "zeitmaschine.mp4";
-            video.load();
-            video.play().catch(e => {});
+            flash.style.transition = 'none';
+            flash.style.opacity = '1';
             
-            video.onended = function() {
-                document.getElementById('cinematic-overlay').style.display = 'none';
-                if (typeof runMission === 'function') runMission(); 
+            // 3. Im Hintergrund Video tauschen
+            setTimeout(() => {
+                video.classList.remove('warp-jump');
+                video.src = "zeitmaschine.mp4";
+                video.load();
                 
-                if (window.wasMusicPlaying) {
-                    const bgM = document.getElementById('bg-music');
-                    if(bgM) bgM.play().catch(e => {});
-                }
-            };
-        }, 400); 
+                video.onplaying = function() {
+                    // 4. Wenn 2. Video läuft, Weiß langsam ausklingen lassen
+                    flash.style.transition = 'opacity 1.2s ease-out';
+                    flash.style.opacity = '0';
+                    video.onplaying = null;
+                };
+                
+                video.play().catch(e => { flash.style.opacity = '0'; });
+                
+                video.onended = function() {
+                    document.getElementById('cinematic-overlay').style.display = 'none';
+                    if (typeof runMission === 'function') runMission(); 
+                    if (window.wasMusicPlaying) {
+                        const bgM = document.getElementById('bg-music');
+                        if(bgM) bgM.play().catch(e => {});
+                    }
+                };
+            }, 800); // Wie lange das Weiß maximal stehen bleibt
+        }, 400); // Wann der Blitz während des Zooms einsetzt
     };
 </script>
 </body>
