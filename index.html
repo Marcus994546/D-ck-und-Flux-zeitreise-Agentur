@@ -203,7 +203,7 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
     
     <div id="terminal-input-area">
         <span id="term-prefix">ADM@FLUX:~$</span>
-        <input type="text" id="terminal-input-field" placeholder="Befehl (help)..." autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+        <input type="text" id="terminal-input-field" placeholder="Befehl (help)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true">
     </div>
 
     <footer>
@@ -2332,54 +2332,65 @@ window.f_showDescription = function(withVoice) {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: #000; z-index: 60000; display: none;
         flex-direction: column; justify-content: center; align-items: center;
-        perspective: 800px; /* Stärkere Tiefenwirkung */
+        perspective: 800px;
     }
     #cinematic-video {
         width: 100%; height: 100%; object-fit: contain; background: #000;
     }
     
+    /* Nimmt jetzt das komplette Display ein und verschmilzt mit dem Rand */
     #cinematic-terminal {
         position: absolute; 
-        top: 53.5%; /* Exakt auf die Unterkante des Video-Monitors abgestimmt */
+        top: 46%; /* Deutlich höher */
         left: 50%;
-        transform: translate(-50%, -50%) rotateX(18deg); /* Stärkere Neigung nach hinten */
-        background: rgba(0, 25, 10, 0.4); 
-        backdrop-filter: blur(2px);
-        border: 1px solid rgba(0, 255, 136, 0.1);
-        padding: 10px 15px; /* Oben und unten schmaler */
-        box-shadow: inset 0 0 20px rgba(0, 255, 136, 0.15);
-        display: none; flex-direction: column; align-items: center;
+        transform: translate(-50%, -50%) rotateX(16deg); 
+        background: rgba(0, 20, 5, 0.85); /* Sehr dunkel, schluckt den Video-Hintergrund */
+        backdrop-filter: blur(5px);
+        border: none; /* Rand entfernt für nahtlosen Übergang */
+        padding: 25px 20px; 
+        box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.9); /* Schwarzer Innenschatten kaschiert die Kanten */
+        display: none; flex-direction: column; align-items: center; justify-content: center;
         font-family: 'Orbitron', monospace; z-index: 60001;
-        width: 75%; max-width: 270px; /* Etwas breiter gezogen */
-        border-radius: 8px; /* Leicht abgerundet, passend zum Monitor */
+        width: 88%; max-width: 340px; /* Stark vergrößert */
+        border-radius: 12px; 
         pointer-events: auto;
     }
 
     #cinematic-terminal::before {
         content: " "; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 255, 136, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
-        background-size: 100% 3px, 3px 100%; pointer-events: none; border-radius: 8px;
+        background-size: 100% 3px, 3px 100%; pointer-events: none; border-radius: 12px;
     }
 
     #cinematic-display-screen {
-        background: rgba(0,0,0,0.6); color: #0f8; border: 1px solid rgba(0, 255, 136, 0.3);
-        width: 90%; height: 30px; margin-bottom: 8px; /* Flacher */
+        background: rgba(0,0,0,0.8); color: #0f8; border: 1px solid rgba(0, 255, 136, 0.3);
+        width: 90%; height: 40px; margin-bottom: 15px; 
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.1em; letter-spacing: 3px; box-shadow: inset 0 0 10px rgba(0,255,136,0.1);
+        font-size: 1.4em; letter-spacing: 3px; box-shadow: inset 0 0 15px rgba(0,255,136,0.1);
     }
 
     .keypad {
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 95%; /* Lücken kleiner */
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 95%; 
     }
     .key {
         background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.3);
-        color: #0f8; padding: 6px; font-size: 0.85em; cursor: pointer; /* Tasten flacher */
-        font-family: 'Orbitron', monospace; border-radius: 3px;
+        color: #0f8; padding: 10px; font-size: 1.1em; cursor: pointer; 
+        font-family: 'Orbitron', monospace; border-radius: 4px;
         transition: all 0.1s; text-align: center;
     }
     .key:active { background: #0f8; color: #000; transform: scale(0.95); }
-    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.2); font-weight: bold; margin-top: 2px; }
+    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.2); font-weight: bold; margin-top: 5px; }
     .key.del { color: #f44; border-color: rgba(255, 68, 68, 0.4); }
+
+    .energy-flash {
+        animation: flash-overload 1s ease-in-out forwards; /* Schnellerer Blitz */
+    }
+    @keyframes flash-overload {
+        0% { filter: brightness(1) contrast(1); }
+        40% { filter: brightness(15) contrast(3); background: #fff; }
+        50% { filter: brightness(20) contrast(5); background: #fff; } /* Höhepunkt bei 500ms */
+        100% { filter: brightness(1) contrast(1); background: transparent; }
+    }
 
     #rotate-blocker {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -2406,7 +2417,7 @@ window.f_showDescription = function(withVoice) {
     <button id="cinematic-play-btn">VERBINDUNG STARTEN</button>
     
     <div id="cinematic-terminal">
-        <div style="font-size: 0.7em; color: #0f8; margin-bottom: 8px; letter-spacing: 1px;">ZIEL-KOORDINATEN</div>
+        <div style="font-size: 0.8em; color: #0f8; margin-bottom: 10px; letter-spacing: 1px;">ZIEL-KOORDINATEN</div>
         <div id="cinematic-display-screen">____</div>
         
         <div class="keypad">
@@ -2449,7 +2460,6 @@ window.f_showDescription = function(withVoice) {
     window.startCinematicMission = function() {
         const bgMusic = document.getElementById('bg-music');
         
-        // FIX: Prüft jetzt VORHER, ob die Musik wirklich läuft
         if (bgMusic && !bgMusic.paused) { 
             bgMusic.pause(); 
             window.wasMusicPlaying = true; 
@@ -2468,6 +2478,7 @@ window.f_showDescription = function(withVoice) {
         playBtn.style.display = 'none';
         kpVal = "";
         document.getElementById('cinematic-display-screen').innerText = "____";
+        video.classList.remove('energy-flash');
         
         video.src = "hanger.mp4";
         video.load();
@@ -2493,8 +2504,13 @@ window.f_showDescription = function(withVoice) {
 
         terminal.style.display = 'none';
         video.classList.add('energy-flash');
-        if (typeof playBeep === 'function') playBeep(200, 0.5);
+        
+        if (typeof playBeep === 'function') {
+            playBeep(200, 0.8);
+            setTimeout(() => playBeep(800, 0.5), 200);
+        }
 
+        // Timing-Fix: Schaltet exakt beim Höhepunkt des Blitzes (500ms) auf das 2. Video um
         setTimeout(() => {
             video.src = "zeitmaschine.mp4";
             video.load();
@@ -2504,13 +2520,12 @@ window.f_showDescription = function(withVoice) {
                 document.getElementById('cinematic-overlay').style.display = 'none';
                 if (typeof runMission === 'function') runMission(); 
                 
-                // FIX: Schaltet die Musik nur wieder ein, wenn sie vorher auch an war
                 if (window.wasMusicPlaying) {
                     const bgM = document.getElementById('bg-music');
                     if(bgM) bgM.play().catch(e => {});
                 }
             };
-        }, 600);
+        }, 500); 
     };
 </script>
 </body>
