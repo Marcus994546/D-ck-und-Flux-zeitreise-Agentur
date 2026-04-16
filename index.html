@@ -2321,7 +2321,9 @@ window.f_showDescription = function(withVoice) {
         flex-direction: column; justify-content: center; align-items: center;
     }
     #cinematic-video {
-        width: 100%; height: 100%; object-fit: cover;
+        width: 100%; height: 100%; 
+        object-fit: contain; /* Verhindert das reinzoomen! */
+        background: #000;
     }
     #cinematic-terminal {
         position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -2350,9 +2352,23 @@ window.f_showDescription = function(withVoice) {
         color: #0f8; font-family: 'Orbitron', monospace; font-size: 1.2em; cursor: pointer;
         box-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
     }
+    
+    /* Der Rotations-Blocker */
+    #rotate-blocker {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: #000; color: #0f8; z-index: 60010;
+        display: none; flex-direction: column; justify-content: center; align-items: center;
+        text-align: center; font-family: 'Orbitron', monospace;
+    }
 </style>
 
 <div id="cinematic-overlay">
+    <div id="rotate-blocker">
+        <span style="font-size: 3em; margin-bottom: 20px;">🔄</span>
+        <h3 style="margin-top: 0;">ATMOSPHÄREN-BRUCH</h3>
+        <p style="color: #aaa; font-size: 0.9em; max-width: 80%;">Bitte Gerät quer halten (Landscape), um den temporalen Sprung durchzuführen.</p>
+    </div>
+
     <video id="cinematic-video" playsinline preload="auto"></video>
     <button id="cinematic-play-btn">VIDEO STARTEN</button>
     
@@ -2365,6 +2381,29 @@ window.f_showDescription = function(withVoice) {
 </div>
 
 <script>
+    // Überwacht die Drehung des Handys
+    window.addEventListener('resize', () => {
+        const overlay = document.getElementById('cinematic-overlay');
+        const blocker = document.getElementById('rotate-blocker');
+        const video = document.getElementById('cinematic-video');
+        const terminal = document.getElementById('cinematic-terminal');
+        const playBtn = document.getElementById('cinematic-play-btn');
+
+        if (overlay.style.display === 'flex') {
+            if (window.innerHeight > window.innerWidth) {
+                // Hochformat (Portrait)
+                blocker.style.display = 'flex';
+                video.pause();
+            } else {
+                // Querformat (Landscape)
+                blocker.style.display = 'none';
+                if (terminal.style.display !== 'flex' && playBtn.style.display !== 'block') {
+                    video.play().catch(e => {});
+                }
+            }
+        }
+    });
+
     window.startCinematicMission = function() {
         const bgMusic = document.getElementById('bg-music');
         if (bgMusic && !bgMusic.paused) {
@@ -2376,6 +2415,7 @@ window.f_showDescription = function(withVoice) {
         const video = document.getElementById('cinematic-video');
         const terminal = document.getElementById('cinematic-terminal');
         const playBtn = document.getElementById('cinematic-play-btn');
+        const blocker = document.getElementById('rotate-blocker');
         
         overlay.style.display = 'flex';
         terminal.style.display = 'none';
@@ -2384,16 +2424,22 @@ window.f_showDescription = function(withVoice) {
         
         video.src = "hanger.mp4";
         video.load();
-        
-        let playPromise = video.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                playBtn.style.display = 'block';
-                playBtn.onclick = function() {
-                    playBtn.style.display = 'none';
-                    video.play();
-                };
-            });
+
+        // Prüfen, ob das Gerät direkt beim Start quer gehalten wird
+        if (window.innerHeight > window.innerWidth) {
+            blocker.style.display = 'flex';
+        } else {
+            blocker.style.display = 'none';
+            let playPromise = video.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    playBtn.style.display = 'block';
+                    playBtn.onclick = function() {
+                        playBtn.style.display = 'none';
+                        video.play();
+                    };
+                });
+            }
         }
 
         video.onended = function() {
@@ -2409,6 +2455,7 @@ window.f_showDescription = function(withVoice) {
         const video = document.getElementById('cinematic-video');
         const terminal = document.getElementById('cinematic-terminal');
         const playBtn = document.getElementById('cinematic-play-btn');
+        const blocker = document.getElementById('rotate-blocker');
 
         terminal.style.display = 'none';
         video.classList.add('energy-flash');
@@ -2423,17 +2470,22 @@ window.f_showDescription = function(withVoice) {
             video.src = "zeitmaschine.mp4";
             video.load();
             
-            let playPromise = video.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    video.classList.remove('energy-flash');
-                    playBtn.style.display = 'block';
-                    playBtn.onclick = function() {
-                        playBtn.style.display = 'none';
-                        video.classList.add('energy-flash');
-                        video.play();
-                    };
-                });
+            // Nur abspielen, wenn das Handy quer ist
+            if (window.innerHeight <= window.innerWidth) {
+                let playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        video.classList.remove('energy-flash');
+                        playBtn.style.display = 'block';
+                        playBtn.onclick = function() {
+                            playBtn.style.display = 'none';
+                            video.classList.add('energy-flash');
+                            video.play();
+                        };
+                    });
+                }
+            } else {
+                blocker.style.display = 'flex';
             }
             
             video.onended = function() {
