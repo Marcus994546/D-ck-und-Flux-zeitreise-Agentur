@@ -2443,6 +2443,7 @@ window.f_showDescription = function(withVoice) {
         <video id="cinematic-video-1" class="cinematic-vid" src="hanger.mp4" playsinline preload="auto"></video>
         <video id="cinematic-video-2" class="cinematic-vid" src="zeitmaschine.mp4" playsinline preload="auto"></video>
         <video id="cinematic-video-3" class="cinematic-vid" src="wurmloch.mp4" playsinline preload="auto"></video>
+        <audio id="snd-wurmloch" src="Verzierung.mp3" preload="auto"></audio>
     </div>
 
     <button id="cinematic-play-btn">VERBINDUNG STARTEN</button>
@@ -2474,6 +2475,16 @@ window.f_showDescription = function(withVoice) {
     };
 
     window.startCinematicMission = function() {
+        // --- SOFORTIGER ABBRUCH, WENN KEINE EPOCHE GEWÄHLT IST ---
+        if (!window.activeEpoch) {
+            document.getElementById('back-button-global').style.display = 'block';
+            const anzeige = document.getElementById('anzeige');
+            if (anzeige) {
+                anzeige.innerHTML = '<div style="color:#f44; text-align:center; margin-top:10vh;">[ FEHLER ]<br>> Kein Zeitstrang kalibriert.<br>> Wähle zuerst eine Epoche im Menü.</div>';
+            }
+            return; 
+        }
+
         const bgMusic = document.getElementById('bg-music');
         window.wasMusicPlaying = (bgMusic && !bgMusic.paused);
         if (bgMusic) bgMusic.pause();
@@ -2482,6 +2493,7 @@ window.f_showDescription = function(withVoice) {
         const vid1 = document.getElementById('cinematic-video-1');
         const vid2 = document.getElementById('cinematic-video-2');
         const vid3 = document.getElementById('cinematic-video-3');
+        const sndWurmloch = document.getElementById('snd-wurmloch');
         const container = document.getElementById('video-container');
         const terminal = document.getElementById('cinematic-terminal');
         const flash = document.getElementById('white-flash-transition');
@@ -2499,6 +2511,7 @@ window.f_showDescription = function(withVoice) {
         vid1.currentTime = 0;
         vid2.currentTime = 0;
         vid3.currentTime = 0;
+        if (sndWurmloch) sndWurmloch.currentTime = 0;
         
         kpVal = "";
         document.getElementById('cinematic-display-screen').innerText = "____";
@@ -2513,6 +2526,7 @@ window.f_showDescription = function(withVoice) {
         const vid1 = document.getElementById('cinematic-video-1');
         const vid2 = document.getElementById('cinematic-video-2');
         const vid3 = document.getElementById('cinematic-video-3');
+        const sndWurmloch = document.getElementById('snd-wurmloch');
         const container = document.getElementById('video-container');
         const terminal = document.getElementById('cinematic-terminal');
         const flash = document.getElementById('white-flash-transition');
@@ -2558,6 +2572,12 @@ window.f_showDescription = function(withVoice) {
                         vid2.style.opacity = '0'; 
                         vid3.style.opacity = '1';
                         
+                        // SOUND EFFEKT FÜR DAS WURMLOCH STARTEN
+                        if (sndWurmloch) {
+                            sndWurmloch.currentTime = 0;
+                            sndWurmloch.play().catch(e => {});
+                        }
+                        
                         // Der Zoom kehrt sich um: Wir starten herangezoomt und zoomen flüssig heraus
                         container.classList.remove('portal-dive');
                         container.classList.add('portal-exit');
@@ -2567,6 +2587,13 @@ window.f_showDescription = function(withVoice) {
                         vid3.onended = function() {
                             // Wurmloch beendet -> Sprung zur Mission
                             document.getElementById('cinematic-overlay').style.display = 'none';
+                            
+                            // Sicherheitshalber den Wurmloch-Sound stoppen
+                            if (sndWurmloch) {
+                                sndWurmloch.pause();
+                                sndWurmloch.currentTime = 0;
+                            }
+                            
                             if (typeof runMission === 'function') runMission(); 
                             if (window.wasMusicPlaying) {
                                 const bgM = document.getElementById('bg-music');
