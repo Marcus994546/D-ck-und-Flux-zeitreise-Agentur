@@ -2346,7 +2346,8 @@ window.f_showDescription = function(withVoice) {
         position: absolute; 
         top: 42%; /* Weiter nach oben geschoben */
         left: 50%;
-        transform: translate(-50%, -50%) rotateX(12deg); 
+        /* Punkt 2: Schräglage erhöht auf 14deg */
+        transform: translate(-50%, -50%) rotateX(14deg); 
         background: transparent; /* Kasten komplett entfernt */
         border: none;
         box-shadow: none;
@@ -2356,10 +2357,10 @@ window.f_showDescription = function(withVoice) {
         pointer-events: auto;
     }
 
-    /* Dieser Wrapper macht das Tastenfeld kleiner */
+    /* Punkt 1: Dieser Wrapper macht das Tastenfeld noch kleiner */
     .terminal-inner-wrapper {
-        width: 55%; /* Tastenfeld deutlich schmaler */
-        max-width: 220px;
+        width: 50%; /* Tastenfeld noch schmaler (von 55% auf 50%) */
+        max-width: 200px; /* Max-Breite reduziert (von 220px auf 200px) */
         display: flex; flex-direction: column; align-items: center;
     }
 
@@ -2390,7 +2391,9 @@ window.f_showDescription = function(withVoice) {
     @keyframes warp-zoom {
         0% { transform: scale(1); filter: brightness(1) contrast(1) blur(0px); }
         20% { transform: scale(1.05) skewX(2deg); filter: brightness(1.2) contrast(1.5); }
+        /* Punkt 3: Weißer Höhepunkt länger gehalten */
         50% { transform: scale(2.5) skewX(-2deg); filter: brightness(3) contrast(2) hue-rotate(45deg) blur(2px); }
+        60% { transform: scale(2.5) skewX(-2deg); filter: brightness(3) contrast(2) hue-rotate(45deg) blur(2px); } /* Hält den Höhepunkt */
         80% { transform: scale(1.1) skewX(1deg); filter: brightness(1.5) contrast(1.2) blur(1px); }
         100% { transform: scale(1); filter: brightness(1) contrast(1) blur(0px); }
     }
