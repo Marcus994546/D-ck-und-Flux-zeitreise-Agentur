@@ -203,7 +203,7 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
     
     <div id="terminal-input-area">
         <span id="term-prefix">ADM@FLUX:~$</span>
-        <input type="text" id="terminal-input-field" placeholder="Befehl (help)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true">
+        <input type="search" id="terminal-input-field" placeholder="Befehl (help)..." autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" name="cmd_random_99x" data-lpignore="true">
     </div>
 
     <footer>
@@ -2338,59 +2338,64 @@ window.f_showDescription = function(withVoice) {
         width: 100%; height: 100%; object-fit: contain; background: #000;
     }
     
-    /* Nimmt jetzt das komplette Display ein und verschmilzt mit dem Rand */
+    /* Der weiße Blitz für den nahtlosen Übergang */
+    #white-flash-transition {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: #fff; opacity: 0; z-index: 60005;
+        pointer-events: none; transition: opacity 0.5s ease-in-out;
+    }
+    
+    /* Füllt jetzt den gesamten Monitor im Video aus */
     #cinematic-terminal {
         position: absolute; 
-        top: 46%; /* Deutlich höher */
+        top: 50%; /* Zentriert auf dem Röhrenbildschirm */
         left: 50%;
-        transform: translate(-50%, -50%) rotateX(16deg); 
-        background: rgba(0, 20, 5, 0.85); /* Sehr dunkel, schluckt den Video-Hintergrund */
-        backdrop-filter: blur(5px);
-        border: none; /* Rand entfernt für nahtlosen Übergang */
-        padding: 25px 20px; 
-        box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.9); /* Schwarzer Innenschatten kaschiert die Kanten */
+        transform: translate(-50%, -50%) rotateX(12deg); 
+        background: rgba(0, 35, 10, 0.75); /* Dunkelgrünes Glas */
+        backdrop-filter: blur(4px);
+        border: none;
+        box-shadow: inset 0 0 60px rgba(0, 0, 0, 1); /* Starker schwarzer Rand kaschiert die Kanten */
         display: none; flex-direction: column; align-items: center; justify-content: center;
         font-family: 'Orbitron', monospace; z-index: 60001;
-        width: 88%; max-width: 340px; /* Stark vergrößert */
-        border-radius: 12px; 
+        width: 90vw; /* Füllt die Breite fast komplett */
+        height: 65vw; /* Füllt die Höhe des Monitors */
+        max-width: 400px; max-height: 280px;
+        border-radius: 20px; /* CRT Monitor Wölbung */
         pointer-events: auto;
     }
 
+    /* Scanlines über den gesamten Monitor */
     #cinematic-terminal::before {
         content: " "; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 255, 136, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
-        background-size: 100% 3px, 3px 100%; pointer-events: none; border-radius: 12px;
+        background-size: 100% 3px, 3px 100%; pointer-events: none; border-radius: 20px;
+    }
+
+    /* Dieser Wrapper hält das Eingabefeld in der Mitte kleiner! */
+    .terminal-inner-wrapper {
+        width: 75%; max-width: 260px;
+        display: flex; flex-direction: column; align-items: center;
     }
 
     #cinematic-display-screen {
         background: rgba(0,0,0,0.8); color: #0f8; border: 1px solid rgba(0, 255, 136, 0.3);
-        width: 90%; height: 40px; margin-bottom: 15px; 
+        width: 100%; height: 35px; margin-bottom: 15px; 
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.4em; letter-spacing: 3px; box-shadow: inset 0 0 15px rgba(0,255,136,0.1);
+        font-size: 1.3em; letter-spacing: 3px; box-shadow: inset 0 0 15px rgba(0,255,136,0.1);
     }
 
     .keypad {
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 95%; 
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; 
     }
     .key {
         background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.3);
-        color: #0f8; padding: 10px; font-size: 1.1em; cursor: pointer; 
+        color: #0f8; padding: 10px; font-size: 1em; cursor: pointer; 
         font-family: 'Orbitron', monospace; border-radius: 4px;
         transition: all 0.1s; text-align: center;
     }
     .key:active { background: #0f8; color: #000; transform: scale(0.95); }
-    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.2); font-weight: bold; margin-top: 5px; }
+    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.2); font-weight: bold; margin-top: 5px; padding: 12px; }
     .key.del { color: #f44; border-color: rgba(255, 68, 68, 0.4); }
-
-    .energy-flash {
-        animation: flash-overload 1s ease-in-out forwards; /* Schnellerer Blitz */
-    }
-    @keyframes flash-overload {
-        0% { filter: brightness(1) contrast(1); }
-        40% { filter: brightness(15) contrast(3); background: #fff; }
-        50% { filter: brightness(20) contrast(5); background: #fff; } /* Höhepunkt bei 500ms */
-        100% { filter: brightness(1) contrast(1); background: transparent; }
-    }
 
     #rotate-blocker {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -2407,6 +2412,8 @@ window.f_showDescription = function(withVoice) {
 </style>
 
 <div id="cinematic-overlay">
+    <div id="white-flash-transition"></div>
+
     <div id="rotate-blocker">
         <span style="font-size: 3em; margin-bottom: 20px;">🔄</span>
         <h3 style="margin-top: 0;">ATMOSPHÄREN-BRUCH</h3>
@@ -2417,15 +2424,17 @@ window.f_showDescription = function(withVoice) {
     <button id="cinematic-play-btn">VERBINDUNG STARTEN</button>
     
     <div id="cinematic-terminal">
-        <div style="font-size: 0.8em; color: #0f8; margin-bottom: 10px; letter-spacing: 1px;">ZIEL-KOORDINATEN</div>
-        <div id="cinematic-display-screen">____</div>
-        
-        <div class="keypad">
-            <div class="key" onclick="kpIn(7)">7</div><div class="key" onclick="kpIn(8)">8</div><div class="key" onclick="kpIn(9)">9</div>
-            <div class="key" onclick="kpIn(4)">4</div><div class="key" onclick="kpIn(5)">5</div><div class="key" onclick="kpIn(6)">6</div>
-            <div class="key" onclick="kpIn(1)">1</div><div class="key" onclick="kpIn(2)">2</div><div class="key" onclick="kpIn(3)">3</div>
-            <div class="key del" onclick="kpIn('DEL')">DEL</div><div class="key" onclick="kpIn(0)">0</div><div class="key" onclick="kpIn('.')">.</div>
-            <div class="key exe" onclick="executeTimeJump()">SPRUNG INITIALISIEREN</div>
+        <div class="terminal-inner-wrapper">
+            <div style="font-size: 0.8em; color: #0f8; margin-bottom: 10px; letter-spacing: 1px; text-shadow: 0 0 5px #0f8;">ZIEL-KOORDINATEN</div>
+            <div id="cinematic-display-screen">____</div>
+            
+            <div class="keypad">
+                <div class="key" onclick="kpIn(7)">7</div><div class="key" onclick="kpIn(8)">8</div><div class="key" onclick="kpIn(9)">9</div>
+                <div class="key" onclick="kpIn(4)">4</div><div class="key" onclick="kpIn(5)">5</div><div class="key" onclick="kpIn(6)">6</div>
+                <div class="key" onclick="kpIn(1)">1</div><div class="key" onclick="kpIn(2)">2</div><div class="key" onclick="kpIn(3)">3</div>
+                <div class="key del" onclick="kpIn('DEL')">DEL</div><div class="key" onclick="kpIn(0)">0</div><div class="key" onclick="kpIn('.')">.</div>
+                <div class="key exe" onclick="executeTimeJump()">SPRUNG INITIALISIEREN</div>
+            </div>
         </div>
     </div>
 </div>
@@ -2472,13 +2481,14 @@ window.f_showDescription = function(withVoice) {
         const terminal = document.getElementById('cinematic-terminal');
         const playBtn = document.getElementById('cinematic-play-btn');
         const blocker = document.getElementById('rotate-blocker');
+        const flash = document.getElementById('white-flash-transition');
         
         overlay.style.display = 'flex';
         terminal.style.display = 'none';
         playBtn.style.display = 'none';
+        flash.style.opacity = '0'; // Sicherstellen, dass Blitz aus ist
         kpVal = "";
         document.getElementById('cinematic-display-screen').innerText = "____";
-        video.classList.remove('energy-flash');
         
         video.src = "hanger.mp4";
         video.load();
@@ -2501,20 +2511,30 @@ window.f_showDescription = function(withVoice) {
         if (!kpVal) return;
         const video = document.getElementById('cinematic-video');
         const terminal = document.getElementById('cinematic-terminal');
+        const flash = document.getElementById('white-flash-transition');
 
         terminal.style.display = 'none';
-        video.classList.add('energy-flash');
         
         if (typeof playBeep === 'function') {
             playBeep(200, 0.8);
             setTimeout(() => playBeep(800, 0.5), 200);
         }
 
-        // Timing-Fix: Schaltet exakt beim Höhepunkt des Blitzes (500ms) auf das 2. Video um
+        // 1. Bildschirm komplett weiß aufblitzen lassen
+        flash.style.opacity = '1';
+
+        // 2. Heimlich das Video dahinter tauschen (während alles weiß ist)
         setTimeout(() => {
             video.src = "zeitmaschine.mp4";
             video.load();
-            video.play();
+            
+            // 3. Wenn das 2. Video GESTARTET ist, blenden wir das Weiß sanft weg
+            video.onplaying = function() {
+                flash.style.opacity = '0';
+                video.onplaying = null; // Event-Listener löschen
+            };
+            
+            video.play().catch(e => { flash.style.opacity = '0'; });
             
             video.onended = function() {
                 document.getElementById('cinematic-overlay').style.display = 'none';
@@ -2525,7 +2545,7 @@ window.f_showDescription = function(withVoice) {
                     if(bgM) bgM.play().catch(e => {});
                 }
             };
-        }, 500); 
+        }, 500); // 0.5 Sekunden warten, bis das Weiß voll da ist
     };
 </script>
 </body>
