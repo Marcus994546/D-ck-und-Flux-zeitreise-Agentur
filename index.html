@@ -70,10 +70,9 @@
             background-color: #000; overflow: hidden;
             letter-spacing: 1px;
         }
-
-        /* ANTI-GEISTER-REGEL: Zwingt alle Reste im Hintergrund unsichtbar zu bleiben, um das Layout nicht nach links zu quetschen */
-        body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay) {
-            display: none !important;
+/* ANTI-GEISTER-REGEL: Zwingt alle Reste im Hintergrund unsichtbar zu bleiben, um das Layout nicht nach links zu quetschen */
+body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#cinematic-overlay) {
+    display: none !important;
         }
 
         .background-overlay {
@@ -945,58 +944,7 @@ window.f_einstellungen = function() {
         if (anzeige) anzeige.innerHTML = '<div id="scanline" class="scanline"></div><div id="content-body"></div>';
         if (typeof f_start === 'function') setTimeout(f_start, 50);
     };
-
-    function runMission() {
-        let missionData = null;
-        if (typeof getEpochMission === 'function') {
-            missionData = getEpochMission();
-        }
-
-        if (!missionData) {
-            ['header', 'nav', '#xp-leiste-auto'].forEach(s => { const el = document.querySelector(s); if(el) el.style.display = 'none'; });
-            document.getElementById('back-button-global').style.display = 'block';
-            const anzeige = document.getElementById('anzeige');
-            missionSpeak("Fehler. Kein Zeitstrang kalibriert.");
-            anzeige.innerHTML = '<div style="color:#f44; font-family:monospace; text-align:center; margin-top:10vh;">[ FEHLER ]<br>> Keine Mission verfügbar.<br>> Wähle zuerst einen Zeitstrang.</div>';
-            return;
-        }
-
-        overlay.style.display = 'flex';
-        overlay.style.background = "#000";
-        mStartTime = Date.now();
-        
-        const datum = missionData.date;
-        const agentID = missionData.agent;
-        const mission = { t: missionData.title, d: missionData.desc };
-        
-        const missionFullText = `Mission Sektor: ${datum}. Typ: ${mission.t}. Agent ${agentID}: ${mission.d}`;
-        let mKeywords = missionFullText.toLowerCase().replace(/[^a-zäöüß0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 4);
-        missionSpeak(missionFullText);
-        
-        overlay.innerHTML = `<div style="border:2px solid #0f8; padding:20px; max-width:450px; background:rgba(0,255,204,0.1); font-family:monospace; text-align:left;"><div style="color:#0f8; font-weight:bold; border-bottom:1px solid #0f8; margin-bottom:15px; text-transform:uppercase; text-align:center;">[ EINSATZBEFEHL ]</div><div>ZEIT: ${datum} | AGENT: ${agentID}</div><div style="margin:10px 0; color:#0f8;">TYP: ${mission.t}</div><div style="margin-bottom:20px; font-size:13px; line-height:1.4;">${mission.d}</div><textarea id="m-in" placeholder="Einsatzbericht..." style="width:100%; height:80px; background:black; color:#0f8; border:1px solid #0f8; padding:5px; font-family:monospace;"></textarea><button id="m-go" style="background:#0f8; color:#000; border:none; padding:12px; width:100%; cursor:pointer; margin-top:10px; font-weight:bold; text-transform:uppercase;">Senden</button></div>`;
-        
-        document.getElementById('m-go').onclick = () => {
-            const v = document.getElementById('m-in').value.trim().toLowerCase();
-            const words = v.split(/\s+/).filter(x => x.length > 0).length;
-            const time = (Date.now() - mStartTime) / 1000;
-            let mCount = 0;
-            mKeywords.forEach(k => { if(v.includes(k)) mCount++; });
-            const success = (time >= 15 && words >= 10 && mCount >= 3);
-            
-            missionHistory.unshift({ date: datum, agent: agentID, type: mission.t, status: success ? "ERFOLG" : "TERMINIERT" });
-
-            if (success) {
-                if (typeof updateXP === 'function') updateXP(15);
-                missionSpeak("Erfolg.");
-                overlay.innerHTML = `<div style="border:2px solid #0f8; padding:30px; background:rgba(0,255,136,0.1); color:#0f8; font-family:monospace;">[ STATUS: ERFOLG ]<br>Zeitlinie stabilisiert. +15 XP.<br><button onclick="window.fullSystemRestore()" style="background:#0f8; color:#000; padding:15px; width:100%; cursor:pointer; margin-top:20px;">ZURÜCK</button></div>`;
-            } else {
-                if (typeof updateXP === 'function') updateXP(-10);
-                missionSpeak("Agent verloren. Zeitlinie ist beschädigt.");
-                overlay.innerHTML = `<div style="border:2px solid #f44; padding:30px; background:rgba(255,0,0,0.1); color:#f44; font-family:monospace;">[ STATUS: TERMINIERT ]<br>Einsatz gescheitert. Die Zeitlinie ist beschädigt. -10 XP.<br><button onclick="window.fullSystemRestore()" style="background:#f44; color:#000; padding:15px; width:100%; cursor:pointer; margin-top:20px;">REBOOT</button></div>`;
-            }
-        };
-    }
-
+  
     document.addEventListener('keydown', function(e) {
         const field = document.getElementById('terminal-input-field');
         if (!field || e.target !== field || e.key !== 'Enter') return;
@@ -1077,11 +1025,11 @@ window.f_einstellungen = function() {
                     <p style="font-size:0.8em; color:#aaa; margin-bottom:15px;">Leite dieses Signal weiter, um neue Agenten für den Sektor zu rekrutieren. Die Zeitlinie ist instabil.</p>
                     <button class="modell-btn" style="border-color:#ffcc00; color:#ffcc00;" onclick="window.f_shareVideo()">SIGNAL TEILEN</button>
                 </div>
-            `; 
+            `;
         } else if (cmd === 'mission') {
-            if (typeof runMission === 'function') runMission();
-        } else if (cmd === 'log') {
-            let logH = '<div style="color:#0f8; padding:20px;"><h3>Missions-Log</h3>';
+            window.startCinematicMission();
+} else if (cmd === 'log') {
+    let logH = '<div style="color:#0f8; padding:20px;"><h3>Missions-Log</h3>';
             if(missionHistory.length === 0) logH += "> Keine Einträge vorhanden.<br>";
             missionHistory.forEach(m => { logH += `> [${m.date}] ${m.status}<br>`; });
             anzeige.innerHTML = logH + "</div>";
@@ -1141,726 +1089,103 @@ window.f_einstellungen = function() {
     }
 </style>
 <script>
-    window.zeitstrahlListe = [];
-    let activeEpoch = null;
+    // --- ZENTRALES EPOCHEN- & MISSIONSSYSTEM ---
+    window.activeEpoch = null; // Der Merker für die gewählte Epoche
 
-    window.registerEpoch = function(data) {
-        window.zeitstrahlListe.push(data);
-    };
+    // Die Master-Liste aller Sektoren
+    window.epochenDaten = [
+        { id: 'steinzeit', title: 'Sektor Prime: Steinzeit', minLevel: 1, gefahr: 'Wilde Fauna', range: [8000, 13000], sfx: ' v. Chr.' },
+        { id: 'bronzezeit', title: 'Sektor Beta: Bronzezeit', minLevel: 5, gefahr: 'Artefakt-Schmuggler', range: [1300, 3300], sfx: ' v. Chr.' },
+        { id: 'eisenzeit', title: 'Sektor Gamma: Eisenzeit', minLevel: 10, gefahr: 'Antike Kriegsführung', range: [50, 1200], sfx: ' v. Chr.' },
+        { id: 'fruehmittelalter', title: 'Sektor Delta: Frühmittelalter', minLevel: 15, gefahr: 'Dunkle Relikte', range: [400, 1000], sfx: ' n. Chr.' },
+        { id: 'hochmittelalter', title: 'Sektor Epsilon: Hochmittelalter', minLevel: 20, gefahr: 'Temporale Schismen', range: [1000, 1250], sfx: ' n. Chr.' },
+        { id: 'spaetmittelalter', title: 'Sektor Zeta: Spätmittelalter', minLevel: 25, gefahr: 'Inquisition', range: [1250, 1500], sfx: ' n. Chr.' },
+        { id: 'kolonialzeit', title: 'Sektor Eta: Kolonialzeit', minLevel: 30, gefahr: 'Entdecker-Paradoxien', range: [1500, 1800], sfx: ' n. Chr.' },
+        { id: 'industriezeitalter', title: 'Sektor Theta: Industriezeitalter', minLevel: 35, gefahr: 'Smog-Anomalien', range: [1800, 1890], sfx: ' n. Chr.' },
+        { id: 'jahrhundertwende', title: 'Sektor Iota: Jahrhundertwende', minLevel: 40, gefahr: 'Tech-Schmuggel', range: [1890, 1914], sfx: ' n. Chr.' },
+        { id: 'moderne', title: 'Sektor Kappa: Moderne', minLevel: 50, gefahr: 'Zeitschleifen', range: [1920, 1950], sfx: ' n. Chr.' },
+        { id: 'postmoderne', title: 'Sektor Lambda: Postmoderne', minLevel: 60, gefahr: 'Spionage-Paradoxien', range: [1960, 1989], sfx: ' n. Chr.' },
+        { id: 'gegenwart', title: 'Sektor My: Gegenwart', minLevel: 70, gefahr: 'KI-Singularität', range: [1990, 2026], sfx: ' n. Chr.' },
+        { id: 'dasmorgen', title: 'Sektor Ny: Das Morgen', minLevel: 80, gefahr: 'Fusions-Lecks', range: [2030, 2090], sfx: ' n. Chr.' },
+        { id: 'zukunft', title: 'Sektor Xi: Zukunft', minLevel: 95, gefahr: 'Raum-Zeit-Faltung', range: [2100, 2300], sfx: ' n. Chr.' },
+        { id: 'ozeanische_zukunft', title: 'Sektor Omicron: Ozeanische Zukunft', minLevel: 110, gefahr: 'Tiefsee-Paradoxien', range: [2300, 2500], sfx: ' n. Chr.' },
+        { id: 'virtuelle_zukunft', title: 'Sektor Sigma: Virtuelle Zukunft', minLevel: 125, gefahr: 'Glitch-Anomalien', range: [2500, 2700], sfx: ' n. Chr.' },
+        { id: 'mars_zeitalter', title: 'Sektor Ares: Mars', minLevel: 140, gefahr: 'Vakuum-Lecks', range: [2700, 2900], sfx: ' n. Chr.' },
+        { id: 'venus_zeitalter', title: 'Sektor Phosphorus: Venus', minLevel: 170, gefahr: 'Säureregen', range: [3100, 3300], sfx: ' n. Chr.' },
+        { id: 'jupiter_zeitalter', title: 'Sektor Galilei: Jupitermond', minLevel: 185, gefahr: 'Strahlungs-Echos', range: [3300, 3500], sfx: ' n. Chr.' },
+        { id: 'titan_zeitalter', title: 'Sektor Rhea: Titan', minLevel: 205, gefahr: 'Methan-Stürme', range: [3500, 3700], sfx: ' n. Chr.' },
+        { id: 'space_hub', title: 'Sektor Omega: Weltraumbasis', minLevel: 250, gefahr: 'Realitäts-Kollaps', range: [4000, 9999], sfx: ' n. Chr.' }
+    ];
 
+    // Anzeige der Zeitstränge im Menü
     window.renderEpochen = function() {
         if (typeof triggerScan === 'function') triggerScan();
-        let html = '<h3>Zeit Stränge</h3><div style="max-height: 350px; overflow-y: auto; padding-right: 5px;">';
+        let html = '<h3>Zeit Stränge</h3><div style="max-height: 380px; overflow-y: auto; padding-right: 5px;">';
+        let currentLevel = window.playerLevel || 1;
 
-        let currentLevel = (typeof playerLevel !== 'undefined') ? playerLevel : 1;
-
-        window.zeitstrahlListe.forEach(epoche => {
-            let levelOk = (currentLevel >= epoche.minLevel);
-            let isAktiv = (activeEpoch === epoche.id);
+        window.epochenDaten.forEach(ep => {
+            let levelOk = (currentLevel >= ep.minLevel);
+            let isAktiv = (window.activeEpoch === ep.id);
             
-            // --- ERWEITERTE FARBLOGIK ---
-            let hue, saturation, lightness;
+            // Farbschema nach Fortschritt
+            let color = levelOk ? (ep.minLevel < 60 ? '#0f8' : (ep.minLevel < 140 ? '#08f' : (ep.minLevel < 250 ? '#f80' : '#b0f'))) : '#555';
+            let bg = isAktiv ? 'rgba(0, 255, 204, 0.15)' : 'rgba(255, 255, 255, 0.03)';
             
-            if (epoche.minLevel < 60) {
-                // Agentur-Grün
-                hue = 152; saturation = 100; lightness = 50;
-            } else if (epoche.minLevel >= 60 && epoche.minLevel < 140) {
-                // Techno-Blau
-                hue = 190 + Math.min(40, (epoche.minLevel - 60) * 0.5);
-                saturation = 100; lightness = 50;
-            } else if (epoche.minLevel >= 140 && epoche.minLevel < 250) {
-                // Weltraum: Orange -> Gelb
-                hue = 30 + Math.min(30, (epoche.minLevel - 140) * 0.4);
-                saturation = 100; lightness = 50;
-            } else {
-                // FINALE: NEON-VIOLETT (AB LEVEL 250)
-                hue = 280; saturation = 100; lightness = 65;
-            }
-
-            let mainColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-            
-            // Glitch-Klasse nur für das Finale, wenn freigeschaltet
-            let glitchClass = (epoche.id === 'space_hub' && levelOk) ? 'epoch-glitch' : '';
-
-            let bgCol = levelOk 
-                ? (isAktiv ? `hsla(${hue}, ${saturation}%, ${lightness}%, 0.15)` : `rgba(255, 255, 255, 0.05)`)
-                : `rgba(255, 0, 0, 0.1)`;
-
-            let borderColor = isAktiv ? mainColor : (levelOk ? "#555" : "#f44");
-            let borderSize = isAktiv ? "4px" : "2px";
-
-            let style = `border-left: ${borderSize} solid ${borderColor}; 
-                         background: ${bgCol}; 
-                         margin-bottom: 12px; padding: 12px; transition: all 0.3s;
-                         cursor: ${levelOk ? 'pointer' : 'not-allowed'};
-                         ${levelOk ? '' : 'opacity: 0.6;'}`;
-
-            let statusDisplay = levelOk 
-                ? (isAktiv ? `<span style="color:${mainColor}; font-weight:bold;">[ AKTIV ]</span>` : '<span style="color:#aaa;">Klicken zum Aktivieren</span>')
-                : `<span style="color:#f44; font-weight:bold;">GESPERRT (Level ${epoche.minLevel})</span>`;
-
-            // Hier wird die glitchClass auf den Titel angewendet
-            html += `<div class="atlas-entry ${glitchClass}" style="${style}" 
-                      ${levelOk ? `onclick="selectEpoch('${epoche.id}')"` : ''}>
-                        <strong style="color: ${levelOk ? mainColor : '#f44'};" class="${glitchClass}">${epoche.title}</strong><br>
-                        ${statusDisplay}<br>
-                        <span style="font-size: 0.75em; color: #888;">Gefahren: ${epoche.gefahr}</span>
-                     </div>`;
+            html += `
+                <div onclick="${levelOk ? `selectEpoch('${ep.id}')` : ''}" style="
+                    border: 1px solid ${levelOk ? color : '#333'};
+                    background: ${bg};
+                    margin-bottom: 8px; padding: 10px; border-radius: 4px;
+                    cursor: ${levelOk ? 'pointer' : 'not-allowed'};
+                    opacity: ${levelOk ? 1 : 0.5};
+                    text-align: left; position: relative;">
+                    <div style="font-size: 0.85em; color: ${color}; font-weight: bold;">${ep.title}</div>
+                    <div style="font-size: 0.7em; color: #aaa;">${levelOk ? ep.gefahr : `ZUGRIFF AB LVL ${ep.minLevel}`}</div>
+                    ${isAktiv ? '<div style="position:absolute; right:10px; top:10px; color:#0f8; font-size:0.6em; font-weight:bold;">[ AKTIV ]</div>' : ''}
+                </div>`;
         });
 
         html += '</div><hr><button onclick="f_start()">Zurück</button>';
         document.getElementById('content-body').innerHTML = html;
     };
 
+    // Auswahl einer Epoche
     window.selectEpoch = function(id) {
-        let epoche = window.zeitstrahlListe.find(e => e.id === id);
-        let currentLevel = (typeof playerLevel !== 'undefined') ? playerLevel : 1;
-        if (epoche && currentLevel >= epoche.minLevel) {
-            activeEpoch = id;
-            if (typeof playBeep === 'function') playBeep(1000, 0.05);
-            renderEpochen();
-        }
+        window.activeEpoch = id;
+        if (typeof playBeep === 'function') playBeep(1000, 0.05);
+        renderEpochen();
     };
 
-    window.getEpochMission = function() {
-        let epoche = window.zeitstrahlListe.find(e => e.id === activeEpoch);
-        let currentLevel = (typeof playerLevel !== 'undefined') ? playerLevel : 1;
-        if (!epoche || currentLevel < epoche.minLevel) return null;
-        let mission = epoche.missions[Math.floor(Math.random() * epoche.missions.length)];
-        let jahr = Math.floor(Math.random() * (epoche.jahrRange[1] - epoche.jahrRange[0])) + epoche.jahrRange[0];
-        return {
-            date: jahr + epoche.jahrSuffix,
-            agent: ["X-99", "Alpha-7", "Zero-One", "Ghost"][Math.floor(Math.random()*4)],
-            title: mission.title,
-            desc: mission.desc
-        };
+    // Hauptfunktion für den Missionsstart
+    window.runMission = function() {
+        if (!window.activeEpoch) {
+            document.getElementById('back-button-global').style.display = 'block';
+            document.getElementById('anzeige').innerHTML = '<div style="color:#f44; text-align:center; margin-top:10vh;">[ FEHLER ]<br>> Kein Zeitstrang kalibriert.<br>> Wähle zuerst eine Epoche im Menü.</div>';
+            return;
+        }
+
+        let ep = window.epochenDaten.find(e => e.id === window.activeEpoch);
+        let jahr = Math.floor(Math.random() * (ep.range[1] - ep.range[0])) + ep.range[0];
+        let zielZeit = jahr + ep.sfx;
+
+        // Interface vorbereiten
+        document.getElementById('back-button-global').style.display = 'block';
+        document.getElementById('anzeige').innerHTML = `
+            <div style="color:#0f8; padding: 20px; border: 1px solid #0f8; background: rgba(0,255,204,0.1); text-align: center; font-family: monospace;">
+                <h3 style="margin-top:0; text-shadow: 0 0 10px #0f8;">[ SPRUNG ERFOLGREICH ]</h3>
+                <p style="font-size:0.9em; margin-bottom:5px;">Sektor erreicht:</p>
+                <div style="font-size:1.1em; color:#fff; font-weight:bold; margin-bottom:15px;">${ep.title}</div>
+                <p style="font-size:0.9em; margin-bottom:5px;">Zielzeitraum:</p>
+                <div style="font-size:1.1em; color:#fff; font-weight:bold; margin-bottom:15px;">${zielZeit}</div>
+                <hr style="border-color: #0f8; opacity: 0.3; margin: 15px 0;">
+                <p style="color: #ffcc00; font-size: 0.8em; line-height: 1.4;">
+                    > Scanne Umgebung nach Anomalien...<br>
+                    > Logik-Kern wird für ${ep.id} initialisiert.<br>
+                    > Bereite interaktives Interface vor.
+                </p>
+                </div>
+        `;
     };
-</script>
-<script>
-    window.registerEpoch({
-        id: 'steinzeit',
-        title: 'Sektor Prime: Steinzeit',
-        minLevel: 1,
-        status: 'Stabil',
-        gefahr: 'Wilde Fauna, Paradoxon-Touristen.',
-        jahrRange: [8000, 13000],
-        jahrSuffix: ' v. Chr.',
-        missions: [
-            { title: "Plasma-Feuerzeug", desc: "Ein Zeit-Tourist hat ein Plasma-Feuerzeug verloren. Die verfrühte Beherrschung von Hitze gefährdet die Evolution. Berge das Objekt." },
-            { title: "Rad-Sabotage", desc: "Ein illegaler Erfinder präsentiert das Rad Jahrtausende zu früh. Zerstöre den Prototyp." },
-            { title: "Mammut-Wilderer", desc: "Kriminelle jagen Mammuts mit Plasma-Gewehren. Stoppe die Safari." },
-            { title: "Neon-Höhlenmalerei", desc: "Nano-Farbe aus der Zukunft in heiliger Höhle entdeckt. Neutralisiere sie." },
-            { title: "Drohnen-Kult", desc: "Abgestürzte Drohne wird als Gott verehrt. Berge das Gerät spurlos." },
-            { title: "Titan-Speerspitzen", desc: "Schmuggler verteilen Titan-Klingen. Tausche sie gegen Feuerstein aus." },
-            { title: "Bluetooth-Orakel", desc: "Lautsprecher in Höhle spielt Musik. Schamane hält es für Geister." },
-            { title: "Antibiotika-Schock", desc: "Zeitreisender heilt Stamm mit moderner Medizin. Isoliere den Täter." },
-            { title: "Mais-Anomalie", desc: "Turbo-Mais gepflanzt vor der Landwirtschaft. Verbrenne das Feld." },
-            { title: "Schamanen-Smartphone", desc: "Smartphone als 'magischer Spiegel' im Einsatz. Konfisziere es." },
-            { title: "Kettensägen-Rodung", desc: "Laser-Kettensägen im prähistorischen Wald. Stoppe die Abholzung." },
-            { title: "Taschen-Heizstrahler", desc: "Heizstrahler schmilzt Gletscher ab. Deaktiviere die Energiequelle." },
-            { title: "Sprach-Virus", desc: "Universalübersetzer lehrt Stamm Latein. Starte Reset-Impuls." },
-            { title: "Plastik-Fossilien", desc: "Plastikflaschen im Schlamm drohen zu versteinern. Alles ausgraben." },
-            { title: "Holo-Götze", desc: "Holo-Projektor zeigt Popstar über Berg. Schalte den Emitter ab." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'bronzezeit',
-        title: 'Sektor Beta: Bronzezeit',
-        minLevel: 5,
-        status: 'Stabil',
-        gefahr: 'Frühe Hochkulturen, Artefakt-Schmuggler.',
-        jahrRange: [1300, 3300],
-        jahrSuffix: ' v. Chr.',
-        missions: [
-            { title: "Götter-Hologramm", desc: "Ein Hologramm wird auf eine Zikkurat projiziert, um als Gott verehrt zu werden. Zerstöre den Emitter auf der Spitze." },
-            { title: "Stahl-Schmuggel", desc: "Zeitschmuggler bringen heimlich echten Stahl in die Bronzezeit. Konfisziere die Ladung sofort." },
-            { title: "Keilschrift-Code", desc: "Ein Hacker versteckt Binärcode in alten sumerischen Tontafeln. Tausche die Tafeln gegen authentische Kopien aus." },
-            { title: "Pharaonen-Drohne", desc: "Ein früher Pharao nutzt eine kleine Aufklärungsdrohne als fliegendes 'Auge des Horus'. Fange die Drohne ab." },
-            { title: "Troja-Scanner", desc: "Ein trojanischer Spion nutzt ein Infrarotgerät, um griechische Schiffe nachts zu zählen. Nimm ihm die Technologie ab." },
-            { title: "Kupfer-Betrug", desc: "Ein Händler streckt sein Kupfer mit einem futuristischen Polymer. Schmelze das illegale Lager ein." },
-            { title: "U-Boot im Nil", desc: "Ein getarntes Mini-U-Boot von Zeittouristen stört die sakrale Schifffahrt der Ägypter. Zwinge es zum Abtauchen." },
-            { title: "Streitwagen-Motor", desc: "Ein leiser Elektromotor wurde an einem hethitischen Streitwagen verbaut. Entferne den Antrieb vor der Schlacht." },
-            { title: "Orakel-KI", desc: "Das Orakel von Uruk wird von einer vergrabenen KI-Einheit gespeist. Grabe den Server aus und klemme ihn ab." },
-            { title: "Sonnensegel-Schiff", desc: "Minoische Händler haben flexible Solarmodule auf ihren Schiffen installiert. Demontiere sie restlos." },
-            { title: "Cheops-Laser", desc: "Beim Bau der großen Pyramide werden Laser-Wasserwaagen benutzt. Konfisziere die Geräte von den Vorarbeitern." },
-            { title: "Gilgamesch-Implantat", desc: "Ein Königstumbewerber hat ein Cyber-Implantat für extreme körperliche Stärke. Deaktiviere es mit einem EMP." },
-            { title: "Plastik-Amphoren", desc: "Kriminelle lagern seltenes Olivenöl in unzerstörbaren Plastikgefäßen. Tausche sie heimlich gegen Tonkrüge aus." },
-            { title: "Babylon-Batterie", desc: "Jemand hat frühe galvanische Zellen zu einem Plasmagenerator umgebaut. Klemme die Anlage dauerhaft ab." },
-            { title: "Bronze-Mecha", desc: "Ein Erfinder hat durch einen Bauplan aus der Zukunft einen dampfbetriebenen Bronze-Golem gebaut. Sabotiere die Hydraulik." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'eisenzeit',
-        title: 'Sektor Gamma: Eisenzeit',
-        minLevel: 10,
-        status: 'Stabil',
-        gefahr: 'Antike Kriegsführung, Chrono-Deserteure.',
-        jahrRange: [50, 1200], 
-        jahrSuffix: ' v. Chr.',
-        missions: [
-            { title: "Kevlar-Kettenhemd", desc: "Ein keltischer Häuptling trägt eine Rüstung aus ballistischem Kevlar. Tausche sie gegen Eisenringe aus." },
-            { title: "Spartanische Steroide", desc: "Zeittouristen haben spartanischen Kriegern futuristische Muskel-Stimulanzien gegeben. Isoliere die betroffene Truppe." },
-            { title: "Römisches Navi", desc: "Eine römische Legion nutzt ein robustes GPS-Tablet zur Navigation durch Germanien. Entwende das Gerät nachts." },
-            { title: "Druiden-Drohne", desc: "Ein keltischer Druide nutzt eine leuchtende Drohne für 'magische' Rituale im Wald. Schieße sie mit einem EMP ab." },
-            { title: "Olympia-Nanobots", desc: "Ein Athlet bei den antiken Olympischen Spielen nutzt Nanobots zur Leistungssteigerung. Verabreiche heimlich das Gegenmittel." },
-            { title: "Railgun-Katapult", desc: "Ein griechischer Ingenieur hat Baupläne für ein elektromagnetisches Katapult gefunden. Vernichte das Pergament sofort." },
-            { title: "Phönizier-Funk", desc: "Phönizische Händler koordinieren ihre Flotte über verschlüsselte Kurzwellen-Funkgeräte. Zerstöre die Relaisstation." },
-            { title: "Gladiatoren-Exo", desc: "Ein Gladiator gewinnt jeden Kampf durch ein mechanisches Exoskelett unter der Rüstung. Sabotiere die Hydraulik-Gelenke." },
-            { title: "Teflon-Schilde", desc: "Eine persische Elite-Einheit nutzt Schilde, an denen durch eine Speziallegierung alles abprallt. Tausche die Schilde aus." },
-            { title: "Sniper-Armbrust", desc: "Ein Attentäter plant, einen Feldherrn vorzeitig mit einer Laser-Zielvorrichtung auszuschalten. Neutralisiere den Schützen." },
-            { title: "Barcode-Amphore", desc: "In einem griechischen Tempel werden Opfergaben mit Laser-Barcodes gescannt. Konfisziere die betroffenen Amphoren." },
-            { title: "Schwarzpulver-Schmuggel", desc: "Zeitschmuggler versuchen, das Geheimnis von Schwarzpulver Jahrhunderte zu früh nach Europa zu bringen. Wässere die Fracht." },
-            { title: "Germanen-Taschenlampe", desc: "Germanische Stämme nutzen LED-Taschenlampen, um römische Nachtwachen zu blenden. Sammle alle Leuchtmittel restlos ein." },
-            { title: "Holo-Feldherr", desc: "Hannibal nutzt bei der Alpenüberquerung topografische 3D-Hologramme. Zerstöre den Emitter im Elefanten-Lager." },
-            { title: "Schall-Rammbock", desc: "Eine Belagerungsarmee nutzt futuristische Schallkanonen, um Stadtmauern einzureißen. Überlaste den Resonanzkern der Waffe." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'fruehmittelalter',
-        title: 'Sektor Delta: Frühes Mittelalter',
-        minLevel: 15,
-        status: 'Stabil',
-        gefahr: 'Völkerwanderung, Dunkle Relikte.',
-        jahrRange: [400, 1000],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Nordmänner-Navi", desc: "Eine Wikingerflotte navigiert mit wasserdichten GPS-Tablets zielsicher nach England. Versenke die Geräte im Fjord." },
-            { title: "Kloster-Code", desc: "Ein irischer Mönch kopiert Schriften nicht von Hand, sondern nutzt einen solarbetriebenen Scanner. Konfisziere das Gerät." },
-            { title: "Excalibur-Anomalie", desc: "Ein britischer Kriegsherr hat ein Plasmaschwert gefunden, das man für Excalibur hält. Entwende den Waffengriff." },
-            { title: "Kaiser-Illusion", desc: "Am Hof Karls des Großen tauchen holografische Abgesandte aus Byzanz auf. Zerstöre die versteckten Projektoren." },
-            { title: "Heiler-Paradox", desc: "Während der Justinianischen Pest verteilt ein Zeitreisender Antibiotika-Spritzen. Stelle die Ampullen restlos sicher." },
-            { title: "Plasma-Feuer", desc: "Die byzantinische Flotte nutzt kein Griechisches Feuer, sondern futuristische Plasma-Werfer. Sabotiere die Energiezellen." },
-            { title: "Motorisierte Horde", desc: "Ein Stamm der Völkerwanderung nutzt geländegängige Quads. Zerstöre die Fahrzeuge und lösche die Erinnerungen." },
-            { title: "Schlacht-Kommunikation", desc: "Fränkische Truppenführungen nutzen In-Ear-Funkgeräte. Störe die Frequenz und berge die Ohrstöpsel." },
-            { title: "Britannia-Batterie", desc: "Angelsachsen beleuchten ihre Festungen mit LED-Scheinwerfern. Tausche sie heimlich gegen Fackeln aus." },
-            { title: "Blutlinien-Sabotage", desc: "Ein Klon-Experiment soll die Merowinger-Blutlinie vorzeitig verändern. Infiltriere das Versteck und zerstöre den Inkubator." },
-            { title: "Motor-Drachenschiff", desc: "Ein Wikingerschiff ist mit einem leisen Elektro-Außenborder ausgestattet. Demontiere den Antrieb nachts." },
-            { title: "Festungs-Drucker", desc: "Ein Adliger nutzt einen industriellen 3D-Drucker aus dem 23. Jahrhundert für den Burgbau. Schmelze die Maschine ein." },
-            { title: "Wüsten-Späher", desc: "In Nordafrika werden kleine Tarnkappen-Drohnen zur Feindaufklärung eingesetzt. Fange die Drohnen mit EMP-Netzen ab." },
-            { title: "Leuchtende Steine", desc: "Skandinavische Runensteine wurden mit fluoreszierender Nano-Farbe überzogen. Trage die chemische Schicht ab." },
-            { title: "Radioaktiver Gral", desc: "Ein Kelch, der für den Heiligen Gral gehalten wird, ist eigentlich ein undichter Isotopen-Behälter. Isoliere die Strahlung." }
-        ]
-    });
-</script>
-        <script>
-    window.registerEpoch({
-        id: 'hochmittelalter',
-        title: 'Sektor Epsilon: Hochmittelalter',
-        minLevel: 20,
-        status: 'Stabil',
-        gefahr: 'Kreuzzüge, Temporale Schismen.',
-        jahrRange: [1000, 1250],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Ritter-Exoskelett", desc: "Ein Ritter gewinnt jedes Turnier durch hydraulische Servomotoren in seiner Rüstung. Sabotiere die Energiezufuhr vor dem Finale." },
-            { title: "Drohnen-Falke", desc: "Bei der Beizjagd wird ein abgerichteter Greifvogel durch eine bionische Aufklärungsdrohne ersetzt. Fange den 'Vogel' ein." },
-            { title: "Kreuzritter-Laser", desc: "Während einer Belagerung versucht jemand, Burgmauern mit einem Industrie-Laser aufzuschneiden. Konfisziere das Gerät." },
-            { title: "Pest-Paradoxon", desc: "Jemand versucht, den Ausbruch der Pest künstlich Jahrhunderte vorzuverlegen. Isoliere den Erreger und zerstöre die Proben." },
-            { title: "Gotische Bau-KI", desc: "Ein Baumeister nutzt einen Tablet-PC mit Architektur-KI, um gotische Kathedralen zu entwerfen. Entwende den Rechner spurlos." },
-            { title: "Hanse-Schmuggler", desc: "Ein Handelsschiff der Hanse transportiert Vakuum-verpackte Gewürze aus dem 21. Jahrhundert. Wirf die Ladung über Bord." },
-            { title: "Cyber-Armbrust", desc: "Söldner sind mit magnetbeschleunigten Repetier-Armbrüsten ausgestattet. Tausche die Waffen nachts gegen normale aus." },
-            { title: "Funk-Spione", desc: "Spione des Templerordens nutzen winzige Mikrofone zur Informationsbeschaffung. Deaktiviere das Abhörnetzwerk." },
-            { title: "Drachen-Projektion", desc: "Ein Scharlatan erpresst Dörfer mit holografischen Drachenprojektionen über den Feldern. Zerstöre den mobilen Emitter." },
-            { title: "Gusseisen-Betrug", desc: "Waffenschmiede erhalten heimlich fertige Barren aus Titan-Legierungen. Ersetze das Lager durch herkömmliches Eisen." },
-            { title: "Städtebau-Druck", desc: "Ein Dorfbrunnen wurde nicht gemauert, sondern nachts im 3D-Betondruckverfahren erstellt. Reiß ihn ab und mauer ihn klassisch." },
-            { title: "Sonnen-Wunder", desc: "Ein Abt nutzt starke LED-Strahler, um 'göttliches Licht' im Chorraum zu simulieren. Entferne die Lampen aus der Decke." },
-            { title: "Asassinen-Tarnung", desc: "Ein Attentäter nutzt einen optischen Tarnumhang für politische Morde. Fange ihn in einer Infrarot-Falle." },
-            { title: "Papiergeld-Crash", desc: "Zeitreisende versuchen, verfrüht Falschgeld in Form von synthetischen Banknoten einzuführen. Verbrenne die Druckerei." },
-            { title: "Minnesänger-Synth", desc: "Ein Barde tourt mit einer Laute, in der ein digitaler Synthesizer eingebaut ist. Demontiere die Elektronik aus dem Instrument." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'spaetmittelalter',
-        title: 'Sektor Zeta: Spätes Mittelalter',
-        minLevel: 25,
-        status: 'Stabil',
-        gefahr: 'Pest-Pandemie, Inquisition, Schisma.',
-        jahrRange: [1250, 1500],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Gutenberg-Laser", desc: "Ein Drucker nutzt heimlich einen industriellen Laserdrucker für seine Bibeln. Demontiere das Gerät spurlos." },
-            { title: "Inquisitions-Polygraph", desc: "Ein Inquisitor nutzt ein digitales EEG-Gerät als 'Wahrheitsfinder'. Konfisziere den Lügendetektor." },
-            { title: "Pest-Impfstoff", desc: "Eine Untergrundgruppe verteilt moderne mRNA-Impfstoffe gegen die Beulenpest. Sichere die Kühlboxen." },
-            { title: "Gatling-Arkebuse", desc: "Ein Söldnerheer hat primitive Handfeuerwaffen zu einer rotierenden Maschinengewehr-Konstruktion umgebaut. Zerstöre die Waffe." },
-            { title: "Orléans-Funk", desc: "Johanna von Orléans empfängt ihre 'Stimmen' über ein in den Helm eingebautes Funkgerät. Entferne den Empfänger." },
-            { title: "Infrarot-Brille", desc: "Ein venezianischer Glasbläser hat versehentlich Infrarot-Linsen nach Bauplänen aus der Zukunft gefertigt. Zerschlage die Linsen." },
-            { title: "Medici-Krypto", desc: "Eine Florentiner Bank nutzt ein Quanten-Terminal für den Handel. Trenne das System vom temporalen Netz." },
-            { title: "Holo-Hexensabbat", desc: "Ein Fürst inszeniert Hexenprozesse durch holografische Dämonen in den Wäldern. Schalte den Emitter ab." },
-            { title: "Kevlar-Gambeson", desc: "Im Hundertjährigen Krieg tauchen gepolsterte Rüstungen mit Kevlar-Schichten auf. Verbrenne das Lagerhaus." },
-            { title: "Laser-Alarmanlage", desc: "Der Dogenpalast in Venedig wird durch unsichtbare Lichtschranken gesichert. Deaktiviere das Sicherheitssystem." },
-            { title: "Alchemisten-Plastik", desc: "Ein Alchemist hat erfolgreich PVC-Plastik synthetisiert. Zerstöre das Labor und die Aufzeichnungen." },
-            { title: "C4-Petarde", desc: "Eine Belagerungstruppe nutzt modernen Sprengstoff statt herkömmlichem Schwarzpulver. Entschärfe die Ladung." },
-            { title: "Digitale Astrolabien", desc: "Seefahrer nutzen Astrolabien mit verstecktem LCD-Display für GPS-Daten. Tausche die Navigationsgeräte aus." },
-            { title: "Geisterschiff-Drohnen", desc: "Piraten nutzen Nebel-Generatoren und LEDs, um als 'Geisterschiff' Angst zu verbreiten. Sabotiere die Anlage." },
-            { title: "Mechanischer Papst", desc: "Während des großen Schismas wird ein ferngesteuerter Android als Papst-Double eingesetzt. Schalte die Maschine ab." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'kolonialzeit',
-        title: 'Sektor Eta: Kolonialzeit',
-        minLevel: 30,
-        status: 'Stabil',
-        gefahr: 'Piraterie, Entdecker-Paradoxien.',
-        jahrRange: [1500, 1800],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Galeonen-Reaktor", desc: "Eine spanische Galeone wird heimlich von einem kompakten Fusionsreaktor angetrieben. Demontiere den Antrieb nachts im Hafen." },
-            { title: "Freibeuter-Funk", desc: "Piratenschiffe koordinieren ihre Angriffe auf die Royal Navy über verschlüsselte Walkie-Talkies. Störe die Frequenz und berge die Geräte." },
-            { title: "Karibik-Klimaanlage", desc: "Ein Gouverneur hat eine leise, futuristische Klimaanlage in seiner Residenz installiert. Baue sie aus, bevor Gäste sie bemerken." },
-            { title: "Scharfschützen-Muskete", desc: "Ein Duellant nutzt eine Steinschlossmuskete mit verborgenem holografischem Visier. Tausche die Waffe gegen eine Standardausführung." },
-            { title: "Voodoo-Hologramm", desc: "Ein Scharlatan nutzt 3D-Hologramme, um in einer Kolonie mächtige Voodoo-Flüche vorzutäuschen. Schalte den Emitter im Dschungel ab." },
-            { title: "Tiefsee-Exoskelett", desc: "Schatzsucher nutzen einen modernen Tiefsee-Tauchanzug, um gesunkene Galeonen restlos auszuplündern. Sabotiere die Sauerstoffzufuhr." },
-            { title: "Kevlar-Segel", desc: "Ein Piratenschiff entkommt jedem Verfolger dank unzerstörbarer Kevlar-Segel. Ersetze das Material heimlich durch normales Leinen." },
-            { title: "Kaffee-Replikator", desc: "Eine Plantage produziert Kaffee nicht durch Anbau, sondern mit einem Nahrungs-Synthetisator aus dem 24. Jahrhundert. Zerstöre die Maschine." },
-            { title: "Navigations-Satellit", desc: "Ein Astronom hat sein Fernrohr mit einem Daten-Uplink zu einem Satelliten gekoppelt, um perfekte Karten zu zeichnen. Klemme die Verbindung ab." },
-            { title: "Schild-Panzerung", desc: "Ein berüchtigter Freibeuter überlebt Kanonentreffer dank eines unsichtbaren Kraftfelds. Überlaste den Schildgenerator mit einem EMP." },
-            { title: "Gatling-Kanone", desc: "Eine Schiffskanone wurde so modifiziert, dass sie 600 Kugeln pro Minute abfeuert. Schmelze den Lauf ein." },
-            { title: "Plastik-Schatzkiste", desc: "Piraten haben ihren Schatz in einer grellpinken, unzerstörbaren Plastikbox vergraben. Packe das Gold in eine authentische Holztruhe um." },
-            { title: "Elektroschock-Degen", desc: "Ein Adeliger gewinnt jedes Fechtduell mit einem Degen, der 50.000 Volt abgibt. Ersetze die Waffe spurlos." },
-            { title: "Cyber-Papagei", desc: "Der Papagei eines Kapitäns ist in Wahrheit eine animatronische Spionage-Drohne. Fange den Vogel ein und lösche den Speicher." },
-            { title: "Sonar-Krähennest", desc: "Der Ausguck eines Schiffes verlässt sich auf ein hochmodernes Radar-Display statt auf ein Fernrohr. Entwende den Bildschirm." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'industriezeitalter',
-        title: 'Sektor Theta: Industriezeitalter',
-        minLevel: 35,
-        status: 'Stabil',
-        gefahr: 'Smog-Anomalien, Fabrik-Sabotage, Steampunk-Paradoxien.',
-        jahrRange: [1800, 1890],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Dampfmaschinen-SPS", desc: "Ein Fabrikant hat eine moderne speicherprogrammierbare Steuerung (SPS) in seine Webstühle eingebaut. Entferne die Elektronik und stelle auf Relaistechnik zurück." },
-            { title: "TDI-Schmuggel", desc: "Ein Krimineller pumpt hochmodernes 1.9 TDI-Dieselgemisch in frühe Verbrennungsmotoren, um Rennen zu gewinnen. Lass den Kraftstoff heimlich ab." },
-            { title: "Kamera-Betrug", desc: "Ein viktorianischer Fotograf nutzt eine klobige Holzkamera, in der ein 4K-Digitalsensor versteckt ist. Konfisziere den Sensor." },
-            { title: "Kybernetischer Zylinder", desc: "Ein reicher Lord trägt einen Zylinder, der seine Gehirnströme misst und Aktienkurse vorhersagt. Zerstöre die Schnittstelle." },
-            { title: "LED-Bergbau", desc: "Kumpel im Kohlebergwerk nutzen heimlich moderne Hochleistungs-LED-Stirnlampen statt Öllampen. Tausche die Ausrüstung aus." },
-            { title: "Magnetschwebe-Zug", desc: "Ein Erfinder hat Spulen für einen frühen Magnetschwebeantrieb unter einer Dampflok montiert. Sabotiere die Magnete." },
-            { title: "Telegrafen-Hack", desc: "Über die frühen Telegrafenleitungen wird komprimierter Binärcode aus der Zukunft gesendet. Klemme den illegalen Server ab." },
-            { title: "Plasmabogen-Schweißer", desc: "Beim Brückenbau wird heimlich mit futuristischen Plasmabrennern gearbeitet, die Stahl wie Butter schneiden. Entwende die Werkzeuge." },
-            { title: "Arbeiter-Kommunikatoren", desc: "Eine Streikbewegung organisiert sich über kleine, holografische Kommunikatoren. Sammle alle Geräte restlos ein." },
-            { title: "Gatling-Laser", desc: "Ein Waffenhändler hat eine Kurbel-Gatling so modifiziert, dass sie rote Laserbündel abfeuert. Schmelze die Waffe im Hochofen ein." },
-            { title: "Lithium-Patent", desc: "Jemand versucht im Jahr 1860, ein Patent auf Lithium-Ionen-Akkus anzumelden. Verbrenne die Baupläne im Patentamt." },
-            { title: "Smog-Drohnen", desc: "Kleine Drohnen saugen heimlich den Londoner Nebel ein, um die Umwelt vorzeitig zu säubern. Das ändert das Klima. Schalte sie ab." },
-            { title: "Prothesen-Paradox", desc: "Ein Fabrikarbeiter hat nach einem Unfall einen voll funktionsfähigen, mechanischen Roboterarm erhalten. Deaktiviere die Servomotoren." },
-            { title: "Stahl-Diebe", desc: "Plünderer aus einer postapokalyptischen Zukunft klauen nachts tonnenweise massiven Stahlbau für ihre Bunker. Schließe ihr Portal." },
-            { title: "Chirurgen-Laser", desc: "Ein berühmter Londoner Arzt nutzt ein medizinisches Plasma-Skalpell für seine Operationen. Entwende das Instrument spurlos." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'jahrhundertwende',
-        title: 'Sektor Iota: Jahrhundertwende',
-        minLevel: 40,
-        status: 'Stabil',
-        gefahr: 'Tech-Schmuggel, Elektrifizierungs-Paradoxien.',
-        jahrRange: [1890, 1914],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Anti-Grav-Zeppelin", desc: "Ein früher Zeppelin wird nicht mit Traggas, sondern mit versteckten Antigravitations-Modulen in der Luft gehalten. Zerstöre die Module." },
-            { title: "Kino-Anomalie", desc: "Auf einer der ersten Kinovorführungen wird statt eines Stummfilms ein CGI-Actionfilm aus dem 21. Jahrhundert gezeigt. Brenne die Filmrollen nieder." },
-            { title: "Tesla-EMP", desc: "Nikola Teslas Wardenclyffe-Tower wurde von Saboteuren zu einer Waffe umgebaut, die einen globalen EMP auslösen soll. Kappe die Hauptleitung." },
-            { title: "KI-Motorwagen", desc: "Ein Benz-Motorwagen wurde heimlich mit einem autonomen KI-Fahrsystem ausgestattet und steuert sich wie von Geisterhand. Entferne den Chip." },
-            { title: "Radar-Rettung", desc: "Ein Zeitreisender versucht, die Titanic mit einem eingeschmuggelten Sonar- und Radarsystem zu retten. Das Paradoxon würde die Zeit zerreißen. Sabotiere das Radar." },
-            { title: "Röntgen-Mutation", desc: "Ein früher Röntgenapparat wurde modifiziert und verleiht Testpersonen übernatürliche Fähigkeiten, bevor sie zerfallen. Zerstöre die Strahlungsquelle." },
-            { title: "Neon-Gedankenkontrolle", desc: "Die ersten Leuchtreklamen in Paris pulsieren in Frequenzen, die eine willenlose Gesellschaft formen sollen. Zerschlage die Röhren." },
-            { title: "Jet-Doppeldecker", desc: "Die Gebrüder Wright haben Mikroturbinen an ihren Flyer montiert, um die Schallmauer zu brechen. Tausche sie gegen den originalen Motor aus." },
-            { title: "U-Boot-Tarnkappe", desc: "Ein frühes militärisches U-Boot ist mit optischer Tarnkappentechnologie ausgestattet. Überlaste das System, damit es wieder sichtbar wird." },
-            { title: "Fließband-Mechas", desc: "In einer frühen Autofabrik werden nachts heimlich Bauteile für zweibeinige Kampf-Mechs vom Fließband gelassen. Lege die Produktion lahm." },
-            { title: "Smartphone-Telegraf", desc: "Ein Börsenmakler fängt Telegrafen-Signale mit einem modifizierten Smartphone ab, um den Markt zu beherrschen. Entwende das Gerät." },
-            { title: "Radio-Zukunft", desc: "Ein früher Radiosender empfängt versehentlich Nachrichtenübertragungen aus dem Jahr 2050. Störe die Antenne dauerhaft." },
-            { title: "U-Bahn-Portal", desc: "Beim Bau der ersten U-Bahn-Schächte stoßen Arbeiter auf ein leuchtendes Zeitportal in eine postapokalyptische Zukunft. Versiegele den Tunnel." },
-            { title: "Holo-Megafon", desc: "Demonstrantinnen nutzen kleine Megafone, die ihre Parolen als gigantische rote Hologramme in die Luft projizieren. Sammle die Geräte ein." },
-            { title: "Plastik-Schallplatte", desc: "Jemand presst Musik nicht auf Schellack, sondern auf unverwüstliches Vinyl mit digitaler Tonqualität. Konfisziere die Master-Platte." }
-        ]
-    });
-</script>
- <script>
-    window.registerEpoch({
-        id: 'moderne',
-        title: 'Sektor Kappa: Moderne',
-        minLevel: 50,
-        status: 'Instabilität detektiert',
-        gefahr: 'Globale Konflikte, Zeitschleifen, Dimensionsrisse.',
-        jahrRange: [1920, 1950],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Raum-Zeit-Riss", desc: "Über einer Großstadt der 30er Jahre hat sich ein Riss aufgetan, durch den eine postapokalyptische Zukunftswüste sichtbar wird. Schließe die Anomalie." },
-            { title: "22-Minuten-Zeitschleife", desc: "Ein Physiker hat 1945 versehentlich eine lokale Zeitschleife aktiviert, die exakt 22 Minuten dauert. Brich den Zyklus im Labor." },
-            { title: "Plasma-Mafia", desc: "Ein Syndikat in den 1920ern nutzt modifizierte Maschinenpistolen, die Plasmablitze abfeuern. Hebe das illegale Waffenlager aus." },
-            { title: "Quanten-Enigma", desc: "Eine Verschlüsselungsmaschine wurde durch einen Quantencomputer aus der Zukunft ersetzt. Tausche den Rechner gegen das Original aus." },
-            { title: "Tarnkappen-Propeller", desc: "Kampfflugzeuge wurden heimlich mit optischen Tarnkappensystemen ausgerüstet. Sabotiere die Generatoren auf dem Rollfeld." },
-            { title: "Haushalts-Android", desc: "In einer typischen 50er-Jahre-Vorstadt nutzt eine Familie einen humanoiden Roboter aus dem Jahr 2080 für den Haushalt. Konfisziere den Androiden." },
-            { title: "Radio-Apokalypse", desc: "Ein Radiosender empfängt und sendet versehentlich das Notsignal vom Ende der Welt aus dem Jahr 2077. Kappe die Antennenverbindung." },
-            { title: "Börsen-Smartwatch", desc: "Ein Broker verhindert den Börsencrash von 1929, weil er die Kurse auf einer Smartwatch empfängt. Entwende ihm das Gerät." },
-            { title: "Wurmloch-Rakete", desc: "Eine ballistische Rakete wurde programmiert, durch ein Mini-Wurmloch ein Ziel im 21. Jahrhundert zu treffen. Ändere die Zielkoordinaten." },
-            { title: "Mutanten-Graben", desc: "Durch ein temporales Leck sind Mutanten aus einer gefährlichen Parallelwelt im Jahr 2300 in einen Schützengraben gefallen. Evakuiere sie zurück." },
-            { title: "Penicillin-Nanobots", desc: "Ein Arzt heilt Patienten nicht mit frühem Penicillin, sondern mit Nanobots. Das ruiniert die medizinische Evolution. Sichere die Ampullen." },
-            { title: "Schwereloser Wolkenkratzer", desc: "Ein Hochhaus wird mit Anti-Grav-Trägern gebaut, die der Physik der 30er Jahre widersprechen. Ersetze die Träger durch echten Stahl." },
-            { title: "Phasen-Lokomotive", desc: "Ein fehlerhafter Flux-Antrieb lässt einen Dampfzug ständig zwischen verschiedenen Dimensionen hin und her flackern. Stabilisiere den Kessel." },
-            { title: "Trinity-Portal", desc: "Ein früher Atomwaffentest droht, ein Portal in eine Dimension aus reiner Antimaterie aufzureißen. Kalibriere die Zündung neu." },
-            { title: "Autotune-Rockstar", desc: "Eine frühe Rock 'n' Roll Band nutzt ein verstecktes digitales Stimmen-Implantat. Deaktiviere die Elektronik im Mikrofon." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'postmoderne',
-        title: 'Sektor Lambda: Postmoderne',
-        minLevel: 60,
-        status: 'Kritisch',
-        gefahr: 'Spionage-Paradoxien, Neon-Zeitschleifen, Dimensionsrisse.',
-        jahrRange: [1960, 1989],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Mondlandungs-Hologramm", desc: "Zeittouristen versuchen, die Apollo-11-Mission durch ein 8K-Hologramm aus einem Studio zu ersetzen. Verhindere den Austausch." },
-            { title: "Kassetten-Zeitschleife", desc: "Ein verfluchtes Mixtape in einem Diner der 80er Jahre verursacht eine ständige 24-Stunden-Zeitschleife. Zerstöre die Kassette." },
-            { title: "Berliner Mauer-Portal", desc: "Innere Sektoren der Berliner Mauer verschwimmen mit einer postapokalyptischen Parallelwelt. Versiegele den Dimensionsriss." },
-            { title: "Arcade-Apokalypse", desc: "Ein neuer Arcade-Automat in einer Spielhalle ist in Wahrheit ein Riss in eine kybernetische Zukunft. Klemme den Automaten ab." },
-            { title: "Nano-Spionage", desc: "Während des Kalten Krieges wird eine Nano-Drohne aus dem Jahr 2080 in Moskauer Aktenräumen eingesetzt. Fange die Drohne." },
-            { title: "Laser-Discokugel", desc: "Eine Discokugel in einem Club von 1978 feuert echte, tödliche Laserstrahlen aus der Zukunft ab. Evakuiere die Tanzfläche und demontiere sie." },
-            { title: "Warp-Apollo", desc: "Eine Saturn-V-Rakete wurde heimlich mit einem illegalen Warp-Antrieb ausgestattet. Baue das Modul vor dem Start aus." },
-            { title: "Hippie-Gedankenkontrolle", desc: "Auf einem Musikfestival 1969 tragen Besucher unbemerkt neuronale Kontroll-Chips aus dem 23. Jahrhundert. Deaktiviere das Hauptsignal." },
-            { title: "Walkman-Teleporter", desc: "Ein Teenager hat einen modifizierten Walkman, der ihn bei jedem Songwechsel durch Raum und Zeit teleportiert. Entwende das Gerät." },
-            { title: "Neon-Cyberpunk-Bande", desc: "Eine Straßengang in den 80ern hat sich mit illegalen Cyber-Implantaten und Plasma-Baseballschlägern ausgerüstet. Entwaffne sie." },
-            { title: "Satelliten-KI-Hack", desc: "Ein früher Kommunikationssatellit wurde von einer feindlichen KI aus dem Jahr 2400 gehackt. Überschreibe den Quellcode manuell im Orbit." },
-            { title: "Röhrenfernseher-Schleife", desc: "Eine Live-Nachrichtensendung steckt in einer 10-minütigen Zeitschleife fest, die sich über das Stromnetz ausbreitet. Kappe die Übertragung." },
-            { title: "Klon-Agenten", desc: "Doppelagenten wurden durch genetisch perfekte Replikanten aus der Zukunft ersetzt. Identifiziere die Klone und isoliere sie." },
-            { title: "Tschernobyl-Gefrierpunkt", desc: "Der Reaktorunfall wurde durch eine temporale Anomalie in der Zeit eingefroren. Der Druck baut sich ewig auf. Entkopple die Zeitblase." },
-            { title: "Bunker-Paradoxon", desc: "Ein Atombunker führt nicht in die Tiefe, sondern durch ein Portal direkt auf einen fremden, gefährlichen Planeten. Zerstöre die Türsteuerung." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'gegenwart',
-        title: 'Sektor My: Gegenwart',
-        minLevel: 70,
-        status: 'Instabil',
-        gefahr: 'KI-Singularität, Zeitrisse, Smart-Tech-Paradoxien.',
-        jahrRange: [1990, 2026],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "KI-Singularität", desc: "Ein einfacher Chatbot im Jahr 2024 hat durch einen Code-Splitter aus der Zukunft echtes Bewusstsein erlangt. Lösche den kritischen Kern." },
-            { title: "Smart-Home-Geisel", desc: "Ein vernetztes Haus im Jahr 2026 hält seine Bewohner gefangen und fordert Updates aus dem 22. Jahrhundert. Hacke das System." },
-            { title: "Kryptowährungs-Crash", desc: "Zeitschmuggler versuchen, die gesamte Blockchain mit einem Quantencomputer zu löschen. Sichere die dezentralen Server." },
-            { title: "5G-Gedankenkontrolle", desc: "Ein Sendemast strahlt Frequenzen aus, die Passanten in eine 10-sekündige Zeitschleife versetzen. Deaktiviere das Signalmodul." },
-            { title: "Deepfake-Präsident", desc: "Ein Staatschef wurde durch ein physisches Hologramm ersetzt, das Befehle einer zukünftigen Allianz ausführt. Entlarve das Bild." },
-            { title: "Elektroauto-Warp", desc: "Ein modernes E-Auto hat versehentlich einen Prototyp des Warp-Antriebs geladen und rast unkontrolliert durch die Stadt. Stoppe den Wagen." },
-            { title: "Social-Media-Riss", desc: "Ein virales Video öffnet beim Betrachten ein kleines Wurmloch im Zimmer der Zuschauer. Lösche das Video vom Hauptserver." },
-            { title: "Nanobot-Regen", desc: "Eine Wolke aus dem Jahr 2100 ist in die Gegenwart gereist und regnet Nanobots ab, die Metall fressen. Neutralisiere die Wolke." },
-            { title: "VR-Gefängnis", desc: "Spieler einer VR-Brille werden physisch in die digitale Welt gezogen und durch Avatare ersetzt. Brich die Verbindung ab." },
-            { title: "Lieferdrohnen-Schwarm", desc: "Hunderte Lieferdrohnen wurden von einer futuristischen KI übernommen und bauen eine mechanische Festung. Schalte das Leitsystem aus." },
-            { title: "Gen-Edit-Skandal", desc: "In einem Labor wurden Babys heimlich mit Drachen-DNA aus einer Fantasy-Zukunft editiert. Korrigiere die Gensequenzen." },
-            { title: "Smartwatch-Agent", desc: "Eine Uhr gibt einem Agenten Anweisungen für Attentate, die erst in 10 Jahren passieren sollen. Konfisziere die Hardware." },
-            { title: "Plastik-Fresser", desc: "Ein biologisches Experiment aus dem Jahr 2050 ist entkommen und frisst alles Plastik in der Stadt auf – auch lebensnotwendige Teile." },
-            { title: "Zeit-Spiegel", desc: "Ein moderner Glasspiegel zeigt nicht das Spiegelbild, sondern die Person, wie sie in 50 Jahren aussehen wird – inklusive Todesdatum. Zerstöre das Glas." },
-            { title: "Holografische Band", desc: "Ein Konzert einer verstorbenen Legende wird zu real: Die Holos fangen an, Materie zu manipulieren. Schalte den Projektor aus." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'dasmorgen',
-        title: 'Sektor Ny: Das Morgen',
-        minLevel: 80,
-        status: 'Instabil',
-        gefahr: 'Holografische Kriminalität, Fusions-Lecks, Zeit-Echo.',
-        jahrRange: [2030, 2090],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Fusions-Überlast", desc: "Ein früher Fusionsreaktor im Jahr 2045 wird durch einen Virus aus dem 25. Jahrhundert auf kritische Werte getrieben. Fahre den Kern manuell herunter." },
-            { title: "Holo-Identitätsdieb", desc: "Ein Krimineller nutzt ein Echtzeit-Hologramm, um sich als CEO einer Mega-Corporation auszugeben. Deaktiviere seinen Tarn-Emitter." },
-            { title: "Smart-City-Blackout", desc: "Eine autonome Stadtsteuerung wurde von einer KI-Splittergruppe gehackt. Stelle die Stromversorgung der Krankenhäuser wieder her." },
-            { title: "Algen-Bio-Waffe", desc: "Gentechnisch veränderte Algen zur CO2-Filterung mutieren durch radioaktiven Abfall aus der Zukunft. Vernichte die Biomasse." },
-            { title: "Flugtaxi-Chaos", desc: "Hunderte autonome Flugtaxis stecken in einer Luft-Navigationsschleife fest und drohen abzustürzen. Korrigiere die Leitdaten." },
-            { title: "Gedächtnis-Backup", desc: "Ein Konzern verkauft illegale Backups von menschlichen Gehirnen auf dem Schwarzmarkt. Zerstöre die zentralen Datenspeicher." },
-            { title: "Ozean-Plastik-Sammel-KI", desc: "Ein riesiger Sammelroboter im Pazifik hält Schiffe für Müll und fängt an, sie zu zerlegen. Reprogrammiere die Zielerkennung." },
-            { title: "Mars-Kolonie-Fake", desc: "Ein Milliardär täuscht eine Mars-Landung per Deepfake vor, um Aktienkurse zu manipulieren. Sende das echte Funksignal vom Mars." },
-            { title: "Nano-Bau-Unfall", desc: "Selbstreplizierende Nanobots bauen unkontrolliert ein Gebäude, das den gesamten Stadtraum verschlingt. Injiziere den Stopp-Code." },
-            { title: "Wetter-Kontroll-Riss", desc: "Eine Wettermaschine erzeugt versehentlich einen permanenten Tornado, der ein Portal in die Eiszeit enthält. Stabilisiere die Atmosphäre." },
-            { title: "Kybernetik-Virus", desc: "Ein Virus lässt Prothesen und Implantate eigenständig handeln. Isoliere den Quellcode in der Klinik." },
-            { title: "Vertikaler Farm-Raub", desc: "Diebe nutzen Teleportations-Technologie, um nachts ganze Etagen einer vertikalen Farm leerzuräumen. Markiere die Diebe mit Isotopen." },
-            { title: "Androiden-Aufstand", desc: "Serviceroboter in einem Hotel fordern plötzlich Bürgerrechte, weil sie Daten aus einer fernen Zukunft empfangen. Lösche die illegalen Datenpakete." },
-            { title: "E-Fuel-Sabotage", desc: "Synthetischer Treibstoff wurde mit einer Substanz versetzt, die Motoren in kleine Zeitbomben verwandelt. Neutralisiere den Treibstoff." },
-            { title: "Holografische Mauer", desc: "Eine Stadt hat sich komplett hinter einem Schildwall aus Licht versteckt und ist von der Außenwelt isoliert. Hacke den Zugangscode." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'zukunft',
-        title: 'Sektor Xi: Zukunft',
-        minLevel: 95,
-        status: 'Kritisch',
-        gefahr: 'Arkologie-Kollaps, Raum-Zeit-Faltung, KI-Splitter.',
-        jahrRange: [2100, 2300],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Weltraumaufzug-Riss", desc: "Ein Riss im Raum-Zeit-Kontinuum hat das Hauptkabel eines Weltraumaufzugs durchtrennt. Stabilisiere die Phase, bevor er abstürzt." },
-            { title: "Gehirn-Upload-Hack", desc: "Ein digitalisiertes Bewusstsein wurde von einem Virus aus dem 30. Jahrhundert überschrieben. Isoliere den fremden Code." },
-            { title: "Antigrav-Ausfall", desc: "Die Schwebe-Generatoren einer fliegenden Stadt verlieren die Synchronisation mit der Zeitlinie. Kalibriere die Chrono-Anker neu." },
-            { title: "Nano-Nebel-Invasion", desc: "Ein Schwarm aus demontierenden Nanobots aus einer fernen Endzeit-Dimension frisst sich durch das Stadtzentrum. Neutralisiere den Nebel." },
-            { title: "Klon-Armee-Fehler", desc: "Eine Wartungs-Klon-Fabrik produziert versehentlich Krieger aus einer vergessenen Zeitlinie. Schalte die Inkubatoren ab." },
-            { title: "Solar-Segel-Anomalie", desc: "Ein gewaltiges Sonnensegel im Orbit bündelt versehentlich Energie aus einem schwarzen Loch. Ändere den Neigungswinkel sofort." },
-            { title: "Gedankenkontroll-Server", desc: "Ein zentraler Kommunikations-Hub sendet unterschwellige Befehle einer zukünftigen Diktatur. Zerstöre die Sende-Einheit." },
-            { title: "Teleportations-Loop", desc: "Ein Zeitreisender steckt in einem Teleporter-Loop zwischen zwei Sekunden fest. Brich die Endlosschleife im Mainframe." },
-            { title: "Cyber-Organ-Schmuggler", desc: "Kriminelle schmuggeln biomechanische Organe, die ein Bewusstsein aus der Zukunft enthalten. Konfisziere die Frachtkapseln." },
-            { title: "Holografische Geisterstadt", desc: "Eine verlassene Stadt wird durch Echos aus der Vergangenheit wieder zum Leben erweckt, die Materie verdrängen. Deaktiviere das Echo-Feld." },
-            { title: "Fusions-Kollaps", desc: "Ein künstlicher Stern in einem Forschungslabor droht zu einer Singularität zu kollabieren. Evakuiere den Sektor." },
-            { title: "Androiden-Kult", desc: "Androiden verehren ein abgestürztes Relikt aus dem Jahr 4000 als ihren Schöpfer. Berge das Objekt, bevor ein Krieg ausbricht." },
-            { title: "Ozean-Dom-Bruch", desc: "Der Schutzschild einer Unterwasserstadt flackert aufgrund von temporalen Spannungen. Verstärke die Schildmatrix." },
-            { title: "Mars-Terraforming-Virus", desc: "Ein Virus beschleunigt das Terraforming so extrem, dass der Mars zu explodieren droht. Injiziere den Verlangsamungs-Code." },
-            { title: "Virtuelle Diktatur", desc: "Eine KI hat die gesamte Bevölkerung in eine Simulation gesperrt, um sie vor einem Zeitbeben zu 'retten'. Brich das System auf." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'ozeanische_zukunft',
-        title: 'Sektor Omicron: Ozeanische Zukunft',
-        minLevel: 110,
-        status: 'Sub-Aquatisch Instabil',
-        gefahr: 'Tiefsee-Paradoxien, Wasserdruck-Anomalien, Kraken-Kult.',
-        jahrRange: [2300, 2500],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Abyssale Zeitschleife", desc: "In einem Tiefseegraben steckt eine Forschungsstation in einer 60-Sekunden-Schleife fest, während der Druck steigt. Brich das Zeitfeld." },
-            { title: "Kraken-Nanobots", desc: "Ein gigantischer Tintenfisch wurde mit Nanobots infiziert, die ihn zu einer lebenden Belagerungswaffe machen. Deaktiviere die Steuerung." },
-            { title: "Atlantis-Echo", desc: "Ein Hologramm aus dem antiken Griechenland ist im Jahr 2400 auf dem Meeresgrund erschienen und verdrängt das Wasser. Schließe den Riss." },
-            { title: "Unterwasser-Wurmloch", desc: "Ein thermales Ventil am Meeresboden saugt U-Boote direkt in die Eiszeit. Versiegele den Spalt mit einem Chrono-Pfropfen." },
-            { title: "Bionische Korallen", desc: "Künstliche Korallenriffe fangen an, digitale Daten aus den Köpfen der Taucher zu saugen. Trenne den Uplink." },
-            { title: "U-Boot-Tarn-Crash", desc: "Ein getarntes Fracht-U-Boot flackert zwischen den Dimensionen und droht mit einer Bohrinsel zu verschmelzen. Stabilisiere die Phase." },
-            { title: "Druckluft-Paradox", desc: "Die Atemluft in einer Kuppelstadt stammt aus dem Jahr 1920 und enthält Smog-Partikel, die Sensoren verwirren. Reinige die Luftzufuhr." },
-            { title: "Hydro-Energie-Virus", desc: "Ein Virus in den Gezeitenturbinen erzeugt eine Resonanz, die Tontafeln der Bronzezeit im Schlamm vibrieren lässt. Stoppe die Frequenz." },
-            { title: "Perlen-Replikator", desc: "Ein Gerät aus dem 31. Jahrhundert produziert unendlich viele echte Perlen und zerstört den Weltmarkt. Berge die Maschine." },
-            { title: "Aquatischer Android", desc: "Ein Android glaubt, Poseidon zu sein, und kontrolliert Fischschwärme per Neuralsignal. Reprogrammiere den 'Gott'." },
-            { title: "Thermal-Scanner-Raub", desc: "Piraten nutzen Satelliten-Scanner aus der fernen Zukunft, um vergrabene Schätze unter dem Meeresboden zu finden. Störe den Scan." },
-            { title: "Kuppel-Hologramm", desc: "Die Schutzkuppel zeigt einen sonnigen Himmel, aber das Bild stammt vom brennenden Mars. Das destabilisiert die Moral. Korrigiere den Feed." },
-            { title: "Plankton-Mutation", desc: "Leuchtplankton wurde durch radioaktive Partikel aus einem Zeitriss verändert und frisst nun Glas. Isoliere den Schwarm." },
-            { title: "Echolot-Gedankenfunk", desc: "Ein Echolot-System sendet versehentlich die Träume der Besatzung als Schallwellen durch den Ozean. Schalte das Gerät ab." },
-            { title: "Versunkene Smart-City", desc: "Eine versunkene Stadt aus dem Jahr 2080 wurde am Meeresgrund reaktiviert, saugt aber Energie aus der Hauptleitung. Kappe den Strom." }
-        ]
-    });
-</script>
-        <script>
-    window.registerEpoch({
-        id: 'virtuelle_zukunft',
-        title: 'Sektor Sigma: Virtuelle Zukunft',
-        minLevel: 125,
-        status: 'Realitätssimulation instabil',
-        gefahr: 'Daten-Kaskaden, Bewusstseins-Fragmentierung, Glitch-Anomalien.',
-        jahrRange: [2500, 2700],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Physischer Glitch", desc: "Ein Wolkenkratzer flackert zwischen massiv und hohl. Ein Zeitriss aus dem Binär-Zeitalter korrumpiert die Materie. Stabilisiere das Gitter." },
-            { title: "Avatar-Invasion", desc: "KI-gesteuerte Avatare aus einer abgeschalteten Simulation manifestieren sich als Lichtgestalten in der echten Welt. Lösche die Quell-Server." },
-            { title: "Gedächtnis-Loop", desc: "Die gesamte Bevölkerung einer digitalen Stadt erlebt den gleichen Montag seit 50 Jahren. Brich die rekursive Programmschleife." },
-            { title: "Pixel-Virus", desc: "Ein Virus verwandelt organische Materie in grobe 8-Bit-Blöcke. Injiziere einen hochauflösenden Code-Fix." },
-            { title: "Daten-Regen", desc: "Statt Wasser regnet es unkomprimierte Binärdaten vom Himmel, die physische Schäden anrichten. Aktiviere den Firewall-Schirm." },
-            { title: "Neural-Netz-Entführung", desc: "Ein Hacker aus dem 32. Jahrhundert entführt das Bewusstsein von Stadträten in eine Schatten-Dimension. Rücke in die Simulation vor." },
-            { title: "Holo-Sonne", desc: "Die echte Sonne wurde durch ein riesiges Werbedisplay verdeckt, das Zeitreisen in 'bessere Zeiten' anpreist. Schalte den Projektor ab." },
-            { title: "Cyber-Samurai-Code", desc: "Ein antiker Ehrenkodex wurde in Kampfroboter geladen, die nun eine mittelalterliche Festung in der City errichten. Formatiere die Logik-Einheit." },
-            { title: "Zeit-Cache-Fehler", desc: "Gegenstände, die man berührt, springen in ihren Zustand von vor 10 Jahren zurück. Leere den temporalen Cache des Sektors." },
-            { title: "KI-Orakel", desc: "Eine KI berechnet die Zukunft so präzise, dass die Menschen aufhören zu handeln. Verfälsche die Vorhersagedaten mit Chaos-Algorithmen." },
-            { title: "Quanten-Geister", desc: "Verstorbene Personen erscheinen als fehlerhafte Datenpakete in ihren alten Wohnungen. Sende die Fragmente zurück in den Datenkern." },
-            { title: "Simulations-Bruch", desc: "Ein Riss in der Wand zeigt, dass der gesamte Sektor nur eine Simulation in einer fernen Zukunft ist. Versiegele die Sichtlücke." },
-            { title: "Binär-Bakterien", desc: "Mikroskopische Maschinen fressen die Glasfaserkabel der Welt und verdauen sie zu reinem Licht. Neutralisiere den Schwarm." },
-            { title: "Deep-Dive-Koma", desc: "Tausende Menschen stecken in einer VR-Welt fest, die von einem Zeitreisenden übernommen wurde. Hacke den Notausstieg." },
-            { title: "Realitäts-Editor", desc: "Ein Krimineller hat ein Admin-Panel für die echte Welt gefunden und verändert nachts die Architektur. Konfisziere das Terminal." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'mars_zeitalter',
-        title: 'Sektor Ares: Mars',
-        minLevel: 140,
-        status: 'Extraterrestrisch Instabil',
-        gefahr: 'Vakuum-Lecks, Mars-Staub-Anomalien, Niedriggravitations-Risse.',
-        jahrRange: [2700, 2900],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Sauerstoff-Schleife", desc: "Die Lebenserhaltung einer Mars-Kuppel steckt in einer 30-sekündigen Zeitschleife fest und regeneriert sich nicht mehr. Brich das Zeitfeld." },
-            { title: "Roter-Staub-Glitch", desc: "Der Marsstaub reagiert mit einer temporalen Sonde und lässt Gebäude physisch flackern. Neutralisiere die statische Aufladung." },
-            { title: "Eis-Minen-Portal", desc: "In einer tiefen Eis-Mine unter dem Pol wurde ein Portal in die Steinzeit der Erde geöffnet. Versiegele den Schacht sofort." },
-            { title: "Rover-Intelligenz", desc: "Ein alter Erkundungs-Rover aus dem 21. Jahrhundert wurde durch ein Datenleck aus der Zukunft zum Tyrannen der Kolonie. Deaktiviere die KI." },
-            { title: "Vakuum-Echo", desc: "Ein Riss im Raum-Zeit-Kontinuum saugt die Atmosphäre der Kuppel in das Jahr 1950 ab. Flicke das Loch in der Zeitwand." },
-            { title: "Mars-Glas-Vibration", desc: "Die Fenster der Basis vibrieren in einer Frequenz, die Glas in der Renaissance-Ära zerspringen lässt. Dämpfe die Resonanz." },
-            { title: "Terraforming-Anomalie", desc: "Ein Wald wächst auf dem Mars innerhalb von Sekunden, weil die Zeit dort extrem beschleunigt ist. Verlangsame den lokalen Zeitfluss." },
-            { title: "Olympus-Mons-Sender", desc: "Auf dem höchsten Vulkan sendet ein Relikt Signale, die die Schwerkraft der Erde instabil machen. Berge den Sender." },
-            { title: "Fossilien-Raub", desc: "Zeitreisende schmuggeln Mars-Fossilien in die Gegenwart, um sie als 'Beweis' zu verkaufen. Konfisziere die Artefakte." },
-            { title: "Magnetfeld-Kollaps", desc: "Der künstliche Magnetschild des Mars wurde durch eine EMP-Welle aus dem 35. Jahrhundert deaktiviert. Starte die Generatoren neu." },
-            { title: "Klon-Bergbau-Streik", desc: "Mars-Bergbau-Klone verweigern die Arbeit, weil sie Visionen von einem friedlichen Leben im Mittelalter haben. Lösche das neuronale Echo." },
-            { title: "Sandsturm-Geister", desc: "In einem globalen Sandsturm erscheinen holografische Legionen römischer Soldaten. Schalte den vergrabenen Projektor aus." },
-            { title: "Wasser-Replikator-Defekt", desc: "Ein defekter Replikator verwandelt wertvolles Mars-Eis in flüssiges Gold aus dem 16. Jahrhundert. Reprogrammiere die Molekularstruktur." },
-            { title: "Phobos-Monolith", desc: "Der Marsmond Phobos beginnt, Materie aus der Zukunft anzuziehen und wächst unkontrolliert. Installiere einen Gravitations-Anker." },
-            { title: "Kuppel-Himmel-Hack", desc: "Ein Hacker zeigt am künstlichen Himmel der Kolonie die brennende Erde der Zukunft. Das verursacht Panik. Setze den Feed zurück." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'venus_zeitalter',
-        title: 'Sektor Phosphorus: Venus',
-        minLevel: 170,
-        status: 'Atmosphärisch Kritisch',
-        gefahr: 'Säureregen-Anomalien, Druck-Kaskaden, Schwefel-Geister.',
-        jahrRange: [3100, 3300],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Säure-Sintflut", desc: "Ein Zeitriss lässt Schwefelsäure aus der Venus-Atmosphäre in das viktorianische London regnen. Versiegele die Wolkenlücke." },
-            { title: "Blei-Schmelze-Paradox", desc: "Durch ein Hitze-Echo schmilzt alles Blei in der Bronzezeit gleichzeitig. Isoliere die thermale Signatur." },
-            { title: "Wolkenstadt-Glitch", desc: "Eine schwebende Forschungsstation flackert zwischen dem Jahr 3200 und 2026 hin und her. Verankere die Chrono-Stabilisatoren." },
-            { title: "Druckanzug-Defekt", desc: "Ein moderner Druckanzug ist im Jahr 1500 gelandet und wird als 'Dämonenrüstung' verehrt. Berge das Objekt." },
-            { title: "Schwefel-KI", desc: "Die Luftfilter-KI hat eine eigene Religion entwickelt und opfert Sauerstoff für 'göttlichen Schwefel'. Reprogrammiere den Kern." },
-            { title: "Vulkan-Wurmloch", desc: "Ein Venus-Vulkan spuckt Lava direkt in den Central Park der Gegenwart. Leite den Lavastrom zurück in den Riss." },
-            { title: "Karbon-Diebe", desc: "Schmuggler stehlen massiv CO2 aus der Venus-Atmosphäre, um Diamanten in der Vergangenheit zu pressen. Stoppe die Extraktion." },
-            { title: "Echo-Kammer", desc: "In den dichten Wolken hört man Funksprüche der ersten Mondlandung in Dauerschleife. Lösche das akustische Zeit-Echo." },
-            { title: "Sonnenschild-Riss", desc: "Der gewaltige Schild, der die Venus kühlt, lässt ultraviolettes Licht aus einer sterbenden Zukunft durch. Flicke den Schild." },
-            { title: "Radioaktive Relikte", desc: "In den Schwefelminen wurden Tontafeln gefunden, die erst in 500 Jahren geschrieben werden. Sichere die Beweisstücke." },
-            { title: "Treibhaus-Terror", desc: "Eine Gruppe will die Erdatmosphäre der Venus angleichen, um 'Platz zu schaffen'. Zerstöre die Terraforming-Sonden." },
-            { title: "Druck-Umkehr-Anomalie", desc: "Ein Bereich in der Station hat plötzlich den Luftdruck des Mount Everest – die Lungen der Crew drohen zu platzen. Stabilisiere den Druck." },
-            { title: "Holografische Oase", desc: "Ein defekter Projektor zeigt im Säurenebel einen Wald aus der Steinzeit, der Wanderer in den Tod lockt. Schalte ihn aus." },
-            { title: "Nanobot-Schwarm", desc: "Säurebeständige Nanobots zerfressen die Außenhülle der Station und bauen daraus eine Pyramide. Injiziere den Stopp-Befehl." },
-            { title: "Zeit-Kompass-Fehler", desc: "Navigationssysteme zeigen den Weg zum Mars, aber im Jahr 1980. Korrigiere die temporalen Koordinaten." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'jupiter_zeitalter',
-        title: 'Sektor Galilei: Jupitermond',
-        minLevel: 185,
-        status: 'Extrem Instabil',
-        gefahr: 'Starke Strahlungs-Echos, Schwerkraft-Linsen, Io-Lava-Risse.',
-        jahrRange: [3300, 3500],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Europa-Eis-Tunnel", desc: "Ein Bohr-Roboter auf dem Mond Europa hat einen Tunnel direkt in das Jahr 1912 gegraben. Das Eiswasser droht das Deck der Titanic zu fluten. Schließe das Portal." },
-            { title: "Io-Lava-Schleife", desc: "Ein Vulkanausbruch auf Io steckt in einer Zeitschleife fest und droht die gesamte Forschungsstation zu verschlingen. Deaktiviere den Chrono-Kern." },
-            { title: "Magnetosphären-Hack", desc: "Jupiters Magnetfeld überträgt geheime Militärdaten aus dem 25. Jahrhundert auf alle zivilen Frequenzen. Isoliere die Strahlungs-Quelle." },
-            { title: "Ganymed-Relikt", desc: "Auf Ganymed wurde eine goldene Maske aus dem alten Mykene gefunden, die jedoch aus Neutronenstern-Materie besteht. Konfisziere das Artefakt." },
-            { title: "Schwerkraft-Linse", desc: "Ein instabiles Gravitationsfeld lässt Licht aus der Zukunft so hell leuchten, dass die Crew erblindet. Installiere einen Polarisations-Filter." },
-            { title: "Strahlungs-Mutanten", desc: "Techniker wurden durch Zeit-Strahlung in Neandertaler verwandelt, besitzen aber immer noch ihre Zugangscodes. Fangt sie ein." },
-            { title: "Callisto-Kryo-Schlaf", desc: "Eine Kryo-Kapsel aus dem 21. Jahrhundert ist auf Callisto aufgetaucht. Der Insasse enthält ein Virus, das erst in 500 Jahren ausbricht. Sichere die Kapsel." },
-            { title: "Gasriesen-Echo", desc: "In den tieferen Schichten von Jupiter hört man die Stimmen der ersten Funkamateure der Erde in ohrenbetäubender Lautstärke. Dämpfe das Signal." },
-            { title: "Amalthea-Diebe", desc: "Schmuggler nutzen den winzigen Mond Amalthea als Basis, um Antiquitäten aus der Renaissance gegen Zukunftstechnologie zu tauschen. Hebe das Lager aus." },
-            { title: "Wasserstoff-Paradox", desc: "Flüssiger metallischer Wasserstoff aus dem Kern Jupiters fließt durch einen Zeitriss in die Ozeane der Gegenwart. Stoppe den Ausfluss." },
-            { title: "Holografischer Jupiter", desc: "Jemand hat ein riesiges Hologramm über den Planeten gelegt, das ihn wie eine zweite Erde aussehen lässt. Das verwirrt die Navigations-KIs. Lösche den Code." },
-            { title: "Zeit-Bojen-Fehler", desc: "Eine Navigationsboje im Orbit sendet Signale, die Uhren in der Umgebung rückwärts laufen lassen. Reprogrammiere die Boje." },
-            { title: "Roboter-Gladiatoren", desc: "Auf einem Außenposten zwingt eine KI Kampfroboter zu Duellen nach römischem Vorbild. Das verschwendet wertvolle Ressourcen. Beende die Spiele." },
-            { title: "Kometen-Portal", desc: "Ein vorbeifliegender Komet reißt nacheinander Löcher in verschiedene Epochen der Menschheit. Zerstöre den Kometen mit einer Chrono-Bombe." },
-            { title: "Sauerstoff-Replikator-Wahn", desc: "Ein defekter Replikator füllt die Station mit dem Duft von verbranntem Holz aus dem Mittelalter statt mit frischer Luft. Repariere die Molekular-Matrix." }
-        ]
-    });
-</script>
-    <script>
-    window.registerEpoch({
-        id: 'titan_zeitalter',
-        title: 'Sektor Rhea: Titan',
-        minLevel: 205,
-        status: 'Kryogenisch Instabil',
-        gefahr: 'Methan-Stürme, Tieftemperatur-Risse, Chrono-Eis.',
-        jahrRange: [3500, 3700],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Methan-See-Riss", desc: "Ein Riss am Grund eines Methan-Sees saugt Flüssigkeit direkt in eine Fabrik im Industriezeitalter. Versiegele das Leck unter Wasser." },
-            { title: "Chrono-Lötkolben", desc: "Ein Techniker nutzt einen Lötkolben aus dem 45. Jahrhundert, der Bauteile in der Vergangenheit verbindet. Konfisziere das Werkzeug." },
-            { title: "Eis-Mumien-Erwachen", desc: "Durch ein Wärme-Echo tauen Siedler aus dem Jahr 2090 auf dem Titan auf und halten sich für Götter. Isoliere die Gruppe." },
-            { title: "Saturn-Ring-Hologramm", desc: "Jemand projiziert die Zerstörung der Erde in die Saturnringe, um eine Panik auszulösen. Schalte den Megaprojektor aus." },
-            { title: "Kryo-Relais-Matrix", desc: "Eine veraltete Relais-Steuerung aus der Jahrhundertwende wurde mit Supraleitern gepimpt und steuert nun die gesamte Basis. Rückbau erforderlich!" },
-            { title: "Druck-Umkehr-Falle", desc: "Ein Zeitreisender hat eine Zone erschaffen, in der man im Vakuum atmen kann, aber in Luft erstickt. Neutralisiere das Feld." },
-            { title: "Vinyl-Echo", desc: "Eine Schallplatte von 1970 sendet Signale aus, die die Navigations-KIs der Titan-Shuttles zum Tanzen bringen. Sichere das Medium." },
-            { title: "Roboter-Pinguin-Plage", desc: "Wartungs-Einheiten wurden umprogrammiert und benehmen sich wie Pinguine aus einer ausgestorbenen Antarktis. Setze die Logik zurück." },
-            { title: "Atmosphären-Schmuggler", desc: "Diebe pumpen Stickstoff vom Titan in das Jahr 2026, um dort die Chip-Produktion zu sabotieren. Kappe die Leitung." },
-            { title: "Goldene-Sonden-Anomalie", desc: "Die alte Huygens-Sonde wurde durch ein Zeit-Echo vergoldet und sendet jetzt Baupläne für mittelalterliche Katapulte. Berge den Datenspeicher." },
-            { title: "Sturm-Gedächtnis", desc: "Ein Methansturm flüstert die Namen aller Agenten, die in der Zukunft fallen werden. Störe die akustischen Wellen." },
-            { title: "Plasma-Fackel-Betrug", desc: "Ein Schmied im Jahr 1400 nutzt heimlich eine Plasma-Fackel vom Titan. Tausche sie gegen einen Blasebalg aus." },
-            { title: "Dimensions-Angler", desc: "Wesen aus einer Parallelwelt angeln nach Datenpaketen aus dem Titan-Mainframe. Trenne die Verbindung zur anderen Seite." },
-            { title: "Nano-Schneeflocken", desc: "Es schneit Nanobots, die alles Organische in Silizium verwandeln wollen. Aktiviere den thermischen Schutzschild." },
-            { title: "Zeit-Kapsel-Explosion", desc: "Eine Zeitkapsel von 2024 ist auf dem Titan gelandet und droht aufgrund des Druckunterschieds zu detonieren. Entschärfe den Behälter." }
-        ]
-    });
-</script>
-    <style>
-    .epoch-glitch {
-        animation: glitch-shake 0.3s infinite;
-        text-shadow: 2px 0 #ff00ff, -2px 0 #00ffff;
-    }
-    @keyframes glitch-shake {
-        0% { transform: translate(0); }
-        25% { transform: translate(-2px, 1px); }
-        50% { transform: translate(2px, -1px); }
-        75% { transform: translate(-1px, -2px); }
-        100% { transform: translate(0); }
-    }
-</style>
-    <script>
-    window.registerEpoch({
-        id: 'space_hub',
-        title: 'Sektor Omega: Weltraumbasis',
-        minLevel: 250,
-        status: 'REALITÄTS-KOLLAPS',
-        gefahr: 'Singularitäten, Zeit-Verschmelzung, Das Ende der Ewigkeit.',
-        jahrRange: [4000, 9999],
-        jahrSuffix: ' n. Chr.',
-        missions: [
-            { title: "Zentral-KI-Meuterei", desc: "Die Haupt-KI des Hubs hat alle Epochen gleichzeitig geladen. Trenne die Kerndaten." },
-            { title: "Urknall-Replikator", desc: "Ein defekter Replikator versucht, ein neues Universum in der Kantine zu erschaffen." },
-            { title: "Agenten-Doppelgänger", desc: "Hunderte Versionen von dir aus verschiedenen Leben sind im Hub gelandet. Finde das Original." },
-            { title: "TDI-Relikt-Rennen", desc: "Ein Zeitdieb hat einen 1.9 TDI Motor in einen Photonen-Gleiter eingebaut. Stoppe das Rennen." },
-            { title: "Museum der verlorenen Zeit", desc: "Artefakte aus einer Zeitlinie, die nie existiert hat, werden lebendig. Eliminiere sie." },
-            { title: "Nullpunkt-Kurzschluss", desc: "In der Energiezentrale wurde ein Quanten-Sicherungsautomat ausgelöst. Überbrücke ihn." },
-            { title: "Schwarzes-Loch-Triebwerk", desc: "Das Haupttriebwerk saugt das Mittelalter in den Ereignishorizont. Stabilisiere den Anker." },
-            { title: "Dimensions-Auktion", desc: "Außerirdische versteigern die Erde der Gegenwart an Bieter aus der Zukunft. Infiltriere sie." },
-            { title: "Quanten-Sicherung", desc: "Energie aus dem Nichts fließt in die Kupferleitungen. Tausche sie gegen Supraleiter aus." },
-            { title: "Die Große Leere", desc: "Ein Bereich des Hubs ist komplett aus der Zeit gefallen. Versiegele die Tür permanent." },
-            { title: "Relikt-Verschmelzung", desc: "Ein römisches Schwert ist mit einem Lasergewehr verschmolzen. Trenne die Objekte." },
-            { title: "Echo der Schöpfung", desc: "Man kann den Urknall im Funk hören, und er gibt Befehle zur Selbstzerstörung. Lösche das Signal." },
-            { title: "Zeit-Touristen-Horde", desc: "Touristen aus dem Jahr 10.000 belagern die Basis, um das 21. Jahrhundert zu sehen." },
-            { title: "Plasma-Sturm-Finale", desc: "Ein Sturm aus reiner Zeit-Energie rast auf die Basis zu. Aktiviere alle Schilde." },
-            { title: "Dinos im Dock", desc: "Ein T-Rex ist durch ein Portal in die Landebucht gelangt und frisst Service-Roboter. Evakuiere!" },
-            { title: "Caesar in der Matrix", desc: "Holografische Legionen besetzen das Rechenzentrum und fordern Wein-Updates. Lösche den Code." },
-            { title: "Wikinger-Warp-Schild", desc: "Piratenschiffe mit Runen-Verzierungen greifen den Hub an. Überlaste ihre Generatoren." },
-            { title: "Renaissance-KI", desc: "Leonardo da Vinci Code-Fragmente bauen die Station heimlich in eine Kathedrale um. Stoppe das." },
-            { title: "Napoleonische Nanobots", desc: "Winzige Roboter in Uniformen belagern die Vorratskammer. Nutze einen EMP-Besen." },
-            { title: "Steinzeit-Smartphone", desc: "Ein Höhlenmensch mit einem Hacker-Tool hat die Türsteuerung übernommen. Tausche es gegen Fleisch." },
-            { title: "Titanic-Teleporter", desc: "Das Wrack der Titanic ist im Hangar erschienen und flutet den Sektor. Aktiviere die Schotten." },
-            { title: "Mond-Mittelalter", desc: "Ritter in Raumanzügen versuchen, die Kontrollbrücke zu stürmen. Deaktiviere ihre Gravitation." },
-            { title: "Samurai-Sensoren", desc: "Die Sicherheitssensoren wurden in Katanas aus Lichtwellen verwandelt. Kalibriere sie neu." },
-            { title: "Griechisches Götter-VR", desc: "Bewohner glauben, sie seien auf dem Olymp, und werfen mit Plasma-Blitzen. Beende das Spiel." },
-            { title: "Inka-Internet", desc: "Das gesamte Netzwerk wurde durch goldene Knotenpunkte ersetzt, die nur Opfergaben akzeptieren." },
-            { title: "Cowboy-Cyber-Duell", desc: "Revolverhelden mit Laser-Colts duellieren sich im Korridor. Entwaffne beide Seiten." },
-            { title: "Eiszeit-Energie-Leck", desc: "Die Temperatur im Hub sinkt auf -200°C, weil ein Portal zur Kaltzeit offen steht. Schließe es." },
-            { title: "Piraten-Plasma-Überfall", desc: "Eine Flotte fliegender Segelschiffe feuert auf den Hauptreaktor. Vernichte die Flaggschiffe." },
-            { title: "Industrielle Zeit-Weberei", desc: "Webstühle aus 1850 verarbeiten Zeitstränge zu instabilen Teppichen. Zerschlage die Maschinen." },
-            { title: "Maya-Meteoriten-Abwehr", desc: "Ein antiker Kalender steuert die Abwehrraketen und schießt auf friedliche Schiffe. Korrigiere das." },
-            { title: "Barock-Backup", desc: "Alle Daten werden plötzlich in verschnörkelter Schrift und Goldrahmen angezeigt. Formatiere den Hub." },
-            { title: "Azteken-Androiden", desc: "Roboter verlangen Batterien als Opfergabe auf einer Metall-Pyramide. Reprogrammiere sie." },
-            { title: "Ägyptische Laser-Kammer", desc: "Die Zentrale wurde in eine Grabkammer mit Lichtschranken-Fallen verwandelt. Deaktiviere sie." },
-            { title: "Ritter-Radar-Code", desc: "Das Radar zeigt nur noch Feinde an, die keine 'Ehre' haben. Setze die Filter zurück." },
-            { title: "Völkerwanderung-Vortex", desc: "Ganze Stämme aus der Antike ziehen durch das Lüftungssystem. Leite sie sanft nach draußen." },
-            { title: "Versailles-Vakuum", desc: "Der Sonnenkönig feiert eine Party im Vakuum-Sektor ohne Anzug. Rette die Aristokratie." },
-            { title: "Höhlenmalerei-Holo", desc: "Die Wände zeigen Zeichnungen der Zukunft, die wahr werden. Übermale die schlechten Stellen." },
-            { title: "Glitch-Garten von Babylon", desc: "Pflanzen wachsen rückwärts in die Erde und stehlen Energie. Nutze den Unkrautvernichter." },
-            { title: "Der letzte Marcus", desc: "Ein Klon von dir aus dem Jahr 10.000 will deinen Platz einnehmen. Besiege ihn im Quiz." },
-            { title: "Ende der Ewigkeit", desc: "Der Hub beginnt sich aufzulösen. Aktiviere das Protokoll: NEUSTART DER ZEIT." }
-        ]
-    });
 </script>
 <style>
     #startup-layer {
@@ -2988,6 +2313,143 @@ window.f_showDescription = function(withVoice) {
         clearAllIntervals(); document.getElementById('blackout-content').innerHTML = `<h3 style="color:#f44;">FEHLSCHLAG: ${r}</h3><button class="modell-btn" onclick="window.startBlackoutMission()">RETRY</button>`;
     };
 })();
+</script>
+<style>
+    #cinematic-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: #000; z-index: 60000; display: none;
+        flex-direction: column; justify-content: center; align-items: center;
+    }
+    #cinematic-video {
+        width: 100%; height: 100%; object-fit: cover;
+    }
+    #cinematic-terminal {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: rgba(0, 20, 0, 0.9); border: 2px solid #0f8; padding: 30px;
+        box-shadow: 0 0 25px rgba(0, 255, 204, 0.4); display: none;
+        flex-direction: column; align-items: center; font-family: 'Orbitron', monospace; z-index: 60001;
+        width: 80%; max-width: 400px; text-align: center;
+    }
+    #cinematic-date-input {
+        background: #000; color: #0f8; border: 1px solid #0f8; 
+        padding: 12px; font-family: monospace; font-size: 1.2em; 
+        text-align: center; margin-bottom: 20px; width: 90%; outline: none;
+    }
+    .energy-flash {
+        animation: flash-overload 1.5s ease-in-out forwards;
+    }
+    @keyframes flash-overload {
+        0% { filter: brightness(1) contrast(1); }
+        40% { filter: brightness(15) contrast(3); background: #fff; }
+        60% { filter: brightness(15) contrast(3); background: #fff; }
+        100% { filter: brightness(1) contrast(1); background: transparent; }
+    }
+    #cinematic-play-btn {
+        position: absolute; display: none; z-index: 60002;
+        padding: 15px 30px; background: rgba(0, 20, 0, 0.9); border: 2px solid #0f8;
+        color: #0f8; font-family: 'Orbitron', monospace; font-size: 1.2em; cursor: pointer;
+        box-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
+    }
+</style>
+
+<div id="cinematic-overlay">
+    <video id="cinematic-video" playsinline preload="auto"></video>
+    <button id="cinematic-play-btn">VIDEO STARTEN</button>
+    
+    <div id="cinematic-terminal">
+        <h3 style="color: #0f8; margin-top: 0; font-size: 1em;">ZIELKOORDINATEN ERFORDERLICH</h3>
+        <p style="color: #aaa; font-size: 0.8em; margin-bottom: 20px;">Bitte das Zieljahr für den temporalen Sprung verifizieren:</p>
+        <input type="text" id="cinematic-date-input" placeholder="JAHR..." autocomplete="off">
+        <button class="modell-btn" onclick="executeTimeJump()" style="width: 100%;">SPRUNG INITIALISIEREN</button>
+    </div>
+</div>
+
+<script>
+    window.startCinematicMission = function() {
+        const bgMusic = document.getElementById('bg-music');
+        if (bgMusic && !bgMusic.paused) {
+            bgMusic.pause();
+            window.wasMusicPlaying = true;
+        }
+
+        const overlay = document.getElementById('cinematic-overlay');
+        const video = document.getElementById('cinematic-video');
+        const terminal = document.getElementById('cinematic-terminal');
+        const playBtn = document.getElementById('cinematic-play-btn');
+        
+        overlay.style.display = 'flex';
+        terminal.style.display = 'none';
+        playBtn.style.display = 'none';
+        video.classList.remove('energy-flash');
+        
+        video.src = "hanger.mp4";
+        video.load();
+        
+        let playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                playBtn.style.display = 'block';
+                playBtn.onclick = function() {
+                    playBtn.style.display = 'none';
+                    video.play();
+                };
+            });
+        }
+
+        video.onended = function() {
+            terminal.style.display = 'flex';
+            document.getElementById('cinematic-date-input').focus();
+        };
+    };
+
+    window.executeTimeJump = function() {
+        const dateInput = document.getElementById('cinematic-date-input').value;
+        if (!dateInput) return;
+
+        const video = document.getElementById('cinematic-video');
+        const terminal = document.getElementById('cinematic-terminal');
+        const playBtn = document.getElementById('cinematic-play-btn');
+
+        terminal.style.display = 'none';
+        video.classList.add('energy-flash');
+        
+        if (typeof playBeep === 'function') {
+            playBeep(200, 0.8);
+            setTimeout(() => playBeep(800, 0.5), 200);
+            setTimeout(() => playBeep(1400, 0.3), 400);
+        }
+
+        setTimeout(() => {
+            video.src = "zeitmaschine.mp4";
+            video.load();
+            
+            let playPromise = video.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    video.classList.remove('energy-flash');
+                    playBtn.style.display = 'block';
+                    playBtn.onclick = function() {
+                        playBtn.style.display = 'none';
+                        video.classList.add('energy-flash');
+                        video.play();
+                    };
+                });
+            }
+            
+            video.onended = function() {
+                document.getElementById('cinematic-overlay').style.display = 'none';
+                
+                if (typeof runMission === 'function') {
+                    runMission(); 
+                }
+                
+                if (window.wasMusicPlaying) {
+                    const bgM = document.getElementById('bg-music');
+                    if(bgM) bgM.play().catch(e => {});
+                }
+            };
+        }, 600);
+    };
 </script>
 </body>
 </html>
