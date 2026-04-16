@@ -2333,69 +2333,67 @@ window.f_showDescription = function(withVoice) {
         background: #000; z-index: 60000; display: none;
         flex-direction: column; justify-content: center; align-items: center;
         perspective: 800px;
+        overflow: hidden; /* Verhindert Scrollbalken beim Zoomen */
     }
+    
     #cinematic-video {
         width: 100%; height: 100%; object-fit: contain; background: #000;
+        transform-origin: center center; /* Wichtig für den Zoom */
     }
     
-    /* Der weiße Blitz für den nahtlosen Übergang */
-    #white-flash-transition {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: #fff; opacity: 0; z-index: 60005;
-        pointer-events: none; transition: opacity 0.5s ease-in-out;
-    }
-    
-    /* Füllt jetzt den gesamten Monitor im Video aus */
+    /* Der grüne Kasten ist weg, nur noch ein unsichtbarer Container für die Position */
     #cinematic-terminal {
         position: absolute; 
-        top: 50%; /* Zentriert auf dem Röhrenbildschirm */
+        top: 42%; /* Weiter nach oben geschoben */
         left: 50%;
         transform: translate(-50%, -50%) rotateX(12deg); 
-        background: rgba(0, 35, 10, 0.75); /* Dunkelgrünes Glas */
-        backdrop-filter: blur(4px);
+        background: transparent; /* Kasten komplett entfernt */
         border: none;
-        box-shadow: inset 0 0 60px rgba(0, 0, 0, 1); /* Starker schwarzer Rand kaschiert die Kanten */
+        box-shadow: none;
         display: none; flex-direction: column; align-items: center; justify-content: center;
         font-family: 'Orbitron', monospace; z-index: 60001;
-        width: 90vw; /* Füllt die Breite fast komplett */
-        height: 65vw; /* Füllt die Höhe des Monitors */
-        max-width: 400px; max-height: 280px;
-        border-radius: 20px; /* CRT Monitor Wölbung */
+        width: 100%; 
         pointer-events: auto;
     }
 
-    /* Scanlines über den gesamten Monitor */
-    #cinematic-terminal::before {
-        content: " "; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 255, 136, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
-        background-size: 100% 3px, 3px 100%; pointer-events: none; border-radius: 20px;
-    }
-
-    /* Dieser Wrapper hält das Eingabefeld in der Mitte kleiner! */
+    /* Dieser Wrapper macht das Tastenfeld kleiner */
     .terminal-inner-wrapper {
-        width: 75%; max-width: 260px;
+        width: 55%; /* Tastenfeld deutlich schmaler */
+        max-width: 220px;
         display: flex; flex-direction: column; align-items: center;
     }
 
     #cinematic-display-screen {
-        background: rgba(0,0,0,0.8); color: #0f8; border: 1px solid rgba(0, 255, 136, 0.3);
+        background: rgba(0,0,0,0.8); color: #0f8; border: 1px solid rgba(0, 255, 136, 0.5);
         width: 100%; height: 35px; margin-bottom: 15px; 
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.3em; letter-spacing: 3px; box-shadow: inset 0 0 15px rgba(0,255,136,0.1);
+        font-size: 1.2em; letter-spacing: 3px; box-shadow: inset 0 0 10px rgba(0,255,136,0.2);
     }
 
     .keypad {
         display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; 
     }
     .key {
-        background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.3);
-        color: #0f8; padding: 10px; font-size: 1em; cursor: pointer; 
+        background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.4);
+        color: #0f8; padding: 10px; font-size: 0.9em; cursor: pointer; 
         font-family: 'Orbitron', monospace; border-radius: 4px;
         transition: all 0.1s; text-align: center;
     }
     .key:active { background: #0f8; color: #000; transform: scale(0.95); }
-    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.2); font-weight: bold; margin-top: 5px; padding: 12px; }
-    .key.del { color: #f44; border-color: rgba(255, 68, 68, 0.4); }
+    .key.exe { grid-column: span 3; background: rgba(0, 255, 136, 0.3); font-weight: bold; margin-top: 5px; padding: 12px; }
+    .key.del { color: #f44; border-color: rgba(255, 68, 68, 0.5); }
+
+    /* Die neue Zoom-Glitch-Animation */
+    .warp-jump {
+        animation: warp-zoom 0.8s ease-in-out forwards;
+    }
+    @keyframes warp-zoom {
+        0% { transform: scale(1); filter: brightness(1) contrast(1) blur(0px); }
+        20% { transform: scale(1.05) skewX(2deg); filter: brightness(1.2) contrast(1.5); }
+        50% { transform: scale(2.5) skewX(-2deg); filter: brightness(3) contrast(2) hue-rotate(45deg) blur(2px); }
+        80% { transform: scale(1.1) skewX(1deg); filter: brightness(1.5) contrast(1.2) blur(1px); }
+        100% { transform: scale(1); filter: brightness(1) contrast(1) blur(0px); }
+    }
 
     #rotate-blocker {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -2412,8 +2410,6 @@ window.f_showDescription = function(withVoice) {
 </style>
 
 <div id="cinematic-overlay">
-    <div id="white-flash-transition"></div>
-
     <div id="rotate-blocker">
         <span style="font-size: 3em; margin-bottom: 20px;">🔄</span>
         <h3 style="margin-top: 0;">ATMOSPHÄREN-BRUCH</h3>
@@ -2481,14 +2477,15 @@ window.f_showDescription = function(withVoice) {
         const terminal = document.getElementById('cinematic-terminal');
         const playBtn = document.getElementById('cinematic-play-btn');
         const blocker = document.getElementById('rotate-blocker');
-        const flash = document.getElementById('white-flash-transition');
         
         overlay.style.display = 'flex';
         terminal.style.display = 'none';
         playBtn.style.display = 'none';
-        flash.style.opacity = '0'; // Sicherstellen, dass Blitz aus ist
         kpVal = "";
         document.getElementById('cinematic-display-screen').innerText = "____";
+        
+        // Stellt sicher, dass alte Animationen zurückgesetzt werden
+        video.classList.remove('warp-jump');
         
         video.src = "hanger.mp4";
         video.load();
@@ -2511,7 +2508,6 @@ window.f_showDescription = function(withVoice) {
         if (!kpVal) return;
         const video = document.getElementById('cinematic-video');
         const terminal = document.getElementById('cinematic-terminal');
-        const flash = document.getElementById('white-flash-transition');
 
         terminal.style.display = 'none';
         
@@ -2520,21 +2516,14 @@ window.f_showDescription = function(withVoice) {
             setTimeout(() => playBeep(800, 0.5), 200);
         }
 
-        // 1. Bildschirm komplett weiß aufblitzen lassen
-        flash.style.opacity = '1';
+        // Startet den extremen Warp-Zoom-Effekt
+        video.classList.add('warp-jump');
 
-        // 2. Heimlich das Video dahinter tauschen (während alles weiß ist)
+        // Genau beim Höhepunkt des Zooms (bei 400ms) wird das Video im Hintergrund getauscht
         setTimeout(() => {
             video.src = "zeitmaschine.mp4";
             video.load();
-            
-            // 3. Wenn das 2. Video GESTARTET ist, blenden wir das Weiß sanft weg
-            video.onplaying = function() {
-                flash.style.opacity = '0';
-                video.onplaying = null; // Event-Listener löschen
-            };
-            
-            video.play().catch(e => { flash.style.opacity = '0'; });
+            video.play().catch(e => {});
             
             video.onended = function() {
                 document.getElementById('cinematic-overlay').style.display = 'none';
@@ -2545,7 +2534,7 @@ window.f_showDescription = function(withVoice) {
                     if(bgM) bgM.play().catch(e => {});
                 }
             };
-        }, 500); // 0.5 Sekunden warten, bis das Weiß voll da ist
+        }, 400); 
     };
 </script>
 </body>
