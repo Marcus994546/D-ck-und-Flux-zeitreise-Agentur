@@ -1143,6 +1143,24 @@ const xpV = document.getElementById('xp-val'), lvlV = document.getElementById('l
         renderEpochen();
     };
 </script>
+  <style>
+    .mission-master-btn {
+        display: block; width: 100%; margin: 25px 0 10px 0; padding: 16px;
+        background: rgba(0, 255, 204, 0.05); border: 2px solid #0f8; border-radius: 4px;
+        color: #0f8; font-family: 'Orbitron', monospace; font-size: 1.2em; font-weight: bold;
+        letter-spacing: 5px; cursor: pointer; text-shadow: 0 0 10px #0f8;
+        box-shadow: 0 0 15px rgba(0, 255, 204, 0.2), inset 0 0 10px rgba(0, 255, 204, 0.1);
+        transition: all 0.2s; animation: btn-glitch 4s infinite;
+    }
+    .mission-master-btn:hover, .mission-master-btn:active { 
+        background: #0f8; color: #000; text-shadow: none; box-shadow: 0 0 25px #0f8; transform: scale(1.02); 
+    }
+    @keyframes btn-glitch {
+        0%, 96%, 98%, 100% { transform: translate(0, 0) skewX(0); filter: drop-shadow(0 0 0 transparent); }
+        97% { transform: translate(-2px, 1px) skewX(2deg); filter: drop-shadow(-2px 0 0 #f0f) drop-shadow(2px 0 0 #0ff); }
+        99% { transform: translate(2px, -1px) skewX(-2deg); filter: drop-shadow(2px 0 0 #f0f) drop-shadow(-2px 0 0 #0ff); }
+    }
+</style>
 <style>
     #startup-layer {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -1265,7 +1283,7 @@ const xpV = document.getElementById('xp-val'), lvlV = document.getElementById('l
                         ${logs.map(l => `<div class="log-entry">${l}</div>`).join('')}
                     </div>
                 </div>
-                <button class="modell-btn" style="margin-top: 15px; border-color: #0f8; color: #000; background: #0f8; text-shadow: none; font-weight: bold; letter-spacing: 2px;" onclick="window.startCinematicMission()">MISSIONEN</button>`;
+                <button class="mission-master-btn" onclick="window.startCinematicMission()">MISSIONEN</button>`;
         } else {
             document.getElementById('content-body').innerHTML = `
                 <h2>Zentral-Terminal</h2>
