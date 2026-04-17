@@ -185,6 +185,8 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
 <div class="portal-container">
     <div id="upload-indicator">▲ UPLINK...</div>
     <header>
+        <div onclick="window.f_einstellungen()" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; z-index: 100; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
+        
         <img src="https://www.planet-schule.de/schwerpunkt/die-erde/1762773427231%2Cerde-planeten-milchstrasse-100~_v-16x7@2dM_-03f2ec8e043634bddf06d1d3200e0f3e485744ee.jpg" class="banner-bild" alt="Weltraum">
         <div class="system-time" id="clock">00:00:00 TX</div>
         <h1 style="font-size: 1.1em; margin: 10px 0; text-shadow: var(--glow);">Dück & Flux Zeitreiseagentur</h1>
@@ -491,6 +493,23 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
             '<button onclick="f_start()">Zurück</button>';
         document.getElementById('status-werte').innerHTML = statusCache;
     }
+
+    window.f_einstellungen = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+
+        const audio = document.getElementById('bg-music');
+        const isMusikAn = (audio && !audio.paused) ? "AN" : "AUS";
+        const isSoundAn = window.klickTonAktiv ? "AN" : "AUS";
+
+        document.getElementById('content-body').innerHTML = `
+            <h3>System-Einstellungen</h3>
+            <button class="modell-btn" onclick="window.toggleMusik()">Musik: ${isMusikAn}</button>
+            <button class="modell-btn" onclick="window.toggleKlick()">Tastenton: ${isSoundAn}</button>
+            <button class="modell-btn" style="border-color: #ff8800; color: #ff8800; margin-top: 15px;" onclick="window.f_logout_confirm()">Agent Abmelden</button>
+            <hr>
+            <button onclick="window.f_start()">Zurück</button>
+        `;
+    };
 </script>
 <script>
     // --- GLOBALE PROFIL-DATEN & AUTO-LOGIN ---
@@ -1677,60 +1696,9 @@ window.finishStartupSetup = function() {
         };
     };
 </script>
-<div id="einstellungs-btn" onclick="window.f_einstellungen()" style="position: fixed; top: 15px; right: 15px; font-size: 22px; cursor: pointer; z-index: 99999; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
-
-<div id="audio-control-panel" style="position: fixed; top: 45px; right: 15px; z-index: 99999; background: rgba(0, 0, 0, 0.7); ...">
-    🔊
-</div>
-
 <audio id="bg-music" loop>
     <source src="https://files.catbox.moe/zhkkab.mp3" type="audio/mpeg">
 </audio>
-
-<script>
-    (function() {
-        const audioPanel = document.getElementById('audio-control-panel');
-        const bgMusic = document.getElementById('bg-music');
-        let isPlaying = false;
-
-        function toggleAudio() {
-            if (!bgMusic) return;
-            
-            if (isPlaying) {
-                bgMusic.pause();
-                audioPanel.innerText = "🔇";
-                audioPanel.style.color = "#f44";
-                audioPanel.style.borderColor = "#f44";
-                audioPanel.style.boxShadow = "0 0 10px rgba(255, 68, 68, 0.3)";
-                isPlaying = false;
-            } else {
-                bgMusic.volume = 0.4;
-                bgMusic.play().then(() => {
-                    audioPanel.innerText = "🔊";
-                    audioPanel.style.color = "#0f8";
-                    audioPanel.style.borderColor = "#0f8";
-                    audioPanel.style.boxShadow = "0 0 10px rgba(0, 255, 204, 0.3)";
-                    isPlaying = true;
-                }).catch(e => {
-                    audioPanel.innerText = "⚠️";
-                    audioPanel.style.color = "#ff8800";
-                    audioPanel.style.borderColor = "#ff8800";
-                    audioPanel.style.boxShadow = "0 0 10px rgba(255, 136, 0, 0.3)";
-                });
-            }
-        }
-
-        audioPanel.addEventListener('click', function(e) {
-            e.stopPropagation(); 
-            toggleAudio();
-        });
-
-        document.body.addEventListener('click', function initAudio() {
-            if (!isPlaying) toggleAudio();
-            document.body.removeEventListener('click', initAudio);
-        }, { once: true });
-    })();
-</script>
 <script>
 window.f_desc_choice = function() {
     if (typeof triggerScan === 'function') triggerScan();
