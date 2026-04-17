@@ -2329,20 +2329,127 @@ window.f_showDescription = function(withVoice) {
 </script>
 <script>
     window.holeMissionFuerEpoche = function(epochenId) {
-        // Hier pflegst du später die echten Missionen für alle Sektoren ein
         const missionMatrix = {
+            // === CLUSTER 1: Ur-Sektoren (Stil: terminal-stone) ===
             'steinzeit': [
-                { title: "PLASTIK-PARADOXON", text: "Ein Tourist hat eine PET-Flasche im Jahr 12000 v. Chr. verloren. Extrahiere das Objekt.", year: "12000", style: "terminal-stone" },
-                { title: "MAMMUT-WILDERER", text: "Illegale Jagd mit Laserwaffen entdeckt. Neutralisiere die Eindringlinge.", year: "10500", style: "terminal-stone" },
-                { title: "ECHO DER URZEIT", text: "Ein Signal aus Sektor Omega stört die Evolution. Isoliere die Quelle.", year: "9800", style: "terminal-stone" }
+                { title: "PLASTIK-PARADOXON", text: "Ein synthetischer Polymer-Behälter wurde im Jahr 12000 v. Chr. verloren. Extrahiere das Objekt.", year: "12000", style: "terminal-stone" },
+                { title: "MEGAFAUNA-WILDERER", text: "Illegale Jagd mit Laserwaffen auf prähistorische Tiere entdeckt. Neutralisiere die Eindringlinge.", year: "10500", style: "terminal-stone" },
+                { title: "ECHO DER URZEIT", text: "Ein Signal aus der fernen Zukunft stört die frühe Hominiden-Evolution. Isoliere die Quelle.", year: "9800", style: "terminal-stone" }
             ],
+            'bronzezeit': [
+                { title: "KUPFER-ANOMALIE", text: "Falsche Legierungsdaten wurden ins Jahr 2500 v. Chr. geschmuggelt. Vernichte die Tafeln.", year: "2500", style: "terminal-stone" },
+                { title: "TEMPORALER SCHMIED", text: "Ein unbekannter Zeitagent baut heimlich Leuchtdioden in Bronzeschilde ein. Unterbinde den Eingriff.", year: "1800", style: "terminal-stone" },
+                { title: "RAD-PARADOXON", text: "Jemand versucht, Kugellager Jahrtausende zu früh einzuführen. Konfisziere das Material.", year: "3000", style: "terminal-stone" }
+            ],
+            'eisenzeit': [
+                { title: "STAHL-SCHMUGGEL", text: "Moderne Hochofen-Pläne zirkulieren bei antiken Stämmen. Lösche die Aufzeichnungen.", year: "0500", style: "terminal-stone" },
+                { title: "MAGNETFELD-FEHLER", text: "Verirrte Zeitsonden stören natürliche Magnetite. Rekalibriere die Erzadern im Sektor.", year: "0800", style: "terminal-stone" },
+                { title: "ANTIKE ANOMALIE", text: "Eine historische Legion besitzt taktische Funkgeräte. Zerstöre die Energiezellen.", year: "0050", style: "terminal-stone" }
+            ],
+
+            // === CLUSTER 2: Das Schisma (Stil: terminal-mystic) ===
+            'fruehmittelalter': [
+                { title: "DÄMONEN-BATTERIE", text: "Eine Autobatterie wird als magisches Relikt verehrt. Entferne die Säure-Quelle.", year: "0600", style: "terminal-mystic" },
+                { title: "KLANGBILD-ECHO", text: "Digitale Frequenzen überlagern gregorianische Gesänge. Schließe den temporalen Riss.", year: "0850", style: "terminal-mystic" },
+                { title: "TEMPORALES NAVI", text: "Ein Navigationsgerät steuert Langboote in die falsche Epoche. Peile das Signal an.", year: "0950", style: "terminal-mystic" }
+            ],
+            'hochmittelalter': [
+                { title: "DIGITALE HEXEREI", text: "Ein Hologramm-Projektor inszeniert falsche Wunder. Deaktiviere das Gerät.", year: "1150", style: "terminal-mystic" },
+                { title: "KUPFERDRAHT-KULT", text: "Mönche wickeln Spulen für angebliche Engelsantennen. Sammle das Leitmaterial ein.", year: "1200", style: "terminal-mystic" },
+                { title: "ALCHEMIE-UPDATE", text: "Zukunftswissen über Halbleiter taucht in Alchemie-Büchern auf. Verbrenne die Seiten.", year: "1050", style: "terminal-mystic" }
+            ],
+            'spaetmittelalter': [
+                { title: "PATHOGEN-PARADOXON", text: "Ein Zeitreisender verteilt moderne Antibiotika in einer Sperrzone. Verhindere die Zeitlinien-Kollision.", year: "1348", style: "terminal-mystic" },
+                { title: "INQUISITIONS-RADAR", text: "Ein zurückgelassener Sensor scannt nach Zeitagenten. Schalte ihn stumm.", year: "1450", style: "terminal-mystic" },
+                { title: "KRYPTA-UPLINK", text: "Eine Sendeanlage funkt aus alten Gewölben in die ferne Zukunft. Kappe die Verbindung.", year: "1300", style: "terminal-mystic" }
+            ],
+
+            // === CLUSTER 3: Die Umbrüche (Stil: terminal-steam) ===
+            'kolonialzeit': [
+                { title: "KOMPASS-GLITCH", text: "Temporale Interferenzen stören die Magnetfelder historischer Flotten. Resette die Pole.", year: "1650", style: "terminal-steam" },
+                { title: "PIRATEN-FUNK", text: "Freibeuter nutzen gestohlene Funkgeräte auf See. Störe die Frequenz dauerhaft.", year: "1720", style: "terminal-steam" },
+                { title: "DAMPF-ANOMALIE", text: "Ein früher Generator läuft mit Kernkraft statt Kohle. Isoliere den Reaktor.", year: "1790", style: "terminal-steam" }
+            ],
+            'industriezeitalter': [
+                { title: "PHASEN-VERSCHIEBUNG", text: "Wechselstrom wird 50 Jahre zu früh eingeführt. Passe die Frequenzkurven an.", year: "1850", style: "terminal-steam" },
+                { title: "DAMPF-KI DETEKTIERT", text: "Nanobots haben eine Dampfmaschine infiziert. Deaktiviere den Hauptschütz.", year: "1880", style: "terminal-steam" },
+                { title: "KABEL-PARADOXON", text: "Telegrafenleitungen übertragen plötzlich Binärcode. Filtere die Störsignale.", year: "1865", style: "terminal-steam" }
+            ],
+            'jahrhundertwende': [
+                { title: "ERFINDER-VERSCHWÖRUNG", text: "Jemand liefert historische Pläne für fortgeschrittene Zeitrelais. Zerstöre die Brückenschaltung.", year: "1899", style: "terminal-steam" },
+                { title: "SMOG-FILTERUNG", text: "Industrieller Zeit-Ruß verklebt die temporalen Sensoren. Reinige die Kontakte.", year: "1910", style: "terminal-steam" },
+                { title: "NEON-FEHLZÜNDUNG", text: "Frühe Leuchtreklamen bilden Risse in der Matrix. Senke die Netzspannung.", year: "1905", style: "terminal-steam" }
+            ],
+
+            // === CLUSTER 4: Die Krisen-Ära (Stil: terminal-noir) ===
             'moderne': [
-                { title: "GUMMERSBACH-LOOP", text: "Eine Anomalie hält die Stadt in einer 5-Minuten-Schleife fest. Finde den Ankerpunkt.", year: "2026", style: "terminal-noir" },
+                { title: "ENIGMA-GLITCH", text: "Eine historische Verschlüsselung nutzt versehentlich 256-Bit-AES. Setze den Algorithmus zurück.", year: "1942", style: "terminal-noir" },
                 { title: "AGENTEN-DOPPEL", text: "Ein Abtrünniger mit deiner ID wurde gesichtet. Eliminiere das Paradoxon.", year: "1945", style: "terminal-noir" },
-                { title: "CODE-STROM_BRACH", text: "Ein Rechenzentrum wird angegriffen. Schütze die Chrono-Firewall.", year: "1998", style: "terminal-noir" }
+                { title: "RÖHREN-ÜBERLAST", text: "Erste Röhrenrechner entwickeln versehentlich Bewusstsein. Zerstöre die defekten Bauteile.", year: "1948", style: "terminal-noir" }
             ],
+            'postmoderne': [
+                { title: "KALTER-KRIEG-LOOP", text: "Ein Bunker steckt in einer 12-Stunden-Zeitschleife. Brich die Schaltung auf.", year: "1962", style: "terminal-noir" },
+                { title: "ORBITAL-PARADOXON", text: "Eine lunare Mission findet Bauteile aus dem 22. Jahrhundert. Beseitige die Spuren.", year: "1969", style: "terminal-noir" },
+                { title: "NETZWERK-RISS", text: "Das frühe Datennetz verbindet sich mit dem Jahr 2050. Trenne die Router vom Zeitstrom.", year: "1983", style: "terminal-noir" }
+            ],
+            'gegenwart': [
+                { title: "ZEITSCHLEIFEN-ANOMALIE", text: "Eine lokale Sektor-Zone wird in einer 5-Minuten-Schleife gehalten. Finde den Ankerpunkt.", year: "2026", style: "terminal-noir" },
+                { title: "SERVER-BRUCH", text: "Ein Rechenzentrum wird aus der Zukunft gehackt. Kappe die Glasfaser-Verbindung.", year: "2015", style: "terminal-noir" },
+                { title: "SMARTPHONE-GLITCH", text: "Mobilfunkmasten senden versehentlich Zeitreise-Codes. Modifiziere die Frequenz.", year: "2020", style: "terminal-noir" }
+            ],
+
+            // === CLUSTER 5: Synthetische Zukunft (Stil: terminal-holo) ===
+            'dasmorgen': [
+                { title: "FUSIONS-LECK", text: "Ein experimenteller Fusionsreaktor strahlt Tachyonen ab. Isoliere das Plasma-Feld.", year: "2045", style: "terminal-holo" },
+                { title: "KI-REBELLION", text: "Wartungs-Drohnen bauen illegale Zeitmaschinen. Lege die Steuerung lahm.", year: "2070", style: "terminal-holo" },
+                { title: "NETZ-KOLLAPS", text: "Das Stromnetz wird durch Sprung-Energie überlastet. Schalte Nebenlasten ab.", year: "2088", style: "terminal-holo" }
+            ],
+            'zukunft': [
+                { title: "GHOST IN THE MATRIX", text: "Ein Logik-Virus übernimmt die planetare Verwaltung. Schreibe den Quellcode neu.", year: "2150", style: "terminal-holo" },
+                { title: "CYBER-SCHLEIFE", text: "Eine Mega-City durchlebt denselben Tag. Finde den korrupten Speicherblock.", year: "2200", style: "terminal-holo" },
+                { title: "HOLO-PARADOXON", text: "Hologramme manifestieren sich paradoxerweise physisch. Rekalibriere die Lichtbrechung.", year: "2280", style: "terminal-holo" }
+            ],
+            'ozeanische_zukunft': [
+                { title: "DATEN-TSUNAMI", text: "Die unterseeischen Server überfluten mit Chrono-Rauschen. Schließe das temporale Leck.", year: "2350", style: "terminal-holo" },
+                { title: "DRUCK-GLITCH", text: "Wasserdruck-Sensoren empfangen Signale vom Ende der Zeit. Isoliere die Kabel.", year: "2410", style: "terminal-holo" },
+                { title: "TIEFSEE-ECHO", text: "Ein gesunkenes Habitat funkt aus der Vergangenheit. Peile das Signal an.", year: "2490", style: "terminal-holo" }
+            ],
+            'virtuelle_zukunft': [
+                { title: "AVATAR-HIJACK", text: "Bewusstseins-Transfers in den Zeitstrom werden abgefangen. Sichte die Routing-Tabellen.", year: "2550", style: "terminal-holo" },
+                { title: "LOGIK-ZERFALL", text: "Die digitale Schwerkraft schwankt paradox. Setze die Parameter zurück.", year: "2600", style: "terminal-holo" },
+                { title: "PIXEL-RISS", text: "Die Grenze zwischen Simulation und Realität bricht. Patche das System.", year: "2690", style: "terminal-holo" }
+            ],
+
+            // === CLUSTER 6: Endzeit-Grenze (Stil: terminal-holo) ===
+            'mars_zeitalter': [
+                { title: "VAKUUM-VERSIEGELUNG", text: "Die Atmosphäre einer Hauptkolonie reißt auf. Setze einen temporalen Anker.", year: "2750", style: "terminal-holo" },
+                { title: "O2-PARADOXON", text: "Die Terraforming-Anlage erzeugt paradoxen Sauerstoff. Drossele die Ventile.", year: "2820", style: "terminal-holo" },
+                { title: "SANDSTURM-ECHO", text: "Stürme transportieren Trümmer aus der fernen Zukunft. Aktiviere den Schutzschild.", year: "2890", style: "terminal-holo" }
+            ],
+            'venus_zeitalter': [
+                { title: "SÄURE-SCHLEIFE", text: "Der Atmosphären-Wäscher steckt in einem Loop. Überbrücke die Leiterplatten.", year: "3150", style: "terminal-holo" },
+                { title: "DRUCK-ANOMALIE", text: "Schwerkraft-Generatoren fallen aus. Speise Notstrom aus dem Kondensator ein.", year: "3200", style: "terminal-holo" },
+                { title: "HITZE-GLITCH", text: "Kühlmittel-Leitungen frieren paradoxerweise ein. Korrigiere den Thermostat.", year: "3290", style: "terminal-holo" }
+            ],
+            'jupiter_zeitalter': [
+                { title: "STRAHLUNGS-ECHO", text: "Magnetstürme stören die Relais-Stationen. Kalibriere die Frequenzen neu.", year: "3350", style: "terminal-holo" },
+                { title: "ORBITAL-ZERFALL", text: "Ein Mond verlässt seine Umlaufbahn durch einen Zeitriss. Berechne den Vektor neu.", year: "3420", style: "terminal-holo" },
+                { title: "GAS-PARADOXON", text: "Sturmzellen drehen sich rückwärts. Resette die atmosphärischen Sensoren.", year: "3480", style: "terminal-holo" }
+            ],
+            'titan_zeitalter': [
+                { title: "METHAN-STURM", text: "Flüssige Stürme korrodieren die Zeit-Kapsel. Aktiviere manuelle Schilde.", year: "3550", style: "terminal-holo" },
+                { title: "SONDEN-ECHO", text: "Eine alte Sonde aus dem 21. Jahrhundert taucht paradox auf. Verstecke die Trümmer.", year: "3600", style: "terminal-holo" },
+                { title: "KÄLTE-GLITCH", text: "Absolute Nullpunkte frieren den Zeitfluss ein. Initiiere die Heizsequenz.", year: "3680", style: "terminal-holo" }
+            ],
+            'space_hub': [
+                { title: "REALITÄTS-NEUSTART", text: "Der Sektor kollabiert in sich selbst. Führe einen kontrollierten System-Reset durch.", year: "4040", style: "terminal-holo" },
+                { title: "SINGULARITÄTS-ECHO", text: "Eine Anomalie am Rand des Universums. Tippe den Mastercode, um zu überleben.", year: "8000", style: "terminal-holo" },
+                { title: "LETZTER AGENT", text: "Die Zeit existiert hier nicht linear. Stabilisiere den allerletzten Anker.", year: "9999", style: "terminal-holo" }
+            ],
+
+            // Fallback
             'default': [
-                { title: "SEKTOR-STABILISIERUNG", text: "Unbekannte Fluktuationen im Zeitgefüge detektiert. Führe Standard-Scan aus.", year: "2000", style: "terminal-noir" }
+                { title: "SEKTOR-STABILISIERUNG", text: "Unbekannte Fluktuationen detektiert. Führe sofortigen Standard-Scan aus.", year: "2000", style: "terminal-noir" }
             ]
         };
 
