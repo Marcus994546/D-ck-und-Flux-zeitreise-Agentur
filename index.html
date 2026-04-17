@@ -670,64 +670,7 @@ const xpV = document.getElementById('xp-val'), lvlV = document.getElementById('l
         if (lvlV) lvlV.innerText = window.playerLevel;
         if (xpF) xpF.style.width = window.playerXP + "%";
     };
-
-        window.f_start = function() {
-        if (typeof triggerScan === 'function') triggerScan();
-        if (window.isAgentVerified) window.loadProgress();
-        
-        let content = "";
-        
-        if (window.isAgentVerified) {
-            const logHTML = window.currentLogs.map(l => `<div class="log-entry">${l}</div>`).join('');
-            content = `
-                <h2>Zentral-Terminal</h2>
-                <p style="font-size: 0.9em; margin-bottom: 15px;">Willkommen zurück, Agent ${window.agentName}.</p>
-                <div style="margin-top: 10px; border-top: 1px solid var(--neon-color); padding-top: 10px;">
-                    <div style="font-size: 0.6em; text-align: left; opacity: 0.6; margin-bottom: 5px;">PROTOKOLLE:</div>
-                    <div id="log-display">${logHTML}</div>
-                </div>
-                <button class="modell-btn" style="margin-top: 15px; border-color: #0f8; color: #000; background: #0f8; text-shadow: none;" onclick="window.startCinematicMission()">Missionen</button>
-                <button class="modell-btn" style="border-style: dashed; margin-top: 10px;" onclick="window.f_einstellungen()">System-Einstellungen</button>`;
-        } else {
-            content = `
-                <h2>Zentral-Terminal</h2>
-                <p style="font-size: 0.9em; margin-bottom: 30px;">Identität wird geprüft...</p>
-                <button class="modell-btn" style="border-style: dashed;" onclick="window.f_einstellungen()">System-Einstellungen</button>`;
-        }
-        
-        document.getElementById('content-body').innerHTML = content;
-    };
-
-    // --- NEUES EINSTELLUNGSMENÜ & LOGOUT LOGIK ---
-window.klickTonAktiv = true; // Globaler Schalter für Klickgeräusche
-
-window.f_einstellungen = function() {
-    if (typeof triggerScan === 'function') triggerScan();
-    
-    const audio = document.getElementById('bg-music');
-    let musikStatus = (audio && !audio.paused) ? "AN" : "AUS";
-    let musikFarbe = (musikStatus === "AN") ? "#0f8" : "#f44";
-
-    let klickStatus = window.klickTonAktiv ? "AN" : "AUS";
-    let klickFarbe = window.klickTonAktiv ? "#0f8" : "#f44";
-
-    document.getElementById('content-body').innerHTML = `
-        <h3>System-Einstellungen</h3>
-        <div style="font-size: 0.8em; text-align: left; margin-bottom: 20px; padding: 15px; border: 1px solid rgba(0, 255, 204, 0.3); background: rgba(0, 255, 204, 0.05); border-radius: 4px;">
-            Aktiver Agent: <span style="color: #fff; font-weight: bold;">${window.agentName || "NICHT ANGEMELDET"}</span>
-        </div>
-        
-        <button class="modell-btn" style="border-color: ${musikFarbe}; color: ${musikFarbe}; margin-bottom: 15px; width: 100%;" onclick="window.toggleMusik(); window.f_einstellungen();">Hintergrundmusik: ${musikStatus}</button>
-        
-        <button class="modell-btn" style="border-color: ${klickFarbe}; color: ${klickFarbe}; margin-bottom: 15px; width: 100%;" onclick="window.toggleKlick(); window.f_einstellungen();">Klickgeräusche: ${klickStatus}</button>
-        
-        <button class="modell-btn" style="border-color: #0088ff; color: #0088ff; margin-bottom: 15px; width: 100%;" onclick="window.f_desc_choice()">Spielbeschreibung</button>
-        
-        <button class="modell-btn" style="border-color: #ff8800; color: #ff8800; width: 100%; margin-bottom: 15px;" onclick="window.f_logout_confirm()">Agenten abmelden</button>
-        <hr>
-        <button onclick="window.f_start()" style="width: 100%;">Zurück</button>
-    `;
-};
+  
     window.toggleMusik = function() {
         const audio = document.getElementById('bg-music');
         const panel = document.getElementById('audio-control-panel');
@@ -1256,6 +1199,7 @@ window.f_einstellungen = function() {
     // --- ÜBERSCHREIBEN DER F_START FUNKTION FÜR ADMIN-BADGE UND EINSTELLUNGEN ---
     window.f_start = function() {
         if (typeof triggerScan === 'function') triggerScan();
+        if (window.isAgentVerified) window.loadProgress();
         
         let begruessung = `<p style="font-size: 0.9em; margin-bottom: 15px;">Willkommen zurück, Agent ${window.agentName}.</p>`;
         
@@ -1276,13 +1220,11 @@ window.f_einstellungen = function() {
                         ${logs.map(l => `<div class="log-entry">${l}</div>`).join('')}
                     </div>
                 </div>
-                <button class="modell-btn" style="margin-top: 15px; border-color: #0f8; color: #000; background: #0f8; text-shadow: none;" onclick="window.startCinematicMission()">Missionen</button>
-                <button class="modell-btn" style="border-style: dashed; margin-top: 10px;" onclick="window.f_einstellungen()">System-Einstellungen</button>`;
+                <button class="modell-btn" style="margin-top: 15px; border-color: #0f8; color: #000; background: #0f8; text-shadow: none; font-weight: bold; letter-spacing: 2px;" onclick="window.startCinematicMission()">MISSIONEN</button>`;
         } else {
             document.getElementById('content-body').innerHTML = `
                 <h2>Zentral-Terminal</h2>
-                <p style="font-size: 0.9em; margin-bottom: 30px;">Identität wird geprüft...</p>
-                <button class="modell-btn" style="border-style: dashed;" onclick="window.f_einstellungen()">System-Einstellungen</button>`;
+                <p style="font-size: 0.9em; margin-bottom: 30px;">Identität wird geprüft...</p>`;
         }
     };
 
@@ -2549,7 +2491,18 @@ window.f_showDescription = function(withVoice) {
     };
 
     window.startCinematicMission = function() {
-        if (!window.activeEpoch) return; 
+        // NEUES FEEDBACK: Wenn noch kein Zeit Strang ausgewählt wurde!
+        if (!window.activeEpoch) {
+            if (typeof triggerScan === 'function') triggerScan();
+            if (typeof playBeep === 'function') playBeep(300, 0.2);
+            document.getElementById('content-body').innerHTML = `
+                <h3 style="color:#f44;">[ ZIEL FEHLT ]</h3>
+                <p style="color:#aaa; font-size: 0.9em; margin-bottom: 20px;">Es wurden keine Koordinaten geladen.<br>Bitte wähle zuerst einen <b>Zeit Strang</b> aus, bevor du eine Mission startest.</p>
+                <button class="modell-btn" style="border-color: #ffcc00; color: #ffcc00;" onclick="window.f_epochen()">ZEIT STRÄNGE ÖFFNEN</button>
+                <button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>
+            `;
+            return; 
+        }
 
         // === HARTES RESET ALLER TERMINAL-LAYER (Behebt den Fehler der 2. Mission!) ===
         kpVal = "";
