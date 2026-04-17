@@ -2802,5 +2802,33 @@ window.f_showDescription = function(withVoice) {
         setTimeout(() => { location.reload(); }, 1600);
     };
 </script>
+    <script>
+    window.runMission = function() {
+        // Alte Reste verstecken
+        const anzeige = document.getElementById('anzeige');
+        if (anzeige) anzeige.innerHTML = '';
+        const backBtn = document.getElementById('back-button-global');
+        if (backBtn) backBtn.style.display = 'none';
+
+        // Lese den Titel für die Anzeige aus
+        let mTitle = "SEKTOR GESICHERT";
+        let briefTitleEl = document.getElementById('brief-title');
+        if (briefTitleEl) mTitle = briefTitleEl.innerText;
+
+        // DIE WEICHE: Prüft das Jahr und öffnet das passende Overlay
+        if (currentMissionYear === "12000") {
+            if (typeof window.startARSpecial === 'function') {
+                window.startARSpecial();
+            }
+        } else {
+            if (typeof window.startStandardMission === 'function') {
+                window.startStandardMission(mTitle);
+            } else {
+                // Fallback, falls das Fenster nicht lädt
+                window.fullSystemRestore();
+            }
+        }
+    };
+</script>
 </body>
 </html>
