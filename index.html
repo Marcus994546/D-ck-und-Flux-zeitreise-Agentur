@@ -495,91 +495,6 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         document.getElementById('status-werte').innerHTML = statusCache;
     }
 
-      // --- KOMM-LINK / CHAT SYSTEM ---
-    window.f_chat = function() {
-        if (typeof triggerScan === 'function') triggerScan();
-        
-        document.getElementById('content-body').innerHTML = `
-            <h3 style="color: #0f8; text-shadow: 0 0 10px #0f8;">[ SEKTOR-FUNK ]</h3>
-            
-            <div id="radar-container" style="position: relative; height: 120px; border: 1px solid rgba(0,255,204,0.3); background: rgba(0,20,0,0.5); margin-bottom: 15px; overflow: hidden; border-radius: 4px;">
-                <div id="radar-sweep" style="position: absolute; width: 100%; height: 100%; background: conic-gradient(from 0deg, transparent, rgba(0,255,204,0.2)); animation: radar-spin 4s linear infinite;"></div>
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #0f8; font-size: 0.6em; opacity: 0.5;">SCANNING SECTOR...</div>
-                <div id="radar-agents" style="position: absolute; width: 100%; height: 100%;"></div>
-            </div>
-
-            <div style="margin-bottom: 15px;">
-                <div style="font-size: 0.6em; color: #0f8; margin-bottom: 5px;">AGENTEN-ID EINGEBEN:</div>
-                <div style="display: flex; gap: 5px;">
-                    <input type="text" id="chat-target-input" placeholder="NAME..." style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
-                    <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.startDirectFunk()">FUNK</button>
-                </div>
-            </div>
-
-            <div id="active-contacts" style="max-height: 150px; overflow-y: auto; text-align: left;">
-                <div style="font-size: 0.6em; opacity: 0.6; margin-bottom: 5px;">ONLINE IM SEKTOR:</div>
-                <div id="online-list" style="color: #aaa; font-size: 0.8em;">Suche Agenten...</div>
-            </div>
-
-            <hr style="border-color: rgba(0,255,204,0.2); margin: 15px 0;">
-            <button onclick="window.f_start()">ZURÜCK</button>
-        `;
-        window.startRadarScan();
-    };
-
-    window.startRadarScan = async function() {
-        const listEl = document.getElementById('online-list');
-        const radarAgents = document.getElementById('radar-agents');
-        if (!listEl || !window.db) return;
-
-        // In einer echten Firebase-Umgebung würden wir hier die 'agenten' Collection abfragen
-        // Für den Anfang simulieren wir den Scan, bis wir die Firebase-Abfrage scharf schalten
-        listEl.innerHTML = `<div class="log-entry" style="color: #0f8; cursor: pointer;" onclick="window.openPrivateChat('Agent_Zeta')">> Agent_Zeta (Online)</div>
-                            <div class="log-entry" style="color: #0f8; cursor: pointer;" onclick="window.openPrivateChat('Chronos_99')">> Chronos_99 (Online)</div>`;
-        
-        // Kleine Punkte auf dem Radar verteilen
-        radarAgents.innerHTML = `
-            <div class="pulse-amber" style="position: absolute; top: 30%; left: 70%; width: 6px; height: 6px; background: #0f8; border-radius: 50%;"></div>
-            <div class="pulse-amber" style="position: absolute; top: 60%; left: 20%; width: 6px; height: 6px; background: #0f8; border-radius: 50%;"></div>
-        `;
-    };
-
-    window.startDirectFunk = function() {
-        const target = document.getElementById('chat-target-input').value.trim();
-        if (target) window.openPrivateChat(target);
-    };
-
-    window.openPrivateChat = function(agentName) {
-        if (typeof triggerScan === 'function') triggerScan();
-        
-        document.getElementById('content-body').innerHTML = `
-            <h3 style="color: #0f8;">[ FUNK: ${agentName.toUpperCase()} ]</h3>
-            <div id="chat-window" style="height: 250px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;">
-                <div style="color: #555; font-size: 0.7em; text-align: center;">--- ABHÖRSICHERE VERBINDUNG STEHT ---</div>
-                <div style="color: #0f8;"><b>${agentName}:</b> Statusbericht anfordern.</div>
-                <div style="color: #aaa; align-self: flex-end; text-align: right;"><b>Du:</b> Bereit für Sprungsequenz.</div>
-            </div>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="msg-input" placeholder="Nachricht..." style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
-                <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.sendMsg()">SENDEN</button>
-            </div>
-            <button class="modell-btn" style="margin-top: 15px; border-style: dashed;" onclick="window.f_chat()">FUNK TRENNEN</button>
-        `;
-    };
-
-    window.sendMsg = function() {
-        const inp = document.getElementById('msg-input');
-        if (inp.value.trim() === "") return;
-        const win = document.getElementById('chat-window');
-        const newMsg = document.createElement('div');
-        newMsg.style.cssText = "color: #aaa; align-self: flex-end; text-align: right;";
-        newMsg.innerHTML = `<b>Du:</b> ${inp.value}`;
-        win.appendChild(newMsg);
-        win.scrollTop = win.scrollHeight;
-        inp.value = "";
-        if (typeof playBeep === 'function') playBeep(1500, 0.02);
-    };
-
     window.f_einstellungen = function() {
         if (typeof triggerScan === 'function') triggerScan();
 
@@ -621,6 +536,168 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
             
             <button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>
         `;
+    };
+</script>
+  <script>
+    window.f_chat = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color: #0f8; text-shadow: 0 0 10px #0f8;">[ SEKTOR-FUNK ]</h3>
+            
+            <div id="radar-container" style="position: relative; height: 120px; border: 1px solid rgba(0,255,204,0.3); background: rgba(0,20,0,0.5); margin-bottom: 15px; overflow: hidden; border-radius: 4px;">
+                <div id="radar-sweep" style="position: absolute; width: 100%; height: 100%; background: conic-gradient(from 0deg, transparent, rgba(0,255,204,0.2)); animation: radar-spin 4s linear infinite;"></div>
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #0f8; font-size: 0.6em; opacity: 0.5;">SCANNING SECTOR...</div>
+                <div id="radar-agents" style="position: absolute; width: 100%; height: 100%;"></div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <div style="font-size: 0.6em; color: #0f8; margin-bottom: 5px;">AGENTEN-ID EINGEBEN:</div>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="chat-target-input" placeholder="NAME..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none; text-transform: uppercase;">
+                    <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.startDirectFunk()">FUNK</button>
+                </div>
+            </div>
+
+            <div id="active-contacts" style="max-height: 150px; overflow-y: auto; text-align: left;">
+                <div style="font-size: 0.6em; opacity: 0.6; margin-bottom: 5px;">ONLINE IM SEKTOR:</div>
+                <div id="online-list" style="color: #aaa; font-size: 0.8em;">Warte auf Radar-Uplink...</div>
+            </div>
+
+            <hr style="border-color: rgba(0,255,204,0.2); margin: 15px 0;">
+            <button onclick="window.f_start()">ZURÜCK</button>
+        `;
+        window.startRadarScan();
+    };
+
+    // --- LIVE RADAR & PING SYSTEM ---
+    window.currentRadarListener = null;
+
+    window.startRadarScan = function() {
+        const listEl = document.getElementById('online-list');
+        const radarAgents = document.getElementById('radar-agents');
+        if (!listEl || !window.db) return;
+
+        listEl.innerHTML = `<div style="color: #ffcc00; font-size: 0.8em;">Scanne Sektor...</div>`;
+        radarAgents.innerHTML = '';
+
+        if (window.currentRadarListener) window.currentRadarListener(); // Alten Scan stoppen
+
+        try {
+            const agentRef = window.collection(window.db, "agenten");
+            window.currentRadarListener = window.onSnapshot(agentRef, (snapshot) => {
+                const now = Date.now();
+                let htmlList = "";
+                let htmlRadar = "";
+                let onlineCount = 0;
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // Agent ist online, wenn der Ping weniger als 2 Minuten (120000ms) alt ist
+                    if (data.last_ping && (now - data.last_ping < 120000)) {
+                        // Eigenen Namen auf dem Radar ausblenden
+                        if (doc.id !== window.agentName.toLowerCase()) {
+                            onlineCount++;
+                            // Zufällige Position auf dem Radar-Bildschirm
+                            const top = Math.floor(Math.random() * 70) + 15;
+                            const left = Math.floor(Math.random() * 70) + 15;
+                            htmlRadar += `<div class="pulse-amber" style="position: absolute; top: ${top}%; left: ${left}%; width: 6px; height: 6px; background: #0f8; border-radius: 50%; box-shadow: 0 0 5px #0f8;"></div>`;
+                            
+                            const dName = doc.id.toUpperCase();
+                            htmlList += `<div class="log-entry" style="color: #0f8; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#0f8'" onclick="window.openPrivateChat('${dName}')">> ${dName} (Online)</div>`;
+                        }
+                    }
+                });
+
+                const curList = document.getElementById('online-list');
+                const curRadar = document.getElementById('radar-agents');
+                if (curList) {
+                    if (onlineCount === 0) {
+                        curList.innerHTML = `<div style="color: #aaa; font-size: 0.8em;">Sektor ist leer. Keine Agenten online.</div>`;
+                        if (curRadar) curRadar.innerHTML = "";
+                    } else {
+                        curList.innerHTML = htmlList;
+                        if (curRadar) curRadar.innerHTML = htmlRadar;
+                    }
+                }
+            });
+        } catch(e) {
+            listEl.innerHTML = `<div style="color: #f44; font-size: 0.8em;">RADAR OFFLINE</div>`;
+        }
+    };
+
+    // Agent sendet jede Minute einen Ping, um online zu bleiben
+    window.sendRadarPing = async function() {
+        if (!window.db || !window.agentName) return;
+        try {
+            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+            // merge: true sorgt dafür, dass deine XP und Level NICHT überschrieben werden!
+            await window.setDoc(agentRef, { last_ping: Date.now() }, { merge: true });
+        } catch(e) { console.error("Ping-Fehler:", e); }
+    };
+
+    // Ping sofort nach Login starten und dann alle 60 Sekunden wiederholen
+    setTimeout(window.sendRadarPing, 2000);
+    if (window.pingInterval) clearInterval(window.pingInterval);
+    window.pingInterval = setInterval(window.sendRadarPing, 60000);
+
+    window.startDirectFunk = function() {
+        const target = document.getElementById('chat-target-input').value.trim();
+        if (target) window.openPrivateChat(target);
+    };
+
+    window.currentChatListener = null;
+
+    window.openPrivateChat = function(targetAgentName) {
+        if (typeof triggerScan === 'function') triggerScan();
+        const myName = (window.agentName || "Unbekannt").toLowerCase();
+        const targetName = targetAgentName.toLowerCase();
+        const channelId = [myName, targetName].sort().join("_");
+        
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color: #0f8;">[ FUNK: ${targetAgentName.toUpperCase()} ]</h3>
+            <div style="font-size: 0.5em; color: #555; text-align: center; margin-bottom: 5px;">KANAL: ${channelId}</div>
+            <div id="chat-window" style="height: 250px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;">
+                <div style="color: #555; font-size: 0.7em; text-align: center;">--- VERBINDUNG WIRD SYNCHRONISIERT ---</div>
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="msg-input" placeholder="Nachricht..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
+                <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.sendMsg('${channelId}')">SENDEN</button>
+            </div>
+            <button class="modell-btn" style="margin-top: 15px; border-style: dashed;" onclick="if(window.currentChatListener) window.currentChatListener(); window.f_chat();">FUNK TRENNEN</button>
+        `;
+
+        if (window.db && window.onSnapshot) {
+            if (window.currentChatListener) window.currentChatListener();
+            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+            const q = window.query(msgRef, window.orderBy("zeitstempel", "asc"), window.limit(50));
+            window.currentChatListener = window.onSnapshot(q, (snapshot) => {
+                const win = document.getElementById('chat-window');
+                if (!win) return;
+                win.innerHTML = `<div style="color: #0f8; font-size: 0.7em; text-align: center; border-bottom: 1px dashed rgba(0,255,204,0.3); padding-bottom: 5px; margin-bottom: 5px;">--- VERBINDUNG SICHER ---</div>`;
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const isMe = (data.absender === window.agentName);
+                    const msgDiv = document.createElement('div');
+                    msgDiv.style.cssText = isMe ? "color: #aaa; align-self: flex-end; text-align: right;" : "color: #0f8; align-self: flex-start; text-align: left;";
+                    msgDiv.innerHTML = `<b>${isMe ? 'Du' : data.absender}:</b> ${data.text}`;
+                    win.appendChild(msgDiv);
+                });
+                win.scrollTop = win.scrollHeight;
+            });
+        }
+    };
+
+    window.sendMsg = async function(channelId) {
+        const inp = document.getElementById('msg-input');
+        const text = inp.value.trim();
+        if (text === "" || !window.db) return;
+        inp.value = "";
+        if (typeof playBeep === 'function') playBeep(1500, 0.02);
+        try {
+            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+            await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
+        } catch (e) { console.error("Sende-Fehler:", e); }
     };
 </script>
 <script>
