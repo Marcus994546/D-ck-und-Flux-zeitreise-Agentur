@@ -2555,7 +2555,7 @@ window.f_showDescription = function(withVoice) {
         <video id="cinematic-video-1" class="cinematic-vid" src="hanger.mp4" playsinline preload="auto"></video>
         <video id="cinematic-video-2" class="cinematic-vid" src="zeitmaschine.mp4" playsinline preload="auto"></video>
         <video id="cinematic-video-3" class="cinematic-vid" src="wurmloch.mp4" playsinline preload="auto"></video>
-        <audio id="snd-wurmloch" src="Verzierung.mp3" preload="auto"></audio>
+        <audio id="snd-wurmloch" src="Audio-/verzerren!.mp3" preload="auto"></audio>
     </div>
     <button id="cinematic-play-btn">VERBINDUNG STARTEN</button>
     
@@ -2693,6 +2693,189 @@ window.f_showDescription = function(withVoice) {
                 }, 100);
             }, 600); 
         }, 800); 
+    };
+</script>
+  <style>
+    #gameplay-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: #000; z-index: 70000; display: none;
+        flex-direction: column; justify-content: center; align-items: center;
+        font-family: 'Orbitron', monospace; overflow: hidden;
+    }
+
+    /* === AR KAMERA STYLES (URZEIT) === */
+    #ar-video-container {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;
+    }
+    #ar-video-feed {
+        width: 100%; height: 100%; object-fit: cover;
+    }
+    .ar-urzeit-filter {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+        background: rgba(255, 100, 0, 0.2); mix-blend-mode: color; z-index: 2;
+    }
+    .ar-scanlines {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(255, 170, 0, 0.1) 50%);
+        background-size: 100% 4px; z-index: 3;
+    }
+    #ar-radar-line {
+        position: absolute; top: 0; left: 0; width: 100%; height: 5px;
+        background: #ffaa00; box-shadow: 0 0 15px #ffaa00; z-index: 4;
+        animation: radar-scan 3s infinite linear; pointer-events: none;
+    }
+    @keyframes radar-scan {
+        0% { top: 0; opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { top: 100%; opacity: 0; }
+    }
+
+    #ar-target-icon {
+        position: absolute; top: 40%; left: 40%; width: 60px; height: 60px;
+        border: 2px dashed #0f8; border-radius: 50%; display: none;
+        justify-content: center; align-items: center; color: #0f8; font-weight: bold;
+        z-index: 10; cursor: pointer; background: rgba(0, 255, 136, 0.1);
+        animation: float-target 4s infinite ease-in-out;
+    }
+    @keyframes float-target {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(15px, -15px); }
+    }
+
+    /* === PLATZHALTER TERMINAL === */
+    .gameplay-terminal {
+        background: rgba(0, 20, 0, 0.95); border: 2px solid #0f8; padding: 25px;
+        width: 85%; max-width: 400px; text-align: center; color: #0f8; z-index: 50;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+    }
+    .gameplay-btn {
+        margin-top: 20px; padding: 12px 20px; background: #000; color: #0f8;
+        border: 1px solid #0f8; font-family: 'Orbitron', monospace; cursor: pointer;
+        width: 100%; font-weight: bold; text-transform: uppercase;
+    }
+</style>
+
+<div id="gameplay-overlay">
+    <div id="ar-video-container">
+        <video id="ar-video-feed" autoplay playsinline></video>
+        <div class="ar-urzeit-filter"></div>
+        <div class="ar-scanlines"></div>
+        <div id="ar-radar-line"></div>
+        <div id="ar-target-icon" onclick="extractARObject()">PET<br>100%</div>
+    </div>
+
+    <div id="gameplay-ui" class="gameplay-terminal">
+        <h3 id="gp-title" style="margin-top:0; text-shadow: 0 0 10px currentColor;">[ MISSION LÄDT ]</h3>
+        <p id="gp-desc" style="font-size:0.85em; color:#ddd; margin-bottom:20px;">Synchronisiere Daten...</p>
+        <div id="gp-action-container"></div>
+    </div>
+</div>
+
+<script>
+    let arVideoStream = null;
+
+    // Diese Funktion überschreibt die alte runMission() Logik
+    window.runMission = function() {
+        const overlay = document.getElementById('gameplay-overlay');
+        const ui = document.getElementById('gameplay-ui');
+        const title = document.getElementById('gp-title');
+        const desc = document.getElementById('gp-desc');
+        const actionContainer = document.getElementById('gp-action-container');
+        
+        overlay.style.display = 'flex';
+        ui.style.display = 'block';
+        document.getElementById('ar-video-container').style.display = 'none';
+
+        // FARBANPASSUNG NACH CLUSTER (Hier rudimentär über das Jahr geprüft)
+        let themeColor = "#0f8"; // Default Modern
+        if (currentMissionYear <= 12000 && currentMissionYear >= 50) themeColor = "#ffaa00"; // Ur-Zeit
+
+        ui.style.borderColor = themeColor;
+        ui.style.color = themeColor;
+
+        // WEICHE: Welche Mission wird gestartet?
+        if (currentMissionYear === "12000") {
+            // MISSION: PLASTIK-PARADOXON
+            title.innerText = "PLASTIK-PARADOXON";
+            desc.innerHTML = "> Anomalie (Synthetisches Polymer) in unmittelbarer Nähe detektiert.<br>> Optischer Umgebungs-Scan erforderlich.";
+            actionContainer.innerHTML = `<button class="gameplay-btn" style="border-color:${themeColor}; color:${themeColor};" onclick="initARCamera()">KAMERA-UPLINK AKTIVIEREN</button>`;
+        } else {
+            // PLATZHALTER FÜR ALLE ANDEREN MISSIONEN
+            title.innerText = "ZIEL-KOORDINATEN ERREICHT";
+            desc.innerHTML = `> Sektor gesichert.<br>> Anomalie-Isolation für Jahr <b>${currentMissionYear || 'UNBEKANNT'}</b> wird in Kürze freigeschaltet.<br>> Bitte auf System-Update warten.`;
+            actionContainer.innerHTML = `<button class="gameplay-btn" style="border-color:${themeColor}; color:${themeColor};" onclick="endGameplayMission()">ZURÜCK ZUR BASIS</button>`;
+        }
+    };
+
+    // --- AR KAMERA LOGIK ---
+    window.initARCamera = function() {
+        const ui = document.getElementById('gameplay-ui');
+        ui.innerHTML = `<p style="color:#ffaa00;">Initialisiere optischen Sensor...</p>`;
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(function(stream) {
+                arVideoStream = stream;
+                const video = document.getElementById('ar-video-feed');
+                video.srcObject = stream;
+                
+                // UI ausblenden, Kamera einblenden
+                ui.style.display = 'none';
+                document.getElementById('ar-video-container').style.display = 'block';
+                
+                // Nach 3 Sekunden Radar-Suche taucht das Objekt auf
+                setTimeout(() => {
+                    document.getElementById('ar-target-icon').style.display = 'flex';
+                    if (typeof playBeep === 'function') playBeep(1200, 0.1);
+                }, 3000);
+            })
+            .catch(function(err) {
+                // FALLBACK, falls Kamera blockiert oder nicht vorhanden ist
+                ui.innerHTML = `
+                    <h3 style="color:#f44;">[ SENSOR-FEHLER ]</h3>
+                    <p style="font-size:0.8em; color:#ddd;">Kamera-Zugriff verweigert oder nicht möglich. Führe manuellen Blind-Scan durch...</p>
+                    <button class="gameplay-btn" style="border-color:#ffaa00; color:#ffaa00;" onclick="extractARObject()">BLIND-EXTRAKTION AUSFÜHREN</button>
+                `;
+            });
+    };
+
+    window.extractARObject = function() {
+        if (typeof playBeep === 'function') playBeep(2000, 0.2);
+        
+        // Kamera beenden, falls aktiv
+        if (arVideoStream) {
+            arVideoStream.getTracks().forEach(track => track.stop());
+            arVideoStream = null;
+        }
+
+        document.getElementById('ar-video-container').style.display = 'none';
+        
+        const ui = document.getElementById('gameplay-ui');
+        ui.style.display = 'block';
+        ui.style.borderColor = "#0f8";
+        ui.style.color = "#0f8";
+
+        ui.innerHTML = `
+            <h3 style="margin-top:0; text-shadow: 0 0 10px #0f8;">[ EXTRAKTION ERFOLGREICH ]</h3>
+            <p style="font-size:0.85em; color:#ddd; margin-bottom:20px;">> Objekt neutralisiert.<br>> Zeitlinie stabilisiert.<br><span style="color:#0f8; font-weight:bold;">+50 EP GENERIERT</span></p>
+            <button class="gameplay-btn" style="border-color:#0f8; color:#0f8;" onclick="endGameplayMission(50)">RÜCKKEHR EINLEITEN</button>
+        `;
+    };
+
+    // --- ABSCHLUSS & RÜCKKEHR ---
+    window.endGameplayMission = function(xpReward = 0) {
+        document.getElementById('gameplay-overlay').style.display = 'none';
+        
+        if (xpReward > 0 && typeof window.updateXP === 'function') {
+            window.updateXP(xpReward);
+        }
+
+        // Zurück zur Hauptansicht
+        if (typeof window.fullSystemRestore === 'function') {
+            window.fullSystemRestore();
+        } else if (typeof window.f_start === 'function') {
+            window.f_start();
+        }
     };
 </script>
 </body>
