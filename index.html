@@ -6,7 +6,7 @@
     <title>Dück & Flux Zeitreiseagentur | Zentral-Terminal</title>
     <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
@@ -23,7 +23,17 @@
   window.doc = doc;
   window.setDoc = setDoc;
   window.getDoc = getDoc;
-  console.log("UPLINK AKTIV");
+  
+  // --- NEUE WERKZEUGE FÜR DEN KOMM-LINK ---
+  window.collection = collection;
+  window.addDoc = addDoc;
+  window.onSnapshot = onSnapshot;
+  window.query = query;
+  window.orderBy = orderBy;
+  window.limit = limit;
+  window.serverTimestamp = serverTimestamp;
+
+  console.log("UPLINK & KOMM-LINK AKTIV");
 </script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
         <meta name="description" content="Dück & Flux Zeitreiseagentur - Das ultimative Terminal-Browsergame im Gummersbach-Sektor. Erfülle Missionen, sammle XP und stabilisiere die Zeitlinie.">
