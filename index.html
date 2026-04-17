@@ -70,8 +70,8 @@
             background-color: #000; overflow: hidden;
             letter-spacing: 1px;
         }
-/* ANTI-GEISTER-REGEL: Zwingt alle Reste im Hintergrund unsichtbar zu bleiben, um das Layout nicht nach links zu quetschen */
-body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#cinematic-overlay):not(#gameplay-overlay) {
+/* ANTI-GEISTER-REGEL UPDATE */
+body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#cinematic-overlay):not(#gameplay-overlay):not(#ar-special-overlay):not(#standard-mission-overlay) {
     display: none !important;
 }
 
@@ -2458,6 +2458,7 @@ window.f_showDescription = function(withVoice) {
     };
 </script>
 <style>
+<style>
     #cinematic-overlay {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: #000; z-index: 60000; display: none;
@@ -2544,6 +2545,16 @@ window.f_showDescription = function(withVoice) {
 
     #rotate-blocker { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #0f8; z-index: 60010; display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-family: 'Orbitron', monospace; }
     #cinematic-play-btn { position: absolute; display: none; z-index: 60002; padding: 15px 30px; background: rgba(0, 20, 0, 0.9); border: 2px solid #0f8; color: #0f8; font-family: 'Orbitron', monospace; font-size: 1.2em; }
+    
+    /* NEU: SKIP BUTTON STYLES */
+    #skip-jump-btn {
+        position: absolute; top: 20px; right: 20px; z-index: 60050; display: none;
+        padding: 10px 15px; background: rgba(0, 20, 0, 0.8); color: #0f8;
+        border: 1px solid #0f8; font-family: 'Orbitron', monospace;
+        font-size: 0.75em; cursor: pointer; text-transform: uppercase;
+        font-weight: bold; border-radius: 4px; box-shadow: 0 0 10px rgba(0,255,136,0.3);
+    }
+    #skip-jump-btn:active { background: #0f8; color: #000; }
 </style>
 
 <div id="cinematic-overlay">
@@ -2551,11 +2562,14 @@ window.f_showDescription = function(withVoice) {
     <div id="rotate-blocker">
         <span style="font-size: 3em; margin-bottom: 20px;">🔄</span><h3 style="margin-top: 0;">ATMOSPHÄREN-BRUCH</h3><p style="color: #aaa; font-size: 0.9em; max-width: 80%;">Bitte Gerät quer halten.</p>
     </div>
+    
+    <button id="skip-jump-btn" onclick="window.skipTimeJump()">ÜBERSPRINGEN ⏭</button>
+
     <div id="video-container">
         <video id="cinematic-video-1" class="cinematic-vid" src="hanger.mp4" playsinline preload="auto"></video>
         <video id="cinematic-video-2" class="cinematic-vid" src="zeitmaschine.mp4" playsinline preload="auto"></video>
         <video id="cinematic-video-3" class="cinematic-vid" src="wurmloch.mp4" playsinline preload="auto"></video>
-        <audio id="snd-wurmloch" src="Audio-/verzerren!.mp3" preload="auto"></audio>
+        <audio id="snd-wurmloch" src="VerzerrungVurmloch.mp3" preload="auto"></audio>
     </div>
     <button id="cinematic-play-btn">VERBINDUNG STARTEN</button>
     
@@ -2614,7 +2628,6 @@ window.f_showDescription = function(withVoice) {
 
         try { if (document.fullscreenElement && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e => console.log("Auto-Rotate blockiert")); } catch(err) {}
 
-        // Hier ruft Block 2 die Daten aus Block 1 ab
         const m = typeof window.holeMissionFuerEpoche === 'function' ? window.holeMissionFuerEpoche(window.activeEpoch) : { title: "FEHLER", text: "Datenbank-Uplink fehlgeschlagen.", year: "0000", style: "terminal-noir" };
         currentMissionYear = m.year;
 
@@ -2628,6 +2641,7 @@ window.f_showDescription = function(withVoice) {
 
         document.getElementById('briefing-layer').style.display = 'flex';
         document.getElementById('keypad-layer').style.display = 'none';
+        document.getElementById('skip-jump-btn').style.display = 'none'; // Verstecken beim Start
 
         const bgMusic = document.getElementById('bg-music');
         window.wasMusicPlaying = (bgMusic && !bgMusic.paused);
@@ -2661,6 +2675,9 @@ window.f_showDescription = function(withVoice) {
 
         terminal.classList.add('terminal-glitch-active');
         if (typeof playBeep === 'function') playBeep(400, 0.5);
+        
+        // Skip Button direkt einblenden, sobald die Sequenz startet
+        document.getElementById('skip-jump-btn').style.display = 'block';
 
         setTimeout(() => {
             terminal.style.display = 'none'; container.classList.add('warp-jump');
@@ -2684,6 +2701,8 @@ window.f_showDescription = function(withVoice) {
                         
                         vid3.onended = function() {
                             document.getElementById('cinematic-overlay').style.display = 'none';
+                            document.getElementById('skip-jump-btn').style.display = 'none'; // Verstecken beim normalen Ende
+                            
                             if (sndWurmloch) { sndWurmloch.pause(); sndWurmloch.currentTime = 0; }
                             try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(err) {}
                             if (typeof runMission === 'function') runMission(); 
@@ -2693,6 +2712,38 @@ window.f_showDescription = function(withVoice) {
                 }, 100);
             }, 600); 
         }, 800); 
+    };
+
+    // NEU: SKIP LOGIK
+    window.skipTimeJump = function() {
+        if (typeof playBeep === 'function') playBeep(1000, 0.1);
+        
+        const vid1 = document.getElementById('cinematic-video-1');
+        const vid2 = document.getElementById('cinematic-video-2');
+        const vid3 = document.getElementById('cinematic-video-3');
+        const sndWurmloch = document.getElementById('snd-wurmloch');
+        
+        // Alle laufenden Medien anhalten
+        vid1.pause(); 
+        vid2.pause(); 
+        vid3.pause();
+        if (sndWurmloch) { sndWurmloch.pause(); sndWurmloch.currentTime = 0; }
+        
+        // Oberflächen resetten und ausblenden
+        document.getElementById('skip-jump-btn').style.display = 'none';
+        document.getElementById('cinematic-overlay').style.display = 'none';
+        
+        // Rotation entsperren
+        try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(err) {}
+        
+        // Direkt den Gameplay-Block feuern
+        if (typeof runMission === 'function') runMission(); 
+        
+        // Musik wieder starten, falls sie lief
+        if (window.wasMusicPlaying) { 
+            const bgM = document.getElementById('bg-music'); 
+            if(bgM) bgM.play().catch(e => {}); 
+        }
     };
 </script>
 <script>
