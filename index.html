@@ -548,127 +548,118 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         `;
     };
 </script>
-  <script>
+<script>
+    // --- DESIGN-INJEKTION (Erzeugt das Blinken automatisch) ---
+    if (!document.getElementById('flux-chat-styles')) {
+        const style = document.createElement('style');
+        style.id = 'flux-chat-styles';
+        style.innerHTML = `
+            @keyframes nav-blink {
+                0% { background: rgba(0, 255, 204, 0.1); border-color: #0f8; }
+                50% { background: rgba(255, 68, 68, 0.4); border-color: #f44; box-shadow: 0 0 15px #f44; }
+                100% { background: rgba(0, 255, 204, 0.1); border-color: #0f8; }
+            }
+            .chat-alert { animation: nav-blink 0.8s infinite !important; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // --- 1. HAUPTMENÜ (ÜBERSICHT) ---
     window.f_chat = function() {
         if (typeof triggerScan === 'function') triggerScan();
         
-        document.getElementById('content-body').innerHTML = `
-            <h3 style="color: #0f8; text-shadow: 0 0 10px #0f8;">[ SEKTOR-FUNK ]</h3>
-            
-            <div id="radar-container" style="position: relative; height: 120px; border: 1px solid rgba(0,255,204,0.3); background: rgba(0,20,0,0.5); margin-bottom: 15px; overflow: hidden; border-radius: 4px;">
-                <div id="radar-sweep" style="position: absolute; width: 100%; height: 100%; background: conic-gradient(from 0deg, transparent, rgba(0,255,204,0.2)); animation: radar-spin 4s linear infinite;"></div>
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #0f8; font-size: 0.6em; opacity: 0.5;">SCANNING SECTOR...</div>
-                <div id="radar-agents" style="position: absolute; width: 100%; height: 100%;"></div>
-            </div>
+        const chatBtn = document.querySelector('nav button:nth-child(3)');
+        if(chatBtn) chatBtn.classList.remove('chat-alert');
 
-            <div style="margin-bottom: 15px;">
+        let activeChats = JSON.parse(localStorage.getItem('flux_active_chats') || "[]");
+        let chatListHtml = activeChats.length > 0 ? "" : '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
+        
+        activeChats.forEach(name => {
+            chatListHtml += `
+                <div class="log-entry" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
+                    <span style="color: #0f8; cursor: pointer; flex-grow: 1;" onclick="window.openPrivateChat('${name}')">> AGENT: ${name.toUpperCase()}</span>
+                    <span style="cursor: pointer; color: #f44; padding: 0 10px; font-size: 1.2em;" onclick="window.deleteChat('${name}')">🗑️</span>
+                </div>`;
+        });
+
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color: #0f8;">[ KOMM-LINK ]</h3>
+            <div style="margin-bottom: 20px;">
                 <div style="font-size: 0.6em; color: #0f8; margin-bottom: 5px;">AGENTEN-ID EINGEBEN:</div>
                 <div style="display: flex; gap: 5px;">
                     <input type="text" id="chat-target-input" placeholder="NAME..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none; text-transform: uppercase;">
                     <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.startDirectFunk()">FUNK</button>
                 </div>
             </div>
-
-            <div id="active-contacts" style="max-height: 150px; overflow-y: auto; text-align: left;">
-                <div style="font-size: 0.6em; opacity: 0.6; margin-bottom: 5px;">ONLINE IM SEKTOR:</div>
-                <div id="online-list" style="color: #aaa; font-size: 0.8em;">Warte auf Radar-Uplink...</div>
+            <div style="text-align: left; margin-bottom: 20px;">
+                <div style="font-size: 0.6em; opacity: 0.6; margin-bottom: 5px;">GESPEICHERTE KANÄLE:</div>
+                <div id="active-chat-list">${chatListHtml}</div>
             </div>
-
+            <button class="modell-btn" style="border-color: #ffcc00; color: #ffcc00;" onclick="window.renderRadarView()">📡 RADAR AKTIVIEREN</button>
             <hr style="border-color: rgba(0,255,204,0.2); margin: 15px 0;">
             <button onclick="window.f_start()">ZURÜCK</button>
+        `;
+    };
+
+    // --- 2. RADAR ANSICHT ---
+    window.renderRadarView = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color: #ffcc00;">[ SEKTOR-RADAR ]</h3>
+            <div id="radar-container" style="position: relative; height: 150px; border: 1px solid rgba(255,204,0,0.3); background: rgba(0,20,0,0.5); margin-bottom: 15px; overflow: hidden; border-radius: 4px;">
+                <div style="position: absolute; width: 100%; height: 100%; background: conic-gradient(from 0deg, transparent, rgba(255,204,0,0.1)); animation: radar-spin 4s linear infinite;"></div>
+                <div id="radar-agents" style="position: absolute; width: 100%; height: 100%;"></div>
+            </div>
+            <div id="online-list" style="max-height: 150px; overflow-y: auto; text-align: left;"></div>
+            <hr>
+            <button class="modell-btn" onclick="if(window.currentRadarListener) window.currentRadarListener(); window.f_chat();">RADAR DEAKTIVIEREN</button>
         `;
         window.startRadarScan();
     };
 
-    // --- LIVE RADAR & PING SYSTEM ---
+    // --- 3. LOGIK: RADAR SCAN ---
     window.currentRadarListener = null;
-
     window.startRadarScan = function() {
+        if (!window.db) return;
         const listEl = document.getElementById('online-list');
         const radarAgents = document.getElementById('radar-agents');
-        if (!listEl || !window.db) return;
+        if (window.currentRadarListener) window.currentRadarListener();
 
-        listEl.innerHTML = `<div style="color: #ffcc00; font-size: 0.8em;">Scanne Sektor...</div>`;
-        radarAgents.innerHTML = '';
-
-        if (window.currentRadarListener) window.currentRadarListener(); // Alten Scan stoppen
-
-        try {
-            const agentRef = window.collection(window.db, "agenten");
-            window.currentRadarListener = window.onSnapshot(agentRef, (snapshot) => {
-                const now = Date.now();
-                let htmlList = "";
-                let htmlRadar = "";
-                let onlineCount = 0;
-
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    // Agent ist online, wenn der Ping weniger als 2 Minuten (120000ms) alt ist
-                    if (data.last_ping && (now - data.last_ping < 120000)) {
-                        // Eigenen Namen auf dem Radar ausblenden
-                        if (doc.id !== window.agentName.toLowerCase()) {
-                            onlineCount++;
-                            // Zufällige Position auf dem Radar-Bildschirm
-                            const top = Math.floor(Math.random() * 70) + 15;
-                            const left = Math.floor(Math.random() * 70) + 15;
-                            htmlRadar += `<div class="pulse-amber" style="position: absolute; top: ${top}%; left: ${left}%; width: 6px; height: 6px; background: #0f8; border-radius: 50%; box-shadow: 0 0 5px #0f8;"></div>`;
-                            
-                            const dName = doc.id.toUpperCase();
-                            htmlList += `<div class="log-entry" style="color: #0f8; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#0f8'" onclick="window.openPrivateChat('${dName}')">> ${dName} (Online)</div>`;
-                        }
-                    }
-                });
-
-                const curList = document.getElementById('online-list');
-                const curRadar = document.getElementById('radar-agents');
-                if (curList) {
-                    if (onlineCount === 0) {
-                        curList.innerHTML = `<div style="color: #aaa; font-size: 0.8em;">Sektor ist leer. Keine Agenten online.</div>`;
-                        if (curRadar) curRadar.innerHTML = "";
-                    } else {
-                        curList.innerHTML = htmlList;
-                        if (curRadar) curRadar.innerHTML = htmlRadar;
-                    }
+        const agentRef = window.collection(window.db, "agenten");
+        window.currentRadarListener = window.onSnapshot(agentRef, (snapshot) => {
+            const now = Date.now();
+            let htmlList = "", htmlRadar = "", count = 0;
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                if (data.last_ping && (now - data.last_ping < 120000) && doc.id !== window.agentName.toLowerCase()) {
+                    count++;
+                    const top = Math.floor(Math.random() * 70) + 15, left = Math.floor(Math.random() * 70) + 15;
+                    htmlRadar += `<div class="pulse-amber" style="position: absolute; top:${top}%; left:${left}%; width:6px; height:6px; background:#0f8; border-radius:50%; box-shadow:0 0 5px #0f8;"></div>`;
+                    htmlList += `<div class="log-entry" style="color:#0f8; cursor:pointer;" onclick="window.openPrivateChat('${doc.id.toUpperCase()}')">> ${doc.id.toUpperCase()} (Online)</div>`;
                 }
             });
-        } catch(e) {
-            listEl.innerHTML = `<div style="color: #f44; font-size: 0.8em;">RADAR OFFLINE</div>`;
-        }
+            if (listEl) listEl.innerHTML = count > 0 ? htmlList : '<div style="color:#555; font-size:0.8em;">Keine Agenten im Sektor...</div>';
+            if (radarAgents) radarAgents.innerHTML = htmlRadar;
+        });
     };
 
-    // Agent sendet jede Minute einen Ping, um online zu bleiben
-    window.sendRadarPing = async function() {
-        if (!window.db || !window.agentName) return;
-        try {
-            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
-            // merge: true sorgt dafür, dass deine XP und Level NICHT überschrieben werden!
-            await window.setDoc(agentRef, { last_ping: Date.now() }, { merge: true });
-        } catch(e) { console.error("Ping-Fehler:", e); }
-    };
-
-    // Ping sofort nach Login starten und dann alle 60 Sekunden wiederholen
-    setTimeout(window.sendRadarPing, 2000);
-    if (window.pingInterval) clearInterval(window.pingInterval);
-    window.pingInterval = setInterval(window.sendRadarPing, 60000);
-
-    window.startDirectFunk = function() {
-        const target = document.getElementById('chat-target-input').value.trim();
-        if (target) window.openPrivateChat(target);
-    };
-
-    window.currentChatListener = null;
-
+    // --- 4. LOGIK: CHAT ÖFFNEN ---
     window.openPrivateChat = function(targetAgentName) {
         if (typeof triggerScan === 'function') triggerScan();
-        const myName = (window.agentName || "Unbekannt").toLowerCase();
+        const myName = window.agentName.toLowerCase();
         const targetName = targetAgentName.toLowerCase();
         const channelId = [myName, targetName].sort().join("_");
-        
+
+        let activeChats = JSON.parse(localStorage.getItem('flux_active_chats') || "[]");
+        if (!activeChats.includes(targetAgentName.toUpperCase())) {
+            activeChats.push(targetAgentName.toUpperCase());
+            localStorage.setItem('flux_active_chats', JSON.stringify(activeChats));
+        }
+
         document.getElementById('content-body').innerHTML = `
             <h3 style="color: #0f8;">[ FUNK: ${targetAgentName.toUpperCase()} ]</h3>
-            <div style="font-size: 0.5em; color: #555; text-align: center; margin-bottom: 5px;">KANAL: ${channelId}</div>
             <div id="chat-window" style="height: 250px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;">
-                <div style="color: #555; font-size: 0.7em; text-align: center;">--- VERBINDUNG WIRD SYNCHRONISIERT ---</div>
+                <div style="color: #555; font-size: 0.7em; text-align: center;">--- VERSCHLÜSSELUNG AKTIV ---</div>
             </div>
             <div style="display: flex; gap: 5px;">
                 <input type="text" id="msg-input" placeholder="Nachricht..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
@@ -684,12 +675,12 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
             window.currentChatListener = window.onSnapshot(q, (snapshot) => {
                 const win = document.getElementById('chat-window');
                 if (!win) return;
-                win.innerHTML = `<div style="color: #0f8; font-size: 0.7em; text-align: center; border-bottom: 1px dashed rgba(0,255,204,0.3); padding-bottom: 5px; margin-bottom: 5px;">--- VERBINDUNG SICHER ---</div>`;
+                win.innerHTML = `<div style="color:#0f8; font-size:0.7em; text-align:center; border-bottom:1px dashed rgba(0,255,204,0.3); padding-bottom:5px;">--- SICHERE LEITUNG ---</div>`;
                 snapshot.forEach((doc) => {
                     const data = doc.data();
                     const isMe = (data.absender === window.agentName);
                     const msgDiv = document.createElement('div');
-                    msgDiv.style.cssText = isMe ? "color: #aaa; align-self: flex-end; text-align: right;" : "color: #0f8; align-self: flex-start; text-align: left;";
+                    msgDiv.style.cssText = isMe ? "color:#aaa; align-self:flex-end; text-align:right;" : "color:#0f8; align-self:flex-start; text-align:left;";
                     msgDiv.innerHTML = `<b>${isMe ? 'Du' : data.absender}:</b> ${data.text}`;
                     win.appendChild(msgDiv);
                 });
@@ -703,12 +694,49 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         const text = inp.value.trim();
         if (text === "" || !window.db) return;
         inp.value = "";
-        if (typeof playBeep === 'function') playBeep(1500, 0.02);
         try {
             const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
             await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
-        } catch (e) { console.error("Sende-Fehler:", e); }
+        } catch (e) { console.error(e); }
     };
+
+    window.deleteChat = function(targetName) {
+        if(!confirm(`Kanal mit ${targetName} lokal schließen?`)) return;
+        let activeChats = JSON.parse(localStorage.getItem('flux_active_chats') || "[]");
+        activeChats = activeChats.filter(n => n !== targetName);
+        localStorage.setItem('flux_active_chats', JSON.stringify(activeChats));
+        window.f_chat();
+    };
+
+    window.startDirectFunk = function() {
+        const target = document.getElementById('chat-target-input').value.trim();
+        if (target) window.openPrivateChat(target);
+    };
+
+    // --- 5. AUTOMATIK: BLINKEN & PING ---
+    window.startGlobalNotification = function() {
+        if (!window.agentName || !window.db) return;
+        const myName = window.agentName.toLowerCase();
+        window.onSnapshot(window.collection(window.db, "agenten_funk"), (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.doc.id.includes(myName) && !document.getElementById('chat-window')) {
+                    const btn = document.querySelector('nav button:nth-child(3)');
+                    if (btn) btn.classList.add('chat-alert');
+                }
+            });
+        });
+    };
+
+    window.sendRadarPing = async function() {
+        if (!window.db || !window.agentName) return;
+        try {
+            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+            await window.setDoc(agentRef, { last_ping: Date.now() }, { merge: true });
+        } catch(e) {}
+    };
+
+    setTimeout(window.startGlobalNotification, 4000);
+    setInterval(window.sendRadarPing, 60000);
 </script>
 <script>
     // --- GLOBALE PROFIL-DATEN & AUTO-LOGIN ---
