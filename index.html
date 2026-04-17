@@ -1735,8 +1735,8 @@ window.finishStartupSetup = function() {
         };
     };
 </script>
-        <div id="audio-control-panel" style="position: fixed; bottom: 10px; right: 10px; z-index: 99999; background: rgba(0, 255, 204, 0.1); border: 1px solid #0f8; padding: 5px 10px; border-radius: 4px; cursor: pointer; color: #0f8; font-family: monospace; font-size: 10px;">
-    🎵 AUDIO: BEREIT
+<div id="audio-control-panel" style="position: fixed; top: 45px; right: 15px; z-index: 99999; background: rgba(0, 0, 0, 0.7); border: 1px solid #0f8; border-radius: 50%; cursor: pointer; color: #0f8; font-size: 16px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(0, 255, 204, 0.3); transition: all 0.2s ease;">
+    🔊
 </div>
 
 <audio id="bg-music" loop>
@@ -1754,20 +1754,24 @@ window.finishStartupSetup = function() {
             
             if (isPlaying) {
                 bgMusic.pause();
-                audioPanel.innerText = "🎵 AUDIO: AUS";
+                audioPanel.innerText = "🔇";
                 audioPanel.style.color = "#f44";
                 audioPanel.style.borderColor = "#f44";
+                audioPanel.style.boxShadow = "0 0 10px rgba(255, 68, 68, 0.3)";
                 isPlaying = false;
             } else {
                 bgMusic.volume = 0.4;
                 bgMusic.play().then(() => {
-                    audioPanel.innerText = "🎵 AUDIO: AN";
+                    audioPanel.innerText = "🔊";
                     audioPanel.style.color = "#0f8";
                     audioPanel.style.borderColor = "#0f8";
+                    audioPanel.style.boxShadow = "0 0 10px rgba(0, 255, 204, 0.3)";
                     isPlaying = true;
                 }).catch(e => {
-                    audioPanel.innerText = "🎵 FEHLER (LINK PRÜFEN)";
+                    audioPanel.innerText = "⚠️";
                     audioPanel.style.color = "#ff8800";
+                    audioPanel.style.borderColor = "#ff8800";
+                    audioPanel.style.boxShadow = "0 0 10px rgba(255, 136, 0, 0.3)";
                 });
             }
         }
