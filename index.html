@@ -671,7 +671,7 @@ const xpV = document.getElementById('xp-val'), lvlV = document.getElementById('l
         if (xpF) xpF.style.width = window.playerXP + "%";
     };
 
-    window.f_start = function() {
+        window.f_start = function() {
         if (typeof triggerScan === 'function') triggerScan();
         if (window.isAgentVerified) window.loadProgress();
         
@@ -686,7 +686,8 @@ const xpV = document.getElementById('xp-val'), lvlV = document.getElementById('l
                     <div style="font-size: 0.6em; text-align: left; opacity: 0.6; margin-bottom: 5px;">PROTOKOLLE:</div>
                     <div id="log-display">${logHTML}</div>
                 </div>
-                <button class="modell-btn" style="border-style: dashed; margin-top: 15px;" onclick="window.f_einstellungen()">System-Einstellungen</button>`;
+                <button class="modell-btn" style="margin-top: 15px; border-color: #0f8; color: #000; background: #0f8; text-shadow: none;" onclick="window.startCinematicMission()">Missionen</button>
+                <button class="modell-btn" style="border-style: dashed; margin-top: 10px;" onclick="window.f_einstellungen()">System-Einstellungen</button>`;
         } else {
             content = `
                 <h2>Zentral-Terminal</h2>
@@ -1001,7 +1002,7 @@ window.f_einstellungen = function() {
         if (cmd === 'flux-reset') {
             startResetSequence(); 
         } else if (cmd === 'help') {
-            let helpText = '<div style="color:#0f8; padding:20px;">[ BEFEHLE ]<br>> help<br>> mission<br>> log<br>> flux-reset<br>> rekrutieren';
+            let helpText = '<div style="color:#0f8; padding:20px;">[ BEFEHLE ]<br>> help<br>> log<br>> flux-reset<br>> rekrutieren';
             if (window.adminMerkerAktiv) {
                 helpText += '<br><br>[ ADMIN BEFEHLE ]<br>> /flux-boost<br>> /flux-test<br>> /flux-override<br>> /flux-loeschen';
             }
@@ -1026,10 +1027,8 @@ window.f_einstellungen = function() {
                     <button class="modell-btn" style="border-color:#ffcc00; color:#ffcc00;" onclick="window.f_shareVideo()">SIGNAL TEILEN</button>
                 </div>
             `;
-        } else if (cmd === 'mission') {
-            window.startCinematicMission();
-} else if (cmd === 'log') {
-    let logH = '<div style="color:#0f8; padding:20px;"><h3>Missions-Log</h3>';
+        } else if (cmd === 'log') {
+            let logH = '<div style="color:#0f8; padding:20px;"><h3>Missions-Log</h3>';
             if(missionHistory.length === 0) logH += "> Keine Einträge vorhanden.<br>";
             missionHistory.forEach(m => { logH += `> [${m.date}] ${m.status}<br>`; });
             anzeige.innerHTML = logH + "</div>";
@@ -1277,7 +1276,8 @@ window.f_einstellungen = function() {
                         ${logs.map(l => `<div class="log-entry">${l}</div>`).join('')}
                     </div>
                 </div>
-                <button class="modell-btn" style="border-style: dashed; margin-top: 15px;" onclick="window.f_einstellungen()">System-Einstellungen</button>`;
+                <button class="modell-btn" style="margin-top: 15px; border-color: #0f8; color: #000; background: #0f8; text-shadow: none;" onclick="window.startCinematicMission()">Missionen</button>
+                <button class="modell-btn" style="border-style: dashed; margin-top: 10px;" onclick="window.f_einstellungen()">System-Einstellungen</button>`;
         } else {
             document.getElementById('content-body').innerHTML = `
                 <h2>Zentral-Terminal</h2>
