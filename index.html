@@ -2732,25 +2732,34 @@ window.f_showDescription = function(withVoice) {
     };
 </script>
 <style>
-    /* SPEZIFISCHE AR KAMERA & OBJEKT STYLES */
+    /* Mission 1 Plastik Anomalie */
     .ar-urzeit-filter { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: rgba(255, 100, 0, 0.2); mix-blend-mode: color; z-index: 2; }
     .ar-scanlines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(255, 170, 0, 0.1) 50%); background-size: 100% 4px; z-index: 3; }
     #ar-target-icon { position: absolute; top: 35%; left: 40%; width: 40px; height: 90px; background: rgba(0, 255, 255, 0.2); border: 2px solid #0ff; border-radius: 5px 5px 10px 10px; display: none; cursor: pointer; z-index: 10; transition: transform 0.1s ease-out; box-shadow: 0 0 15px rgba(0, 255, 255, 0.5); }
     #ar-target-icon::before { content: ''; position: absolute; top: -12px; left: 10px; width: 16px; height: 10px; background: #0ff; border-radius: 2px 2px 0 0; }
     #ar-target-icon::after { content: 'PET'; position: absolute; top: 35px; left: 0; width: 100%; height: 20px; background: rgba(0, 255, 255, 0.5); color: #fff; font-size: 10px; line-height: 20px; text-align: center; font-weight: bold; letter-spacing: 1px; }
+
+    /* STEINZEIT TERMINAL LOOK (ORANGE/BERNSTEIN) */
+    .terminal-stone-ui {
+        border-color: #ffaa00 !important;
+        color: #ffaa00 !important;
+        box-shadow: inset 0 0 20px rgba(255, 170, 0, 0.15), 0 0 25px rgba(255, 170, 0, 0.4) !important;
+    }
 </style>
 
 <div id="ar-special-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:75000; background:#000; flex-direction:column; justify-content:center; align-items:center;">
-    <div id="ar-pre-scan-ui" class="gameplay-terminal" style="border-color:#ffaa00; color:#ffaa00;">
+    
+    <div id="ar-pre-scan-ui" class="gameplay-terminal terminal-stone-ui">
         <div class="term-header" style="background:#ffaa00; color:#000;">
             <span>SENSOR-KALIBRIERUNG</span><span>12000 v.Chr</span>
         </div>
         <div class="term-body">
             <h2 style="margin-top:0; text-shadow:0 0 10px #f60;">ANOMALIE GEORTET</h2>
             <p style="font-size:0.85em; color:#ddd; margin-bottom:20px;">Sektor: JURA-PLATEAU<br>Objekt: PLASTIK-FRAGMENT (ID: 0042)</p>
-            <button class="key exe" onclick="window.startARWithPermission()" style="width:100%; background:rgba(255,170,0,0.1); color:#ffaa00; border:1px solid #ffaa00; padding:15px; font-weight:bold; cursor:pointer;">RADAR AKTIVIEREN</button>
+            <button class="key exe" onclick="window.startARWithPermission()" style="width:100%; background:rgba(255,170,0,0.1); color:#ffaa00; border:1px solid #ffaa00; padding:15px; font-weight:bold; cursor:pointer; box-shadow: 0 0 10px rgba(255, 170, 0, 0.2);">RADAR AKTIVIEREN</button>
         </div>
     </div>
+
     <div id="ar-video-container-special" style="width:100%; height:100%; position:absolute; top:0; left:0; display:none;">
         <video id="ar-feed-special" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
         <div class="ar-urzeit-filter"></div>
@@ -2762,7 +2771,6 @@ window.f_showDescription = function(withVoice) {
 <script>
     let gyroActive = false;
 
-    // Aufruf durch Block 3 Router
     window.startMission_12000 = function() {
         document.getElementById('ar-special-overlay').style.display = 'flex';
         document.getElementById('ar-pre-scan-ui').style.display = 'block';
@@ -2794,7 +2802,6 @@ window.f_showDescription = function(withVoice) {
 
     window.startExtractionAnim = function() {
         if (typeof playBeep === 'function') playBeep(2000, 0.2);
-        // Rückgabe an den Master-Router in Block 3
         if (typeof window.starteRueckreiseAnim === 'function') {
             window.starteRueckreiseAnim(10);
         }
