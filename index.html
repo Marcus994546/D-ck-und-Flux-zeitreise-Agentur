@@ -2732,31 +2732,109 @@ window.f_showDescription = function(withVoice) {
     };
 </script>
 <style>
-    /* Mission 1 Plastik Anomalie */
+    /* Mission 1 Steinzeit Plastik Anomalie */
     .ar-urzeit-filter { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: rgba(255, 100, 0, 0.2); mix-blend-mode: color; z-index: 2; }
     .ar-scanlines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(255, 170, 0, 0.1) 50%); background-size: 100% 4px; z-index: 3; }
-    #ar-target-icon { position: absolute; top: 35%; left: 40%; width: 40px; height: 90px; background: rgba(0, 255, 255, 0.2); border: 2px solid #0ff; border-radius: 5px 5px 10px 10px; display: none; cursor: pointer; z-index: 10; transition: transform 0.1s ease-out; box-shadow: 0 0 15px rgba(0, 255, 255, 0.5); }
+    
+    #ar-target-icon { 
+        position: absolute; top: 35%; left: 40%; width: 40px; height: 90px; 
+        background: rgba(0, 255, 255, 0.2); border: 2px solid #0ff; 
+        border-radius: 5px 5px 10px 10px; display: none; cursor: pointer; 
+        z-index: 10; transition: transform 0.1s ease-out; 
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.5); 
+    }
     #ar-target-icon::before { content: ''; position: absolute; top: -12px; left: 10px; width: 16px; height: 10px; background: #0ff; border-radius: 2px 2px 0 0; }
     #ar-target-icon::after { content: 'PET'; position: absolute; top: 35px; left: 0; width: 100%; height: 20px; background: rgba(0, 255, 255, 0.5); color: #fff; font-size: 10px; line-height: 20px; text-align: center; font-weight: bold; letter-spacing: 1px; }
 
-    /* STEINZEIT TERMINAL LOOK (ORANGE/BERNSTEIN) */
-    .terminal-stone-ui {
-        border-color: #ffaa00 !important;
-        color: #ffaa00 !important;
-        box-shadow: inset 0 0 20px rgba(255, 170, 0, 0.15), 0 0 25px rgba(255, 170, 0, 0.4) !important;
+    /* --- DAS NEUE AUSGEBAUTE STEINZEIT-TERMINAL --- */
+    .stone-terminal-frame {
+        background: #080500;
+        border: 4px double #ffaa00;
+        width: 90%;
+        max-width: 500px;
+        padding: 5px;
+        box-shadow: 0 0 40px rgba(255, 136, 0, 0.2), inset 0 0 100px rgba(0,0,0,1);
+        font-family: 'Orbitron', monospace;
+        color: #ffaa00;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .terminal-inner-border {
+        border: 1px solid rgba(255, 170, 0, 0.3);
+        padding: 20px;
+        background: radial-gradient(circle at center, rgba(40, 20, 0, 0.2) 0%, rgba(0,0,0,0) 80%);
+    }
+
+    .data-grid-deco {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+        margin-bottom: 15px;
+        opacity: 0.6;
+    }
+
+    .data-box {
+        border: 1px solid #ffaa00;
+        font-size: 8px;
+        padding: 3px;
+        text-transform: uppercase;
+    }
+
+    .pulse-amber {
+        animation: pulseAmber 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseAmber {
+        0% { opacity: 0.4; }
+        50% { opacity: 1; text-shadow: 0 0 10px #ffaa00; }
+        100% { opacity: 0.4; }
+    }
+
+    .stat-line {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        margin: 5px 0;
+        border-bottom: 1px solid rgba(255, 170, 0, 0.1);
     }
 </style>
 
 <div id="ar-special-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:75000; background:#000; flex-direction:column; justify-content:center; align-items:center;">
     
-    <div id="ar-pre-scan-ui" class="gameplay-terminal terminal-stone-ui">
-        <div class="term-header" style="background:#ffaa00; color:#000;">
-            <span>SENSOR-KALIBRIERUNG</span><span>12000 v.Chr</span>
-        </div>
-        <div class="term-body">
-            <h2 style="margin-top:0; text-shadow:0 0 10px #f60;">ANOMALIE GEORTET</h2>
-            <p style="font-size:0.85em; color:#ddd; margin-bottom:20px;">Sektor: JURA-PLATEAU<br>Objekt: PLASTIK-FRAGMENT (ID: 0042)</p>
-            <button class="key exe" onclick="window.startARWithPermission()" style="width:100%; background:rgba(255,170,0,0.1); color:#ffaa00; border:1px solid #ffaa00; padding:15px; font-weight:bold; cursor:pointer; box-shadow: 0 0 10px rgba(255, 170, 0, 0.2);">RADAR AKTIVIEREN</button>
+    <div id="ar-pre-scan-ui" class="stone-terminal-frame">
+        <div class="terminal-inner-border">
+            <div class="data-grid-deco">
+                <div class="data-box">CHRONO_IN: OK</div>
+                <div class="data-box">TEMP: 14.2°C</div>
+                <div class="data-box">ATMOS: PURE</div>
+                <div class="data-box">SYNC: 99.1%</div>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h3 class="pulse-amber" style="margin: 0; font-size: 1.2em; letter-spacing: 2px;">ANOMALIE GEORTET</h3>
+                <div style="font-size: 0.6em; color: rgba(255, 170, 0, 0.7);">SEKTOR_PRIME // JURA-PLATEAU</div>
+            </div>
+
+            <div style="background: rgba(255, 170, 0, 0.05); padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid rgba(255, 170, 0, 0.2);">
+                <div class="stat-line"><span>OBJEKT-TYP:</span> <span>SYNTH. POLYMER</span></div>
+                <div class="stat-line"><span>STÖRFELD:</span> <span>STUFE 4 (HOCH)</span></div>
+                <div class="stat-line"><span>LOKALISIERUNG:</span> <span>AKTIV...</span></div>
+                
+                <p style="font-size: 0.75em; margin-top: 15px; line-height: 1.4; color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.3);">
+                    > Ein unnatürliches Objekt stört das ökologische Gleichgewicht dieses Zeitstrangs.<br>
+                    > Manuelle Lokalisierung per RADAR-Uplink erforderlich.
+                </p>
+            </div>
+
+            <button class="key exe" onclick="window.startARWithPermission()" 
+                    style="width:100%; background: #ffaa00; color:#000; border:none; padding:15px; font-weight:bold; cursor:pointer; font-size: 1em; letter-spacing: 1px; box-shadow: 0 0 20px rgba(255, 170, 0, 0.4);">
+                RADAR AKTIVIEREN
+            </button>
+            
+            <div style="margin-top: 15px; font-size: 8px; text-align: center; opacity: 0.5;">
+                WARP-DRIVE-KOPPLUNG: STABIL // SENSOR-CALIB: AUTO
+            </div>
         </div>
     </div>
 
@@ -2771,6 +2849,7 @@ window.f_showDescription = function(withVoice) {
 <script>
     let gyroActive = false;
 
+    // Aufruf durch Block 3 Router
     window.startMission_12000 = function() {
         document.getElementById('ar-special-overlay').style.display = 'flex';
         document.getElementById('ar-pre-scan-ui').style.display = 'block';
