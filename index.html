@@ -2434,31 +2434,17 @@ window.f_showDescription = function(withVoice) {
         perspective: 1000px; overflow: hidden;
     }
     
-    #video-container {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        transform-origin: center center;
-    }
-
-    .cinematic-vid {
-        position: absolute; top: 0; left: 0; 
-        width: 100%; height: 100%; object-fit: contain; background: #000;
-    }
-    
+    #video-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: center center; }
+    .cinematic-vid { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
     #cinematic-video-2, #cinematic-video-3 { opacity: 0; }
-
-    #white-flash-transition {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: #fff; opacity: 0; z-index: 60005; pointer-events: none;
-    }
+    
+    #white-flash-transition { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; opacity: 0; z-index: 60005; pointer-events: none; }
     
     #cinematic-terminal {
-        position: absolute; 
-        top: 42%; left: 50%;
-        transform: translate(-50%, -50%) rotateX(16deg); 
-        background: transparent; border: none;
-        display: none; flex-direction: column; align-items: center; justify-content: center;
-        font-family: 'Orbitron', monospace; z-index: 60001;
-        width: 100%; pointer-events: auto;
+        position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%) rotateX(16deg); 
+        background: transparent; border: none; display: none; flex-direction: column; 
+        align-items: center; justify-content: center; font-family: 'Orbitron', monospace; 
+        z-index: 60001; width: 100%; pointer-events: auto;
     }
 
     /* TERMINAL STYLES */
@@ -2478,8 +2464,7 @@ window.f_showDescription = function(withVoice) {
 
     #cinematic-display-screen {
         background: rgba(0,0,0,0.8); color: inherit; border: 1px solid currentColor;
-        width: 100%; height: 32px; margin-bottom: 10px; 
-        display: flex; align-items: center; justify-content: center;
+        width: 100%; height: 32px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center;
         font-size: 1.2em; letter-spacing: 3px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
     }
 
@@ -2487,7 +2472,7 @@ window.f_showDescription = function(withVoice) {
     .key { background: rgba(255, 255, 255, 0.05); border: 1px solid currentColor; color: inherit; padding: 7px; font-size: 0.8em; cursor: pointer; font-family: 'Orbitron', monospace; border-radius: 4px; text-align: center; }
     .key:active { background: #fff; color: #000; transform: scale(0.95); }
     .key.exe { grid-column: span 3; background: rgba(255, 255, 255, 0.15); font-weight: bold; margin-top: 5px; padding: 10px; }
-    .key.del { color: #f44; border-color: rgba(255, 68, 68, 0.5); }
+    .key.del { color: #f44 !important; border-color: rgba(255, 68, 68, 0.5) !important; }
 
     .warp-jump { animation: warp-zoom 0.8s ease-in forwards; }
     @keyframes warp-zoom { 0% { transform: scale(1); filter: brightness(1); } 100% { transform: scale(4); filter: brightness(5) blur(3px); } }
@@ -2562,6 +2547,18 @@ window.f_showDescription = function(withVoice) {
     window.startCinematicMission = function() {
         if (!window.activeEpoch) return; 
 
+        // === HARTES RESET ALLER TERMINAL-LAYER (Behebt den Fehler der 2. Mission!) ===
+        kpVal = "";
+        document.getElementById('cinematic-display-screen').innerText = "____";
+        document.getElementById('briefing-layer').style.display = 'flex';
+        document.getElementById('keypad-layer').style.display = 'none';
+        
+        // Videos hart stoppen und zurücksetzen
+        const vid1 = document.getElementById('cinematic-video-1'), vid2 = document.getElementById('cinematic-video-2'), vid3 = document.getElementById('cinematic-video-3');
+        const sndWurmloch = document.getElementById('snd-wurmloch');
+        [vid1, vid2, vid3].forEach(v => { v.pause(); v.currentTime = 0; });
+        if (sndWurmloch) { sndWurmloch.pause(); sndWurmloch.currentTime = 0; }
+
         // Rotation erzwingen
         try { if (document.fullscreenElement && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e => {}); } catch(err) {}
 
@@ -2580,13 +2577,13 @@ window.f_showDescription = function(withVoice) {
         window.wasMusicPlaying = (bgMusic && !bgMusic.paused);
         if (bgMusic) bgMusic.pause();
 
-        const overlay = document.getElementById('cinematic-overlay'), vid1 = document.getElementById('cinematic-video-1'), vid2 = document.getElementById('cinematic-video-2'), vid3 = document.getElementById('cinematic-video-3');
-        const sndWurmloch = document.getElementById('snd-wurmloch'), container = document.getElementById('video-container'), flash = document.getElementById('white-flash-transition');
+        const overlay = document.getElementById('cinematic-overlay');
+        const container = document.getElementById('video-container');
+        const flash = document.getElementById('white-flash-transition');
         
         overlay.style.display = 'flex'; term.style.display = 'none'; term.classList.remove('terminal-glitch-active');
         container.classList.remove('warp-jump', 'portal-dive', 'portal-exit'); flash.style.opacity = '0';
         vid1.style.opacity = '1'; vid2.style.opacity = '0'; vid3.style.opacity = '0';
-        vid1.currentTime = 0; vid2.currentTime = 0; vid3.currentTime = 0; if (sndWurmloch) sndWurmloch.currentTime = 0;
         
         vid1.play().catch(() => {});
 
@@ -2632,7 +2629,10 @@ window.f_showDescription = function(withVoice) {
                             document.getElementById('cinematic-overlay').style.display = 'none';
                             if (sndWurmloch) { sndWurmloch.pause(); sndWurmloch.currentTime = 0; }
                             try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(err) {}
-                            if (typeof runMission === 'function') runMission(); 
+                            
+                            // WICHTIG: Aufruf des neuen Gameplay-Blocks!
+                            if (typeof window.runMission === 'function') window.runMission(); 
+                            
                             if (window.wasMusicPlaying) { const bgM = document.getElementById('bg-music'); if(bgM) bgM.play().catch(e => {}); }
                         };
                     };
