@@ -1157,35 +1157,75 @@ window.f_einstellungen = function() {
     };
 
     // Hauptfunktion für den Missionsstart
-    window.runMission = function() {
-        if (!window.activeEpoch) {
-            document.getElementById('back-button-global').style.display = 'block';
-            document.getElementById('anzeige').innerHTML = '<div style="color:#f44; text-align:center; margin-top:10vh;">[ FEHLER ]<br>> Kein Zeitstrang kalibriert.<br>> Wähle zuerst eine Epoche im Menü.</div>';
-            return;
-        }
+window.runMission = function() {
+    // 1. Hauptmenü ausblenden
+    const pc = document.querySelector('.portal-container');
+    if (pc) pc.style.display = 'none';
 
-        let ep = window.epochenDaten.find(e => e.id === window.activeEpoch);
-        let jahr = Math.floor(Math.random() * (ep.range[1] - ep.range[0])) + ep.range[0];
-        let zielZeit = jahr + ep.sfx;
+    // 2. Altes Standard-Overlay komplett deaktivieren/löschen
+    const oldOverlay = document.getElementById('standard-mission-overlay');
+    if (oldOverlay) oldOverlay.style.display = 'none';
 
-        // Interface vorbereiten
-        document.getElementById('back-button-global').style.display = 'block';
-        document.getElementById('anzeige').innerHTML = `
-            <div style="color:#0f8; padding: 20px; border: 1px solid #0f8; background: rgba(0,255,204,0.1); text-align: center; font-family: monospace;">
-                <h3 style="margin-top:0; text-shadow: 0 0 10px #0f8;">[ SPRUNG ERFOLGREICH ]</h3>
-                <p style="font-size:0.9em; margin-bottom:5px;">Sektor erreicht:</p>
-                <div style="font-size:1.1em; color:#fff; font-weight:bold; margin-bottom:15px;">${ep.title}</div>
-                <p style="font-size:0.9em; margin-bottom:5px;">Zielzeitraum:</p>
-                <div style="font-size:1.1em; color:#fff; font-weight:bold; margin-bottom:15px;">${zielZeit}</div>
-                <hr style="border-color: #0f8; opacity: 0.3; margin: 15px 0;">
-                <p style="color: #ffcc00; font-size: 0.8em; line-height: 1.4;">
-                    > Scanne Umgebung nach Anomalien...<br>
-                    > Logik-Kern wird für ${ep.id} initialisiert.<br>
-                    > Bereite interaktives Interface vor.
+    // 3. WEICHE: AR-Mission (Steinzeit) oder Platzhalter
+    // Wir prüfen, ob das Zieljahr 12000 (Steinzeit) ist
+    if (currentMissionYear == "12000" || currentMissionYear == 12000) {
+        
+        // Zeige direkt das neue Radar-Vorbereitungs-Terminal
+        // Falls du das Terminal-Element noch nicht im HTML hast, nutzen wir das Gameplay-Overlay
+        const gpOverlay = document.getElementById('gameplay-overlay');
+        const gpUI = document.getElementById('gameplay-ui');
+        
+        gpOverlay.style.display = 'flex';
+        document.getElementById('ar-video-container').style.display = 'none'; // Kamera noch aus!
+        
+        gpUI.style.display = 'block';
+        gpUI.innerHTML = `
+            <div style="text-align:center; font-family:'Orbitron', sans-serif;">
+                <h2 style="color:#ffaa00; text-shadow:0 0 10px #f60;">ANOMALIE GEORTET</h2>
+                <p style="font-size:0.8em; color:#ddd; margin:20px 0;">
+                    Sektor: JURA-PLATEAU<br>
+                    Objekt: PLASTIK-FRAGMENT (ID: 0042)
                 </p>
+                <div style="border:1px solid #ffaa00; padding:15px; background:rgba(255,166,0,0.1); margin-bottom:20px;">
+                    <span style="font-size:0.7em; color:#ffaa00;">SYSTEM-STATUS:</span><br>
+                    <span style="color:#fff; font-weight:bold;">BEREIT FÜR UMGEBUNGS-SCAN</span>
                 </div>
+                <button class="key exe" onclick="window.startARWithPermission()" 
+                        style="width:100%; background:rgba(255,166,0,0.2); color:#ffaa00; border:1px solid #ffaa00; padding:15px; cursor:pointer;">
+                    RADAR AKTIVIEREN
+                </button>
+            </div>
         `;
-    };
+    } else {
+        // Für alle anderen Missionen (Zukunft, etc.) zeigen wir das "In Arbeit" Fenster
+        if (oldOverlay) {
+            oldOverlay.style.display = 'flex';
+            document.getElementById('std-title').innerText = "MISSION LÄUFT...";
+            // Hier bleibt der Text für "System-Update abwarten"
+        }
+    }
+};
+
+// Hilfsfunktion: Startet die Kamera erst nach Klick auf "Radar aktivieren"
+window.startARWithPermission = function() {
+    if (typeof window.startARSpecial === 'function') {
+        // Das Gameplay-UI kurz leeren für den Scan-Modus
+        document.getElementById('gameplay-ui').style.display = 'none';
+        // Starte die eigentliche Kamera-Funktion
+        window.startARSpecial();
+    } else {
+        console.error("AR-Modul nicht gefunden!");
+    }
+};
+
+// Falls das alte Overlay im HTML stört, kannst du diesen Teil nutzen, um es beim Laden zu entfernen
+document.addEventListener('DOMContentLoaded', () => {
+    const checkOld = document.getElementById('standard-mission-overlay');
+    if (checkOld) {
+        // Wir lassen es im DOM, aber sorgen dafür, dass es nie von allein aufpoppt
+        checkOld.style.display = 'none';
+    }
+});
 </script>
 <style>
     #startup-layer {
