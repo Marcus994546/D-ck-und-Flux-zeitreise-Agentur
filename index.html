@@ -498,16 +498,42 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         if (typeof triggerScan === 'function') triggerScan();
 
         const audio = document.getElementById('bg-music');
-        const isMusikAn = (audio && !audio.paused) ? "AN" : "AUS";
-        const isSoundAn = window.klickTonAktiv ? "AN" : "AUS";
+        const isMusikAn = (audio && !audio.paused);
+        const isSoundAn = window.klickTonAktiv;
+
+        const musikFarbe = isMusikAn ? '#0f8' : '#f44';
+        const musikText = isMusikAn ? 'AN' : 'AUS';
+
+        const soundFarbe = isSoundAn ? '#0f8' : '#f44';
+        const soundText = isSoundAn ? 'AN' : 'AUS';
 
         document.getElementById('content-body').innerHTML = `
-            <h3>System-Einstellungen</h3>
-            <button class="modell-btn" onclick="window.toggleMusik()">Musik: ${isMusikAn}</button>
-            <button class="modell-btn" onclick="window.toggleKlick()">Tastenton: ${isSoundAn}</button>
-            <button class="modell-btn" style="border-color: #ff8800; color: #ff8800; margin-top: 15px;" onclick="window.f_logout_confirm()">Agent Abmelden</button>
-            <hr>
-            <button onclick="window.f_start()">Zurück</button>
+            <h2>System-Einstellungen</h2>
+            
+            <div style="border: 1px solid rgba(0, 255, 204, 0.3); background: rgba(0, 255, 204, 0.05); padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <span style="color: #0f8; opacity: 0.8;">Aktiver Agent:</span> 
+                <b style="color: #fff; text-shadow: 0 0 5px #fff; letter-spacing: 1px;">${window.agentName || "UNBEKANNT"}</b>
+            </div>
+
+            <button class="modell-btn" style="border-color: ${musikFarbe}; color: ${musikFarbe};" onclick="window.toggleMusik()">
+                HINTERGRUNDMUSIK: ${musikText}
+            </button>
+            
+            <button class="modell-btn" style="border-color: ${soundFarbe}; color: ${soundFarbe};" onclick="window.toggleKlick()">
+                KLICKGERÄUSCHE: ${soundText}
+            </button>
+
+            <button class="modell-btn" style="border-color: #4488ff; color: #4488ff;" onclick="window.f_desc_choice()">
+                SPIELBESCHREIBUNG
+            </button>
+
+            <button class="modell-btn" style="border-color: #ff8800; color: #ff8800; margin-top: 15px;" onclick="window.f_logout_confirm()">
+                AGENTEN ABMELDEN
+            </button>
+            
+            <hr style="border-color: rgba(0, 255, 204, 0.2); margin: 20px 0;">
+            
+            <button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>
         `;
     };
 </script>
