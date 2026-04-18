@@ -1622,19 +1622,24 @@ window.finishStartupSetup = function() {
     // --- TEXT FÜR DEN KODEX ---
     const agbText = `
         <b>§1 Geltungsbereich</b><br>
-        Mit der Registrierung und der Verifizierung der Agenten-ID tritt dieser Kodex in Kraft. Das Terminal dient der Simulation von Zeitreise-Szenarien sowie der verschlüsselten Kommunikation.<br><br>
+        Mit der Registrierung und der Verifizierung der Agenten-ID tritt dieser Kodex in Kraft. Das Terminal dient der Simulation von Zeitreise-Szenarien sowie der verschlüsselten Kommunikation zwischen autorisierten Agenten.<br><br>
+        
         <b>§2 Datenerhebung und technische Speicherung</b><br>
-        Zur Gewährleistung der Synchronisation werden folgende Daten auf dem Zentral-Server sowie lokal verarbeitet:<br>
-        1. Profil-Daten: Agenten-Name, verschlüsseltes Passwort, Fortschritt (XP/Level).<br>
-        2. Einsatz-Statistiken: Highscores in den Flux-Modulen.<br>
-        3. Technische Metadaten: Letzte Aktivität und Radar-Pings.<br>
-        4. Standort-Uplink: Ungefährer Standort (Land/Stadt) basierend auf IP-Adresse.<br>
-        5. Präferenz-Daten: Audio-Einstellungen.<br>
-        6. Kommunikations-Logbuch: Alle im Komm-Link gesendeten Nachrichten.<br><br>
+        Zur Gewährleistung der Synchronisation innerhalb der Zeitlinie werden folgende Daten auf dem Zentral-Server (Cloud-Datenbank) sowie lokal auf dem Endgerät verarbeitet:<br>
+        1. Profil-Daten: Agenten-Name, verschlüsseltes Passwort sowie der aktuelle Fortschritt (XP und Level).<br>
+        2. Einsatz-Statistiken: Erreichte Rekordwerte (Highscores) in den spezifischen Flux-Modulen.<br>
+        3. Technische Metadaten: Der Zeitpunkt der letzten Aktivität (lastSeen) sowie regelmäßige Radar-Pings zur Anzeige der Online-Präsenz.<br>
+        4. Standort-Uplink: Zur Sektor-Zuweisung und administrativen Übersicht wird der ungefähre Standort (Land, Region, Stadt) basierend auf der IP-Adresse erfasst.<br>
+        5. Präferenz-Daten: Individuelle Systemeinstellungen wie Hintergrundmusik und akustische Signale.<br>
+        6. Kommunikations-Logbuch: Alle im „Komm-Link“ gesendeten Nachrichten inklusive Absenderkennung und Zeitstempel.<br><br>
+        
         <b>§3 Haftungsausschluss (Totalausschluss)</b><br>
-        Die Administration übernimmt keinerlei Haftung für Schäden, die aus der Nutzung resultieren (inkl. Datenverlust, technische Defekte, temporale Paradoxa). Jegliche rechtliche Inanspruchnahme gegen die Administration ist ausdrücklich und vollumfänglich ausgeschlossen. Nutzung auf eigenes Risiko.<br><br>
+        Die Administration übernimmt keinerlei Haftung für Schäden, die aus der Nutzung des Terminals resultieren. Dies schließt den Verlust von Daten (XP, Level, Fortschritt) ebenso ein wie technische Defekte oder temporale Paradoxa. Jegliche rechtliche Inanspruchnahme oder Anklage gegen die Administration ist ausdrücklich und vollumfänglich ausgeschlossen. Die Nutzung erfolgt auf eigenes Risiko und unter Verzicht auf jegliche Regressansprüche.<br><br>
+        
         <b>§4 Selbstbestimmung und Profillöschung</b><br>
-        Jeder Agent behält die Kontrolle. Profile können über die Einstellungen jederzeit unwiderruflich vom Zentral-Server gelöscht werden.
+        Jeder Agent behält die Kontrolle über seine Daten:<br>
+        - Kanal-Reinigung: Kommunikationsverläufe können manuell im Komm-Link-Menü aus dem Zentral-Server gelöscht werden.<br>
+        - Profil-Terminierung: Über das Einstellungs-Menü kann das gesamte Agenten-Profil inklusive aller Einträge auf dem Zentral-Server jederzeit unwiderruflich und ohne Rücksprache gelöscht werden.
     `;
 
     window.f_showAuthMain = function() {
