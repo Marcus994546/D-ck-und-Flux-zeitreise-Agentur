@@ -3110,32 +3110,48 @@ window.f_showDescription = function(withVoice) {
 
     // GEMEINSAME SAUBERE RÜCKREISE (Wird von allen Missionen aufgerufen)
     window.starteRueckreiseAnim = function(xp) {
-        // Alle Missions-Layer verstecken (müssen bei neuen Missionen hier ergänzt werden)
-        const overlays = ['ar-special-overlay', 'standard-mission-overlay'];
+        // 1. Alle Missions-Overlays verstecken (inkl. cinematic-overlay)
+        const overlays = ['ar-special-overlay', 'standard-mission-overlay', 'cinematic-overlay'];
         overlays.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
         
+        // 2. Rückreise-Animation anzeigen
         document.getElementById('return-anim-global').style.display = 'flex';
         setTimeout(() => { document.getElementById('return-bar-global').style.width = '100%'; }, 50);
         
         setTimeout(() => {
+            // 3. XP Belohnung geben
             if (typeof window.updateXP === 'function') window.updateXP(xp);
             
-            // Kamera ausschalten (wichtig für alle AR-basierten Missionen)
+            // 4. Kamera-Cleanup (für AR-Missionen)
             const video = document.getElementById('ar-feed-special');
             if (video && video.srcObject) {
                 video.srcObject.getTracks().forEach(track => track.stop());
                 video.srcObject = null;
             }
 
+            // 5. Animation ausblenden
             document.getElementById('return-anim-global').style.display = 'none';
             document.getElementById('return-bar-global').style.width = '0%';
             
+            // --- HIER IST DER FIX: PORTAL-CONTAINER ERZWINGEN ---
             const pc = document.querySelector('.portal-container');
-            if (pc) pc.style.display = 'block';
-            if (typeof window.fullSystemRestore === 'function') window.fullSystemRestore();
+            if (pc) {
+                pc.style.setProperty('display', 'block', 'important'); 
+            }
+
+            // 6. Terminal-Inhalt sauber neu laden
+            if (typeof window.fullSystemRestore === 'function') {
+                window.fullSystemRestore();
+            } else if (typeof window.f_start === 'function') {
+                ['header', 'nav', '#xp-leiste-auto'].forEach(s => {
+                    const el = document.querySelector(s);
+                    if(el) el.style.display = s.includes('xp') ? 'flex' : 'block';
+                });
+                window.f_start();
+            }
 
         }, 2200);
     };
