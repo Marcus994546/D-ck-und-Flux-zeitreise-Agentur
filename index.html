@@ -1454,13 +1454,20 @@ const xpV = document.getElementById('xp-val'), lvlV = document.getElementById('l
     </div>
 
     <div id="startup-setup-container">
-        <div style="font-size: 18px; font-weight: bold;">INITIALISIERUNG ERFORDERLICH</div>
-        <div style="font-size: 12px; color: #aaa;">Bitte Agenten-ID verifizieren:</div>
-        <input type="text" id="agent-name-input" placeholder="DEIN NAME..." autocomplete="off">
-        <button class="setup-btn" onclick="finishStartupSetup()">Verifizieren</button>
-    </div>
-</div>
+        <div id="auth-main-menu" style="display: flex; flex-direction: column; width: 100%;">
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #0f8; text-align: center;">SYSTEM-ZUGANG</div>
+            <button class="setup-btn" style="margin-bottom: 15px;" onclick="window.f_renderLogin()">[ AGENTEN-LOGIN ]</button>
+            <button class="setup-btn" style="background: rgba(255, 170, 0, 0.1); border: 1px solid #ffaa00; color: #ffaa00;" onclick="window.f_renderRegister()">[ NEUE REKRUTIERUNG ]</button>
+        </div>
 
+        <div id="auth-form-container" style="display: none; flex-direction: column; width: 100%;"></div>
+    </div>
+
+    <div id="agb-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 60000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;">
+        <h3 style="color: #ffaa00; margin-bottom: 10px;">AGENTUR-KODEX</h3>
+        <div id="agb-text-content" style="width: 100%; max-width: 400px; max-height: 60vh; overflow-y: auto; color: #0f8; font-size: 0.75em; text-align: left; border: 1px solid #0f8; padding: 15px; background: rgba(0,255,204,0.05); margin-bottom: 20px; line-height: 1.5;"></div>
+        <button class="setup-btn" style="width: 100%; max-width: 400px;" onclick="document.getElementById('agb-modal').style.display = 'none';">SCHLIESSEN</button>
+    </div>
 <script>
     // Bewahrt bestehende Variablen, falls sie schon von Block 1 geladen wurden
     window.isAgentVerified = window.isAgentVerified || false;
@@ -1610,6 +1617,205 @@ window.finishStartupSetup = function() {
     document.getElementById('agent-name-input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') window.finishStartupSetup();
     });
+</script>
+  <script>
+    // --- TEXT FÜR DEN KODEX ---
+    const agbText = `
+        <b>§1 Geltungsbereich</b><br>
+        Mit der Registrierung und der Verifizierung der Agenten-ID tritt dieser Kodex in Kraft. Das Terminal dient der Simulation von Zeitreise-Szenarien sowie der verschlüsselten Kommunikation.<br><br>
+        <b>§2 Datenerhebung und technische Speicherung</b><br>
+        Zur Gewährleistung der Synchronisation werden folgende Daten auf dem Zentral-Server sowie lokal verarbeitet:<br>
+        1. Profil-Daten: Agenten-Name, verschlüsseltes Passwort, Fortschritt (XP/Level).<br>
+        2. Einsatz-Statistiken: Highscores in den Flux-Modulen.<br>
+        3. Technische Metadaten: Letzte Aktivität und Radar-Pings.<br>
+        4. Standort-Uplink: Ungefährer Standort (Land/Stadt) basierend auf IP-Adresse.<br>
+        5. Präferenz-Daten: Audio-Einstellungen.<br>
+        6. Kommunikations-Logbuch: Alle im Komm-Link gesendeten Nachrichten.<br><br>
+        <b>§3 Haftungsausschluss (Totalausschluss)</b><br>
+        Die Administration übernimmt keinerlei Haftung für Schäden, die aus der Nutzung resultieren (inkl. Datenverlust, technische Defekte, temporale Paradoxa). Jegliche rechtliche Inanspruchnahme gegen die Administration ist ausdrücklich und vollumfänglich ausgeschlossen. Nutzung auf eigenes Risiko.<br><br>
+        <b>§4 Selbstbestimmung und Profillöschung</b><br>
+        Jeder Agent behält die Kontrolle. Profile können über die Einstellungen jederzeit unwiderruflich vom Zentral-Server gelöscht werden.
+    `;
+
+    window.f_showAuthMain = function() {
+        document.getElementById('auth-form-container').style.display = 'none';
+        document.getElementById('auth-main-menu').style.display = 'flex';
+    };
+
+    window.f_renderLogin = function() {
+        document.getElementById('auth-main-menu').style.display = 'none';
+        const form = document.getElementById('auth-form-container');
+        form.style.display = 'flex';
+        form.innerHTML = `
+            <div style="font-size: 16px; font-weight: bold; color: #0f8; margin-bottom: 15px; text-align: center;">[ LOGIN ]</div>
+            <input type="text" id="auth-name" placeholder="AGENTEN-ID..." style="padding: 10px; background: #000; border: 1px solid #0f8; color: #0f8; margin-bottom: 10px; text-transform: uppercase; outline: none; font-family: monospace;">
+            <input type="password" id="auth-pass" placeholder="PASSWORT..." style="padding: 10px; background: #000; border: 1px solid #0f8; color: #0f8; margin-bottom: 15px; outline: none; font-family: monospace;">
+            <div id="auth-error" style="color: #f44; font-size: 0.8em; margin-bottom: 10px; text-align: center; height: 15px;"></div>
+            <button class="setup-btn" onclick="window.f_executeLogin()">VERIFIZIEREN</button>
+            <button class="setup-btn" style="background: transparent; color: #aaa; border: none; margin-top: 10px; font-size: 0.8em;" onclick="window.f_showAuthMain()"><< ZURÜCK</button>
+        `;
+    };
+
+    window.f_renderRegister = function() {
+        document.getElementById('auth-main-menu').style.display = 'none';
+        const form = document.getElementById('auth-form-container');
+        form.style.display = 'flex';
+        form.innerHTML = `
+            <div style="font-size: 16px; font-weight: bold; color: #ffaa00; margin-bottom: 15px; text-align: center;">[ REKRUTIERUNG ]</div>
+            <input type="text" id="auth-name" placeholder="NEUE AGENTEN-ID..." style="padding: 10px; background: #000; border: 1px solid #ffaa00; color: #ffaa00; margin-bottom: 10px; text-transform: uppercase; outline: none; font-family: monospace;">
+            <input type="password" id="auth-pass" placeholder="PASSWORT WÄHLEN..." style="padding: 10px; background: #000; border: 1px solid #ffaa00; color: #ffaa00; margin-bottom: 10px; outline: none; font-family: monospace;">
+            
+            <button class="setup-btn" style="background: rgba(0,255,204,0.1); border: 1px dashed #0f8; color: #0f8; font-size: 0.7em; padding: 5px; margin-bottom: 10px;" onclick="window.f_showAGB()">KODEX LESEN</button>
+            
+            <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.7em; color: #aaa; margin-bottom: 15px; cursor: pointer; text-align: left;">
+                <input type="checkbox" id="auth-agb" style="margin-top: 2px;">
+                <span>Ich akzeptiere den Agentur-Kodex und den Haftungsausschluss.</span>
+            </label>
+
+            <div id="auth-error" style="color: #f44; font-size: 0.8em; margin-bottom: 10px; text-align: center; height: 15px;"></div>
+            <button class="setup-btn" style="background: #ffaa00; border-color: #ffaa00;" onclick="window.f_executeRegister()">REGISTRIEREN</button>
+            <button class="setup-btn" style="background: transparent; color: #aaa; border: none; margin-top: 10px; font-size: 0.8em;" onclick="window.f_showAuthMain()"><< ZURÜCK</button>
+        `;
+    };
+
+    window.f_showAGB = function() {
+        document.getElementById('agb-text-content').innerHTML = agbText;
+        document.getElementById('agb-modal').style.display = 'flex';
+    };
+
+    window.f_executeLogin = async function() {
+        const nameInput = document.getElementById('auth-name').value.trim();
+        const passInput = document.getElementById('auth-pass').value;
+        const errDiv = document.getElementById('auth-error');
+        
+        if(nameInput === "" || passInput === "") { errDiv.innerText = "Daten unvollständig!"; return; }
+        errDiv.style.color = "#0f8"; errDiv.innerText = "Verifiziere Uplink...";
+
+        if (!window.db || !window.getDoc) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
+
+        try {
+            const agentRef = window.doc(window.db, "agenten", nameInput.toLowerCase());
+            const docSnap = await window.getDoc(agentRef);
+            
+            if (!docSnap.exists()) {
+                errDiv.style.color = "#f44"; errDiv.innerText = "Agenten-ID unbekannt!";
+                return;
+            }
+            
+            const data = docSnap.data();
+            if (data.pass !== btoa(passInput)) { // Einfache Base64 Kodierung
+                errDiv.style.color = "#f44"; errDiv.innerText = "Passwort inkorrekt!";
+                return;
+            }
+
+            // Erfolgreicher Login
+            window.agentName = nameInput;
+            window.isAgentVerified = true;
+            if (window.agentName.toLowerCase() === "admin_dück_994645") window.adminMerkerAktiv = true;
+            
+            if (typeof window.activateFullscreen === 'function') window.activateFullscreen();
+            await window.loadProgress();
+            
+            document.getElementById('startup-layer').style.opacity = "0";
+            setTimeout(() => { 
+                document.getElementById('startup-layer').style.display = "none"; 
+                window.f_start(); // Direkt ins Terminal
+            }, 500);
+
+        } catch (e) { errDiv.style.color = "#f44"; errDiv.innerText = "Verbindungsfehler!"; }
+    };
+
+    window.f_executeRegister = async function() {
+        const nameInput = document.getElementById('auth-name').value.trim();
+        const passInput = document.getElementById('auth-pass').value;
+        const agbCheck = document.getElementById('auth-agb').checked;
+        const errDiv = document.getElementById('auth-error');
+        
+        if(nameInput === "" || passInput === "") { errDiv.innerText = "Daten unvollständig!"; return; }
+        if(!agbCheck) { errDiv.innerText = "Kodex muss akzeptiert werden!"; return; }
+        
+        errDiv.style.color = "#0f8"; errDiv.innerText = "Prüfe Zentral-Server...";
+
+        if (!window.db || !window.getDoc) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
+
+        try {
+            const agentRef = window.doc(window.db, "agenten", nameInput.toLowerCase());
+            const docSnap = await window.getDoc(agentRef);
+            
+            // --- DIE NEUE LOGIK FÜR ALTE AGENTEN ---
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // Wenn das Profil schon ein Passwort hat, ist es vergeben
+                if (data.pass) {
+                    errDiv.style.color = "#f44"; errDiv.innerText = "Agenten-ID bereits vergeben!";
+                    return;
+                } else {
+                    // Profil existiert, hat aber kein Passwort -> Account wird "geclaimt"
+                    console.log("Alter Account wird mit neuem Passwort gesichert.");
+                    // Wir übernehmen die alten XP und Level!
+                    window.playerXP = data.xp || 0;
+                    window.playerLevel = data.lvl || 1;
+                }
+            } else {
+                // Profil ist komplett neu
+                window.playerXP = 0;
+                window.playerLevel = 1;
+            }
+
+            // Erfolgreiche Registrierung / Claiming
+            window.agentName = nameInput;
+            window.isAgentVerified = true;
+            if (window.agentName.toLowerCase() === "admin_dück_994645") window.adminMerkerAktiv = true;
+            
+            // Speichern der Ersteinrichtung (merge: true behält alte Daten wie Highscores!)
+            const newData = {
+                pass: btoa(passInput),
+                agb_bestaetigt: true,
+                xp: window.playerXP,
+                lvl: window.playerLevel
+            };
+            await window.setDoc(agentRef, newData, { merge: true });
+            
+            if (typeof window.activateFullscreen === 'function') window.activateFullscreen();
+            
+            document.getElementById('startup-layer').style.opacity = "0";
+            setTimeout(() => { 
+                document.getElementById('startup-layer').style.display = "none"; 
+                if (typeof window.f_desc_choice === 'function') window.f_desc_choice(); // Zur Einweisung
+                else window.f_start();
+            }, 500);
+
+        } catch (e) { errDiv.style.color = "#f44"; errDiv.innerText = "Verbindungsfehler!"; }
+    };
+
+    // --- PROFIL-TERMINIERUNG (LÖSCHUNG) ---
+    window.deleteAgentProfile = async function() {
+        const myName = window.agentName;
+        if(!myName) return;
+        
+        let confirm1 = confirm("KRITISCHE WARNUNG:\nWillst du dein Profil wirklich endgültig löschen?");
+        if(!confirm1) return;
+        
+        let confirm2 = prompt(`Tippe "LÖSCHEN" um die Terminierung von Agent ${myName.toUpperCase()} zu bestätigen:`);
+        if(confirm2 !== "LÖSCHEN") return;
+
+        try {
+            // Aus dem Firebase Briefkasten löschen
+            const agentRef = window.doc(window.db, "agenten", myName.toLowerCase());
+            await window.deleteDoc(agentRef);
+            
+            // Lokale Daten bereinigen
+            localStorage.removeItem('flux_agent_' + myName.toLowerCase());
+            localStorage.removeItem('flux_last_agent');
+            localStorage.removeItem('flux_music_' + myName.toLowerCase());
+            localStorage.removeItem('flux_sound_' + myName.toLowerCase());
+            
+            alert("PROFIL WURDE RESTLOS VERNICHTET. SYSTEM STARTET NEU.");
+            location.reload();
+        } catch (e) {
+            alert("Fehler bei der Server-Kommunikation. Löschung fehlgeschlagen.");
+        }
+    };
 </script>
         <style>
     /* Glitch-Animationen für den Dimensionssprung */
