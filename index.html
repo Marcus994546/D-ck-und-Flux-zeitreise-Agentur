@@ -1795,32 +1795,67 @@ window.finishStartupSetup = function() {
 
 
     // --- PROFIL-TERMINIERUNG (LÖSCHUNG) ---
+    // --- ERWEITERTE PROFIL-TERMINIERUNG (Zweistufig mit Passwort) ---
     window.deleteAgentProfile = async function() {
         const myName = window.agentName;
         if(!myName) return;
         
-        let confirm1 = confirm("KRITISCHE WARNUNG:\nWillst du dein Profil wirklich endgültig löschen?");
+        // 1. MELDUNG
+        let confirm1 = confirm("WILLST DU DEINEN ACCOUNT WIRKLICH LÖSCHEN?");
         if(!confirm1) return;
         
-        let confirm2 = prompt(`Tippe "LÖSCHEN" um die Terminierung von Agent ${myName.toUpperCase()} zu bestätigen:`);
-        if(confirm2 !== "LÖSCHEN") return;
-
-        try {
-            // Aus dem Firebase Briefkasten löschen
-            const agentRef = window.doc(window.db, "agenten", myName.toLowerCase());
-            await window.deleteDoc(agentRef);
-            
-            // Lokale Daten bereinigen
-            localStorage.removeItem('flux_agent_' + myName.toLowerCase());
-            localStorage.removeItem('flux_last_agent');
-            localStorage.removeItem('flux_music_' + myName.toLowerCase());
-            localStorage.removeItem('flux_sound_' + myName.toLowerCase());
-            
-            alert("PROFIL WURDE RESTLOS VERNICHTET. SYSTEM STARTET NEU.");
-            location.reload();
-        } catch (e) {
-            alert("Fehler bei der Server-Kommunikation. Löschung fehlgeschlagen.");
+        // VISUELLER GLITCH-EFFEKT (Simulation)
+        const layer = document.getElementById('startup-layer');
+        if(layer) {
+            layer.style.display = 'flex';
+            layer.style.opacity = '1';
+            layer.classList.add('flicker-active');
+            layer.innerHTML = '<div style="color:#f44; font-size:2em; font-weight:bold;">!!! SYSTEM-KRITISCH !!!</div>';
         }
+
+        // 2. MELDUNG (Nach kurzem Glitch-Moment)
+        setTimeout(async () => {
+            let confirm2 = confirm("WILLST DU DEINEN ACCOUNT WIRKLICH WIRKLICH WIRKLICH WIRKLICH WIRKLICH LÖSCHEN?");
+            
+            if(layer) {
+                layer.classList.remove('flicker-active');
+                layer.style.display = 'none';
+                layer.innerHTML = ''; // Layer wieder leeren
+            }
+
+            if(!confirm2) return;
+
+            // PASSWORT-ABFRAGE
+            const passInput = prompt("ZUR FINALEN TERMINIERUNG PASSWORT EINGEBEN:");
+            if(!passInput) return;
+
+            try {
+                const agentRef = window.doc(window.db, "agenten", myName.toLowerCase());
+                const docSnap = await window.getDoc(agentRef);
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // Vergleich mit dem hinterlegten (Base64) Passwort
+                    if (data.pass === btoa(passInput)) {
+                        // Löschung im Zentral-Server
+                        await window.deleteDoc(agentRef);
+                        
+                        // Lokale Daten bereinigen
+                        localStorage.removeItem('flux_agent_' + myName.toLowerCase());
+                        localStorage.removeItem('flux_last_agent');
+                        localStorage.removeItem('flux_music_' + myName.toLowerCase());
+                        localStorage.removeItem('flux_sound_' + myName.toLowerCase());
+                        
+                        alert("PROFIL WURDE RESTLOS VERNICHTET. SYSTEM STARTET NEU.");
+                        location.reload();
+                    } else {
+                        alert("ZUGRIFF VERWEIGERT: PASSWORT INKORREKT. TERMINIERUNG ABGEBROCHEN.");
+                    }
+                }
+            } catch (e) {
+                alert("FEHLER BEI DER SERVER-KOMMUNIKATION. UPLINK INSTABIL.");
+            }
+        }, 500); // Kurze Verzögerung für den Glitch-Effekt
     };
 </script>
         <style>
