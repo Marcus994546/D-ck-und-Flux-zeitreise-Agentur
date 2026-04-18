@@ -1790,69 +1790,78 @@ window.finishStartupSetup = function() {
         } catch (e) { errDiv.style.color = "#f44"; errDiv.innerText = "Verbindungsfehler!"; }
     };
 
+    // --- ERWEITERTE PROFIL-TERMINIERUNG (Im Terminal-Design) ---
+    window.deleteAgentProfile = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color: #f44; text-shadow: 0 0 10px #f44;">[ KRITISCHE WARNUNG ]</h3>
+            <p style="color: #ff8800; font-size: 0.9em; margin-bottom: 20px;">Willst du dein Profil wirklich endgültig löschen?</p>
+            <button class="modell-btn" style="background: rgba(255, 68, 68, 0.1); border-color: #f44; color: #f44;" onclick="window.delProfileStep2()">JA, PROFIL LÖSCHEN</button>
+            <button class="modell-btn" onclick="window.f_einstellungen()">ABBRECHEN</button>
+        `;
+    };
 
-    // --- PROFIL-TERMINIERUNG (LÖSCHUNG) ---
-    // --- ERWEITERTE PROFIL-TERMINIERUNG (Zweistufig mit Passwort) ---
-    window.deleteAgentProfile = async function() {
+    window.delProfileStep2 = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        
+        // Visueller Glitch beim Übergang
+        const anzeige = document.getElementById('anzeige');
+        anzeige.classList.add('flicker-active');
+        
+        setTimeout(() => {
+            anzeige.classList.remove('flicker-active');
+            document.getElementById('content-body').innerHTML = `
+                <h3 style="color: #f44; font-size: 1.5em; text-shadow: 0 0 15px #f44;">[ SYSTEM-WARNUNG ]</h3>
+                <p style="color: #f44; font-weight: bold; margin-bottom: 20px;">WILLST DU DEINEN ACCOUNT WIRKLICH WIRKLICH WIRKLICH LÖSCHEN?</p>
+                <button class="modell-btn" style="background: #f44; color: #000; font-weight: bold;" onclick="window.delProfileStep3()">JA, UNWIDERRUFLICH LÖSCHEN</button>
+                <button class="modell-btn" onclick="window.f_einstellungen()">ABBRECHEN</button>
+            `;
+        }, 600);
+    };
+
+    window.delProfileStep3 = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color: #f44;">[ AUTORISIERUNG ]</h3>
+            <p style="color: #aaa; font-size: 0.8em; margin-bottom: 15px;">Zur finalen Terminierung Passwort eingeben:</p>
+            <input type="password" id="term-pass" placeholder="PASSWORT..." style="width: 80%; padding: 10px; background: #000; border: 1px solid #f44; color: #f44; margin-bottom: 15px; outline: none; font-family: monospace; text-align: center;">
+            <div id="term-error" style="color: #f44; font-size: 0.8em; margin-bottom: 10px; height: 15px;"></div>
+            <button class="modell-btn" style="border-color: #f44; color: #f44;" onclick="window.delProfileExecute()">BESTÄTIGEN</button>
+            <button class="modell-btn" onclick="window.f_einstellungen()">ABBRECHEN</button>
+        `;
+    };
+
+    window.delProfileExecute = async function() {
         const myName = window.agentName;
-        if(!myName) return;
+        const passInput = document.getElementById('term-pass').value;
+        const errDiv = document.getElementById('term-error');
         
-        // 1. MELDUNG
-        let confirm1 = confirm("WILLST DU DEINEN ACCOUNT WIRKLICH LÖSCHEN?");
-        if(!confirm1) return;
-        
-        // VISUELLER GLITCH-EFFEKT (Simulation)
-        const layer = document.getElementById('startup-layer');
-        if(layer) {
-            layer.style.display = 'flex';
-            layer.style.opacity = '1';
-            layer.classList.add('flicker-active');
-            layer.innerHTML = '<div style="color:#f44; font-size:2em; font-weight:bold;">!!! SYSTEM-KRITISCH !!!</div>';
-        }
+        if(!myName || !passInput) { errDiv.innerText = "PASSWORT ERFORDERLICH!"; return; }
+        errDiv.innerText = "VERIFIZIERE...";
 
-        // 2. MELDUNG (Nach kurzem Glitch-Moment)
-        setTimeout(async () => {
-            let confirm2 = confirm("WILLST DU DEINEN ACCOUNT WIRKLICH WIRKLICH WIRKLICH WIRKLICH WIRKLICH LÖSCHEN?");
+        try {
+            const agentRef = window.doc(window.db, "agenten", myName.toLowerCase());
+            const docSnap = await window.getDoc(agentRef);
             
-            if(layer) {
-                layer.classList.remove('flicker-active');
-                layer.style.display = 'none';
-                layer.innerHTML = ''; // Layer wieder leeren
-            }
-
-            if(!confirm2) return;
-
-            // PASSWORT-ABFRAGE
-            const passInput = prompt("ZUR FINALEN TERMINIERUNG PASSWORT EINGEBEN:");
-            if(!passInput) return;
-
-            try {
-                const agentRef = window.doc(window.db, "agenten", myName.toLowerCase());
-                const docSnap = await window.getDoc(agentRef);
-                
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    // Vergleich mit dem hinterlegten (Base64) Passwort
-                    if (data.pass === btoa(passInput)) {
-                        // Löschung im Zentral-Server
-                        await window.deleteDoc(agentRef);
-                        
-                        // Lokale Daten bereinigen
-                        localStorage.removeItem('flux_agent_' + myName.toLowerCase());
-                        localStorage.removeItem('flux_last_agent');
-                        localStorage.removeItem('flux_music_' + myName.toLowerCase());
-                        localStorage.removeItem('flux_sound_' + myName.toLowerCase());
-                        
-                        alert("PROFIL WURDE RESTLOS VERNICHTET. SYSTEM STARTET NEU.");
-                        location.reload();
-                    } else {
-                        alert("ZUGRIFF VERWEIGERT: PASSWORT INKORREKT. TERMINIERUNG ABGEBROCHEN.");
-                    }
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.pass === btoa(passInput)) {
+                    await window.deleteDoc(agentRef);
+                    localStorage.removeItem('flux_agent_' + myName.toLowerCase());
+                    localStorage.removeItem('flux_last_agent');
+                    localStorage.removeItem('flux_music_' + myName.toLowerCase());
+                    localStorage.removeItem('flux_sound_' + myName.toLowerCase());
+                    
+                    document.getElementById('content-body').innerHTML = `<h3 style="color: #f44;">[ PROFIL VERNICHTET ]</h3><p>System startet neu...</p>`;
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    errDiv.innerText = "ZUGRIFF VERWEIGERT: PASSWORT INKORREKT.";
                 }
-            } catch (e) {
-                alert("FEHLER BEI DER SERVER-KOMMUNIKATION. UPLINK INSTABIL.");
             }
-        }, 500); // Kurze Verzögerung für den Glitch-Effekt
+        } catch (e) {
+            errDiv.innerText = "SERVER-FEHLER. UPLINK INSTABIL.";
+        }
     };
 </script>
         <style>
