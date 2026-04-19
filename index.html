@@ -4,38 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dück & Flux Zeitreiseagentur | Zentral-Terminal</title>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, getDocs, deleteDoc, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
-    authDomain: "zeitreise-agentur.firebaseapp.com",
-    projectId: "zeitreise-agentur",
-    storageBucket: "zeitreise-agentur.firebasestorage.app",
-    messagingSenderId: "516125325960",
-    appId: "1:516125325960:web:936883a5474820b10bfd3d",
-    measurementId: "G-8809YG4WHM"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  window.db = getFirestore(app);
-  window.doc = doc;
-  window.setDoc = setDoc;
-  window.getDoc = getDoc;
-  window.collection = collection;
-  window.addDoc = addDoc;
-  window.onSnapshot = onSnapshot;
-  window.query = query;
-  window.orderBy = orderBy;
-  window.limit = limit;
-  window.serverTimestamp = serverTimestamp;
-  window.getDocs = getDocs;
-  window.deleteDoc = deleteDoc;
-  window.where = where; // Wichtig für die Filterung der Teilnehmer
-
-  console.log("UPLINK & KOMM-LINK AKTIV");
-</script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
         <meta name="description" content="Dück & Flux Zeitreiseagentur - Das ultimative Terminal-Browsergame im Gummersbach-Sektor. Erfülle Missionen, sammle XP und stabilisiere die Zeitlinie.">
     <meta name="keywords" content="Zeitreise, Zeitagentur, Dück & Flux, Marcus Dück, Terminal Game, Retro Terminal, Sci-Fi Simulator, Browsergame, Gummersbach, Flux-Kondensator, Minigame, Zeitstränge, Cyberpunk, Text-Adventure, Zeitmaschine, Paradoxon, Zeitlinie, Gummersbach Sektor, Zeitreise buchen, Zeit-Agent">
@@ -554,66 +523,35 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
     };
 </script>
 <script>
-    // --- DESIGN-INJEKTION (Erzeugt das orange Pochen für Benachrichtigungen) ---
+    // --- DESIGN-INJEKTION (Erzeugt das Blinken automatisch) ---
     if (!document.getElementById('flux-chat-styles')) {
         const style = document.createElement('style');
         style.id = 'flux-chat-styles';
         style.innerHTML = `
-            @keyframes orange-kochen {
-                0% { box-shadow: 0 0 2px rgba(255, 136, 0, 0.2); background: transparent; }
-                50% { box-shadow: 0 0 15px rgba(255, 136, 0, 0.5); background: rgba(255, 136, 0, 0.1); border-color: #ff8800; color: #ff8800; }
-                100% { box-shadow: 0 0 2px rgba(255, 136, 0, 0.2); background: transparent; }
+            @keyframes nav-blink {
+                0% { background: rgba(0, 255, 204, 0.1); border-color: #0f8; }
+                50% { background: rgba(255, 68, 68, 0.4); border-color: #f44; box-shadow: 0 0 15px #f44; }
+                100% { background: rgba(0, 255, 204, 0.1); border-color: #0f8; }
             }
-            .chat-alert { 
-                animation: orange-kochen 1.5s infinite ease-in-out !important; 
-                border-color: #ff8800 !important; 
-                color: #ff8800 !important;
-                text-shadow: 0 0 8px #ff8800 !important;
-            }
+            .chat-alert { animation: nav-blink 0.8s infinite !important; }
         `;
         document.head.appendChild(style);
     }
 
+    // --- 1. HAUPTMENÜ (ÜBERSICHT) ---
+    // --- KOMM-LINK & RADAR SYSTEM ---
+
     // --- 1. HAUPTMENÜ (ÜBERSICHT DER KANÄLE) ---
-    window.f_chat = async function() {
+    window.f_chat = function() {
         if (typeof triggerScan === 'function') triggerScan();
         
-        // Benachrichtigungs-Blinken am Nav-Button entfernen beim Öffnen
-        const chatBtn = document.querySelector('nav button:nth-child(3)');
-        if(chatBtn) chatBtn.classList.remove('chat-alert');
+        // Benachrichtigungs-Pochen am Nav-Button entfernen beim Öffnen
+        const chatBtn = document.querySelector('nav button[onclick="window.f_chat()"]') || document.querySelector('nav button:nth-child(3)');
+        if(chatBtn) chatBtn.classList.remove('status-warn-pulse');
 
-        document.getElementById('content-body').innerHTML = '<div style="color:#0f8;">Synchronisiere Funkwellen...</div>';
+        window.currentChatTarget = null; // Markiert, dass wir in der Übersicht sind
 
-        const myName = window.agentName.toLowerCase();
-        let chatListHtml = "";
-
-        if (window.db) {
-            // Holt alle Kanäle, in denen du Teilnehmer bist
-            const funkRef = window.collection(window.db, "agenten_funk");
-            const q = window.query(funkRef, window.where("teilnehmer", "array-contains", myName));
-            const snapshot = await window.getDocs(q);
-
-            if (snapshot.empty) {
-                chatListHtml = '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
-            } else {
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const otherAgent = data.teilnehmer.find(n => n !== myName) || myName;
-                    const isUnread = (data.ungelesen_fuer === myName);
-                    
-                    // Markierung für ungelesene Chats in der Liste
-                    const alertStyle = isUnread ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
-                    const alertSuffix = isUnread ? " [NEUE NACHRICHT]" : "";
-
-                    chatListHtml += `
-                        <div class="log-entry" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
-                            <span style="cursor: pointer; flex-grow: 1; ${alertStyle}" onclick="window.openPrivateChat('${otherAgent}')">> AGENT: ${otherAgent.toUpperCase()}${alertSuffix}</span>
-                            <span style="cursor: pointer; color: #f44; padding: 0 10px; font-size: 1.2em;" onclick="window.deleteChat('${otherAgent}')">🗑️</span>
-                        </div>`;
-                });
-            }
-        }
-
+        // Grundgerüst SOFORT rendern, damit es keine Ladeverzögerung gibt
         document.getElementById('content-body').innerHTML = `
             <h3 style="color: #0f8;">[ KOMM-LINK ]</h3>
             <div style="margin-bottom: 20px;">
@@ -625,12 +563,52 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
             </div>
             <div style="text-align: left; margin-bottom: 20px;">
                 <div style="font-size: 0.6em; opacity: 0.6; margin-bottom: 5px;">GESPEICHERTE KANÄLE:</div>
-                <div id="active-chat-list">${chatListHtml}</div>
+                <div id="active-chat-list"><div style="color:#0f8; font-size: 0.8em; margin: 10px 0;">Synchronisiere Funkwellen...</div></div>
             </div>
             <button class="modell-btn" style="border-color: #ffcc00; color: #ffcc00;" onclick="window.renderRadarView()">📡 RADAR AKTIVIEREN</button>
             <hr style="border-color: rgba(0,255,204,0.2); margin: 15px 0;">
             <button onclick="window.f_start()">ZURÜCK</button>
         `;
+
+        const myName = window.agentName.toLowerCase();
+
+        if (window.db) {
+            // Alten Listener der Liste beenden, falls vorhanden
+            if (window.chatListListener) window.chatListListener();
+
+            const funkRef = window.collection(window.db, "agenten_funk");
+            const q = window.query(funkRef, window.where("teilnehmer", "array-contains", myName));
+
+            // onSnapshot ist blitzschnell, da es sofort den lokalen Cache abruft
+            window.chatListListener = window.onSnapshot(q, (snapshot) => {
+                const listContainer = document.getElementById('active-chat-list');
+                if (!listContainer) return; // Abbruch, wenn das Menü schon wieder verlassen wurde
+
+                if (snapshot.empty) {
+                    listContainer.innerHTML = '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
+                    return;
+                }
+
+                let chatListHtml = "";
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const otherAgent = data.teilnehmer.find(n => n !== myName) || myName;
+                    const isUnread = (data.ungelesen_fuer === myName);
+                    
+                    const alertStyle = isUnread ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
+                    const alertSuffix = isUnread ? " [NEUE NACHRICHT]" : "";
+
+                    chatListHtml += `
+                        <div class="log-entry" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
+                            <span style="cursor: pointer; flex-grow: 1; ${alertStyle}" onclick="window.openPrivateChat('${otherAgent}')">> AGENT: ${otherAgent.toUpperCase()}${alertSuffix}</span>
+                            <span style="cursor: pointer; color: #f44; padding: 0 10px; font-size: 1.2em;" onclick="window.deleteChat('${otherAgent}')">🗑️</span>
+                        </div>`;
+                });
+                listContainer.innerHTML = chatListHtml;
+            });
+        } else {
+            document.getElementById('active-chat-list').innerHTML = '<div style="color: #f44; font-size: 0.8em; margin: 10px 0;">Uplink getrennt.</div>';
+        }
     };
 
     // --- 2. RADAR ANSICHT ---
@@ -682,11 +660,17 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         const targetName = targetAgentName.toLowerCase();
         const channelId = [myName, targetName].sort().join("_");
 
-        // Gelesen-Status setzen
+        window.currentChatTarget = targetName; // Speichert ab, mit wem du gerade aktiv funkst
+
+        // Gelesen-Status sofort auflösen
         if (window.db) {
             const channelRef = window.doc(window.db, "agenten_funk", channelId);
             window.setDoc(channelRef, { ungelesen_fuer: "" }, { merge: true });
         }
+
+        // Pochen vom Button entfernen
+        const navBtn = document.querySelector('nav button[onclick="window.f_chat()"]') || document.querySelector('nav button:nth-child(3)');
+        if (navBtn) navBtn.classList.remove('status-warn-pulse');
 
         document.getElementById('content-body').innerHTML = `
             <h3 style="color: #0f8;">[ FUNK: ${targetAgentName.toUpperCase()} ]</h3>
@@ -731,10 +715,10 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
             const myName = window.agentName.toLowerCase();
             const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
             
-            // Nachricht in Sub-Collection
+            // Nachricht in Sub-Collection speichern
             await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
             
-            // Hauptdokument aktualisieren für Benachrichtigung
+            // Hauptdokument aktualisieren für Benachrichtigung (Cloud-Uplink)
             const channelRef = window.doc(window.db, "agenten_funk", channelId);
             await window.setDoc(channelRef, { 
                 teilnehmer: [myName, targetName], 
@@ -778,32 +762,44 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         if (!window.agentName || !window.db) return;
         const myName = window.agentName.toLowerCase();
         
-        // Überwacht alle Kanäle, in denen du Teilnehmer bist
         const funkRef = window.collection(window.db, "agenten_funk");
         const q = window.query(funkRef, window.where("teilnehmer", "array-contains", myName));
 
-        window.onSnapshot(q, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                const data = change.doc.data();
+        // Alten globalen Listener bereinigen, falls vorhanden
+        if (window.globalChatListener) window.globalChatListener();
+
+        window.globalChatListener = window.onSnapshot(q, (snapshot) => {
+            let hasUnread = false;
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
                 
-                // Nur wenn die Nachricht wirklich für DICH ungelesen ist
                 if (data.ungelesen_fuer === myName) {
-                    // Wenn du NICHT gerade im Chatfenster bist -> Orange Pochen aktivieren
-                    if (!document.getElementById('chat-window')) {
-                        const btn = document.querySelector('nav button:nth-child(3)');
-                        if (btn) btn.classList.add('chat-alert');
-                        
-                        // Wenn du gerade in der Kanalliste bist, diese sofort aktualisieren
-                        if (document.getElementById('active-chat-list')) {
-                            window.f_chat();
-                        }
-                    } else {
-                        // Wenn der Chat offen ist, sofort als gelesen markieren
-                        const channelRef = window.doc(window.db, "agenten_funk", change.doc.id);
+                    const otherAgent = data.teilnehmer.find(n => n !== myName) || myName;
+                    
+                    // Prüft, ob du den Chat mit genau diesem Agenten GERADE aktiv geöffnet hast
+                    if (document.getElementById('chat-window') && window.currentChatTarget === otherAgent) {
+                        // Wenn ja, markiere die Nachricht im Hintergrund sofort als gelesen!
+                        const channelRef = window.doc(window.db, "agenten_funk", doc.id);
                         window.setDoc(channelRef, { ungelesen_fuer: "" }, { merge: true });
+                    } else {
+                        // Sonst existiert eine echte ungelesene Nachricht
+                        hasUnread = true;
                     }
                 }
             });
+
+            // Sucht den Komm-Link Button extrem stabil im Nav-Menü
+            const navBtn = document.querySelector('nav button[onclick="window.f_chat()"]') || document.querySelector('nav button:nth-child(3)');
+            
+            if (navBtn) {
+                if (hasUnread) {
+                    // Wir nutzen die bestehende Klasse aus deinem Head, die genau das orange Kochen macht!
+                    navBtn.classList.add('status-warn-pulse'); 
+                } else {
+                    navBtn.classList.remove('status-warn-pulse');
+                }
+            }
         });
     };
 
