@@ -844,14 +844,25 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         const uploadIcon = document.getElementById('upload-indicator');
         if(uploadIcon) uploadIcon.style.display = 'block';
 
-        let locationData = { country: "Unbekannt", region: "Unbekannt", city: "Unbekannt" };
+        // Neues Datenobjekt inkl. Koordinaten (Standardwerte: Unbekannt / Nullpunkt)
+        let locationData = { 
+            country: "Unbekannt", 
+            region: "Unbekannt", 
+            city: "Unbekannt",
+            lat: 0.0,
+            lon: 0.0
+        };
+        
         try {
+            // Die IPAPI liefert direkt auch latitude und longitude mit!
             const response = await fetch('https://ipapi.co/json/');
             const data = await response.json();
             if (data && !data.error) {
                 locationData.country = data.country_name || "Unbekannt";
                 locationData.region = data.region || "Unbekannt";
                 locationData.city = data.city || "Unbekannt";
+                locationData.lat = data.latitude || 0.0;
+                locationData.lon = data.longitude || 0.0;
             }
         } catch (e) { console.error("Standort-Uplink fehlgeschlagen:", e); }
 
@@ -864,6 +875,9 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
             music: localStorage.getItem('flux_music_' + window.agentName.toLowerCase()) === 'true',
             sound: window.klickTonAktiv,
             agentOrigin: `${locationData.country}, ${locationData.region} (${locationData.city})`,
+            // Die exakten IP-Koordinaten für das Matrix-Radar direkt mit in die Cloud speichern
+            lat: locationData.lat,
+            lon: locationData.lon,
             lastSeen: new Date().toLocaleString('de-DE')
         };
         
@@ -873,7 +887,6 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         if (window.db && window.setDoc) {
             try {
                 const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
-                // DER FIX: merge: true sorgt dafür, dass das Passwort nicht gelöscht wird
                 await window.setDoc(agentRef, data, { merge: true });
             } catch (e) {
                 console.error("Cloud-Fehler:", e);
