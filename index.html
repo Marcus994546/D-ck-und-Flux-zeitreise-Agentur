@@ -32,7 +32,7 @@
   window.serverTimestamp = serverTimestamp;
   window.getDocs = getDocs;
   window.deleteDoc = deleteDoc;
-  window.where = where;
+  window.where = where; // Wichtig für die Filterung der Teilnehmer
 
   console.log("UPLINK & KOMM-LINK AKTIV");
 </script>
@@ -554,76 +554,84 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
     };
 </script>
 <script>
-    // --- DESIGN-INJEKTION (Erzeugt das Blinken automatisch) ---
+    // --- DESIGN-INJEKTION (Erzeugt das orange Pochen für Benachrichtigungen) ---
     if (!document.getElementById('flux-chat-styles')) {
         const style = document.createElement('style');
         style.id = 'flux-chat-styles';
         style.innerHTML = `
-            @keyframes nav-blink {
-                0% { background: rgba(0, 255, 204, 0.1); border-color: #0f8; }
-                50% { background: rgba(255, 68, 68, 0.4); border-color: #f44; box-shadow: 0 0 15px #f44; }
-                100% { background: rgba(0, 255, 204, 0.1); border-color: #0f8; }
+            @keyframes orange-kochen {
+                0% { box-shadow: 0 0 2px rgba(255, 136, 0, 0.2); background: transparent; }
+                50% { box-shadow: 0 0 15px rgba(255, 136, 0, 0.5); background: rgba(255, 136, 0, 0.1); border-color: #ff8800; color: #ff8800; }
+                100% { box-shadow: 0 0 2px rgba(255, 136, 0, 0.2); background: transparent; }
             }
-            .chat-alert { animation: nav-blink 0.8s infinite !important; }
+            .chat-alert { 
+                animation: orange-kochen 1.5s infinite ease-in-out !important; 
+                border-color: #ff8800 !important; 
+                color: #ff8800 !important;
+                text-shadow: 0 0 8px #ff8800 !important;
+            }
         `;
         document.head.appendChild(style);
     }
 
-    // --- 1. HAUPTMENÜ (ÜBERSICHT) ---
-window.f_chat = async function() {
-    if (typeof triggerScan === 'function') triggerScan();
-    
-    const chatBtn = document.querySelector('nav button:nth-child(3)');
-    if(chatBtn) chatBtn.classList.remove('chat-alert');
+    // --- 1. HAUPTMENÜ (ÜBERSICHT DER KANÄLE) ---
+    window.f_chat = async function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        
+        // Benachrichtigungs-Blinken am Nav-Button entfernen beim Öffnen
+        const chatBtn = document.querySelector('nav button:nth-child(3)');
+        if(chatBtn) chatBtn.classList.remove('chat-alert');
 
-    document.getElementById('content-body').innerHTML = '<div style="color:#0f8;">Lade gesicherte Kanäle...</div>';
+        document.getElementById('content-body').innerHTML = '<div style="color:#0f8;">Synchronisiere Funkwellen...</div>';
 
-    const myName = window.agentName.toLowerCase();
-    let chatListHtml = "";
+        const myName = window.agentName.toLowerCase();
+        let chatListHtml = "";
 
-    if (window.db) {
-        const funkRef = window.collection(window.db, "agenten_funk");
-        const q = window.query(funkRef, window.where("teilnehmer", "array-contains", myName));
-        const snapshot = await window.getDocs(q);
+        if (window.db) {
+            // Holt alle Kanäle, in denen du Teilnehmer bist
+            const funkRef = window.collection(window.db, "agenten_funk");
+            const q = window.query(funkRef, window.where("teilnehmer", "array-contains", myName));
+            const snapshot = await window.getDocs(q);
 
-        if (snapshot.empty) {
-            chatListHtml = '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
-        } else {
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const otherAgent = data.teilnehmer.find(n => n !== myName) || myName;
-                const isUnread = (data.ungelesen_fuer === myName);
-                
-                const alertStyle = isUnread ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
-                const alertText = isUnread ? " [NEUE NACHRICHT]" : "";
+            if (snapshot.empty) {
+                chatListHtml = '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
+            } else {
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const otherAgent = data.teilnehmer.find(n => n !== myName) || myName;
+                    const isUnread = (data.ungelesen_fuer === myName);
+                    
+                    // Markierung für ungelesene Chats in der Liste
+                    const alertStyle = isUnread ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
+                    const alertSuffix = isUnread ? " [NEUE NACHRICHT]" : "";
 
-                chatListHtml += `
-                    <div class="log-entry" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
-                        <span style="cursor: pointer; flex-grow: 1; ${alertStyle}" onclick="window.openPrivateChat('${otherAgent}')">> AGENT: ${otherAgent.toUpperCase()}${alertText}</span>
-                        <span style="cursor: pointer; color: #f44; padding: 0 10px; font-size: 1.2em;" onclick="window.deleteChat('${otherAgent}')">🗑️</span>
-                    </div>`;
-            });
+                    chatListHtml += `
+                        <div class="log-entry" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
+                            <span style="cursor: pointer; flex-grow: 1; ${alertStyle}" onclick="window.openPrivateChat('${otherAgent}')">> AGENT: ${otherAgent.toUpperCase()}${alertSuffix}</span>
+                            <span style="cursor: pointer; color: #f44; padding: 0 10px; font-size: 1.2em;" onclick="window.deleteChat('${otherAgent}')">🗑️</span>
+                        </div>`;
+                });
+            }
         }
-    }
 
-    document.getElementById('content-body').innerHTML = `
-        <h3 style="color: #0f8;">[ KOMM-LINK ]</h3>
-        <div style="margin-bottom: 20px;">
-            <div style="font-size: 0.6em; color: #0f8; margin-bottom: 5px;">AGENTEN-ID EINGEBEN:</div>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="chat-target-input" placeholder="NAME..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none; text-transform: uppercase;">
-                <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.startDirectFunk()">FUNK</button>
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color: #0f8;">[ KOMM-LINK ]</h3>
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 0.6em; color: #0f8; margin-bottom: 5px;">AGENTEN-ID EINGEBEN:</div>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="chat-target-input" placeholder="NAME..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none; text-transform: uppercase;">
+                    <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.startDirectFunk()">FUNK</button>
+                </div>
             </div>
-        </div>
-        <div style="text-align: left; margin-bottom: 20px;">
-            <div style="font-size: 0.6em; opacity: 0.6; margin-bottom: 5px;">GESPEICHERTE KANÄLE:</div>
-            <div id="active-chat-list">${chatListHtml}</div>
-        </div>
-        <button class="modell-btn" style="border-color: #ffcc00; color: #ffcc00;" onclick="window.renderRadarView()">📡 RADAR AKTIVIEREN</button>
-        <hr style="border-color: rgba(0,255,204,0.2); margin: 15px 0;">
-        <button onclick="window.f_start()">ZURÜCK</button>
-    `;
-};
+            <div style="text-align: left; margin-bottom: 20px;">
+                <div style="font-size: 0.6em; opacity: 0.6; margin-bottom: 5px;">GESPEICHERTE KANÄLE:</div>
+                <div id="active-chat-list">${chatListHtml}</div>
+            </div>
+            <button class="modell-btn" style="border-color: #ffcc00; color: #ffcc00;" onclick="window.renderRadarView()">📡 RADAR AKTIVIEREN</button>
+            <hr style="border-color: rgba(0,255,204,0.2); margin: 15px 0;">
+            <button onclick="window.f_start()">ZURÜCK</button>
+        `;
+    };
 
     // --- 2. RADAR ANSICHT ---
     window.renderRadarView = function() {
@@ -641,7 +649,7 @@ window.f_chat = async function() {
         window.startRadarScan();
     };
 
-    // --- 3. LOGIK: RADAR SCAN ---
+    // --- 3. RADAR LOGIK ---
     window.currentRadarListener = null;
     window.startRadarScan = function() {
         if (!window.db) return;
@@ -667,131 +675,145 @@ window.f_chat = async function() {
         });
     };
 
-    // --- 4. LOGIK: CHAT ÖFFNEN ---
-window.openPrivateChat = function(targetAgentName) {
-    if (typeof triggerScan === 'function') triggerScan();
-    const myName = window.agentName.toLowerCase();
-    const targetName = targetAgentName.toLowerCase();
-    const channelId = [myName, targetName].sort().join("_");
-
-    if (window.db) {
-        const channelRef = window.doc(window.db, "agenten_funk", channelId);
-        window.setDoc(channelRef, { ungelesen_fuer: "" }, { merge: true });
-    }
-
-    document.getElementById('content-body').innerHTML = `
-        <h3 style="color: #0f8;">[ FUNK: ${targetAgentName.toUpperCase()} ]</h3>
-        <div id="chat-window" style="height: 250px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;">
-            <div style="color: #555; font-size: 0.7em; text-align: center;">--- VERSCHLÜSSELUNG AKTIV ---</div>
-        </div>
-        <div style="display: flex; gap: 5px;">
-            <input type="text" id="msg-input" placeholder="Nachricht..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
-            <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.sendMsg('${channelId}', '${targetName}')">SENDEN</button>
-        </div>
-        <button class="modell-btn" style="margin-top: 15px; border-style: dashed;" onclick="if(window.currentChatListener) window.currentChatListener(); window.f_chat();">FUNK TRENNEN</button>
-    `;
-
-    if (window.db && window.onSnapshot) {
-        if (window.currentChatListener) window.currentChatListener();
-        const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
-        const q = window.query(msgRef, window.orderBy("zeitstempel", "asc"), window.limit(50));
-        window.currentChatListener = window.onSnapshot(q, (snapshot) => {
-            const win = document.getElementById('chat-window');
-            if (!win) return;
-            win.innerHTML = `<div style="color:#0f8; font-size:0.7em; text-align:center; border-bottom:1px dashed rgba(0,255,204,0.3); padding-bottom:5px;">--- SICHERE LEITUNG ---</div>`;
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const isMe = (data.absender === window.agentName);
-                const msgDiv = document.createElement('div');
-                msgDiv.style.cssText = isMe ? "color:#aaa; align-self:flex-end; text-align:right;" : "color:#0f8; align-self:flex-start; text-align:left;";
-                msgDiv.innerHTML = `<b>${isMe ? 'Du' : data.absender}:</b> ${data.text}`;
-                win.appendChild(msgDiv);
-            });
-            win.scrollTop = win.scrollHeight;
-        });
-    }
-};
-
-window.sendMsg = async function(channelId, targetName) {
-    const inp = document.getElementById('msg-input');
-    const text = inp.value.trim();
-    if (text === "" || !window.db) return;
-    inp.value = "";
-    try {
+    // --- 4. FUNK ÖFFNEN ---
+    window.openPrivateChat = function(targetAgentName) {
+        if (typeof triggerScan === 'function') triggerScan();
         const myName = window.agentName.toLowerCase();
-        
-        const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
-        await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
+        const targetName = targetAgentName.toLowerCase();
+        const channelId = [myName, targetName].sort().join("_");
 
-        const channelRef = window.doc(window.db, "agenten_funk", channelId);
-        await window.setDoc(channelRef, { 
-            last_msg: window.serverTimestamp(),
-            teilnehmer: [myName, targetName],
-            ungelesen_fuer: targetName 
-        }, { merge: true });
-
-    } catch (e) { console.error(e); }
-};
-
-    window.deleteChat = async function(targetName) {
-    if(!confirm(`Kanal mit ${targetName.toUpperCase()} wirklich im Briefkasten löschen?`)) return;
-
-    const myName = window.agentName.toLowerCase();
-    const targetNameLow = targetName.toLowerCase();
-    const channelId = [myName, targetNameLow].sort().join("_");
-
-    if (window.db && window.getDocs && window.deleteDoc) {
-        try {
-            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
-            const snapshot = await window.getDocs(msgRef);
-            const deletePromises = snapshot.docs.map(mDoc => window.deleteDoc(mDoc.ref));
-            await Promise.all(deletePromises);
-            
+        // Gelesen-Status setzen
+        if (window.db) {
             const channelRef = window.doc(window.db, "agenten_funk", channelId);
-            await window.deleteDoc(channelRef);
-            
-            console.log("FUNK-KANAL IM BRIEFKASTEN GELEERT");
-        } catch (e) { 
-            console.error("FEHLER BEI BRIEFKASTEN-REINIGUNG:", e); 
+            window.setDoc(channelRef, { ungelesen_fuer: "" }, { merge: true });
         }
-    }
-    
-    window.f_chat();
-};
+
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color: #0f8;">[ FUNK: ${targetAgentName.toUpperCase()} ]</h3>
+            <div id="chat-window" style="height: 250px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;">
+                <div style="color: #555; font-size: 0.7em; text-align: center;">--- VERSCHLÜSSELUNG AKTIV ---</div>
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="msg-input" placeholder="Nachricht..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
+                <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.sendMsg('${channelId}', '${targetName}')">SENDEN</button>
+            </div>
+            <button class="modell-btn" style="margin-top: 15px; border-style: dashed;" onclick="if(window.currentChatListener) window.currentChatListener(); window.f_chat();">FUNK TRENNEN</button>
+        `;
+
+        if (window.db && window.onSnapshot) {
+            if (window.currentChatListener) window.currentChatListener();
+            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+            const q = window.query(msgRef, window.orderBy("zeitstempel", "asc"), window.limit(50));
+            window.currentChatListener = window.onSnapshot(q, (snapshot) => {
+                const win = document.getElementById('chat-window');
+                if (!win) return;
+                win.innerHTML = `<div style="color:#0f8; font-size:0.7em; text-align:center; border-bottom:1px dashed rgba(0,255,204,0.3); padding-bottom:5px;">--- SICHERE LEITUNG ---</div>`;
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const isMe = (data.absender === window.agentName);
+                    const msgDiv = document.createElement('div');
+                    msgDiv.style.cssText = isMe ? "color:#aaa; align-self:flex-end; text-align:right;" : "color:#0f8; align-self:flex-start; text-align:left;";
+                    msgDiv.innerHTML = `<b>${isMe ? 'Du' : data.absender}:</b> ${data.text}`;
+                    win.appendChild(msgDiv);
+                });
+                win.scrollTop = win.scrollHeight;
+            });
+        }
+    };
+
+    // --- 5. NACHRICHT SENDEN ---
+    window.sendMsg = async function(channelId, targetName) {
+        const inp = document.getElementById('msg-input');
+        const text = inp.value.trim();
+        if (text === "" || !window.db) return;
+        inp.value = "";
+        try {
+            const myName = window.agentName.toLowerCase();
+            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+            
+            // Nachricht in Sub-Collection
+            await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
+            
+            // Hauptdokument aktualisieren für Benachrichtigung
+            const channelRef = window.doc(window.db, "agenten_funk", channelId);
+            await window.setDoc(channelRef, { 
+                teilnehmer: [myName, targetName], 
+                ungelesen_fuer: targetName,
+                last_ping: Date.now() 
+            }, { merge: true });
+        } catch (e) { console.error(e); }
+    };
+
+    // --- 6. FUNK LÖSCHEN ---
+    window.deleteChat = async function(targetName) {
+        if(!confirm(`Kanal mit ${targetName.toUpperCase()} wirklich im Briefkasten löschen?`)) return;
+
+        const myName = window.agentName.toLowerCase();
+        const targetNameLow = targetName.toLowerCase();
+        const channelId = [myName, targetNameLow].sort().join("_");
+
+        if (window.db && window.getDocs && window.deleteDoc) {
+            try {
+                const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+                const snapshot = await window.getDocs(msgRef);
+                const deletePromises = snapshot.docs.map(mDoc => window.deleteDoc(mDoc.ref));
+                await Promise.all(deletePromises);
+                
+                const channelRef = window.doc(window.db, "agenten_funk", channelId);
+                await window.deleteDoc(channelRef);
+                
+                console.log("FUNK-KANAL IM BRIEFKASTEN GELEERT");
+            } catch (e) { console.error("FEHLER BEI BRIEFKASTEN-REINIGUNG:", e); }
+        }
+        window.f_chat();
+    };
 
     window.startDirectFunk = function() {
         const target = document.getElementById('chat-target-input').value.trim();
         if (target) window.openPrivateChat(target);
     };
 
-    // --- 5. AUTOMATIK: BLINKEN & PING ---
-window.startGlobalNotification = function() {
-    if (!window.agentName || !window.db) return;
-    const myName = window.agentName.toLowerCase();
-    
-    const funkRef = window.collection(window.db, "agenten_funk");
-    const q = window.query(funkRef, window.where("teilnehmer", "array-contains", myName));
+    // --- 7. AUTOMATIK: BENACHRICHTIGUNGEN & BLINKEN ---
+    window.startGlobalNotification = function() {
+        if (!window.agentName || !window.db) return;
+        const myName = window.agentName.toLowerCase();
+        
+        // Überwacht alle Kanäle, in denen du Teilnehmer bist
+        const funkRef = window.collection(window.db, "agenten_funk");
+        const q = window.query(funkRef, window.where("teilnehmer", "array-contains", myName));
 
-    window.onSnapshot(q, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            const data = change.doc.data();
-            
-            if (data.ungelesen_fuer === myName) {
-                if (!document.getElementById('chat-window')) {
-                    const btn = document.querySelector('nav button:nth-child(3)');
-                    if (btn) btn.classList.add('chat-alert');
-                    
-                    if (document.getElementById('active-chat-list')) {
-                        window.f_chat(); 
+        window.onSnapshot(q, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                const data = change.doc.data();
+                
+                // Nur wenn die Nachricht wirklich für DICH ungelesen ist
+                if (data.ungelesen_fuer === myName) {
+                    // Wenn du NICHT gerade im Chatfenster bist -> Orange Pochen aktivieren
+                    if (!document.getElementById('chat-window')) {
+                        const btn = document.querySelector('nav button:nth-child(3)');
+                        if (btn) btn.classList.add('chat-alert');
+                        
+                        // Wenn du gerade in der Kanalliste bist, diese sofort aktualisieren
+                        if (document.getElementById('active-chat-list')) {
+                            window.f_chat();
+                        }
+                    } else {
+                        // Wenn der Chat offen ist, sofort als gelesen markieren
+                        const channelRef = window.doc(window.db, "agenten_funk", change.doc.id);
+                        window.setDoc(channelRef, { ungelesen_fuer: "" }, { merge: true });
                     }
-                } else {
-                    const channelRef = window.doc(window.db, "agenten_funk", change.doc.id);
-                    window.setDoc(channelRef, { ungelesen_fuer: "" }, { merge: true });
                 }
-            }
+            });
         });
-    });
-};
+    };
+
+    window.sendRadarPing = async function() {
+        if (!window.db || !window.agentName) return;
+        try {
+            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+            await window.setDoc(agentRef, { last_ping: Date.now() }, { merge: true });
+        } catch(e) {}
+    };
 
     setTimeout(window.startGlobalNotification, 4000);
     setInterval(window.sendRadarPing, 60000);
