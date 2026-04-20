@@ -190,7 +190,8 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, userLevel: 1 };
+    // userLevel wurde hier komplett entfernt! Die Basis merkt sich kein Level mehr selbst.
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0 };
     let pendingCoords = {x: 0, y: 0};
 
     const roomColors = {
@@ -218,28 +219,38 @@
         { n: 'FUNK-RELAIS "HORIZONT"', d: 'Erhöht die Funk-Reichweite.' }, { n: 'KI-KERNMATRIX', d: 'Zentraler künstlicher Verstand.' }
     ];
 
-    // --- CLOUD SYNCHRONISATION (STRIKTE TRENNUNG) ---
+    // --- NEU: ECHTZEIT-ABFRAGE DES LEVEL ---
+    function getEchtesAgentenLevel() {
+        const agentName = localStorage.getItem("flux_last_agent");
+        if (!agentName) return 1;
+        const mainProfile = localStorage.getItem('flux_agent_' + agentName.toLowerCase());
+        if (mainProfile) {
+            try {
+                const d = JSON.parse(mainProfile);
+                if (d.lvl !== undefined) return d.lvl;
+            } catch(e) {}
+        }
+        return 1;
+    }
+
+    // --- CLOUD SYNCHRONISATION ---
     async function loadGameState() {
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         const saved = localStorage.getItem(localKey);
-        if (saved) { try { gameState = JSON.parse(saved); } catch(e) {} }
         
-        // 1. Level lokal aus dem Master-Profil auslesen
-        const mainProfile = localStorage.getItem('flux_agent_' + currentAgentName.toLowerCase());
-        if (mainProfile) { try { const d = JSON.parse(mainProfile); if (d.lvl !== undefined) gameState.userLevel = d.lvl; } catch(e) {} }
-
+        if (saved) { 
+            try { 
+                const parsed = JSON.parse(saved);
+                if (parsed.credits !== undefined) gameState.credits = parsed.credits;
+                if (parsed.materieZellen !== undefined) gameState.materieZellen = parsed.materieZellen;
+                if (parsed.baseData) gameState.baseData = parsed.baseData;
+            } catch(e) {} 
+        }
+        
         updateUI(); renderGrid();
 
         if (window.db && window.getDoc) {
             try {
-                // 2. Echtes Level aus der Firebase-Hauptgruppe "agenten" holen
-                const agentRef = window.doc(window.db, "agenten", currentAgentName.toLowerCase());
-                const agentSnap = await window.getDoc(agentRef);
-                if (agentSnap.exists() && agentSnap.data().lvl !== undefined) {
-                    gameState.userLevel = agentSnap.data().lvl;
-                }
-
-                // 3. Basis-Daten aus "Agent - Base" holen
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
                 const baseSnap = await window.getDoc(baseRef);
                 if (baseSnap.exists()) {
@@ -259,14 +270,14 @@
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         localStorage.setItem(localKey, JSON.stringify(gameState));
 
-        // Sync für index.html -> WICHTIG: Level (d.lvl) wird NICHT mehr von der Basis überschrieben!
+        // Sync für index.html -> Nur Geld wird übertragen, Level wird NICHT angefasst!
         const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
         let d = {}; const mainP = localStorage.getItem(mainProfileKey);
         if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
         d.credits = gameState.credits; d.mz = gameState.materieZellen; 
         localStorage.setItem(mainProfileKey, JSON.stringify(d));
 
-        // Sichern in Firebase "Agent - Base" (ohne Level)
+        // Sichern in Firebase "Agent - Base"
         if (window.db && window.setDoc) {
             try {
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
@@ -281,11 +292,13 @@
     function updateUI() {
         document.getElementById('display-credits').innerText = gameState.credits;
         document.getElementById('display-mz').innerText = gameState.materieZellen;
-        document.getElementById('display-level').innerText = gameState.userLevel;
+        // Zeigt immer das exakte, echte Level aus der index.html an
+        document.getElementById('display-level').innerText = getEchtesAgentenLevel(); 
     }
 
     function renderGrid() {
         const grid = document.getElementById('base-grid'); if(!grid) return;
+        const currentLvl = getEchtesAgentenLevel(); // Live-Abruf für die Sperre!
         grid.innerHTML = '';
         for (let y = 0; y < 5; y++) {
             for (let x = 0; x < 5; x++) {
@@ -308,16 +321,17 @@
     }
 
     window.buyRoom = (x, y) => {
+        const currentLvl = getEchtesAgentenLevel(); // Live-Abruf!
         pendingCoords = {x, y}; const list = document.getElementById('selection-list-container');
         list.innerHTML = ''; const reqLvl = gameState.baseData.length * 3;
         const levelI = document.getElementById('next-room-level-info');
-        levelI.innerText = gameState.userLevel < reqLvl ? `Sperre: Level ${reqLvl} benötigt!` : `Bereit für Ausbau (Level ${reqLvl})`;
+        levelI.innerText = currentLvl < reqLvl ? `Sperre: Level ${reqLvl} benötigt!` : `Bereit für Ausbau (Level ${reqLvl})`;
         roomTypes.forEach(room => {
             const built = gameState.baseData.some(r => r.type === room.n);
             const item = document.createElement('div'); item.className = 'selection-item';
-            if (built || gameState.userLevel < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
+            if (built || currentLvl < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
             else { item.onclick = () => confirmRoomSelection(room.n); }
-            item.innerHTML = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">10 MZ</span><br><small>${room.d}</small>${(gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
+            item.innerHTML = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">10 MZ</span><br><small>${room.d}</small>${(currentLvl < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
             list.appendChild(item);
         });
         document.getElementById('room-selection-overlay').style.display = 'flex';
@@ -337,7 +351,6 @@
         playBeepBase(2000, 0.1); 
         gameState.credits += 50000; 
         gameState.materieZellen += 100;
-        // Level-Boost restlos entfernt, um das Main-Level nicht zu manipulieren
         updateUI(); renderGrid(); await saveGameState();
     };
 
