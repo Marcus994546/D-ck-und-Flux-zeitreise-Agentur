@@ -222,11 +222,11 @@
     async function loadGameState() {
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         
-        // 1. Zuerst lokalen Cache für die Basis laden (Räume/MZ)
+        // 1. Lokalen Cache laden (Räume & MZ)
         const saved = localStorage.getItem(localKey);
         if (saved) { try { gameState = JSON.parse(saved); } catch(e) {} }
         
-        // 2. Level IMMER aus dem Haupt-Profil (LocalStorage) ziehen
+        // 2. Level aus dem lokalen Hauptprofil (index.html) ziehen
         const mainProfile = localStorage.getItem('flux_agent_' + currentAgentName.toLowerCase());
         if (mainProfile) { 
             try { 
@@ -241,35 +241,33 @@
         // 3. Firebase Cloud Sync
         if (window.db && window.getDoc) {
             try {
-                // A) Hol das Level aus der Haupt-Sammlung "agenten"
-                const agentRef = window.doc(window.db, "agenten", currentAgentName.toLowerCase());
+                // A) Hol das Level aus deiner Haupt-Gruppe (Passe "SLAs Agent" ggf. an)
+                const agentRef = window.doc(window.db, "SLAs Agent", currentAgentName.toLowerCase());
                 const agentSnap = await window.getDoc(agentRef);
+                
                 if (agentSnap.exists()) {
                     const agentData = agentSnap.data();
                     if (agentData.lvl !== undefined) {
-                        gameState.userLevel = agentData.lvl;
+                        gameState.userLevel = agentData.lvl; // Hier kommen die 300+ Level her
                     }
                 }
 
-                // B) Hol die Basis-Daten aus "Agent - Base"
+                // B) Hol die Basis-Daten (Räume, MZ) aus "Agent - Base"
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
                 const baseSnap = await window.getDoc(baseRef);
                 if (baseSnap.exists()) {
                     const baseData = baseSnap.data();
-                    // Wir laden hier NUR Credits, MZ und Räume, NICHT das Level!
                     if (baseData.credits !== undefined) gameState.credits = baseData.credits;
                     if (baseData.mz !== undefined) gameState.materieZellen = baseData.mz;
                     if (baseData.baseData) gameState.baseData = baseData.baseData;
                 }
                 
-                // UI nach Cloud-Sync final aktualisieren
+                // Finales Update
                 localStorage.setItem(localKey, JSON.stringify(gameState));
                 updateUI();
                 renderGrid();
                 
-            } catch (error) { 
-                console.error("Cloud-Synchronisationsfehler:", error); 
-            }
+            } catch (error) { console.error("Synchronisationsfehler:", error); }
         } else {
             setTimeout(loadGameState, 300);
         }
@@ -279,18 +277,14 @@
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         localStorage.setItem(localKey, JSON.stringify(gameState));
 
-        // Sync für index.html (Master-Geldbeutel)
-        const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
-        let d = {}; const mainP = localStorage.getItem(mainProfileKey);
-        if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
-        d.credits = gameState.credits; d.mz = gameState.materieZellen; d.lvl = gameState.userLevel;
-        localStorage.setItem(mainProfileKey, JSON.stringify(d));
-
+        // Speichert NUR Basis-Daten in "Agent - Base", damit das Haupt-Level nicht überschrieben wird
         if (window.db && window.setDoc) {
             try {
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
                 await window.setDoc(baseRef, {
-                    credits: gameState.credits, mz: gameState.materieZellen, baseData: gameState.baseData,
+                    credits: gameState.credits,
+                    mz: gameState.materieZellen,
+                    baseData: gameState.baseData,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -353,8 +347,13 @@
     };
 
     window.cheatCredits = async () => {
-        playBeepBase(2000, 0.1); gameState.credits += 50000; gameState.materieZellen += 100;
-        updateUI(); renderGrid(); await saveGameState();
+        playBeepBase(2000, 0.1);
+        gameState.credits += 50000;
+        gameState.materieZellen += 100;
+        // Das Level wird hier NICHT mehr erhöht, damit dein 300+ Stand sauber bleibt
+        updateUI();
+        renderGrid();
+        await saveGameState();
     };
 
     window.onload = async () => {
