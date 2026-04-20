@@ -218,73 +218,60 @@
         { n: 'FUNK-RELAIS "HORIZONT"', d: 'Erhöht die Funk-Reichweite.' }, { n: 'KI-KERNMATRIX', d: 'Zentraler künstlicher Verstand.' }
     ];
 
-    // --- CLOUD SYNCHRONISATION (GRUPPE: Agent - Base) ---
+    // --- CLOUD SYNCHRONISATION (STRIKTE TRENNUNG) ---
     async function loadGameState() {
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
-        
-        // 1. Lokalen Cache laden (Räume & MZ)
         const saved = localStorage.getItem(localKey);
         if (saved) { try { gameState = JSON.parse(saved); } catch(e) {} }
         
-        // 2. Level aus dem lokalen Hauptprofil (index.html) ziehen
+        // 1. Level lokal aus dem Master-Profil auslesen
         const mainProfile = localStorage.getItem('flux_agent_' + currentAgentName.toLowerCase());
-        if (mainProfile) { 
-            try { 
-                const d = JSON.parse(mainProfile); 
-                if (d.lvl !== undefined) gameState.userLevel = d.lvl; 
-            } catch(e) {} 
-        }
+        if (mainProfile) { try { const d = JSON.parse(mainProfile); if (d.lvl !== undefined) gameState.userLevel = d.lvl; } catch(e) {} }
 
-        updateUI();
-        renderGrid();
+        updateUI(); renderGrid();
 
-        // 3. Firebase Cloud Sync
         if (window.db && window.getDoc) {
             try {
-                // A) Hol das Level aus deiner Haupt-Gruppe (Passe "SLAs Agent" ggf. an)
-                const agentRef = window.doc(window.db, "SLAs Agent", currentAgentName.toLowerCase());
+                // 2. Echtes Level aus der Firebase-Hauptgruppe "agenten" holen
+                const agentRef = window.doc(window.db, "agenten", currentAgentName.toLowerCase());
                 const agentSnap = await window.getDoc(agentRef);
-                
-                if (agentSnap.exists()) {
-                    const agentData = agentSnap.data();
-                    if (agentData.lvl !== undefined) {
-                        gameState.userLevel = agentData.lvl; // Hier kommen die 300+ Level her
-                    }
+                if (agentSnap.exists() && agentSnap.data().lvl !== undefined) {
+                    gameState.userLevel = agentSnap.data().lvl;
                 }
 
-                // B) Hol die Basis-Daten (Räume, MZ) aus "Agent - Base"
+                // 3. Basis-Daten aus "Agent - Base" holen
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
                 const baseSnap = await window.getDoc(baseRef);
                 if (baseSnap.exists()) {
-                    const baseData = baseSnap.data();
-                    if (baseData.credits !== undefined) gameState.credits = baseData.credits;
-                    if (baseData.mz !== undefined) gameState.materieZellen = baseData.mz;
-                    if (baseData.baseData) gameState.baseData = baseData.baseData;
+                    const data = baseSnap.data();
+                    if (data.credits !== undefined) gameState.credits = data.credits;
+                    if (data.mz !== undefined) gameState.materieZellen = data.mz;
+                    if (data.baseData) gameState.baseData = data.baseData;
                 }
                 
-                // Finales Update
                 localStorage.setItem(localKey, JSON.stringify(gameState));
-                updateUI();
-                renderGrid();
-                
-            } catch (error) { console.error("Synchronisationsfehler:", error); }
-        } else {
-            setTimeout(loadGameState, 300);
-        }
+                updateUI(); renderGrid();
+            } catch (e) { console.error("Cloud-Ladefehler:", e); }
+        } else { setTimeout(loadGameState, 300); }
     }
 
     async function saveGameState() {
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         localStorage.setItem(localKey, JSON.stringify(gameState));
 
-        // Speichert NUR Basis-Daten in "Agent - Base", damit das Haupt-Level nicht überschrieben wird
+        // Sync für index.html -> WICHTIG: Level (d.lvl) wird NICHT mehr von der Basis überschrieben!
+        const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
+        let d = {}; const mainP = localStorage.getItem(mainProfileKey);
+        if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
+        d.credits = gameState.credits; d.mz = gameState.materieZellen; 
+        localStorage.setItem(mainProfileKey, JSON.stringify(d));
+
+        // Sichern in Firebase "Agent - Base" (ohne Level)
         if (window.db && window.setDoc) {
             try {
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
                 await window.setDoc(baseRef, {
-                    credits: gameState.credits,
-                    mz: gameState.materieZellen,
-                    baseData: gameState.baseData,
+                    credits: gameState.credits, mz: gameState.materieZellen, baseData: gameState.baseData,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -347,13 +334,11 @@
     };
 
     window.cheatCredits = async () => {
-        playBeepBase(2000, 0.1);
-        gameState.credits += 50000;
+        playBeepBase(2000, 0.1); 
+        gameState.credits += 50000; 
         gameState.materieZellen += 100;
-        // Das Level wird hier NICHT mehr erhöht, damit dein 300+ Stand sauber bleibt
-        updateUI();
-        renderGrid();
-        await saveGameState();
+        // Level-Boost restlos entfernt, um das Main-Level nicht zu manipulieren
+        updateUI(); renderGrid(); await saveGameState();
     };
 
     window.onload = async () => {
