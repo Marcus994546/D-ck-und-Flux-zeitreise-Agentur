@@ -232,33 +232,62 @@
     ];
 
     async function loadGameState() {
-        // 1. Zuerst aus dem lokalen Cache laden (Dunkelste speichert)
+        // 1. Lokalen Basis-Cache laden
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         const saved = localStorage.getItem(localKey);
         if (saved) { try { gameState = JSON.parse(saved); } catch(e) {} }
         
-        // 2. Level aus dem Haupt-Profil (index.html) abgleichen
-        const mainProfile = localStorage.getItem('flux_agent_' + currentAgentName.toLowerCase());
-        if (mainProfile) { try { const d = JSON.parse(mainProfile); if (d.lvl) gameState.userLevel = d.lvl; } catch(e) {} }
+        // 2. Gemeinsamen Geldbeutel aus dem Haupt-Terminal (index.html) auslesen
+        const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
+        const mainProfile = localStorage.getItem(mainProfileKey);
+        if (mainProfile) { 
+            try { 
+                const d = JSON.parse(mainProfile); 
+                if (d.lvl !== undefined) gameState.userLevel = d.lvl; 
+                // Credits und MZ aus dem Hauptprofil überschreiben die Basis-Werte
+                if (d.credits !== undefined) gameState.credits = d.credits;
+                if (d.mz !== undefined) gameState.materieZellen = d.mz;
+            } catch(e) {} 
+        }
 
-        // 3. UI SOFORT rendern, bevor wir auf den Server warten!
+        // 3. UI sofort aktualisieren
         updateUI();
         renderGrid();
 
-        // 4. Dann erst im Hintergrund den Server fragen
+        // 4. Server anfragen, aber vor Überschreibung schützen
         try {
             const res = await fetch(`${API_URL}?agent=${currentAgentName}`);
             if (res.ok) { 
-                gameState = await res.json(); 
+                const serverData = await res.json(); 
+                // Nur das Raster vom Server holen, damit Geld nicht gelöscht wird
+                if (serverData && serverData.baseData) {
+                    gameState.baseData = serverData.baseData; 
+                }
                 updateUI(); 
                 renderGrid(); 
                 localStorage.setItem(localKey, JSON.stringify(gameState));
             }
-        } catch (e) { console.log("Server offline - arbeite lokal weiter."); }
+        } catch (e) {} // Server-Fehler werden stillschweigend ignoriert
     }
 
     async function saveGameState() {
-        localStorage.setItem('flux_base_cache_' + currentAgentName.toLowerCase(), JSON.stringify(gameState));
+        // 1. Basis-Speicher aktualisieren
+        const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
+        localStorage.setItem(localKey, JSON.stringify(gameState));
+        
+        // 2. Den Master-Geldbeutel für die index.html aktualisieren
+        const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
+        let d = {};
+        const mainProfile = localStorage.getItem(mainProfileKey);
+        if (mainProfile) { try { d = JSON.parse(mainProfile); } catch(e) {} }
+        
+        // Neue Werte in das Hauptprofil schreiben
+        d.credits = gameState.credits;
+        d.mz = gameState.materieZellen;
+        d.lvl = gameState.userLevel; 
+        localStorage.setItem(mainProfileKey, JSON.stringify(d));
+
+        // 3. Daten an den Server senden
         try { await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(gameState) }); } catch (e) {}
     }
 
