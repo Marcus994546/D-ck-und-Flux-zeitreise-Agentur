@@ -118,16 +118,32 @@
     <button class="btn-back" style="margin-top: 30px; width: 100%; max-width: 300px; padding: 15px;" onclick="closeSettings()">SCHLIESSEN</button>
 </div>
 
-<script>
-    // --- AGENTEN-AUTHENTIFIZIERUNG ---
-    const currentAgentName = localStorage.getItem("flux_last_agent");
-    
-    // Sicherung: Wenn man nicht eingeloggt ist, direkt zurück zum Terminal
-    if (!currentAgentName) {
-        window.location.href = 'index.html';
-    }
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // --- AUDIO-LOGIK ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
+    authDomain: "zeitreise-agentur.firebaseapp.com",
+    projectId: "zeitreise-agentur",
+    storageBucket: "zeitreise-agentur.firebasestorage.app",
+    messagingSenderId: "516125325960",
+    appId: "1:516125325960:web:936883a5474820b10bfd3d",
+    measurementId: "G-8809YG4WHM"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  window.db = getFirestore(app);
+  window.doc = doc;
+  window.setDoc = setDoc;
+  window.getDoc = getDoc;
+</script>
+
+<script>
+    const currentAgentName = localStorage.getItem("flux_last_agent");
+    if (!currentAgentName) { window.location.href = 'index.html'; }
+
+    // --- AUDIO & EINSTELLUNGEN ---
     window.klickTonAktiv = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
 
     window.playBeepBase = function(freq = 800, duration = 0.05) {
@@ -147,72 +163,43 @@
         } catch(e) {}
     };
 
-    // --- EINSTELLUNGEN ---
-    window.openSettings = () => {
-        playBeepBase(1000, 0.05);
-        document.getElementById('settings-overlay').style.display = 'flex';
-        updateSettingsUI();
-    };
-
-    window.closeSettings = () => {
-        playBeepBase(800, 0.05);
-        document.getElementById('settings-overlay').style.display = 'none';
-    };
+    window.openSettings = () => { playBeepBase(1000, 0.05); document.getElementById('settings-overlay').style.display = 'flex'; updateSettingsUI(); };
+    window.closeSettings = () => { playBeepBase(800, 0.05); document.getElementById('settings-overlay').style.display = 'none'; };
 
     window.updateSettingsUI = () => {
         let isMusicOn = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
         let isSoundOn = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
         const btnM = document.getElementById('btn-toggle-music');
         const btnS = document.getElementById('btn-toggle-sound');
-        if(btnM) {
-            btnM.innerText = isMusicOn ? "MUSIK: AN" : "MUSIK: AUS";
-            btnM.style.color = isMusicOn ? "#0f8" : "#f44";
-        }
-        if(btnS) {
-            btnS.innerText = isSoundOn ? "KLICK-SOUND: AN" : "KLICK-SOUND: AUS";
-            btnS.style.color = isSoundOn ? "#0f8" : "#f44";
-        }
+        if(btnM) { btnM.innerText = isMusicOn ? "MUSIK: AN" : "MUSIK: AUS"; btnM.style.color = isMusicOn ? "#0f8" : "#f44"; }
+        if(btnS) { btnS.innerText = isSoundOn ? "KLICK-SOUND: AN" : "KLICK-SOUND: AUS"; btnS.style.color = isSoundOn ? "#0f8" : "#f44"; }
     };
 
     window.toggleBaseMusic = () => {
-        let isMusicOn = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
-        isMusicOn = !isMusicOn;
-        localStorage.setItem('flux_music_' + currentAgentName.toLowerCase(), isMusicOn);
+        let isM = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
+        isM = !isM; localStorage.setItem('flux_music_' + currentAgentName.toLowerCase(), isM);
         const bgm = document.getElementById('bg-music-base');
-        if (isMusicOn) bgm.play().catch(e => {}); else bgm.pause();
+        if (isM) bgm.play().catch(e => {}); else bgm.pause();
         updateSettingsUI();
     };
 
     window.toggleBaseSound = () => {
-        let isSoundOn = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
-        isSoundOn = !isSoundOn;
-        localStorage.setItem('flux_sound_' + currentAgentName.toLowerCase(), isSoundOn);
-        window.klickTonAktiv = isSoundOn;
-        playBeepBase(1200, 0.05);
-        updateSettingsUI();
+        let isS = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
+        isS = !isS; localStorage.setItem('flux_sound_' + currentAgentName.toLowerCase(), isS);
+        window.klickTonAktiv = isS; playBeepBase(1200, 0.05); updateSettingsUI();
     };
 
-    // --- GAME STATE & SYNCHRONISATION ---
-    const API_URL = "/api/game-data";
-    let gameState = { 
-        baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], 
-        credits: 0, 
-        materieZellen: 0, 
-        userLevel: 1, 
-        agent: currentAgentName 
-    };
-    
+    // --- GAME STATE & RÄUME ---
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, userLevel: 1 };
     let pendingCoords = {x: 0, y: 0};
 
     const roomColors = {
-        'ZENTRALE': '#1a0d2a', 'FLUX-REAKTOR': '#220d22', 'HOCHSPANNUNGS-VERTEILER': '#140d2a',
-        'QUANTEN-LABOR': '#2a0d33', 'PARADOXON-FILTER': '#1d0d26', 'ARTEFAKT-ARCHIV': '#170a22',
-        'TECHNIK-DECK': '#261033', 'AGENTEN-QUARTIERE': '#120822', 'SERVER-HUB': '#1f132a',
-        'IMPULS-KONDENSATOR': '#1c152a', 'OSZILLATIONS-KAMMER': '#251230', 'TRANSFORMATOREN-STATION': '#151025',
-        'RENAISSANCE-GENERATOR': '#201515', 'THERMO-KOPPLER': '#2a1a15', 'KINETIK-LABOR': '#152530',
-        'MATERIE-DEKOMPRESSOR': '#2a1520', 'VAKUUM-SCHMIEDE': '#101a25', 'RESONANZ-KAMMER': '#201025',
-        'KYBERNETIK-STATION': '#15202a', 'SCANNER-PHALANX': '#1a251a', 'DEKONTAMINATIONS-SCHLEUSE': '#1a2a1a',
-        'ANOMALIE-DETEKTOR': '#25152a', 'KRYO-DEPOT': '#10202a', 'FUNK-RELAIS "HORIZONT"': '#151530',
+        'ZENTRALE': '#1a0d2a', 'FLUX-REAKTOR': '#220d22', 'HOCHSPANNUNGS-VERTEILER': '#140d2a', 'QUANTEN-LABOR': '#2a0d33', 
+        'PARADOXON-FILTER': '#1d0d26', 'ARTEFAKT-ARCHIV': '#170a22', 'TECHNIK-DECK': '#261033', 'AGENTEN-QUARTIERE': '#120822', 
+        'SERVER-HUB': '#1f132a', 'IMPULS-KONDENSATOR': '#1c152a', 'OSZILLATIONS-KAMMER': '#251230', 'TRANSFORMATOREN-STATION': '#151025',
+        'RENAISSANCE-GENERATOR': '#201515', 'THERMO-KOPPLER': '#2a1a15', 'KINETIK-LABOR': '#152530', 'MATERIE-DEKOMPRESSOR': '#2a1520',
+        'VAKUUM-SCHMIEDE': '#101a25', 'RESONANZ-KAMMER': '#201025', 'KYBERNETIK-STATION': '#15202a', 'SCANNER-PHALANX': '#1a251a',
+        'DEKONTAMINATIONS-SCHLEUSE': '#1a2a1a', 'ANOMALIE-DETEKTOR': '#25152a', 'KRYO-DEPOT': '#10202a', 'FUNK-RELAIS "HORIZONT"': '#151530',
         'KI-KERNMATRIX': '#121822'
     };
 
@@ -231,64 +218,54 @@
         { n: 'FUNK-RELAIS "HORIZONT"', d: 'Erhöht die Funk-Reichweite.' }, { n: 'KI-KERNMATRIX', d: 'Zentraler künstlicher Verstand.' }
     ];
 
+    // --- CLOUD SYNCHRONISATION (GRUPPE: Agent - Base) ---
     async function loadGameState() {
-        // 1. Lokalen Basis-Cache laden
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         const saved = localStorage.getItem(localKey);
         if (saved) { try { gameState = JSON.parse(saved); } catch(e) {} }
         
-        // 2. Gemeinsamen Geldbeutel aus dem Haupt-Terminal (index.html) auslesen
-        const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
-        const mainProfile = localStorage.getItem(mainProfileKey);
-        if (mainProfile) { 
-            try { 
-                const d = JSON.parse(mainProfile); 
-                if (d.lvl !== undefined) gameState.userLevel = d.lvl; 
-                // Credits und MZ aus dem Hauptprofil überschreiben die Basis-Werte
-                if (d.credits !== undefined) gameState.credits = d.credits;
-                if (d.mz !== undefined) gameState.materieZellen = d.mz;
-            } catch(e) {} 
-        }
+        // Level-Sync mit Hauptprofil
+        const mainProfile = localStorage.getItem('flux_agent_' + currentAgentName.toLowerCase());
+        if (mainProfile) { try { const d = JSON.parse(mainProfile); if (d.lvl !== undefined) gameState.userLevel = d.lvl; } catch(e) {} }
 
-        // 3. UI sofort aktualisieren
-        updateUI();
-        renderGrid();
+        updateUI(); renderGrid();
 
-        // 4. Server anfragen, aber vor Überschreibung schützen
-        try {
-            const res = await fetch(`${API_URL}?agent=${currentAgentName}`);
-            if (res.ok) { 
-                const serverData = await res.json(); 
-                // Nur das Raster vom Server holen, damit Geld nicht gelöscht wird
-                if (serverData && serverData.baseData) {
-                    gameState.baseData = serverData.baseData; 
+        if (window.db && window.getDoc) {
+            try {
+                const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
+                const docSnap = await window.getDoc(baseRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.credits !== undefined) gameState.credits = data.credits;
+                    if (data.mz !== undefined) gameState.materieZellen = data.mz;
+                    if (data.baseData) gameState.baseData = data.baseData;
+                    localStorage.setItem(localKey, JSON.stringify(gameState));
+                    updateUI(); renderGrid();
                 }
-                updateUI(); 
-                renderGrid(); 
-                localStorage.setItem(localKey, JSON.stringify(gameState));
-            }
-        } catch (e) {} // Server-Fehler werden stillschweigend ignoriert
+            } catch (e) { console.error("Cloud-Ladefehler:", e); }
+        } else { setTimeout(loadGameState, 300); }
     }
 
     async function saveGameState() {
-        // 1. Basis-Speicher aktualisieren
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         localStorage.setItem(localKey, JSON.stringify(gameState));
-        
-        // 2. Den Master-Geldbeutel für die index.html aktualisieren
+
+        // Sync für index.html (Master-Geldbeutel)
         const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
-        let d = {};
-        const mainProfile = localStorage.getItem(mainProfileKey);
-        if (mainProfile) { try { d = JSON.parse(mainProfile); } catch(e) {} }
-        
-        // Neue Werte in das Hauptprofil schreiben
-        d.credits = gameState.credits;
-        d.mz = gameState.materieZellen;
-        d.lvl = gameState.userLevel; 
+        let d = {}; const mainP = localStorage.getItem(mainProfileKey);
+        if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
+        d.credits = gameState.credits; d.mz = gameState.materieZellen; d.lvl = gameState.userLevel;
         localStorage.setItem(mainProfileKey, JSON.stringify(d));
 
-        // 3. Daten an den Server senden
-        try { await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(gameState) }); } catch (e) {}
+        if (window.db && window.setDoc) {
+            try {
+                const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
+                await window.setDoc(baseRef, {
+                    credits: gameState.credits, mz: gameState.materieZellen, baseData: gameState.baseData,
+                    letztesUpdate: new Date().toISOString()
+                }, { merge: true });
+            } catch (e) { console.error("Cloud-Speicherfehler:", e); }
+        }
     }
 
     function updateUI() {
@@ -298,27 +275,22 @@
     }
 
     function renderGrid() {
-        const grid = document.getElementById('base-grid');
-        if(!grid) return;
+        const grid = document.getElementById('base-grid'); if(!grid) return;
         grid.innerHTML = '';
         for (let y = 0; y < 5; y++) {
             for (let x = 0; x < 5; x++) {
-                const slot = document.createElement('div');
-                slot.className = 'room-slot';
+                const slot = document.createElement('div'); slot.className = 'room-slot';
                 slot.style.gridColumn = x + 1; slot.style.gridRow = y + 1;
                 const room = gameState.baseData.find(r => r.x === x && r.y === y);
                 const isNeighbor = gameState.baseData.some(r => (Math.abs(r.x-x)===1 && r.y===y) || (Math.abs(r.y-y)===1 && r.x===x));
                 if (room) {
-                    slot.classList.add('room-active');
-                    slot.style.backgroundColor = roomColors[room.type] || '#1a0a2a';
+                    slot.classList.add('room-active'); slot.style.backgroundColor = roomColors[room.type] || '#1a0a2a';
                     slot.onclick = () => { playBeepBase(1200, 0.05); openRoom(room.type); };
                     slot.innerHTML = `<b>${room.type}</b>${room.type !== 'ZENTRALE' ? '<br><small>LVL '+room.lvl+'</small>' : ''}`;
                     slot.style.display = 'flex';
                 } else if (isNeighbor) {
-                    slot.classList.add('room-buildable');
-                    slot.innerHTML = '<span>+</span>';
-                    slot.style.display = 'flex';
-                    slot.onclick = () => { playBeepBase(900, 0.05); buyRoom(x, y); };
+                    slot.classList.add('room-buildable'); slot.innerHTML = '<span>+</span>';
+                    slot.style.display = 'flex'; slot.onclick = () => { playBeepBase(900, 0.05); buyRoom(x, y); };
                 }
                 grid.appendChild(slot);
             }
@@ -326,16 +298,13 @@
     }
 
     window.buyRoom = (x, y) => {
-        pendingCoords = {x, y};
-        const list = document.getElementById('selection-list-container');
-        list.innerHTML = '';
-        const reqLvl = gameState.baseData.length * 3;
+        pendingCoords = {x, y}; const list = document.getElementById('selection-list-container');
+        list.innerHTML = ''; const reqLvl = gameState.baseData.length * 3;
         const levelI = document.getElementById('next-room-level-info');
         levelI.innerText = gameState.userLevel < reqLvl ? `Sperre: Level ${reqLvl} benötigt!` : `Bereit für Ausbau (Level ${reqLvl})`;
         roomTypes.forEach(room => {
             const built = gameState.baseData.some(r => r.type === room.n);
-            const item = document.createElement('div');
-            item.className = 'selection-item';
+            const item = document.createElement('div'); item.className = 'selection-item';
             if (built || gameState.userLevel < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
             else { item.onclick = () => confirmRoomSelection(room.n); }
             item.innerHTML = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">10 MZ</span><br><small>${room.d}</small>${(gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
@@ -351,20 +320,17 @@
             gameState.materieZellen -= 10;
             gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1});
             updateUI(); renderGrid(); hideRoomMenu(); await saveGameState();
-        } else { hideRoomMenu(); showCustomAlert("System: Nicht genügend Materie-Zellen."); }
+        } else { hideRoomMenu(); if (typeof showCustomAlert === 'function') showCustomAlert("System: Nicht genügend Materie-Zellen."); }
     };
 
     window.cheatCredits = async () => {
-        playBeepBase(2000, 0.1);
-        gameState.credits += 50000; gameState.materieZellen += 100; gameState.userLevel += 3;
+        playBeepBase(2000, 0.1); gameState.credits += 50000; gameState.materieZellen += 100;
         updateUI(); renderGrid(); await saveGameState();
     };
 
     window.onload = async () => {
-        // Audio Check
         let isM = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
         if (isM) { document.addEventListener('click', () => { document.getElementById('bg-music-base').play().catch(e=>{}); }, {once: true}); }
-        
         await loadGameState();
         const wrap = document.getElementById('grid-wrapper');
         if(wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
