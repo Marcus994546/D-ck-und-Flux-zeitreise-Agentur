@@ -190,8 +190,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    // userLevel wurde hier komplett entfernt! Die Basis merkt sich kein Level mehr selbst.
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0 };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, userLevel: 1 };
     let pendingCoords = {x: 0, y: 0};
 
     const roomColors = {
@@ -219,25 +218,7 @@
         { n: 'FUNK-RELAIS "HORIZONT"', d: 'Erhöht die Funk-Reichweite.' }, { n: 'KI-KERNMATRIX', d: 'Zentraler künstlicher Verstand.' }
     ];
 
-    // --- NEU: ECHTZEIT-ABFRAGE DES LEVEL ---
-    let cloudAgentLevel = null; // Speichert dein echtes 300+ Level aus Firebase
-
-    function getEchtesAgentenLevel() {
-        if (cloudAgentLevel !== null) return cloudAgentLevel; // Cloud hat absolute Priorität!
-        
-        const agentName = localStorage.getItem("flux_last_agent");
-        if (!agentName) return 1;
-        const mainProfile = localStorage.getItem('flux_agent_' + agentName.toLowerCase());
-        if (mainProfile) {
-            try {
-                const d = JSON.parse(mainProfile);
-                if (d.lvl !== undefined) return d.lvl;
-            } catch(e) {}
-        }
-        return 1;
-    }
-
-    // --- CLOUD SYNCHRONISATION ---
+    // --- CLOUD SYNCHRONISATION (FOOLPROOF LEVEL CHECK) ---
     async function loadGameState() {
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         const saved = localStorage.getItem(localKey);
@@ -255,17 +236,28 @@
 
         if (window.db && window.getDoc) {
             try {
-                // 1. ZUERST DEIN ECHTES LEVEL AUS DER HAUPT-DATENBANK HOLEN!
-                const agentRef = window.doc(window.db, "agenten", currentAgentName.toLowerCase());
-                const agentSnap = await window.getDoc(agentRef);
-                if (agentSnap.exists()) {
-                    const agentData = agentSnap.data();
-                    if (agentData.lvl !== undefined) {
-                        cloudAgentLevel = agentData.lvl; // Hier landen deine 300+ Level!
-                    }
-                }
+                let maxLevel = 1;
 
-                // 2. DANN DIE BAUTEILE AUS DER BASIS-GRUPPE HOLEN
+                // 1. Suche Level im lokalen Browser-Speicher
+                const mainP = localStorage.getItem('flux_agent_' + currentAgentName.toLowerCase());
+                if (mainP) { try { const d = JSON.parse(mainP); if (d.lvl) maxLevel = Math.max(maxLevel, d.lvl); } catch(e) {} }
+
+                // 2. Suche Level in der Datenbank "agenten"
+                try {
+                    const snap1 = await window.getDoc(window.doc(window.db, "agenten", currentAgentName.toLowerCase()));
+                    if (snap1.exists() && snap1.data().lvl) maxLevel = Math.max(maxLevel, snap1.data().lvl);
+                } catch(e) {}
+
+                // 3. Suche Level in der Datenbank "SLAs Agent"
+                try {
+                    const snap2 = await window.getDoc(window.doc(window.db, "SLAs Agent", currentAgentName.toLowerCase()));
+                    if (snap2.exists() && snap2.data().lvl) maxLevel = Math.max(maxLevel, snap2.data().lvl);
+                } catch(e) {}
+
+                // Übernehme den absolut höchsten Wert, der irgendwo gefunden wurde
+                gameState.userLevel = maxLevel;
+
+                // 4. Räume & Währungen aus der Basis-Datenbank laden
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
                 const baseSnap = await window.getDoc(baseRef);
                 if (baseSnap.exists()) {
@@ -285,14 +277,16 @@
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         localStorage.setItem(localKey, JSON.stringify(gameState));
 
-        // Sync für index.html -> Nur Geld wird übertragen, Level wird geschützt!
+        // Das gefundene, höchste Level sicher in den lokalen Speicher zurückschreiben
         const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
         let d = {}; const mainP = localStorage.getItem(mainProfileKey);
         if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
-        d.credits = gameState.credits; d.mz = gameState.materieZellen; 
+        d.credits = gameState.credits; 
+        d.mz = gameState.materieZellen; 
+        d.lvl = gameState.userLevel; 
         localStorage.setItem(mainProfileKey, JSON.stringify(d));
 
-        // Sichern in Firebase "Agent - Base"
+        // Basis in Cloud sichern (ohne das Level dort zu speichern, um Konflikte zu vermeiden)
         if (window.db && window.setDoc) {
             try {
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
@@ -307,13 +301,11 @@
     function updateUI() {
         document.getElementById('display-credits').innerText = gameState.credits;
         document.getElementById('display-mz').innerText = gameState.materieZellen;
-        // Zwingt die Anzeige, das Cloud-Level anzuzeigen
-        document.getElementById('display-level').innerText = getEchtesAgentenLevel(); 
+        document.getElementById('display-level').innerText = gameState.userLevel;
     }
 
     function renderGrid() {
         const grid = document.getElementById('base-grid'); if(!grid) return;
-        const currentLvl = getEchtesAgentenLevel(); 
         grid.innerHTML = '';
         for (let y = 0; y < 5; y++) {
             for (let x = 0; x < 5; x++) {
@@ -336,17 +328,16 @@
     }
 
     window.buyRoom = (x, y) => {
-        const currentLvl = getEchtesAgentenLevel(); 
         pendingCoords = {x, y}; const list = document.getElementById('selection-list-container');
         list.innerHTML = ''; const reqLvl = gameState.baseData.length * 3;
         const levelI = document.getElementById('next-room-level-info');
-        levelI.innerText = currentLvl < reqLvl ? `Sperre: Level ${reqLvl} benötigt!` : `Bereit für Ausbau (Level ${reqLvl})`;
+        levelI.innerText = gameState.userLevel < reqLvl ? `Sperre: Level ${reqLvl} benötigt!` : `Bereit für Ausbau (Level ${reqLvl})`;
         roomTypes.forEach(room => {
             const built = gameState.baseData.some(r => r.type === room.n);
             const item = document.createElement('div'); item.className = 'selection-item';
-            if (built || currentLvl < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
+            if (built || gameState.userLevel < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
             else { item.onclick = () => confirmRoomSelection(room.n); }
-            item.innerHTML = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">10 MZ</span><br><small>${room.d}</small>${(currentLvl < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
+            item.innerHTML = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">10 MZ</span><br><small>${room.d}</small>${(gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
             list.appendChild(item);
         });
         document.getElementById('room-selection-overlay').style.display = 'flex';
