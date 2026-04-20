@@ -221,29 +221,58 @@
     // --- CLOUD SYNCHRONISATION (GRUPPE: Agent - Base) ---
     async function loadGameState() {
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
+        
+        // 1. Zuerst lokalen Cache für die Basis laden (Räume/MZ)
         const saved = localStorage.getItem(localKey);
         if (saved) { try { gameState = JSON.parse(saved); } catch(e) {} }
         
-        // Level-Sync mit Hauptprofil
+        // 2. Level IMMER aus dem Haupt-Profil (LocalStorage) ziehen
         const mainProfile = localStorage.getItem('flux_agent_' + currentAgentName.toLowerCase());
-        if (mainProfile) { try { const d = JSON.parse(mainProfile); if (d.lvl !== undefined) gameState.userLevel = d.lvl; } catch(e) {} }
+        if (mainProfile) { 
+            try { 
+                const d = JSON.parse(mainProfile); 
+                if (d.lvl !== undefined) gameState.userLevel = d.lvl; 
+            } catch(e) {} 
+        }
 
-        updateUI(); renderGrid();
+        updateUI();
+        renderGrid();
 
+        // 3. Firebase Cloud Sync
         if (window.db && window.getDoc) {
             try {
-                const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
-                const docSnap = await window.getDoc(baseRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    if (data.credits !== undefined) gameState.credits = data.credits;
-                    if (data.mz !== undefined) gameState.materieZellen = data.mz;
-                    if (data.baseData) gameState.baseData = data.baseData;
-                    localStorage.setItem(localKey, JSON.stringify(gameState));
-                    updateUI(); renderGrid();
+                // A) Hol das Level aus der Haupt-Sammlung "agenten"
+                const agentRef = window.doc(window.db, "agenten", currentAgentName.toLowerCase());
+                const agentSnap = await window.getDoc(agentRef);
+                if (agentSnap.exists()) {
+                    const agentData = agentSnap.data();
+                    if (agentData.lvl !== undefined) {
+                        gameState.userLevel = agentData.lvl;
+                    }
                 }
-            } catch (e) { console.error("Cloud-Ladefehler:", e); }
-        } else { setTimeout(loadGameState, 300); }
+
+                // B) Hol die Basis-Daten aus "Agent - Base"
+                const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
+                const baseSnap = await window.getDoc(baseRef);
+                if (baseSnap.exists()) {
+                    const baseData = baseSnap.data();
+                    // Wir laden hier NUR Credits, MZ und Räume, NICHT das Level!
+                    if (baseData.credits !== undefined) gameState.credits = baseData.credits;
+                    if (baseData.mz !== undefined) gameState.materieZellen = baseData.mz;
+                    if (baseData.baseData) gameState.baseData = baseData.baseData;
+                }
+                
+                // UI nach Cloud-Sync final aktualisieren
+                localStorage.setItem(localKey, JSON.stringify(gameState));
+                updateUI();
+                renderGrid();
+                
+            } catch (error) { 
+                console.error("Cloud-Synchronisationsfehler:", error); 
+            }
+        } else {
+            setTimeout(loadGameState, 300);
+        }
     }
 
     async function saveGameState() {
