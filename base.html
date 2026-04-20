@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dück & Flux | Agency Base</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --neon-color: #8844ff; }
+        body {
+            background-color: #000; color: var(--neon-color);
+            font-family: 'Orbitron', sans-serif; margin: 0; padding: 0;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+        
+        /* UI Kopfzeile */
+        .top-bar { background: #000; z-index: 100; width: 100%; display: flex; flex-direction: column; }
+        .ui-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; font-size: 0.8em; }
+        .currency-container { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; }
+        .currency-mz { color: #0f8; text-shadow: 0 0 5px #0f8; }
+        .level-display { color: #ffaa00; font-weight: bold; text-shadow: 0 0 5px #ffaa00; }
+        h2 { text-align: center; margin: 5px 0 15px 0; font-size: 1.1em; letter-spacing: 2px; }
+        .neon-divider { width: 100%; height: 2px; background: var(--neon-color); box-shadow: 0 0 10px var(--neon-color), 0 0 20px var(--neon-color); }
+        
+        .btn-back { background: none; border: 1px solid var(--neon-color); color: var(--neon-color); padding: 5px 10px; cursor: pointer; font-family: 'Orbitron'; font-size: 0.7em; }
+        .btn-cheat { background: rgba(0, 255, 136, 0.1); border: 1px dashed #0f8; color: #0f8; font-family: 'Orbitron'; font-size: 0.6em; cursor: pointer; padding: 4px 8px; margin-left: 10px; }
+
+        /* Raster-Ansicht */
+        #grid-wrapper { flex-grow: 1; overflow: auto; position: relative; display: flex; background: #050505; }
+        #base-grid {
+            display: grid; grid-template-columns: repeat(5, 45vw); grid-template-rows: repeat(5, 45vw);
+            gap: 20px; padding: 60vw; margin: auto;
+        }
+        .room-slot { display: none; }
+        .room-active {
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border: 3px solid var(--neon-color); background: #0a0a0a;
+            box-shadow: inset 0 0 20px rgba(136, 68, 255, 0.2); 
+            color: #fff; width: 100%; height: 100%; border-radius: 4px; cursor: pointer; text-align: center; padding: 5px; box-sizing: border-box; font-size: 0.7em;
+        }
+        .room-buildable {
+            display: flex; justify-content: center; align-items: center;
+            border: 1px dashed rgba(136, 68, 255, 0.4); color: rgba(136, 68, 255, 0.6);
+            width: 50%; height: 50%; margin: auto; border-radius: 4px; cursor: pointer;
+        }
+
+        /* Modul-Auswahl Overlay */
+        #room-selection-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 400; display: none;
+            flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box;
+        }
+        .selection-list { 
+            width: 100%; max-width: 450px; display: flex; flex-direction: column; 
+            gap: 8px; overflow-y: auto; margin-top: 15px; max-height: 65vh; padding-right: 5px; 
+        }
+        .selection-item {
+            background: #150d22; border: 1px solid rgba(136, 68, 255, 0.4); padding: 12px; color: #fff;
+            font-family: 'Orbitron'; cursor: pointer; text-align: left; font-size: 0.75em;
+            box-shadow: inset 0 0 10px rgba(136, 68, 255, 0.1);
+        }
+        .selection-item:active { background: var(--neon-color); color: #000; }
+        .level-lock-hint { color: #ff4444; font-size: 0.8em; margin-top: 4px; display: block; }
+
+        /* Einstellungen Overlay */
+        #settings-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 500; display: none;
+            flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+<audio id="bg-music-base" loop>
+    <source src="https://files.catbox.moe/zhkkab.mp3" type="audio/mpeg">
+</audio>
+
+<div class="top-bar">
+    <div class="ui-header">
+        <div style="display: flex; align-items: center;">
+            <div class="currency-container">
+                <div>CREDITS: <span id="display-credits">0</span></div>
+                <div class="currency-mz">MATERIE-ZELLEN: <span id="display-mz">0</span></div>
+                <div class="level-display">AGENTUR-LEVEL: <span id="display-level">1</span></div>
+            </div>
+            <button id="btn-cheat-boost" onclick="cheatCredits()" class="btn-cheat">[ + BOOST ]</button>
+        </div>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
+            <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
+        </div>
+    </div>
+    <h2 id="main-title">AGENTUR-STRUKTUR</h2>
+    <div class="neon-divider"></div>
+</div>
+
+<div id="grid-wrapper">
+    <div id="base-grid"></div>
+</div>
+
+<div id="room-selection-overlay">
+    <h3 style="color: var(--neon-color); margin-bottom: 5px;">MODUL-AUSWAHL</h3>
+    <div id="next-room-level-info" style="font-size: 0.8em; color: #ffaa00; margin-bottom: 10px;"></div>
+    <div class="neon-divider" style="margin-bottom: 10px;"></div>
+    <div class="selection-list" id="selection-list-container">
+        </div>
+    <button class="btn-back" style="margin-top: 15px; width: 100%; max-width: 450px;" onclick="hideRoomMenu()">ABBRECHEN</button>
+</div>
+
+<div id="settings-overlay">
+    <h3 style="color: var(--neon-color); margin-bottom: 5px;">[ SYSTEM-EINSTELLUNGEN ]</h3>
+    <div class="neon-divider" style="margin-bottom: 20px;"></div>
+    <div class="selection-list" style="align-items: center; max-height: none;">
+        <button id="btn-toggle-music" onclick="toggleBaseMusic()" style="width: 100%; max-width: 300px; padding: 15px; font-size: 1em; font-family: 'Orbitron'; font-weight: bold; background: transparent; border: 1px solid #0f8; color: #0f8; cursor: pointer;">MUSIK: LÄDT...</button>
+        <button id="btn-toggle-sound" onclick="toggleBaseSound()" style="width: 100%; max-width: 300px; padding: 15px; font-size: 1em; font-family: 'Orbitron'; font-weight: bold; background: transparent; border: 1px solid #0f8; color: #0f8; cursor: pointer; margin-top: 15px;">KLICK-SOUND: LÄDT...</button>
+    </div>
+    <button class="btn-back" style="margin-top: 30px; width: 100%; max-width: 300px; padding: 15px;" onclick="closeSettings()">SCHLIESSEN</button>
+</div>
+
+<script>
+    // --- AGENTEN-AUTHENTIFIZIERUNG ---
+    const currentAgentName = localStorage.getItem("flux_last_agent");
+    
+    // Sicherung: Wenn man nicht eingeloggt ist, direkt zurückwerfen
+    if (!currentAgentName) {
+        window.location.href = 'index.html';
+    }
+
+    // --- LADE AUDIO EINSTELLUNGEN AUS DEM LOCAL STORAGE ---
+    window.klickTonAktiv = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
+
+    // --- EIGENER KLICK-SOUND FÜR BASE.HTML ---
+    window.playBeepBase = function(freq = 800, duration = 0.05) {
+        if (window.klickTonAktiv === false) return; 
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if(!AudioContext) return;
+            const audioCtx = new AudioContext();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    };
+
+    // --- EINSTELLUNGEN LOGIK ---
+    window.openSettings = () => {
+        playBeepBase(1000, 0.05);
+        document.getElementById('settings-overlay').style.display = 'flex';
+        updateSettingsUI();
+    };
+
+    window.closeSettings = () => {
+        playBeepBase(800, 0.05);
+        document.getElementById('settings-overlay').style.display = 'none';
+    };
+
+    window.updateSettingsUI = () => {
+        let isMusicOn = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
+        let isSoundOn = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
+        
+        const btnMusic = document.getElementById('btn-toggle-music');
+        const btnSound = document.getElementById('btn-toggle-sound');
+
+        btnMusic.innerText = isMusicOn ? "MUSIK: AN" : "MUSIK: AUS";
+        btnMusic.style.color = isMusicOn ? "#0f8" : "#f44";
+        btnMusic.style.borderColor = isMusicOn ? "#0f8" : "#f44";
+
+        btnSound.innerText = isSoundOn ? "KLICK-SOUND: AN" : "KLICK-SOUND: AUS";
+        btnSound.style.color = isSoundOn ? "#0f8" : "#f44";
+        btnSound.style.borderColor = isSoundOn ? "#0f8" : "#f44";
+    };
+
+    window.toggleBaseMusic = () => {
+        playBeepBase(1200, 0.05);
+        let isMusicOn = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
+        isMusicOn = !isMusicOn;
+        localStorage.setItem('flux_music_' + currentAgentName.toLowerCase(), isMusicOn);
+        
+        const bgMusic = document.getElementById('bg-music-base');
+        if (bgMusic) {
+            bgMusic.volume = 0.4;
+            if (isMusicOn) bgMusic.play().catch(e => {});
+            else bgMusic.pause();
+        }
+        updateSettingsUI();
+    };
+
+    window.toggleBaseSound = () => {
+        let isSoundOn = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
+        isSoundOn = !isSoundOn;
+        localStorage.setItem('flux_sound_' + currentAgentName.toLowerCase(), isSoundOn);
+        window.klickTonAktiv = isSoundOn;
+        playBeepBase(1200, 0.05); // Spielt sofort einen Bestätigungs-Beep ab, wenn er an geht
+        updateSettingsUI();
+    };
+
+    // --- SERVER-KONFIGURATION ---
+    const API_URL = "/api/game-data";
+
+    let gameState = {
+        baseData: [ {x: 2, y: 2, type: 'ZENTRALE', lvl: 1} ],
+        credits: 0,
+        materieZellen: 0,
+        userLevel: 1,
+        agent: currentAgentName // Sichert die Bindung an den korrekten Account
+    };
+    
+    let pendingCoords = {x: 0, y: 0};
+
+    const roomColors = {
+        'ZENTRALE': '#1a0d2a', 'FLUX-REAKTOR': '#220d22', 'HOCHSPANNUNGS-VERTEILER': '#140d2a',
+        'QUANTEN-LABOR': '#2a0d33', 'PARADOXON-FILTER': '#1d0d26', 'ARTEFAKT-ARCHIV': '#170a22',
+        'TECHNIK-DECK': '#261033', 'AGENTEN-QUARTIERE': '#120822', 'SERVER-HUB': '#1f132a',
+        'IMPULS-KONDENSATOR': '#1c152a', 'OSZILLATIONS-KAMMER': '#251230', 'TRANSFORMATOREN-STATION': '#151025',
+        'RENAISSANCE-GENERATOR': '#201515', 'THERMO-KOPPLER': '#2a1a15', 'KINETIK-LABOR': '#152530',
+        'MATERIE-DEKOMPRESSOR': '#2a1520', 'VAKUUM-SCHMIEDE': '#101a25', 'RESONANZ-KAMMER': '#201025',
+        'KYBERNETIK-STATION': '#15202a', 'SCANNER-PHALANX': '#1a251a', 'DEKONTAMINATIONS-SCHLEUSE': '#1a2a1a',
+        'ANOMALIE-DETEKTOR': '#25152a', 'KRYO-DEPOT': '#10202a', 'FUNK-RELAIS "HORIZONT"': '#151530',
+        'KI-KERNMATRIX': '#121822'
+    };
+
+    const roomTypes = [
+        { n: 'FLUX-REAKTOR', d: 'Energieerzeugung für die Basis.' }, { n: 'HOCHSPANNUNGS-VERTEILER', d: 'Stabilisiert das Stromnetz.' },
+        { n: 'QUANTEN-LABOR', d: 'Ermöglicht technische Forschung.' }, { n: 'PARADOXON-FILTER', d: 'Reduziert Zeitanomalien.' },
+        { n: 'ARTEFAKT-ARCHIV', d: 'Generiert passives Einkommen.' }, { n: 'TECHNIK-DECK', d: 'Rabatte auf neue Flux-Modelle.' },
+        { n: 'AGENTEN-QUARTIERE', d: 'Erhöht das Personal-Limit.' }, { n: 'SERVER-HUB', d: 'Schützt vor Credit-Diebstahl.' },
+        { n: 'IMPULS-KONDENSATOR', d: 'Speichert massive Energiemengen.' }, { n: 'OSZILLATIONS-KAMMER', d: 'Frequenz-Feinabstimmung.' },
+        { n: 'TRANSFORMATOREN-STATION', d: 'Wandelt rohe Energie um.' }, { n: 'RENAISSANCE-GENERATOR', d: 'Strom aus Schrott.' },
+        { n: 'THERMO-KOPPLER', d: 'Nutzt Erdwärme der Ödnis.' }, { n: 'KINETIK-LABOR', d: 'Erforschung von Bewegungsenergie.' },
+        { n: 'MATERIE-DEKOMPRESSOR', d: 'Zerlegt Fundstücke in Rohstoffe.' }, { n: 'VAKUUM-SCHMIEDE', d: 'Löten unter Extrembedingungen.' },
+        { n: 'RESONANZ-KAMMER', d: 'Testet übernatürliche Fähigkeiten.' }, { n: 'KYBERNETIK-STATION', d: 'Einbau von Verstärkern.' },
+        { n: 'SCANNER-PHALANX', d: 'Überwacht das Gelände.' }, { n: 'DEKONTAMINATIONS-SCHLEUSE', d: 'Reinigt von Strahlung.' },
+        { n: 'ANOMALIE-DETEKTOR', d: 'Warnt vor Zeitrissen.' }, { n: 'KRYO-DEPOT', d: 'Lagert seltene Proben.' },
+        { n: 'FUNK-RELAIS "HORIZONT"', d: 'Erhöht die Funk-Reichweite.' }, { n: 'KI-KERNMATRIX', d: 'Zentraler künstlicher Verstand.' }
+    ];
+
+    // --- SERVER SYNCHRONISIERUNG ---
+
+    async function loadGameState() {
+        try {
+            const response = await fetch(`${API_URL}?agent=${currentAgentName}`);
+            if (response.ok) {
+                const data = await response.json();
+                gameState = data;
+                updateUI();
+                renderGrid();
+            }
+        } catch (error) {
+            console.log("Server nicht erreichbar, nutze lokale Daten.");
+            updateUI();
+            renderGrid();
+        }
+    }
+
+    async function saveGameState() {
+        try {
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(gameState)
+            });
+        } catch (error) {
+            console.error("Fehler beim Speichern auf dem Server.");
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('display-credits').innerText = gameState.credits;
+        document.getElementById('display-mz').innerText = gameState.materieZellen;
+        document.getElementById('display-level').innerText = gameState.userLevel;
+    }
+
+    function renderGrid() {
+        const grid = document.getElementById('base-grid');
+        grid.innerHTML = '';
+        for (let y = 0; y < 5; y++) {
+            for (let x = 0; x < 5; x++) {
+                const slot = document.createElement('div');
+                slot.className = 'room-slot';
+                slot.style.gridColumn = x + 1; slot.style.gridRow = y + 1;
+                const room = gameState.baseData.find(r => r.x === x && r.y === y);
+                const isNeighbor = gameState.baseData.some(r => (Math.abs(r.x - x) === 1 && r.y === y) || (Math.abs(r.y - y) === 1 && r.x === x));
+
+                if (room) {
+                    slot.classList.add('room-active');
+                    slot.style.backgroundColor = roomColors[room.type] || '#1a0a2a'; 
+                    slot.onclick = () => { playBeepBase(1200, 0.05); openRoom(room.type); };
+                    slot.innerHTML = `<b>${room.type}</b>${room.type !== 'ZENTRALE' ? '<br><small>LVL '+room.lvl+'</small>' : ''}`;
+                    slot.style.display = 'flex';
+                } else if (isNeighbor) {
+                    slot.classList.add('room-buildable');
+                    slot.innerHTML = '<span>+</span>';
+                    slot.style.display = 'flex';
+                    slot.onclick = () => { playBeepBase(900, 0.05); buyRoom(x, y); };
+                }
+                grid.appendChild(slot);
+            }
+        }
+    }
+
+    window.buyRoom = (x, y) => {
+        pendingCoords = {x, y};
+        const list = document.getElementById('selection-list-container');
+        list.innerHTML = ''; 
+        
+        const requiredLevel = gameState.baseData.length * 3;
+        const levelInfo = document.getElementById('next-room-level-info');
+        
+        if (gameState.userLevel < requiredLevel) {
+            levelInfo.innerText = `Sperre: Level ${requiredLevel} für das nächste Modul benötigt!`;
+        } else {
+            levelInfo.innerText = `Bereit für Ausbau (Benötigt: Level ${requiredLevel})`;
+        }
+        
+        roomTypes.forEach(room => {
+            const alreadyBuilt = gameState.baseData.some(r => r.type === room.n);
+            const item = document.createElement('div');
+            item.className = 'selection-item';
+            
+            if (alreadyBuilt || gameState.userLevel < requiredLevel) {
+                item.style.opacity = '0.3';
+                item.style.pointerEvents = 'none';
+            } else {
+                item.onclick = () => confirmRoomSelection(room.n);
+            }
+            
+            let content = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">10 MZ</span><br><small>${room.d}</small>`;
+            if (gameState.userLevel < requiredLevel && !alreadyBuilt) {
+                content += `<span class="level-lock-hint">Benötigt Level ${requiredLevel}</span>`;
+            }
+            item.innerHTML = content;
+            list.appendChild(item);
+        });
+        
+        document.getElementById('room-selection-overlay').style.display = 'flex';
+    };
+
+    window.hideRoomMenu = () => { 
+        playBeepBase(600, 0.05);
+        document.getElementById('room-selection-overlay').style.display = 'none'; 
+    };
+
+    window.confirmRoomSelection = async (type) => {
+        playBeepBase(1400, 0.05);
+        const requiredLevel = gameState.baseData.length * 3;
+        if (gameState.userLevel < requiredLevel) {
+            hideRoomMenu();
+            return;
+        }
+
+        if (gameState.materieZellen >= 10) {
+            gameState.materieZellen -= 10;
+            gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1});
+            updateUI();
+            renderGrid();
+            hideRoomMenu();
+            await saveGameState(); 
+        } else {
+            hideRoomMenu();
+            if (typeof showCustomAlert === 'function') showCustomAlert("System: Nicht genügend Materie-Zellen.");
+        }
+    };
+
+    window.cheatCredits = async () => {
+        playBeepBase(2000, 0.1);
+        gameState.credits += 50000;
+        gameState.materieZellen += 100;
+        gameState.userLevel += 3;
+        updateUI();
+        renderGrid();
+        await saveGameState(); 
+    };
+
+    window.onload = async () => {
+        // Audio prüfen und ggf. starten
+        let isMusicOn = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
+        if (isMusicOn) {
+            const startMusic = () => {
+                if (localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true') {
+                    const bgm = document.getElementById('bg-music-base');
+                    if(bgm) { bgm.volume = 0.4; bgm.play().catch(e=>{}); }
+                }
+                document.removeEventListener('click', startMusic);
+            };
+            document.addEventListener('click', startMusic);
+        }
+
+        await loadGameState();
+        const wrapper = document.getElementById('grid-wrapper');
+        if(wrapper) {
+            wrapper.scrollLeft = (wrapper.scrollWidth - wrapper.clientWidth) / 2;
+            wrapper.scrollTop = (wrapper.scrollHeight - wrapper.clientHeight) / 2;
+        }
+    };
+</script>
+<style>
+    /* Block 2 Raum-Ansichten */
+    #interior-screen { display: none; flex-direction: column; flex-grow: 1; background: #000; padding: 20px; padding-bottom: 50px; overflow-y: auto; }
+    
+    /* Visuelle Raum-Box */
+    .room-box { position: relative; width: 100%; height: 250px; background: #050505; border: 2px solid var(--neon-color); margin-bottom: 20px; overflow: hidden; }
+    .r-ceiling { position: absolute; top: 0; left: 0; width: 100%; height: 30px; background: #1a1a1a; clip-path: polygon(0 0, 100% 0, calc(100% - 40px) 100%, 40px 100%); z-index: 2; }
+    .r-floor { position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: #111; clip-path: polygon(40px 0, calc(100% - 40px) 0, 100% 100%, 0 100%); overflow: hidden; z-index: 2; }
+    .r-floor-grid { position: absolute; top: 0; left: -50%; width: 200%; height: 300%; transform-origin: top; transform: perspective(400px) rotateX(60deg); background-image: linear-gradient(rgba(136, 68, 255, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(136, 68, 255, 0.2) 1px, transparent 1px); background-size: 20px 20px; }
+    .r-left { position: absolute; top: 0; left: 0; width: 40px; height: 100%; background: #0d0d0d; clip-path: polygon(0 0, 100% 30px, 100% calc(100% - 70px), 0 100%); z-index: 2; }
+    .r-right { position: absolute; top: 0; right: 0; width: 40px; height: 100%; background: #0a0a0a; clip-path: polygon(0 30px, 100% 0, 100% 100%, 0 calc(100% - 70px)); z-index: 2; }
+    .r-back { position: absolute; top: 30px; left: 40px; right: 40px; bottom: 70px; background: #020202; box-shadow: inset 0 0 30px #000; border: 1px solid #1a1a1a; z-index: 1; }
+
+    .btn-ausbau-main { width: 100%; background: none; border: 2px solid var(--neon-color); color: var(--neon-color); padding: 15px; font-family: 'Orbitron'; cursor: pointer; font-weight: bold; margin-bottom: 20px; box-shadow: 0 0 10px rgba(136, 68, 255, 0.2); }
+    
+    #ausbau-menu { display: none; flex-direction: column; gap: 15px; }
+    .upgrade-card { border: 1px solid #444; padding: 15px; background: rgba(255,255,255,0.03); }
+    .btn-upgrade-exec { width: 100%; background: var(--neon-color); border: none; color: #000; padding: 10px; font-family: 'Orbitron'; font-weight: bold; margin-top: 10px; cursor: pointer; }
+    .btn-upgrade-exec:disabled { background: #333; color: #555; cursor: not-allowed; }
+
+    /* Feste Positionierung */
+    .fixed-item { position: absolute; z-index: 10; }
+
+    /* --- MÖBEL ZENTRALE --- */
+    .item-desk { width: 80px; height: 25px; background: #1a1a1a; border-top: 2px solid var(--neon-color); border-radius: 3px; display: flex; justify-content: center; box-shadow: 0 5px 10px rgba(0,0,0,0.8); }
+    @keyframes holo-scroll { 100% { background-position: 0 -20px; } }
+    .item-desk::before { content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 45px; height: 25px; border: 1px solid var(--neon-color); border-radius: 2px; background: repeating-linear-gradient(0deg, rgba(136, 68, 255, 0.1) 0px, rgba(136, 68, 255, 0.6) 2px, transparent 3px, transparent 5px); background-size: 100% 20px; animation: holo-scroll 1.5s linear infinite; box-shadow: 0 0 10px rgba(136, 68, 255, 0.4); margin-bottom: 2px; }
+    .item-desk::after { content: ''; position: absolute; top: 100%; left: 10px; right: 10px; height: 15px; border-left: 3px solid #555; border-right: 3px solid #555; }
+    .desk-console { width: 60px; height: 6px; background: #000; margin-top: 4px; border-radius: 1px; display: flex; justify-content: space-around; align-items: center; padding: 0 4px; }
+    .desk-led { width: 4px; height: 4px; border-radius: 50%; }
+    
+    .item-lampe { width: 60px; height: 10px; background: rgba(136, 68, 255, 0.2); border: 1px solid var(--neon-color); border-radius: 2px; box-shadow: 0 0 20px var(--neon-color); z-index: 5 !important; }
+    .item-lampe::after { content: ''; position: absolute; top: 100%; left: 10%; width: 80%; height: 40px; background: linear-gradient(to bottom, rgba(136, 68, 255, 0.3), transparent); pointer-events: none; }
+    .item-kartograph { width: 40px; height: 15px; background: #222; border-radius: 50%; border: 1px solid #444; box-shadow: 0 4px 8px #000; }
+    @keyframes map-rotate { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
+    .item-kartograph::before { content: '🌐'; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 24px; filter: drop-shadow(0 0 10px #0ff); opacity: 0.7; animation: map-rotate 5s linear infinite; }
+    .item-server { width: 35px; height: 80px; background: #111; border: 1px solid #0ff; display: flex; flex-direction: column; gap: 5px; padding: 5px; box-sizing: border-box; box-shadow: 2px 10px 15px rgba(0,0,0,0.8); }
+    .server-led { height: 2px; width: 100%; background: #0f8; animation: serverBlink 1s infinite; }
+    @keyframes serverBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+    /* --- MÖBEL ARCHIV --- */
+    @keyframes regalFlicker {
+        0%, 100% { border-right-color: #0ff; box-shadow: 2px 0 8px rgba(0,255,255,0.4); }
+        50% { border-right-color: #048; box-shadow: 2px 0 2px rgba(0,102,153,0.2); }
+    }
+    .item-regal { 
+        width: 30px; height: 95px; background: #151515; 
+        border: 1px solid #333; border-right: 2px solid #0ff; 
+        display: flex; flex-direction: column; 
+        animation: regalFlicker 3.5s infinite;
+    }
+    .regal-fach { flex: 1; border-bottom: 1px solid #444; width: 100%; }
+    .regal-fach:last-child { border-bottom: none; }
+    @keyframes leichtesFlimmernArchiv {
+    0%, 60%, 100% { box-shadow: 0 0 15px #0ff; opacity: 1; }
+    62% { box-shadow: 0 0 5px rgba(0, 255, 255, 0.3); opacity: 0.8; }
+    64% { box-shadow: 0 0 15px #0ff; opacity: 1; }
+    88% { box-shadow: 0 0 15px #0ff; opacity: 1; }
+    89% { box-shadow: 0 0 8px rgba(0, 255, 255, 0.5); opacity: 0.9; }
+    90% { box-shadow: 0 0 15px #0ff; opacity: 1; }
+}
+
+.item-lampe-archiv { 
+    width: 100px; height: 6px; background: #0ff; 
+    border-radius: 5px; z-index: 5 !important; 
+    animation: leichtesFlimmernArchiv 6s infinite;
+}
+
+    /* --- MÖBEL QUARTIERE (KOMPLETT NEU) --- */
+    @keyframes dataStream { 
+        0% { background-position: 0 10px; } 
+        100% { background-position: 0 0; } 
+    }
+    
+    /* Asymmetrische Schlafzimmer-Lampe */
+@keyframes leichtesFlimmern {
+    0%, 90%, 100% { box-shadow: 0 -2px 10px rgba(0, 255, 136, 0.5); border-top-color: #0f8; }
+    92% { box-shadow: 0 -2px 3px rgba(0, 255, 136, 0.1); border-top-color: rgba(0, 255, 136, 0.4); }
+    94% { box-shadow: 0 -2px 12px rgba(0, 255, 136, 0.6); border-top-color: #0f8; }
+    96% { box-shadow: 0 -2px 4px rgba(0, 255, 136, 0.2); border-top-color: rgba(0, 255, 136, 0.5); }
+}
+
+.item-lampe-quartier {
+    width: 90px; height: 5px; background: #111; border-top: 2px solid #0f8;
+    border-radius: 2px; z-index: 5 !important;
+    animation: leichtesFlimmern 4s infinite;
+}
+
+    /* Verbreiterte Stockbetten (max 4) */
+
+    .item-bett { 
+    width: 62px; height: 100px; 
+    background: #151515; 
+    border-left: 2px solid #333; border-right: 4px solid #222;
+    display: flex; flex-direction: column; justify-content: space-evenly; 
+    position: absolute; box-shadow: -4px 8px 15px rgba(0,0,0,0.9);
+    box-sizing: border-box; padding: 2px 0;
+}
+
+/* Etagen etwas vergrößert für die längeren Betten */
+.bett-etage {
+    height: 42px; background: #1a1a1a; 
+    border-bottom: 3px solid #335588; 
+    position: relative; margin: 0 2px;
+    display: flex; align-items: flex-end;
+    }
+    .bett-kissen { 
+        width: 14px; height: 8px; background: #ccc; 
+        margin-left: 4px; margin-bottom: 2px; border-radius: 2px 2px 0 0; 
+    }
+/* Holodeck: Kleiner, über dem Kissen platziert und in Neon-Grün */
+.holo-screen-q { 
+    position: absolute; 
+    left: 4px;    /* Direkt über dem Kissen auf der linken Seite */
+    bottom: 14px; /* Höhe über dem Kissen */
+    width: 14px;  /* Kleiner gemacht */
+    height: 10px; /* Kleiner gemacht */
+    border-top: 1px solid #0f8; 
+    border-left: 1px solid #0f8;
+    background: repeating-linear-gradient(0deg, rgba(0, 255, 136, 0.1) 0px, rgba(0, 255, 136, 0.4) 1px, transparent 2px); 
+    background-size: 100% 4px;
+    animation: dataStream 1.5s linear infinite; 
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+    }
+
+    /* Custom Alert */
+    #custom-alert-box { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 300; display: none; justify-content: center; align-items: center; }
+    .alert-content { background: #050505; border: 2px solid #f44; padding: 25px; text-align: center; box-shadow: 0 0 20px rgba(255, 68, 68, 0.4); width: 80%; max-width: 320px; border-radius: 4px; }
+</style>
+
+<div id="custom-alert-box">
+    <div class="alert-content">
+        <h3 style="color: #f44; margin-top: 0; text-shadow: 0 0 10px #f44;">[ FEHLER ]</h3>
+        <p id="custom-alert-msg" style="color: #aaa; font-size: 0.9em; margin-bottom: 20px;">System: Nicht genügend Credits.</p>
+        <button style="background: rgba(255, 68, 68, 0.1); border: 1px solid #f44; color: #f44; padding: 10px; width: 100%; font-family: 'Orbitron'; font-weight: bold; cursor: pointer;" onclick="closeCustomAlert()">BESTÄTIGEN</button>
+    </div>
+</div>
+
+<div id="interior-screen">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 id="room-title-detail" style="text-shadow: 0 0 10px var(--neon-color); margin: 0;">ZENTRALE</h3>
+        <button class="btn-back" onclick="closeRoom()">[X] ZURÜCK</button>
+    </div>
+
+    <div class="room-box" id="room-area">
+        <div class="r-ceiling"></div><div class="r-left"></div><div class="r-right"></div><div class="r-back"></div>
+        <div class="r-floor"><div class="r-floor-grid"></div></div>
+    </div>
+
+    <button class="btn-ausbau-main" id="toggle-ausbau-btn" onclick="toggleAusbauMenu()">AGENTUR-AUSBAU ÖFFNEN</button>
+
+    <div id="ausbau-menu">
+        <div id="menu-zentrale" style="display:none; flex-direction:column; gap:15px;">
+            <div class="upgrade-card" id="card-desk">
+                <b>[ SMART-SCHREIBTISCH ]</b>
+                <p style="font-size: 0.7em; color: #aaa;">Kommando-Pult für Operationen.</p>
+                <button id="btn-buy-desk" onclick="buyFurniture('desk', 500)" class="btn-upgrade-exec">KAUFEN (500 C)</button>
+            </div>
+            <div class="upgrade-card" id="card-lampe">
+                <b>[ NEON-DECKENPANEL ]</b>
+                <p style="font-size: 0.7em; color: #aaa;">Optimale Sicht für Sektor-Analysen.</p>
+                <button id="btn-buy-lampe" onclick="buyFurniture('lampe', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button>
+            </div>
+            <div class="upgrade-card" id="card-kartograph">
+                <b>[ HOLO-KARTOGRAPH ]</b>
+                <p style="font-size: 0.7em; color: #aaa;">3D-Analyse der Zeitstränge.</p>
+                <button id="btn-buy-kartograph" onclick="buyFurniture('kartograph', 1500)" class="btn-upgrade-exec">KAUFEN (1500 C)</button>
+            </div>
+            <div class="upgrade-card" id="card-server">
+                <b>[ ZENTRALER SERVER ]</b>
+                <p style="font-size: 0.7em; color: #aaa;">Datenkern der Agentur. (Max. 2)</p>
+                <button id="btn-buy-server" onclick="buyFurniture('server', 2000)" class="btn-upgrade-exec">KAUFEN (2000 C) [0/2]</button>
+            </div>
+        </div>
+
+        <div id="menu-archiv" style="display:none; flex-direction:column; gap:15px;">
+            <div class="upgrade-card">
+                <b>[ ARCHIV-REGAL ]</b>
+                <p style="font-size: 0.7em; color: #aaa;">Artefakt-Aufbewahrung. (Max. 8)</p>
+                <button id="btn-buy-regal" onclick="buyFurniture('regal', 800)" class="btn-upgrade-exec">KAUFEN (800 C) [0/8]</button>
+            </div>
+            <div class="upgrade-card">
+                <b>[ SCANNER-LEUCHTE ]</b>
+                <p style="font-size: 0.7em; color: #aaa;">Kaltweißes Archiv-Licht.</p>
+                <button id="btn-buy-lampe-archiv" onclick="buyFurniture('lampe_archiv', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button>
+            </div>
+        </div>
+        
+        <div id="menu-quartiere" style="display:none; flex-direction:column; gap:15px;">
+            <div class="upgrade-card">
+                <b>[ AMBIENT-LICHTPANEL ]</b>
+                <p style="font-size: 0.7em; color: #aaa;">Asymmetrisches Sanftlicht für Quartiere.</p>
+                <button id="btn-buy-lampe-quartier" onclick="buyFurniture('lampe_quartier', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button>
+            </div>
+            <div class="upgrade-card">
+                <b>[ AGENTEN-STOCKBETT ]</b>
+                <p style="font-size: 0.7em; color: #aaa;">Breite Schlafebenen mit Holo-Datenstream. (Max. 4)</p>
+                <button id="btn-buy-bett" onclick="buyFurniture('bett', 1200)" class="btn-upgrade-exec">KAUFEN (1200 C) [0/4]</button>
+            </div>
+        </div>
+
+        <div id="menu-platzhalter" style="display:none; color: #aaa; text-align: center; font-size: 0.8em; padding: 20px; border: 1px dashed #444;">
+            [ SYSTEM-MELDUNG ]<br><br>Spezifische Baupläne für dieses Modul müssen erst noch in der Architektur-Ebene geladen werden.
+        </div>
+    </div>
+</div>
+
+<script>
+    window.showCustomAlert = (msg) => { document.getElementById('custom-alert-msg').innerText = msg; document.getElementById('custom-alert-box').style.display = 'flex'; };
+    window.closeCustomAlert = () => { document.getElementById('custom-alert-box').style.display = 'none'; };
+
+    let inventory = { desk: 0, server: 0, kartograph: 0, lampe: 0, regal: 0, lampe_archiv: 0, bett: 0, lampe_quartier: 0 }; 
+
+    window.openRoom = (type) => {
+        document.getElementById('grid-wrapper').style.display = 'none';
+        document.getElementById('interior-screen').style.display = 'flex';
+        
+        document.getElementById('room-area').style.display = 'block';
+        document.getElementById('ausbau-menu').style.display = 'none';
+        document.getElementById('toggle-ausbau-btn').innerText = "AGENTUR-AUSBAU ÖFFNEN";
+        
+        document.getElementById('main-title').innerText = "RAUM-ANSICHT";
+        document.getElementById('room-title-detail').innerText = type;
+
+        if (type === 'ZENTRALE') {
+            document.getElementById('menu-zentrale').style.display = 'flex';
+            document.getElementById('menu-archiv').style.display = 'none';
+            document.getElementById('menu-quartiere').style.display = 'none';
+            document.getElementById('menu-platzhalter').style.display = 'none';
+            reloadFurniture(type); 
+        } else if (type === 'ARTEFAKT-ARCHIV') {
+            document.getElementById('menu-zentrale').style.display = 'none';
+            document.getElementById('menu-archiv').style.display = 'flex';
+            document.getElementById('menu-quartiere').style.display = 'none';
+            document.getElementById('menu-platzhalter').style.display = 'none';
+            reloadFurniture(type); 
+        } else if (type === 'AGENTEN-QUARTIERE') {
+            document.getElementById('menu-zentrale').style.display = 'none';
+            document.getElementById('menu-archiv').style.display = 'none';
+            document.getElementById('menu-quartiere').style.display = 'flex';
+            document.getElementById('menu-platzhalter').style.display = 'none';
+            reloadFurniture(type); 
+        } else {
+            document.getElementById('menu-zentrale').style.display = 'none';
+            document.getElementById('menu-archiv').style.display = 'none';
+            document.getElementById('menu-quartiere').style.display = 'none';
+            document.getElementById('menu-platzhalter').style.display = 'block';
+            clearRoom(); 
+        }
+    };
+
+    window.closeRoom = () => {
+        document.getElementById('interior-screen').style.display = 'none';
+        document.getElementById('grid-wrapper').style.display = 'flex';
+        document.getElementById('main-title').innerText = "AGENTUR-STRUKTUR";
+    };
+
+    window.toggleAusbauMenu = () => {
+        const menu = document.getElementById('ausbau-menu');
+        const btn = document.getElementById('toggle-ausbau-btn');
+        const roomBox = document.getElementById('room-area');
+        
+        if (menu.style.display === 'none' || menu.style.display === '') {
+            menu.style.display = 'flex'; 
+            btn.innerText = "AUSBAU-MENÜ SCHLIESSEN";
+            roomBox.style.display = 'none'; 
+        } else {
+            menu.style.display = 'none'; 
+            btn.innerText = "AGENTUR-AUSBAU ÖFFNEN";
+            roomBox.style.display = 'block'; 
+        }
+    };
+
+    window.clearRoom = () => {
+        document.querySelectorAll('.fixed-item').forEach(el => el.remove());
+    };
+
+    window.reloadFurniture = (type) => {
+        clearRoom();
+        if (type === 'ZENTRALE') {
+            if (inventory.desk > 0) spawnFurniture('desk', 1);
+            if (inventory.lampe > 0) spawnFurniture('lampe', 1);
+            if (inventory.kartograph > 0) spawnFurniture('kartograph', 1);
+            for (let i = 1; i <= inventory.server; i++) spawnFurniture('server', i);
+        } else if (type === 'ARTEFAKT-ARCHIV') {
+            if (inventory.lampe_archiv > 0) spawnFurniture('lampe_archiv', 1);
+            for (let i = 1; i <= inventory.regal; i++) spawnFurniture('regal', i);
+        } else if (type === 'AGENTEN-QUARTIERE') {
+            if (inventory.lampe_quartier > 0) spawnFurniture('lampe_quartier', 1);
+            for (let i = 1; i <= inventory.bett; i++) spawnFurniture('bett', i);
+        }
+    };
+
+    window.buyFurniture = (type, cost) => {
+        let creds = parseInt(document.getElementById('display-credits').innerText);
+        
+        // Anpassung: Betten jetzt auf maximal 4 limitiert
+        let maxAmt = (type === 'server') ? 2 : (type === 'regal' ? 8 : (type === 'bett' ? 4 : 1));
+        
+        if (inventory[type] >= maxAmt) return; 
+
+        if (creds >= cost) {
+            document.getElementById('display-credits').innerText = creds - cost;
+            inventory[type]++;
+            
+            const btnId = `btn-buy-${type.replace('_', '-')}`;
+            const btn = document.getElementById(btnId);
+            
+            if (inventory[type] >= maxAmt) { 
+                btn.innerText = "[ BEREITS INSTALLIERT ]"; btn.disabled = true; 
+            } else if (type === 'server') { 
+                btn.innerText = `KAUFEN (${cost} C) [${inventory[type]}/2]`; 
+            } else if (type === 'regal') { 
+                btn.innerText = `KAUFEN (${cost} C) [${inventory[type]}/8]`; 
+            } else if (type === 'bett') { 
+                btn.innerText = `KAUFEN (${cost} C) [${inventory[type]}/4]`; 
+            }
+            
+            spawnFurniture(type, inventory[type]);
+        } else { showCustomAlert("Nicht genügend Credits für diesen Ausbau vorhanden."); }
+    };
+
+    window.spawnFurniture = (type, count) => {
+        const room = document.getElementById('room-area');
+        const item = document.createElement('div');
+        item.classList.add('fixed-item');
+        
+        // ZENTRALE
+        if (type === 'desk') {
+            item.classList.add('item-desk');
+            item.innerHTML = '<div class="desk-console"><div class="desk-led" style="background:#f44;box-shadow:0 0 5px #f44;"></div><div class="desk-led" style="background:#ffcc00;box-shadow:0 0 5px #ffcc00;"></div><div class="desk-led" style="background:#0f8;box-shadow:0 0 5px #0f8;"></div></div>';
+            item.style.left = '40%'; item.style.transform = 'translateX(-50%)'; item.style.bottom = '70px'; // Korrigiert auf Bodenkante
+        } else if (type === 'lampe') {
+            item.classList.add('item-lampe');
+            item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; item.style.top = '5px';
+        } else if (type === 'kartograph') {
+            item.classList.add('item-kartograph');
+            item.style.left = '45px'; item.style.bottom = '35px';
+        } else if (type === 'server') {
+            item.classList.add('item-server');
+            item.innerHTML = '<div class="server-led"></div><div class="server-led" style="animation-delay:0.3s"></div><div class="server-led" style="animation-delay:0.6s"></div>';
+            let offsetR = 50 + ((count - 1) * 45); 
+            item.style.right = offsetR + 'px'; item.style.bottom = '70px'; // Korrigiert auf Bodenkante
+        } 
+        // ARCHIV
+        else if (type === 'lampe_archiv') {
+            item.classList.add('item-lampe-archiv');
+            item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; 
+            item.style.top = '15px'; 
+        } else if (type === 'regal') {
+            item.classList.add('item-regal');
+            item.innerHTML = '<div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div>';
+            let offsetL = 45 + ((count - 1) * 32); 
+            item.style.left = offsetL + 'px';
+            item.style.bottom = '70px'; // Korrigiert auf Bodenkante
+            item.style.zIndex = '2'; 
+        }
+        // QUARTIERE
+        else if (type === 'lampe_quartier') {
+            item.classList.add('item-lampe-quartier');
+            item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; 
+            item.style.top = '10px';
+} else if (type === 'bett') {
+    item.classList.add('item-bett');
+    item.innerHTML = `
+        <div class="bett-etage"><div class="bett-kissen"></div><div class="holo-screen-q"></div></div>
+        <div class="bett-etage"><div class="bett-kissen"></div><div class="holo-screen-q"></div></div>
+    `;
+    
+    // Die Betten werden jetzt prozentual über die Wandbreite verteilt
+    let offsetL = 13 + ((count - 1) * 19.5); 
+    item.style.left = offsetL + '%';
+    item.style.bottom = '70px'; 
+    item.style.zIndex = '3'; 
+}
+        
+        room.appendChild(item);
+    };
+</script>
+    <style>
+/* --- GEMEINSAME ANIMATIONEN --- */
+@keyframes neuro-blink { 0%, 100% { opacity: 1; box-shadow: 0 0 5px #0f8; } 50% { opacity: 0.3; } }
+@keyframes holo-interface { 0% { opacity: 0.7; transform: translateX(-50%) scaleY(1); } 50% { opacity: 0.4; transform: translateX(-50%) scaleY(1.05) skewX(1deg); } 100% { opacity: 0.8; transform: translateX(-50%) scaleY(0.95); } }
+@keyframes flacker-text { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+@keyframes plasma-tube-glow { 0% { box-shadow: 0 0 10px #8844ff, 0 0 20px #0ff; } 100% { box-shadow: 0 0 20px #8844ff, 0 0 40px #0ff; } }
+@keyframes spark-flash { 0%, 100% { opacity: 0; } 5%, 10% { opacity: 1; background: #fff; box-shadow: 0 0 20px #fff, 0 0 10px #0ff; } 15% { opacity: 0; } }
+@keyframes laser-scan { 0% { top: 0%; } 100% { top: calc(100% - 2px); } }
+@keyframes rotation-flux { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes energy-flow { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes pulse-core { 0% { opacity: 0.3; transform: translate(-50%, -50%) scale(0.8); } 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.1); } }
+@keyframes slot-scan { 0% { left: -10px; } 50% { left: 35px; } 100% { left: 35px; } }
+
+/* --- SERVER-HUB DESIGNS --- */
+.item-hub-server { width: 15%; height: 110px; background: #0a0a0c; border: 1px solid #8844ff; display: flex; flex-direction: column; justify-content: space-between; padding: 5px; box-sizing: border-box; box-shadow: inset 0 0 10px rgba(136, 68, 255, 0.3); z-index: 3; }
+.server-unit { height: 18%; background: #000; border: 1px solid #222; display: flex; align-items: center; justify-content: space-around; }
+.led-neuro { width: 3px; height: 3px; border-radius: 50%; background: #0f8; animation: neuro-blink 0.6s infinite; }
+.led-data { width: 8px; height: 1px; background: #0ff; animation: neuro-blink 1.2s infinite reverse; }
+
+/* Holo-Terminal (Mit Gehäuse-Struktur und Scanner-Slot) */
+.item-hub-terminal { 
+    width: 50px; height: 30px; background: #151515; 
+    border-top: 2px solid #0ff; border-left: 2px solid #333; border-right: 2px solid #333; 
+    box-shadow: 0 5px 10px rgba(0,0,0,0.9); position: absolute; z-index: 4; 
+    display: flex; flex-direction: column; justify-content: flex-end; align-items: center; 
+}
+.terminal-slot { 
+    width: 35px; height: 3px; background: #000; border: 1px solid #222; 
+    margin-bottom: 6px; position: relative; overflow: hidden; border-radius: 1px; 
+}
+.terminal-slot::after { 
+    content: ''; position: absolute; top: 0; left: -10px; width: 8px; height: 100%; 
+    background: #0f8; box-shadow: 0 0 5px #0f8; animation: slot-scan 2.5s ease-in-out infinite; 
+}
+.terminal-holo-display { position: absolute; bottom: 110%; left: 50%; width: 44px; height: 38px; background: rgba(0, 255, 255, 0.1); border: 1px solid #0ff; animation: holo-interface 0.2s infinite; pointer-events: none; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 2px 0; box-sizing: border-box; overflow: hidden; }
+.holo-text { font-family: 'Orbitron'; font-size: 5px; color: #0f8; animation: flacker-text 0.1s infinite; margin: 0; line-height: 1; letter-spacing: 0px; white-space: nowrap; transform: scale(0.5); }
+.holo-grid-line { width: 80%; height: 1px; background: rgba(0, 255, 255, 0.3); margin: 0; }
+
+.item-hub-lampe { width: 90px; height: 6px; background: #111; border-bottom: 2px solid #8844ff; z-index: 5 !important; border-radius: 0 0 5px 5px; }
+.plasma-tube { position: absolute; top: 100%; left: 5px; right: 5px; height: 10px; background: rgba(0, 255, 255, 0.4); border-radius: 5px; border: 1px solid #0ff; animation: plasma-tube-glow 2s infinite alternate; }
+
+/* --- TECHNIK-DECK DESIGNS --- */
+
+/* Werkbank & Optimiertes Holo */
+.item-werkbank { width: 110px; height: 45px; position: absolute; z-index: 4; display: flex; justify-content: space-between; align-items: flex-end; }
+.wb-leg { width: 12px; height: 40px; background: #222; border: 1px solid #111; border-radius: 2px 2px 0 0; }
+.wb-top { position: absolute; top: 0; left: 0; width: 100%; height: 10px; background: #2a2a2a; border-top: 2px solid #ffaa00; border-bottom: 2px solid #111; box-shadow: 0 5px 15px rgba(0,0,0,0.9); z-index: 2; }
+.wb-holo-quad { 
+    position: absolute; bottom: 120%; left: 50%; width: 45px; height: 40px; 
+    background: rgba(0, 255, 255, 0.1); border: 1px solid #0ff; transform: translateX(-50%);
+    animation: holo-interface 0.2s infinite; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; overflow: hidden;
+}
+.wb-holo-text { font-family: 'Orbitron'; font-size: 5px; color: #0f8; white-space: nowrap; transform: scale(0.55); animation: flacker-text 0.15s infinite; line-height: 1; }
+
+/* Montagearm Decke */
+.item-montagearm { width: 20px; height: 80px; position: absolute; z-index: 5; display: flex; flex-direction: column; align-items: center; }
+.arm-base { width: 24px; height: 10px; background: #1a1a1a; border-bottom: 2px solid #ffaa00; border-radius: 0 0 3px 3px; }
+.arm-segment-1 { width: 8px; height: 35px; background: #333; z-index: 2; }
+.arm-joint { width: 14px; height: 14px; background: #222; border-radius: 50%; border: 2px solid #ffaa00; margin: -4px 0; z-index: 4; }
+.arm-segment-2 { width: 6px; height: 25px; background: #444; transform: rotate(25deg); position: relative; z-index: 1; }
+.montage-spark { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); width: 8px; height: 8px; border-radius: 50%; animation: spark-flash 1.5s infinite; }
+
+/* Fabricator mit Bauteil */
+.item-fabricator { width: 55px; height: 75px; background: #1a1a1a; border: 2px solid #333; border-top: 3px solid #ffaa00; border-radius: 8px 8px 0 0; position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: center; padding-top: 8px; box-shadow: 10px 10px 20px rgba(0,0,0,0.8); }
+.fab-window { width: 40px; height: 45px; background: rgba(0, 255, 255, 0.05); border: 2px solid #0ff; position: relative; overflow: hidden; }
+.fab-item { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 15px; height: 15px; background: #0ff; border-radius: 2px; animation: pulse-core 1s infinite alternate; box-shadow: 0 0 15px #0ff; }
+.fabricator-laser { position: absolute; left: 0; width: 100%; height: 2px; background: #f44; box-shadow: 0 0 8px #f44; animation: laser-scan 2.5s linear infinite alternate; z-index: 5; }
+
+/* Teststand */
+.item-teststand { width: 50px; height: 85px; background: linear-gradient(to right, #111, #2a2a2a, #111); border: 2px solid #444; border-radius: 25px 25px 0 0; position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: -10px 10px 20px rgba(0,0,0,0.8); }
+.test-core { width: 34px; height: 55px; border-radius: 17px; border: 2px solid rgba(0, 255, 255, 0.4); display: flex; align-items: center; justify-content: center; position: relative; }
+.test-coil { width: 18px; height: 40px; border: 2px dashed #0ff; border-radius: 50%; animation: rotation-flux 0.8s linear infinite; }
+
+/* Industrie-Lampe */
+.item-industrie-lampe { width: 80px; height: 12px; background: #222; border: 2px solid #444; border-top: none; position: absolute; z-index: 6; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+.lampe-flow { width: 100%; height: 100%; background: linear-gradient(90deg, transparent 0%, #ffaa00 50%, transparent 100%); background-size: 50% 100%; animation: energy-flow 2s linear infinite; opacity: 0.8; }
+</style>
+
+<script>
+// 1. HTML Menüs injizieren
+const extensionMenus = `
+<div id="menu-server-hub" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ NEURO-SERVER CLUSTER ]</b><p style="font-size: 0.7em; color: #aaa;">Rechenknoten. (Max. 4)</p><button id="btn-buy-hub-server" onclick="window.buyFurniture('hub_server', 2500)" class="btn-upgrade-exec">KAUFEN (2500 C)</button></div>
+    <div class="upgrade-card"><b>[ HOLO-TERMINAL ]</b><p style="font-size: 0.7em; color: #aaa;">Zentrales Interface.</p><button id="btn-buy-hub-terminal" onclick="window.buyFurniture('hub_terminal', 1800)" class="btn-upgrade-exec">KAUFEN (1800 C)</button></div>
+    <div class="upgrade-card"><b>[ PLASMA-KERN LAMPE ]</b><button id="btn-buy-hub-lampe" onclick="window.buyFurniture('hub_lampe', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button></div>
+</div>
+<div id="menu-technik-deck" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ HOLO-WERKBANK ]</b><button id="btn-buy-werkbank" onclick="window.buyFurniture('werkbank', 2200)" class="btn-upgrade-exec">KAUFEN (2200 C)</button></div>
+    <div class="upgrade-card"><b>[ MONTAGE-ROBOTERARM ]</b><button id="btn-buy-montagearm" onclick="window.buyFurniture('montagearm', 1400)" class="btn-upgrade-exec">KAUFEN (1400 C)</button></div>
+    <div class="upgrade-card"><b>[ NANO-FABRICATOR ]</b><button id="btn-buy-fabricator" onclick="window.buyFurniture('fabricator', 1900)" class="btn-upgrade-exec">KAUFEN (1900 C)</button></div>
+    <div class="upgrade-card"><b>[ FLUX-SPULEN TESTSTAND ]</b><button id="btn-buy-teststand" onclick="window.buyFurniture('teststand', 1600)" class="btn-upgrade-exec">KAUFEN (1600 C)</button></div>
+    <div class="upgrade-card"><b>[ INDUSTRIE-LAMPE ]</b><button id="btn-buy-lampe-technik" onclick="window.buyFurniture('lampe_technik', 200)" class="btn-upgrade-exec">KAUFEN (200 C)</button></div>
+</div>
+`;
+if (!document.getElementById('menu-server-hub')) {
+    document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', extensionMenus);
+}
+
+// 2. Inventar Sicherung
+const newItems = ['hub_server', 'hub_terminal', 'hub_lampe', 'werkbank', 'montagearm', 'fabricator', 'teststand', 'lampe_technik'];
+newItems.forEach(item => { if(inventory[item] === undefined) inventory[item] = 0; });
+
+// 3. Raum-Weiche
+const originalOpenRoom = window.openRoom;
+window.openRoom = (type) => {
+    originalOpenRoom(type);
+    const menus = ['menu-zentrale', 'menu-archiv', 'menu-quartiere', 'menu-server-hub', 'menu-technik-deck', 'menu-platzhalter'];
+    menus.forEach(m => { const el = document.getElementById(m); if(el) el.style.display = 'none'; });
+    if (type === 'SERVER-HUB') document.getElementById('menu-server-hub').style.display = 'flex';
+    else if (type === 'TECHNIK-DECK') document.getElementById('menu-technik-deck').style.display = 'flex';
+    else if (type === 'ZENTRALE') document.getElementById('menu-zentrale').style.display = 'flex';
+    else if (type === 'ARTEFAKT-ARCHIV') document.getElementById('menu-archiv').style.display = 'flex';
+    else if (type === 'AGENTEN-QUARTIERE') document.getElementById('menu-quartiere').style.display = 'flex';
+    else document.getElementById('menu-platzhalter').style.display = 'block';
+    window.reloadFurniture(type);
+};
+
+// 4. Shop-Kauf
+const originalBuyFurniture = window.buyFurniture;
+window.buyFurniture = (type, cost) => {
+    if (newItems.includes(type)) {
+        let creds = parseInt(document.getElementById('display-credits').innerText);
+        let maxAmt = (type === 'hub_server' || type === 'montagearm') ? 4 : 1;
+        if (inventory[type] >= maxAmt) return; 
+        if (creds >= cost) {
+            document.getElementById('display-credits').innerText = creds - cost;
+            inventory[type]++;
+            const btn = document.getElementById(`btn-buy-${type.replaceAll('_', '-')}`);
+            btn.innerText = (inventory[type] >= maxAmt) ? "[ INSTALLIERT ]" : `KAUFEN (${cost} C) [${inventory[type]}/${maxAmt}]`;
+            if (inventory[type] >= maxAmt) btn.disabled = true;
+            window.spawnFurniture(type, inventory[type]);
+        } else { if(typeof showCustomAlert === 'function') showCustomAlert("System: Credits unzureichend."); }
+    } else originalBuyFurniture(type, cost);
+};
+
+// 5. Reload
+const originalReload = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    originalReload(type);
+    if (type === 'SERVER-HUB') {
+        if (inventory.hub_lampe > 0) window.spawnFurniture('hub_lampe', 1);
+        if (inventory.hub_terminal > 0) window.spawnFurniture('hub_terminal', 1);
+        for (let i = 1; i <= inventory.hub_server; i++) window.spawnFurniture('hub_server', i);
+    } else if (type === 'TECHNIK-DECK') {
+        if (inventory.lampe_technik > 0) window.spawnFurniture('lampe_technik', 1);
+        if (inventory.werkbank > 0) window.spawnFurniture('werkbank', 1);
+        if (inventory.fabricator > 0) window.spawnFurniture('fabricator', 1);
+        if (inventory.teststand > 0) window.spawnFurniture('teststand', 1);
+        for (let i = 1; i <= inventory.montagearm; i++) window.spawnFurniture('montagearm', i);
+    }
+};
+
+// 6. Spawn
+const originalSpawn = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    originalSpawn(type, count);
+    const room = document.getElementById('room-area');
+    if (!room || !newItems.includes(type)) return;
+    const item = document.createElement('div');
+    item.classList.add('fixed-item');
+
+    if (type === 'hub_lampe') {
+        item.classList.add('item-hub-lampe'); item.innerHTML = '<div class="plasma-tube"></div>';
+        item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; item.style.top = '0';
+    } else if (type === 'hub_terminal') {
+        item.classList.add('item-hub-terminal'); 
+        item.innerHTML = `<div class="terminal-holo-display"><div class="holo-text">SYSTEM_OK</div><div class="holo-grid-line"></div><div class="holo-text">CPU: 15%</div><div class="holo-grid-line"></div><div class="holo-text">NETZ: OK</div></div><div class="terminal-slot"></div>`;
+        item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; item.style.bottom = '45px';
+    } else if (type === 'hub_server') {
+        item.classList.add('item-hub-server'); item.innerHTML = '<div class="server-unit"><div class="led-neuro"></div><div class="led-data"></div></div>'.repeat(4);
+        let offsets = [13, 30, 55, 72]; item.style.left = offsets[count-1] + '%'; item.style.bottom = '70px';
+    }
+    // TECHNIK-DECK
+    else if (type === 'lampe_technik') {
+        item.classList.add('item-industrie-lampe'); item.innerHTML = '<div class="lampe-flow"></div>';
+        item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; item.style.top = '0';
+    } else if (type === 'werkbank') {
+        item.classList.add('item-werkbank'); 
+        item.innerHTML = '<div class="wb-top"></div><div class="wb-leg"></div><div class="wb-leg"></div><div class="wb-holo-quad"><div class="wb-holo-text">OPT_SEQ</div><div class="wb-holo-text">FLUX_V2</div><div class="wb-holo-text">[ OK ]</div></div>';
+        item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; item.style.bottom = '70px';
+    } else if (type === 'fabricator') {
+        item.classList.add('item-fabricator'); item.innerHTML = '<div class="fab-window"><div class="fab-item"></div><div class="fabricator-laser"></div></div>';
+        item.style.left = '8%'; item.style.bottom = '40px';
+    } else if (type === 'teststand') {
+        item.classList.add('item-teststand'); item.innerHTML = '<div class="test-core"><div class="test-coil"></div></div>';
+        item.style.right = '8%'; item.style.bottom = '40px';
+    } else if (type === 'montagearm') {
+        item.classList.add('item-montagearm'); item.innerHTML = '<div class="arm-base"></div><div class="arm-segment-1"></div><div class="arm-joint"></div><div class="arm-segment-2"><div class="montage-spark"></div></div>';
+        let offsets = [10, 25, 75, 90]; item.style.left = offsets[count-1] + '%'; item.style.top = '0';
+    }
+    room.appendChild(item);
+};
+</script>
+
+</body>
+</html>
