@@ -220,7 +220,11 @@
     ];
 
     // --- NEU: ECHTZEIT-ABFRAGE DES LEVEL ---
+    let cloudAgentLevel = null; // Speichert dein echtes 300+ Level aus Firebase
+
     function getEchtesAgentenLevel() {
+        if (cloudAgentLevel !== null) return cloudAgentLevel; // Cloud hat absolute Priorität!
+        
         const agentName = localStorage.getItem("flux_last_agent");
         if (!agentName) return 1;
         const mainProfile = localStorage.getItem('flux_agent_' + agentName.toLowerCase());
@@ -251,6 +255,17 @@
 
         if (window.db && window.getDoc) {
             try {
+                // 1. ZUERST DEIN ECHTES LEVEL AUS DER HAUPT-DATENBANK HOLEN!
+                const agentRef = window.doc(window.db, "agenten", currentAgentName.toLowerCase());
+                const agentSnap = await window.getDoc(agentRef);
+                if (agentSnap.exists()) {
+                    const agentData = agentSnap.data();
+                    if (agentData.lvl !== undefined) {
+                        cloudAgentLevel = agentData.lvl; // Hier landen deine 300+ Level!
+                    }
+                }
+
+                // 2. DANN DIE BAUTEILE AUS DER BASIS-GRUPPE HOLEN
                 const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
                 const baseSnap = await window.getDoc(baseRef);
                 if (baseSnap.exists()) {
@@ -270,7 +285,7 @@
         const localKey = 'flux_base_cache_' + currentAgentName.toLowerCase();
         localStorage.setItem(localKey, JSON.stringify(gameState));
 
-        // Sync für index.html -> Nur Geld wird übertragen, Level wird NICHT angefasst!
+        // Sync für index.html -> Nur Geld wird übertragen, Level wird geschützt!
         const mainProfileKey = 'flux_agent_' + currentAgentName.toLowerCase();
         let d = {}; const mainP = localStorage.getItem(mainProfileKey);
         if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
@@ -292,13 +307,13 @@
     function updateUI() {
         document.getElementById('display-credits').innerText = gameState.credits;
         document.getElementById('display-mz').innerText = gameState.materieZellen;
-        // Zeigt immer das exakte, echte Level aus der index.html an
+        // Zwingt die Anzeige, das Cloud-Level anzuzeigen
         document.getElementById('display-level').innerText = getEchtesAgentenLevel(); 
     }
 
     function renderGrid() {
         const grid = document.getElementById('base-grid'); if(!grid) return;
-        const currentLvl = getEchtesAgentenLevel(); // Live-Abruf für die Sperre!
+        const currentLvl = getEchtesAgentenLevel(); 
         grid.innerHTML = '';
         for (let y = 0; y < 5; y++) {
             for (let x = 0; x < 5; x++) {
@@ -321,7 +336,7 @@
     }
 
     window.buyRoom = (x, y) => {
-        const currentLvl = getEchtesAgentenLevel(); // Live-Abruf!
+        const currentLvl = getEchtesAgentenLevel(); 
         pendingCoords = {x, y}; const list = document.getElementById('selection-list-container');
         list.innerHTML = ''; const reqLvl = gameState.baseData.length * 3;
         const levelI = document.getElementById('next-room-level-info');
