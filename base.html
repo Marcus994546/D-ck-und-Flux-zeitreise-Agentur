@@ -574,19 +574,18 @@
         </div>
     </div>
 </div>
-
 <script>
     window.showCustomAlert = (msg) => { document.getElementById('custom-alert-msg').innerText = msg; document.getElementById('custom-alert-box').style.display = 'flex'; };
     window.closeCustomAlert = () => { document.getElementById('custom-alert-box').style.display = 'none'; };
 
-    // === NEU: AUTOMATISCHER CLOUD-SYNCHRONISATOR FÜR BLOCK 2 & BLOCK 3 ===
+    // === AUTOMATISCHER CLOUD-SYNCHRONISATOR FÜR BLOCK 2 & BLOCK 3 ===
     let _invCache = { desk: 0, server: 0, kartograph: 0, lampe: 0, regal: 0, lampe_archiv: 0, bett: 0, lampe_quartier: 0 };
     try {
-        const lsData = localStorage.getItem('flux_base_inventory_' + (window.currentAgentName || ""));
+        const ag = localStorage.getItem("flux_last_agent") || "";
+        const lsData = localStorage.getItem('flux_base_inventory_' + ag);
         if (lsData) _invCache = { ..._invCache, ...JSON.parse(lsData) };
     } catch(e) {}
 
-    // Der Proxy überwacht jede Änderung an den Räumen und speichert sie sofort ab!
     let inventory = new Proxy(_invCache, {
         set: function(target, prop, val) {
             target[prop] = val;
@@ -603,20 +602,14 @@
     });
 
     window.syncInventory = async function() {
-        const ag = window.currentAgentName || "";
+        const ag = localStorage.getItem("flux_last_agent") || "";
         if (!ag) return;
-        
-        // Lokal sichern
         localStorage.setItem('flux_base_inventory_' + ag, JSON.stringify(inventory));
-        
-        // Credits synchron halten
         const mainPKey = 'flux_agent_' + ag.toLowerCase();
         let d = {}; const mainP = localStorage.getItem(mainPKey);
         if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
         d.credits = gameState.credits;
         localStorage.setItem(mainPKey, JSON.stringify(d));
-
-        // Firebase Cloud sichern
         if (window.db && window.setDoc) {
             try {
                 const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
@@ -626,7 +619,7 @@
     };
 
     window.loadInventoryFromCloud = async function() {
-        const ag = window.currentAgentName || "";
+        const ag = localStorage.getItem("flux_last_agent") || "";
         if (!ag || !window.db || !window.getDoc) return;
         try {
             const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
@@ -634,39 +627,16 @@
             if (bSnap.exists() && bSnap.data().inventory) {
                 let dInv = bSnap.data().inventory;
                 for (let k in dInv) inventory[k] = dInv[k];
-                window.updateAusbauButtons();
                 
                 const titleEl = document.getElementById('room-title-detail');
                 if (titleEl && document.getElementById('interior-screen').style.display === 'flex') {
-                    reloadFurniture(titleEl.innerText);
+                    if (typeof window.reloadFurniture === 'function') window.reloadFurniture(titleEl.innerText);
                 }
             }
         } catch(e) {}
     };
     setTimeout(window.loadInventoryFromCloud, 1000);
 
-    // Dynamische Button-Aktualisierung (funktioniert auch für zukünftige Block 3 Updates)
-    window.updateAusbauButtons = () => {
-        const allKeys = Object.keys(inventory);
-        allKeys.forEach(k => {
-            const btnId = `btn-buy-${k.replace(/_/g, '-')}`;
-            const btn = document.getElementById(btnId);
-            if (btn) {
-                const match = btn.innerText.match(/\[\d+\/(\d+)\]/);
-                let max = match ? parseInt(match[1]) : 1;
-                
-                if (inventory[k] >= max) {
-                    btn.innerText = "[ INSTALLIERT ]";
-                    btn.disabled = true;
-                } else if (max > 1) {
-                    const costMatch = btn.innerText.match(/\((\d+)\sC\)/);
-                    let cost = costMatch ? costMatch[1] : "?";
-                    btn.innerText = `KAUFEN (${cost} C) [${inventory[k]}/${max}]`;
-                }
-            }
-        });
-    };
-
     window.openRoom = (type) => {
         document.getElementById('grid-wrapper').style.display = 'none';
         document.getElementById('interior-screen').style.display = 'flex';
@@ -703,64 +673,6 @@
             document.getElementById('menu-platzhalter').style.display = 'block';
             clearRoom(); 
         }
-    window.updateAusbauButtons = () => {
-        const allKeys = Object.keys(inventory);
-        allKeys.forEach(k => {
-            const btnId = `btn-buy-${k.replace(/_/g, '-')}`;
-            const btn = document.getElementById(btnId);
-            if (btn) {
-                const match = btn.innerText.match(/\[\d+\/(\d+)\]/);
-                let max = match ? parseInt(match[1]) : 1;
-                
-                if (inventory[k] >= max) {
-                    btn.innerText = "[ INSTALLIERT ]";
-                    btn.disabled = true;
-                } else if (max > 1) {
-                    const costMatch = btn.innerText.match(/\((\d+)\sC\)/);
-                    let cost = costMatch ? costMatch[1] : "?";
-                    btn.innerText = `KAUFEN (${cost} C) [${inventory[k]}/${max}]`;
-                }
-            }
-        });
-    };
-
-    window.openRoom = (type) => {
-        document.getElementById('grid-wrapper').style.display = 'none';
-        document.getElementById('interior-screen').style.display = 'flex';
-        
-        document.getElementById('room-area').style.display = 'block';
-        document.getElementById('ausbau-menu').style.display = 'none';
-        document.getElementById('toggle-ausbau-btn').innerText = "AGENTUR-AUSBAU ÖFFNEN";
-        
-        document.getElementById('main-title').innerText = "RAUM-ANSICHT";
-        document.getElementById('room-title-detail').innerText = type;
-
-        if (type === 'ZENTRALE') {
-            document.getElementById('menu-zentrale').style.display = 'flex';
-            document.getElementById('menu-archiv').style.display = 'none';
-            document.getElementById('menu-quartiere').style.display = 'none';
-            document.getElementById('menu-platzhalter').style.display = 'none';
-            reloadFurniture(type); 
-        } else if (type === 'ARTEFAKT-ARCHIV') {
-            document.getElementById('menu-zentrale').style.display = 'none';
-            document.getElementById('menu-archiv').style.display = 'flex';
-            document.getElementById('menu-quartiere').style.display = 'none';
-            document.getElementById('menu-platzhalter').style.display = 'none';
-            reloadFurniture(type); 
-        } else if (type === 'AGENTEN-QUARTIERE') {
-            document.getElementById('menu-zentrale').style.display = 'none';
-            document.getElementById('menu-archiv').style.display = 'none';
-            document.getElementById('menu-quartiere').style.display = 'flex';
-            document.getElementById('menu-platzhalter').style.display = 'none';
-            reloadFurniture(type); 
-        } else {
-            document.getElementById('menu-zentrale').style.display = 'none';
-            document.getElementById('menu-archiv').style.display = 'none';
-            document.getElementById('menu-quartiere').style.display = 'none';
-            document.getElementById('menu-platzhalter').style.display = 'block';
-            clearRoom(); 
-        }
-        window.updateAusbauButtons();
     };
 
     window.closeRoom = () => {
@@ -814,9 +726,7 @@
 
         if (creds >= cost) {
             document.getElementById('display-credits').innerText = creds - cost;
-            gameState.credits = creds - cost; 
-            
-            inventory[type]++; // Der neue Proxy triggert hier vollautomatisch den Cloud-Save!
+            inventory[type]++;
             
             const btnId = `btn-buy-${type.replace('_', '-')}`;
             const btn = document.getElementById(btnId);
