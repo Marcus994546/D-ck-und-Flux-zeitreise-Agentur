@@ -993,7 +993,202 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 </script>
+<style>
+    /* --- Animationen für den Reaktor --- */
+    @keyframes reaktor-pulse { 
+        0% { box-shadow: 0 0 20px #0f8, inset 0 0 10px #0f8; } 
+        50% { box-shadow: 0 0 50px #0f8, inset 0 0 30px #0f8; transform: scale(1.02); } 
+        100% { box-shadow: 0 0 20px #0f8, inset 0 0 10px #0f8; } 
+    }
+    @keyframes reaktor-spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+    @keyframes energy-zap { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    @keyframes plasma-flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } 52% { opacity: 0.2; } 54% { opacity: 0.9; } }
+
+    /* --- Reaktor --- */
+    .item-reaktor { 
+        width: 100px; height: 120px; background: #050505; border: 3px solid #222; border-bottom: 5px solid #ffaa00;
+        border-radius: 15px 15px 5px 5px; position: absolute; z-index: 3; left: 50%; bottom: 70px; 
+        transform: translateX(-50%); display: flex; justify-content: center; align-items: center; 
+        overflow: hidden; box-shadow: 0 15px 25px rgba(0,0,0,0.9); 
+    }
+    .reaktor-core { 
+        width: 45px; height: 45px; background: radial-gradient(circle, #fff 10%, #0f8 70%); 
+        border-radius: 50%; animation: reaktor-pulse 2s infinite; position: relative; z-index: 2; 
+    }
+    .reaktor-ring { 
+        width: 80px; height: 80px; border: 3px dashed #0ff; border-radius: 50%; 
+        position: absolute; top: 50%; left: 50%; animation: reaktor-spin 4s linear infinite; z-index: 1; 
+    }
+    .reaktor-ring-2 { 
+        width: 60px; height: 60px; border: 2px dotted #ffaa00; border-radius: 50%; 
+        position: absolute; top: 50%; left: 50%; animation: reaktor-spin 2s linear infinite reverse; z-index: 1; 
+    }
+
+    /* --- Hochspannungsleitungen --- */
+    .item-hv-leitung { 
+        width: 100%; height: 8px; position: absolute; z-index: 1; background: #0a0a0a; 
+        border-top: 1px solid #333; border-bottom: 1px solid #222; overflow: hidden; box-shadow: 0 5px 10px rgba(0,0,0,0.8);
+    }
+    .hv-zap { 
+        width: 100%; height: 100%; background: linear-gradient(90deg, transparent 0%, #0ff 50%, transparent 100%); 
+        background-size: 50% 100%; animation: energy-zap 1s linear infinite; opacity: 0.8; 
+    }
+
+    /* --- Plasma-Bogenleuchte --- */
+    .item-plasma-lampe { 
+        width: 80px; height: 16px; background: #111; border: 2px solid #0f8; border-top: none; 
+        position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); 
+        display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,255,136,0.2); 
+    }
+    .plasma-arc { 
+        width: 90%; height: 4px; background: #fff; box-shadow: 0 0 10px #fff, 0 0 20px #0f8; 
+        border-radius: 2px; animation: plasma-flicker 3s infinite; 
+    }
+</style>
+
 <script>
+    // 1. HTML Menü für den Flux-Reaktor hinzufügen
+    const menuReaktor = `
+    <div id="menu-flux-reaktor" style="display:none; flex-direction:column; gap:15px;">
+        <div class="upgrade-card">
+            <b>[ FLUX-KERNREAKTOR ]</b>
+            <p style="font-size: 0.7em; color: #aaa;">Induktives Hochleistungs-Herzstück der Basis.</p>
+            <button id="btn-buy-reaktor" onclick="window.buyFurniture('reaktor', 3500)" class="btn-upgrade-exec">KAUFEN (3500 C)</button>
+        </div>
+        <div class="upgrade-card">
+            <b>[ HOCHSPANNUNGS-TRASSE ]</b>
+            <p style="font-size: 0.7em; color: #aaa;">Massive Kupfer-Stränge für den Energietransport. (Max. 3)</p>
+            <button id="btn-buy-hv-leitung" onclick="window.buyFurniture('hv_leitung', 800)" class="btn-upgrade-exec">KAUFEN (800 C) [0/3]</button>
+        </div>
+        <div class="upgrade-card">
+            <b>[ PLASMA-BOGENLEUCHTE ]</b>
+            <p style="font-size: 0.7em; color: #aaa;">Ionisierter Lichtbogen für extreme Ausleuchtung.</p>
+            <button id="btn-buy-plasma-lampe" onclick="window.buyFurniture('plasma_lampe', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button>
+        </div>
+    </div>
+    `;
+    
+    // Injiziere das neue Menü in die Oberfläche
+    if (!document.getElementById('menu-flux-reaktor')) {
+        document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuReaktor);
+    }
+
+    // 2. Inventar-Sicherung für die neuen Items
+    const newItems4 = ['reaktor', 'hv_leitung', 'plasma_lampe'];
+    newItems4.forEach(item => { if(inventory[item] === undefined) inventory[item] = 0; });
+
+    // 3. UI-Button-Limiter updaten (damit nach dem Neuladen alles grau wird)
+    const oldUpdateAusbau = window.updateAusbauButtons;
+    window.updateAusbauButtons = function() {
+        if (typeof oldUpdateAusbau === 'function') oldUpdateAusbau();
+        if (typeof inventory === 'undefined') return;
+        
+        const newLimits = { reaktor: 1, hv_leitung: 3, plasma_lampe: 1 };
+        
+        for (let k in newLimits) {
+            let max = newLimits[k];
+            let current = inventory[k] || 0;
+            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+            
+            if (btn) {
+                if (current >= max) {
+                    btn.innerText = "[ BEREITS INSTALLIERT ]";
+                    btn.disabled = true;
+                    btn.style.background = "#333";
+                    btn.style.color = "#555";
+                    btn.style.cursor = "not-allowed";
+                } else if (max > 1 && btn.innerText.includes('[')) {
+                    btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
+                }
+            }
+        }
+    };
+
+    // 4. Raum-Weiche (Klinkt sich in Block 3 ein)
+    const openRoomB3 = window.openRoom;
+    window.openRoom = (type) => {
+        openRoomB3(type); // Führt den Code von Block 2 & 3 aus
+        const menuReaktorEl = document.getElementById('menu-flux-reaktor');
+        if (menuReaktorEl) {
+            menuReaktorEl.style.display = (type === 'FLUX-REAKTOR') ? 'flex' : 'none';
+        }
+        if (type === 'FLUX-REAKTOR') {
+            document.getElementById('menu-platzhalter').style.display = 'none'; // Platzhalter weg
+        }
+    };
+
+    // 5. Shop-Kauf (Klinkt sich in Block 3 ein)
+    const buyB3 = window.buyFurniture;
+    window.buyFurniture = (type, cost) => {
+        if (newItems4.includes(type)) {
+            let creds = parseInt(document.getElementById('display-credits').innerText);
+            let maxAmt = (type === 'hv_leitung') ? 3 : 1;
+            
+            if (inventory[type] >= maxAmt) return; 
+            
+            if (creds >= cost) {
+                document.getElementById('display-credits').innerText = creds - cost;
+                
+                // Der Proxy speichert das automatisch in Firebase!
+                inventory[type]++;
+                
+                const btn = document.getElementById(`btn-buy-${type.replaceAll('_', '-')}`);
+                btn.innerText = (inventory[type] >= maxAmt) ? "[ INSTALLIERT ]" : `KAUFEN (${cost} C) [${inventory[type]}/${maxAmt}]`;
+                if (inventory[type] >= maxAmt) {
+                    btn.disabled = true;
+                    btn.style.background = "#333";
+                    btn.style.color = "#555";
+                    btn.style.cursor = "not-allowed";
+                }
+                window.spawnFurniture(type, inventory[type]);
+            } else { 
+                if(typeof showCustomAlert === 'function') showCustomAlert("System: Credits unzureichend."); 
+            }
+        } else {
+            buyB3(type, cost); // Leitet den Befehl an Block 3 weiter, falls es kein Reaktor-Item ist
+        }
+    };
+
+    // 6. Reload-Logik beim Raumwechsel
+    const reloadB3 = window.reloadFurniture;
+    window.reloadFurniture = (type) => {
+        reloadB3(type);
+        if (type === 'FLUX-REAKTOR') {
+            if (inventory.plasma_lampe > 0) window.spawnFurniture('plasma_lampe', 1);
+            if (inventory.reaktor > 0) window.spawnFurniture('reaktor', 1);
+            for (let i = 1; i <= inventory.hv_leitung; i++) window.spawnFurniture('hv_leitung', i);
+        }
+    };
+
+    // 7. Visueller Spawn der neuen Bauteile
+    const spawnB3 = window.spawnFurniture;
+    window.spawnFurniture = (type, count) => {
+        spawnB3(type, count);
+        const room = document.getElementById('room-area');
+        if (!room || !newItems4.includes(type)) return;
+        
+        const item = document.createElement('div');
+        item.classList.add('fixed-item');
+
+        if (type === 'plasma_lampe') {
+            item.classList.add('item-plasma-lampe');
+            item.innerHTML = '<div class="plasma-arc"></div>';
+        } else if (type === 'reaktor') {
+            item.classList.add('item-reaktor');
+            item.innerHTML = '<div class="reaktor-ring"></div><div class="reaktor-ring-2"></div><div class="reaktor-core"></div>';
+        } else if (type === 'hv_leitung') {
+            item.classList.add('item-hv-leitung');
+            item.innerHTML = '<div class="hv-zap"></div>';
+            // Verteilt die Hochspannungsleitungen optisch schön im Raum (Hintergrund)
+            let offsets = [50, 110, 170]; 
+            item.style.top = offsets[count-1] + 'px';
+            item.style.left = '0';
+        }
+        room.appendChild(item);
+    };
+</script>
+<script>
+        // Block 99, wächter
     window.updateAusbauButtons = function() {
         if (typeof inventory === 'undefined') return;
         
