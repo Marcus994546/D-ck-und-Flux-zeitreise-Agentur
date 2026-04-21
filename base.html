@@ -1246,34 +1246,44 @@ window.spawnFurniture = (type, count) => {
     @keyframes levitate { 0%, 100% { transform: translateY(0) rotateX(20deg) rotateZ(45deg); } 50% { transform: translateY(-15px) rotateX(20deg) rotateZ(45deg); } }
     @keyframes data-stream-up { 0% { background-position: 0 100%; opacity: 0.3; } 50% { opacity: 0.8; } 100% { background-position: 0 0; opacity: 0.3; } }
     @keyframes q-ring-spin { 0% { transform: rotateX(70deg) rotateZ(0deg); } 100% { transform: rotateX(70deg) rotateZ(360deg); } }
-    @keyframes laser-scan { 0%, 100% { left: 10%; } 50% { left: 90%; } }
-    @keyframes node-pulse { 0%, 100% { box-shadow: 0 0 15px rgba(136, 68, 255, 0.5); } 50% { box-shadow: 0 0 30px rgba(136, 68, 255, 1); } }
+    @keyframes laser-scan { 0%, 100% { left: 5%; } 50% { left: 95%; } }
+    @keyframes crystal-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    @keyframes ring-pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+    @keyframes beam-flicker { 0%, 100% { opacity: 0.8; height: 2px; } 50% { opacity: 0.3; height: 1px; } }
 
     /* --- Quanten-Zentralrechner (Q-Core) --- */
     .item-qcore { width: 100%; height: 200px; position: absolute; z-index: 3; left: 0; bottom: 50px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; pointer-events: none; }
     
-    /* Der schwebende Quanten-Würfel */
     .q-cube { width: 60px; height: 60px; background: rgba(20, 5, 40, 0.9); border: 2px solid #84f; box-shadow: 0 0 30px #84f, inset 0 0 15px #0ff; animation: levitate 4s ease-in-out infinite; position: absolute; bottom: 80px; z-index: 5; }
-    
-    /* Holografische Datenringe */
     .q-ring-1 { width: 140px; height: 140px; border: 2px solid rgba(0, 255, 255, 0.5); border-radius: 50%; position: absolute; bottom: 40px; animation: q-ring-spin 6s linear infinite; z-index: 4; }
     .q-ring-2 { width: 110px; height: 110px; border: 2px dashed rgba(136, 68, 255, 0.8); border-radius: 50%; position: absolute; bottom: 55px; animation: q-ring-spin 4s linear infinite reverse; z-index: 6; }
     
-    /* Vertikaler Datenstrom (Uplink) */
     .q-uplink { width: 40px; height: 250px; background: repeating-linear-gradient(0deg, transparent, transparent 5px, rgba(0, 255, 255, 0.4) 5px, rgba(0, 255, 255, 0.8) 10px); background-size: 100% 200%; position: absolute; bottom: 0; animation: data-stream-up 2s linear infinite; mask-image: linear-gradient(to top, transparent, black 20%, black 80%, transparent); -webkit-mask-image: linear-gradient(to top, transparent, black 20%, black 80%, transparent); z-index: 2; }
-    
-    /* Anti-Grav Sockel */
     .q-base { width: 100px; height: 20px; background: #050505; border: 2px solid #444; border-top: 4px solid #84f; border-radius: 50%; position: absolute; bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.9), 0 -10px 20px rgba(136, 68, 255, 0.3); z-index: 1; }
 
     /* --- Verschränkungs-Knoten (Entanglement Nodes) --- */
-    .item-qnode { position: absolute; z-index: 4; bottom: 70px; width: 30px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-    .node-crystal { width: 12px; height: 40px; background: #0ff; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); animation: node-pulse 2s infinite; box-shadow: 0 0 20px #0ff; margin-bottom: 10px; }
-    .node-stand { width: 24px; height: 15px; background: #222; border: 1px solid #555; border-top: 3px solid #0ff; border-radius: 3px 3px 0 0; box-shadow: 0 5px 10px #000; }
+    .item-qnode { position: absolute; z-index: 4; bottom: 65px; width: 50px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .node-crystal { width: 18px; height: 45px; background: rgba(0,255,255,0.9); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); animation: crystal-float 2.5s infinite ease-in-out; box-shadow: 0 0 25px #0ff; margin-bottom: 15px; position: relative; z-index: 3; }
+    .node-stand { width: 36px; height: 20px; background: linear-gradient(180deg, #333, #111); border: 2px solid #555; border-top: 3px solid #0ff; border-radius: 4px 4px 0 0; box-shadow: 0 8px 15px rgba(0,0,0,0.9); z-index: 2; }
+    
+    /* Pulsierende Ringe um den Kristall */
+    .node-ring { position: absolute; top: 15px; width: 45px; height: 12px; border: 2px solid rgba(136, 68, 255, 0.8); border-radius: 50%; animation: ring-pulse 1.5s infinite; z-index: 1; }
+    
+    /* Laser-Verbindung zum Zentrum */
+    .node-beam { position: absolute; top: 20px; width: 110px; height: 2px; background: #0ff; box-shadow: 0 0 15px #0ff; z-index: 0; }
+    .beam-left { left: 30px; animation: beam-flicker 0.1s infinite; }
+    .beam-right { right: 30px; animation: beam-flicker 0.1s infinite reverse; }
 
     /* --- Photonen-Scanner-Leuchte --- */
-    .item-photon-lampe { width: 120px; height: 15px; background: #111; border: 1px solid #444; border-top: none; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); border-radius: 0 0 10px 10px; overflow: hidden; }
-    .photon-track { width: 100%; height: 4px; background: #000; margin-top: 8px; position: relative; }
-    .photon-laser { width: 10px; height: 10px; background: #0ff; border-radius: 50%; position: absolute; top: -3px; animation: laser-scan 3s ease-in-out infinite; box-shadow: 0 0 15px #0ff, 0 50px 50px 20px rgba(0, 255, 255, 0.15); }
+    /* WICHTIG: overflow:hidden entfernt, damit der vertikale Strahl sichtbar wird! */
+    .item-photon-lampe { width: 140px; height: 18px; background: #111; border: 2px solid #444; border-top: none; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); border-radius: 0 0 10px 10px; }
+    .photon-track { width: 90%; height: 4px; background: #000; margin: 8px auto 0 auto; position: relative; border-radius: 2px; }
+    
+    /* Leuchtpunkt */
+    .photon-laser { width: 12px; height: 12px; background: #0ff; border-radius: 50%; position: absolute; top: -4px; animation: laser-scan 3.5s ease-in-out infinite; box-shadow: 0 0 20px #0ff; }
+    
+    /* Der volumetrische Scan-Kegel nach unten */
+    .photon-laser::after { content: ''; position: absolute; top: 10px; left: -25px; width: 60px; height: 220px; background: linear-gradient(180deg, rgba(0,255,255,0.4) 0%, rgba(0,255,255,0) 100%); clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); pointer-events: none; }
 </style>
 
 <script>
@@ -1289,7 +1299,7 @@ window.spawnFurniture = (type, count) => {
             <button id="btn-buy-q-node" onclick="window.buyFurniture('q_node', 1200)" class="btn-upgrade-exec">KAUFEN (1200 C) [0/2]</button>
         </div>
         <div class="upgrade-card">
-            <b>[ PHOTONEN-SCANNER ]</b><p style="font-size: 0.7em; color: #aaa;">Aktives Überwachungslichtfeld.</p>
+            <b>[ PHOTONEN-SCANNER ]</b><p style="font-size: 0.7em; color: #aaa;">Aktives volumetrisches Überwachungslichtfeld.</p>
             <button id="btn-buy-photon-lampe" onclick="window.buyFurniture('photon_lampe', 250)" class="btn-upgrade-exec">KAUFEN (250 C)</button>
         </div>
     </div>`;
@@ -1317,7 +1327,9 @@ window.spawnFurniture = (type, count) => {
         for (let k in allLimits) {
             let max = allLimits[k];
             let current = inventory[k] || 0;
-            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+            let btnId = 'btn-buy-' + k.replace(/_/g, '-');
+            let btn = document.getElementById(btnId);
+            
             if (btn) {
                 if (current >= max) {
                     btn.innerText = "[ BEREITS INSTALLIERT ]";
@@ -1357,8 +1369,8 @@ window.spawnFurniture = (type, count) => {
             if (inventory[type] >= maxAmt) return; 
             
             let isQCore = (type === 'q_core');
-            let costC = cost; // Standard Credit-Kosten
-            let costMZ = isQCore ? 50 : 0; // Q-Core kostet zusätzlich 50 MZ
+            let costC = cost; 
+            let costMZ = isQCore ? 50 : 0; 
             
             let hasEnough = (gameState.credits >= costC) && (gameState.materieZellen >= costMZ);
             
@@ -1431,13 +1443,13 @@ window.spawnFurniture = (type, count) => {
                 <div class="q-base"></div>`;
         } else if (type === 'q_node') {
             item.classList.add('item-qnode');
-            item.innerHTML = '<div class="node-crystal"></div><div class="node-stand"></div>';
+            
             if (count === 1) { 
-                // Linker Knoten
-                item.style.left = '20px'; 
+                item.style.left = '15px'; 
+                item.innerHTML = '<div class="node-beam beam-left"></div><div class="node-ring"></div><div class="node-crystal"></div><div class="node-stand"></div>';
             } else if (count === 2) { 
-                // Rechter Knoten
-                item.style.right = '20px'; 
+                item.style.right = '15px'; 
+                item.innerHTML = '<div class="node-beam beam-right"></div><div class="node-ring"></div><div class="node-crystal"></div><div class="node-stand"></div>';
             }
         }
         room.appendChild(item);
