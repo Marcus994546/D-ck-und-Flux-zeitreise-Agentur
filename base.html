@@ -1507,7 +1507,7 @@ window.spawnFurniture = (type, count) => {
     @keyframes relay-zap { 0%, 95% { opacity: 0; height: 0; } 96% { opacity: 1; height: 140px; box-shadow: 0 0 20px #0ff; } 100% { opacity: 0; height: 0; } }
 
     /* --- Haupt-Transformator --- */
-    .item-hv-trafo { width: 110px; height: 140px; position: absolute; z-index: 3; left: 50%; bottom: 65px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .item-hv-trafo { width: 110px; height: 140px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
     .trafo-base { width: 100%; height: 35px; background: linear-gradient(180deg, #222, #000); border: 2px solid #555; border-bottom: 5px solid #ffaa00; border-radius: 4px; z-index: 2; box-shadow: 0 15px 20px rgba(0,0,0,0.9); }
     .trafo-coils { display: flex; gap: 12px; margin-bottom: -8px; z-index: 1; }
     .trafo-coil { width: 28px; height: 90px; background: repeating-linear-gradient(0deg, #8b4513 0px, #8b4513 4px, #a0522d 4px, #a0522d 8px); border-radius: 14px; border: 2px solid #111; animation: coil-buzz 0.1s infinite; position: relative; }
@@ -1655,20 +1655,25 @@ window.spawnFurniture = (type, count) => {
             item.classList.add('item-hv-kondensator');
             item.innerHTML = '<div class="cap-cap"></div><div class="cap-glass"><div class="cap-fluid"></div></div>';
             
-            const positions = ['12%', '25%', '75%', '88%'];
-            item.style.left = positions[count - 1];
+            // Symmetrische Ausrichtung (Millimetergenau von links und rechts)
+            if (count === 1) { item.style.left = '15%'; }
+            else if (count === 2) { item.style.left = '28%'; }
+            else if (count === 3) { item.style.right = '28%'; }
+            else if (count === 4) { item.style.right = '15%'; }
+            
             item.querySelector('.cap-fluid').style.animationDelay = `${count * 0.8}s`;
             
         } else if (type === 'hv_relais') {
             item.classList.add('item-hv-relais');
             item.innerHTML = '<div class="relais-mount"></div><div class="relais-node"><div class="relais-lightning"></div></div>';
             
+            // Symmetrische Ausrichtung an der Decke
             if (count === 1) { 
-                item.style.left = '30%'; 
+                item.style.left = '25%'; 
                 item.querySelector('.relais-lightning').style.animationDelay = '0.5s';
                 item.querySelector('.relais-lightning').style.transform = 'rotate(-10deg)';
             } else if (count === 2) { 
-                item.style.left = '70%'; 
+                item.style.right = '25%'; 
                 item.querySelector('.relais-lightning').style.animationDelay = '2.1s';
                 item.querySelector('.relais-lightning').style.transform = 'rotate(10deg)';
             }
