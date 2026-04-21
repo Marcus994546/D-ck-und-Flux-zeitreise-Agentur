@@ -1283,9 +1283,45 @@ window.spawnFurniture = (type, count) => {
     /* Sichtbarer Scan-Strahl als fixes DIV */
     .photon-beam { position: absolute; top: 6px; left: -24px; width: 60px; height: 220px; background: linear-gradient(180deg, rgba(0,255,255,0.4) 0%, rgba(0,255,255,0) 100%); clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); pointer-events: none; z-index: 6; }
 </style>
+<style>
+    /* --- Quanten-Labor Animationen --- */
+    @keyframes levitate { 0%, 100% { transform: translateY(0) rotateX(20deg) rotateZ(45deg); } 50% { transform: translateY(-15px) rotateX(20deg) rotateZ(45deg); } }
+    @keyframes data-stream-up { 0% { background-position: 0 100%; opacity: 0.3; } 50% { opacity: 0.8; } 100% { background-position: 0 0; opacity: 0.3; } }
+    @keyframes q-ring-spin { 0% { transform: rotateX(70deg) rotateZ(0deg); } 100% { transform: rotateX(70deg) rotateZ(360deg); } }
+    @keyframes laser-scan { 0%, 100% { left: 5%; } 50% { left: 95%; } }
+    @keyframes crystal-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes ring-pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+    @keyframes beam-flicker { 0%, 100% { opacity: 0.8; height: 2px; } 50% { opacity: 0.3; height: 1px; } }
+    @keyframes q-node-hover { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    @keyframes node-spark { 0% { opacity: 0; transform: scale(1) translate(0,0); } 10% { opacity: 1; background: #fff; box-shadow: 0 0 10px #0ff; } 100% { opacity: 0; transform: scale(0.2) translate(var(--tx), var(--ty)); } }
+
+    /* --- Quanten-Zentralrechner (Q-Core) --- */
+    .item-qcore { width: 100%; height: 200px; position: absolute; z-index: 3; left: 0; bottom: 50px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; pointer-events: none; }
+    .q-cube { width: 60px; height: 60px; background: rgba(20, 5, 40, 0.9); border: 2px solid #84f; box-shadow: 0 0 30px #84f, inset 0 0 15px #0ff; animation: levitate 4s ease-in-out infinite; position: absolute; bottom: 80px; z-index: 5; }
+    .q-ring-1 { width: 140px; height: 140px; border: 2px solid rgba(0, 255, 255, 0.5); border-radius: 50%; position: absolute; bottom: 40px; animation: q-ring-spin 6s linear infinite; z-index: 4; }
+    .q-ring-2 { width: 110px; height: 110px; border: 2px dashed rgba(136, 68, 255, 0.8); border-radius: 50%; position: absolute; bottom: 55px; animation: q-ring-spin 4s linear infinite reverse; z-index: 6; }
+    .q-uplink { width: 40px; height: 250px; background: repeating-linear-gradient(0deg, transparent, transparent 5px, rgba(0, 255, 255, 0.4) 5px, rgba(0, 255, 255, 0.8) 10px); background-size: 100% 200%; position: absolute; bottom: 0; animation: data-stream-up 2s linear infinite; mask-image: linear-gradient(to top, transparent, black 20%, black 80%, transparent); -webkit-mask-image: linear-gradient(to top, transparent, black 20%, black 80%, transparent); z-index: 2; }
+    .q-base { width: 100px; height: 20px; background: #050505; border: 2px solid #444; border-top: 4px solid #84f; border-radius: 50%; position: absolute; bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.9), 0 -10px 20px rgba(136, 68, 255, 0.3); z-index: 1; }
+
+    /* --- Verschränkungs-Knoten --- */
+    .item-qnode { position: absolute; z-index: 4; bottom: 65px; width: 50px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; animation: q-node-hover 3s ease-in-out infinite; }
+    .node-crystal { width: 18px; height: 45px; background: rgba(0,255,255,0.9); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); animation: crystal-float 2.5s infinite ease-in-out; box-shadow: 0 0 25px #0ff; margin-bottom: 15px; position: relative; z-index: 3; }
+    .node-stand { width: 36px; height: 20px; background: linear-gradient(180deg, #333, #111); border: 2px solid #555; border-top: 3px solid #0ff; border-radius: 4px 4px 0 0; box-shadow: 0 8px 15px rgba(0,0,0,0.9); z-index: 2; }
+    .node-ring { position: absolute; top: 15px; width: 45px; height: 12px; border: 2px solid rgba(136, 68, 255, 0.8); border-radius: 50%; animation: ring-pulse 1.5s infinite; z-index: 1; }
+    .node-beam { position: absolute; top: 20px; width: 110px; height: 2px; background: #0ff; box-shadow: 0 0 15px #0ff; z-index: 0; }
+    .beam-left { left: 30px; animation: beam-flicker 0.1s infinite; }
+    .beam-right { right: 30px; animation: beam-flicker 0.1s infinite reverse; }
+    .node-spark-pt { position: absolute; width: 3px; height: 3px; border-radius: 50%; z-index: 5; opacity: 0; animation: node-spark 1.2s infinite; }
+
+    /* --- Photonen-Scanner-Leuchte --- */
+    .item-photon-lampe { width: 140px; height: 18px; background: #111; border: 2px solid #444; border-top: none; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); border-radius: 0 0 10px 10px; overflow: visible !important; }
+    .photon-track { width: 90%; height: 4px; background: #000; margin: 8px auto 0 auto; position: relative; border-radius: 2px; }
+    .photon-laser { width: 12px; height: 12px; background: #0ff; border-radius: 50%; position: absolute; top: -4px; animation: laser-scan 3.5s ease-in-out infinite; box-shadow: 0 0 20px #0ff; }
+    .photon-beam { position: absolute; top: 6px; left: -24px; width: 60px; height: 220px; background: linear-gradient(180deg, rgba(0,255,255,0.4) 0%, rgba(0,255,255,0) 100%); clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); pointer-events: none; z-index: 6; }
+</style>
 
 <script>
-    // 1. Menü für das Quanten-Labor einfügen
+    // 1. Menü einfügen
     const menuQuantenLabor = `
     <div id="menu-quanten-labor" style="display:none; flex-direction:column; gap:15px;">
         <div class="upgrade-card">
@@ -1307,47 +1343,30 @@ window.spawnFurniture = (type, count) => {
     }
 
     const newItems5 = ['q_core', 'q_node', 'photon_lampe'];
+    newItems5.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
-    // 2. Erweiterten Master-Wächter definieren
+    // 2. Modulares Button-Update (Klinkt sich in bestehendes System ein)
+    const oldUpdateAusbauB5 = window.updateAusbauButtons;
     window.updateAusbauButtons = function() {
+        if (typeof oldUpdateAusbauB5 === 'function') oldUpdateAusbauB5();
         if (typeof inventory === 'undefined') return;
-        
-        // Null-Korrektur, falls Items fehlerhaft initialisiert wurden
-        newItems5.forEach(item => { 
-            if(isNaN(inventory[item]) || inventory[item] === undefined) inventory[item] = 0; 
-        });
 
-        const allLimits = {
-            desk: 1, lampe: 1, kartograph: 1, server: 2,
-            regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
-            hub_server: 4, hub_terminal: 1, hub_lampe: 1,
-            werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1,
-            reaktor: 1, hv_leitung: 3, plasma_lampe: 1,
-            q_core: 1, q_node: 2, photon_lampe: 1
-        };
+        const newLimits5 = { q_core: 1, q_node: 2, photon_lampe: 1 };
+        for (let k in newLimits5) {
+            let max = newLimits5[k];
+            let current = parseInt(inventory[k]) || 0;
+            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
 
-        for (let k in allLimits) {
-            let max = allLimits[k];
-            let current = inventory[k] || 0;
-            let btnId = 'btn-buy-' + k.replace(/_/g, '-');
-            let btn = document.getElementById(btnId);
-            
             if (btn) {
                 if (current >= max) {
-                    btn.innerText = "[ BEREITS INSTALLIERT ]";
+                    btn.innerText = "[ INSTALLIERT ]";
                     btn.disabled = true;
                     btn.style.background = "#333";
                     btn.style.color = "#555";
+                    btn.style.border = "1px solid #333";
                     btn.style.cursor = "not-allowed";
-                    btn.style.boxShadow = "none";
-                } else {
-                    btn.disabled = false;
-                    btn.style.background = ""; 
-                    btn.style.color = "";
-                    btn.style.cursor = "pointer";
-                    if (max > 1 && btn.innerText.includes('[')) {
-                        btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
-                    }
+                } else if (max > 1 && btn.innerText.includes('[')) {
+                    btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
                 }
             }
         }
@@ -1356,7 +1375,7 @@ window.spawnFurniture = (type, count) => {
     // 3. Raumwechsel patchen
     const oldOpenRoomB5 = window.openRoom;
     window.openRoom = (type) => {
-        if (oldOpenRoomB5) oldOpenRoomB5(type); 
+        if (typeof oldOpenRoomB5 === 'function') oldOpenRoomB5(type); 
         const menuQuantenEl = document.getElementById('menu-quanten-labor');
         if (menuQuantenEl) menuQuantenEl.style.display = (type === 'QUANTEN-LABOR') ? 'flex' : 'none';
         if (type === 'QUANTEN-LABOR') document.getElementById('menu-platzhalter').style.display = 'none'; 
@@ -1368,10 +1387,8 @@ window.spawnFurniture = (type, count) => {
     window.buyFurniture = async (type, cost) => {
         if (newItems5.includes(type)) {
             let maxAmt = (type === 'q_node') ? 2 : 1;
-            
-            if (isNaN(inventory[type]) || inventory[type] === undefined) inventory[type] = 0;
-            
-            if (inventory[type] >= maxAmt) return; 
+            let current = parseInt(inventory[type]) || 0;
+            if (current >= maxAmt) return; 
             
             let isQCore = (type === 'q_core');
             let costC = cost; 
@@ -1403,22 +1420,38 @@ window.spawnFurniture = (type, count) => {
                         }
                     }
                 }
-                inventory[type]++;
-                window.updateAusbauButtons();
+                
+                inventory[type] = current + 1;
+                
+                // Button direkt einfärben
+                const btn = document.getElementById(`btn-buy-${type.replaceAll('_', '-')}`);
+                if (btn) {
+                    if (inventory[type] >= maxAmt) {
+                        btn.innerText = "[ INSTALLIERT ]";
+                        btn.disabled = true;
+                        btn.style.background = "#333";
+                        btn.style.color = "#555";
+                        btn.style.border = "1px solid #333";
+                        btn.style.cursor = "not-allowed";
+                    } else {
+                        btn.innerText = `KAUFEN (${cost} C) [${inventory[type]}/${maxAmt}]`;
+                    }
+                }
+                
                 window.spawnFurniture(type, inventory[type]);
             } else { 
                 let msg = isQCore ? "System: Nicht genügend Credits oder Materie-Zellen (4000 C + 50 MZ benötigt)." : "System: Credits unzureichend.";
                 if(typeof showCustomAlert === 'function') showCustomAlert(msg); else alert(msg);
             }
         } else {
-            if (oldBuyFurnitureB5) oldBuyFurnitureB5(type, cost); 
+            if (typeof oldBuyFurnitureB5 === 'function') oldBuyFurnitureB5(type, cost); 
         }
     };
 
     // 5. Möbel Laden & Spawnen
     const oldReloadB5 = window.reloadFurniture;
     window.reloadFurniture = (type) => {
-        if (oldReloadB5) oldReloadB5(type);
+        if (typeof oldReloadB5 === 'function') oldReloadB5(type);
         if (type === 'QUANTEN-LABOR') {
             if (inventory.photon_lampe > 0) window.spawnFurniture('photon_lampe', 1);
             if (inventory.q_core > 0) window.spawnFurniture('q_core', 1);
@@ -1428,7 +1461,7 @@ window.spawnFurniture = (type, count) => {
 
     const oldSpawnB5 = window.spawnFurniture;
     window.spawnFurniture = (type, count) => {
-        if (oldSpawnB5) oldSpawnB5(type, count);
+        if (typeof oldSpawnB5 === 'function') oldSpawnB5(type, count);
         const room = document.getElementById('room-area');
         if (!room || !newItems5.includes(type)) return;
         
@@ -1529,57 +1562,6 @@ window.spawnFurniture = (type, count) => {
 
     // Initialer Check beim Start der Basis
     setTimeout(window.updateAusbauButtons, 1500);
-</script>
-    <script>
-    const masterLimits = {
-        desk: 1, lampe: 1, kartograph: 1, server: 2,
-        regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
-        hub_server: 4, hub_terminal: 1, hub_lampe: 1,
-        werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1,
-        reaktor: 1, hv_leitung: 3, plasma_lampe: 1,
-        q_core: 1, q_node: 2, photon_lampe: 1
-    };
-
-    window.updateAusbauButtons_FORCE = function() {
-        if (typeof inventory === 'undefined') return;
-        
-        for (let k in masterLimits) {
-            let max = masterLimits[k];
-            let current = inventory[k] || 0;
-            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
-            
-            if (btn) {
-                if (current >= max) {
-                    btn.innerText = "[ BEREITS INSTALLIERT ]";
-                    btn.disabled = true;
-                    
-                    // Entfernt alle festen HTML-Farben (wie das Lila beim Q-Core)
-                    btn.removeAttribute("style"); 
-                    
-                    // Zwingt die graue Blockade-Farbe mit höchster Priorität rein
-                    btn.style.setProperty("background", "#333", "important");
-                    btn.style.setProperty("color", "#555", "important");
-                    btn.style.setProperty("border-color", "#333", "important");
-                    btn.style.setProperty("box-shadow", "none", "important");
-                    btn.style.setProperty("cursor", "not-allowed", "important");
-                } else {
-                    // Button bleibt aktiv und Text aktualisiert sich bei Mehrfach-Käufen
-                    if (max > 1 && btn.innerText.includes('[')) {
-                        btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
-                    }
-                }
-            }
-        }
-    };
-
-    // 1. Überschreibt hart alle anderen, alten Update-Funktionen
-    window.updateAusbauButtons = window.updateAusbauButtons_FORCE;
-
-    // 2. Erneuert die Überprüfung jede Sekunde, um alte Skripte permanent zu blockieren
-    setInterval(() => { 
-        window.updateAusbauButtons = window.updateAusbauButtons_FORCE; 
-        window.updateAusbauButtons_FORCE();
-    }, 1000);
 </script>
 </body>
 </html>
