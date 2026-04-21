@@ -1499,6 +1499,204 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
+    <style>
+    /* --- Animationen für Hochspannungs-Verteiler --- */
+    @keyframes coil-buzz { 0%, 100% { transform: translateX(0); box-shadow: 0 0 10px #ffaa00; } 50% { transform: translateX(1px); box-shadow: 0 0 25px #ffaa00; } }
+    @keyframes arc-flash { 0%, 100% { opacity: 0; } 1%, 5% { opacity: 1; transform: scaleX(1.1) rotate(2deg); } 2%, 4% { opacity: 0; } 3% { opacity: 1; transform: scaleX(0.9) rotate(-2deg); } }
+    @keyframes cap-charge { 0% { height: 10%; background: #0f8; box-shadow: 0 0 10px #0f8; } 50% { height: 90%; background: #0ff; box-shadow: 0 0 20px #0ff; } 100% { height: 10%; background: #0f8; box-shadow: 0 0 10px #0f8; } }
+    @keyframes relay-zap { 0%, 95% { opacity: 0; height: 0; } 96% { opacity: 1; height: 120px; box-shadow: 0 0 20px #0ff; } 100% { opacity: 0; height: 0; } }
+
+    /* --- Haupt-Transformator --- */
+    .item-hv-trafo { width: 100px; height: 130px; position: absolute; z-index: 3; left: 50%; bottom: 65px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .trafo-base { width: 100%; height: 30px; background: #111; border: 2px solid #444; border-bottom: 4px solid #ffaa00; border-radius: 4px; z-index: 2; box-shadow: 0 10px 15px rgba(0,0,0,0.9); }
+    .trafo-coils { display: flex; gap: 10px; margin-bottom: -5px; z-index: 1; }
+    .trafo-coil { width: 25px; height: 80px; background: repeating-linear-gradient(0deg, #8b4513 0px, #8b4513 3px, #cd7f32 3px, #cd7f32 6px); border-radius: 12px; border: 2px solid #222; animation: coil-buzz 0.1s infinite; position: relative; }
+    .trafo-arc { position: absolute; top: 10px; left: -10px; width: 40px; height: 60px; border-left: 3px solid #0ff; border-right: 3px solid #0ff; border-radius: 50%; animation: arc-flash 2.5s infinite; filter: drop-shadow(0 0 8px #0ff); pointer-events: none; }
+
+    /* --- Kondensator-Bänke --- */
+    .item-hv-kondensator { width: 24px; height: 70px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .cap-glass { width: 100%; height: 60px; background: rgba(255,255,255,0.05); border: 2px solid #555; border-radius: 12px; position: relative; overflow: hidden; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+    .cap-fluid { width: 100%; position: absolute; bottom: 0; animation: cap-charge 4s ease-in-out infinite; }
+    .cap-cap { width: 28px; height: 10px; background: #222; border: 1px solid #777; border-radius: 4px 4px 0 0; margin-bottom: -2px; z-index: 3; }
+
+    /* --- Plasma-Relais (Decke) --- */
+    .item-hv-relais { width: 30px; height: 20px; position: absolute; top: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; }
+    .relais-mount { width: 100%; height: 15px; background: #222; border: 2px solid #555; border-top: none; border-radius: 0 0 6px 6px; box-shadow: 0 5px 10px rgba(0,0,0,0.8); }
+    .relais-node { width: 10px; height: 10px; background: #0ff; border-radius: 50%; margin-top: -5px; box-shadow: 0 0 10px #0ff; position: relative; }
+    .relais-lightning { position: absolute; top: 5px; left: 4px; width: 2px; background: #0ff; animation: relay-zap 3s infinite; transform-origin: top; }
+</style>
+
+<script>
+    // 1. Menü einfügen
+    const menuVerteiler = `
+    <div id="menu-hochspannungs-verteiler" style="display:none; flex-direction:column; gap:15px;">
+        <div class="upgrade-card">
+            <b>[ HAUPT-TRANSFORMATOR ]</b><p style="font-size: 0.7em; color: #aaa;">Massive Kupferspulen zur Spannungsanpassung.</p>
+            <button id="btn-buy-hv-trafo" onclick="window.buyFurniture('hv_trafo', 2800)" class="btn-upgrade-exec">KAUFEN (2800 C)</button>
+        </div>
+        <div class="upgrade-card">
+            <b>[ KONDENSATOR-BANK ]</b><p style="font-size: 0.7em; color: #aaa;">Flüssiggekühlte Energiespeicher. (Max. 4)</p>
+            <button id="btn-buy-hv-kondensator" onclick="window.buyFurniture('hv_kondensator', 900)" class="btn-upgrade-exec">KAUFEN (900 C) [0/4]</button>
+        </div>
+        <div class="upgrade-card">
+            <b>[ PLASMA-RELAIS ]</b><p style="font-size: 0.7em; color: #aaa;">Deckenmontierte Funkenstrecken. (Max. 2)</p>
+            <button id="btn-buy-hv-relais" onclick="window.buyFurniture('hv_relais', 400)" class="btn-upgrade-exec">KAUFEN (400 C) [0/2]</button>
+        </div>
+    </div>`;
+    
+    if (!document.getElementById('menu-hochspannungs-verteiler')) {
+        document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuVerteiler);
+    }
+
+    const newItems6 = ['hv_trafo', 'hv_kondensator', 'hv_relais'];
+    newItems6.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+    // 2. Erweiterten Master-Wächter definieren
+    window.updateAusbauButtons = function() {
+        if (typeof inventory === 'undefined') return;
+        
+        newItems6.forEach(item => { if(isNaN(inventory[item]) || inventory[item] === undefined) inventory[item] = 0; });
+
+        const allLimits = {
+            desk: 1, lampe: 1, kartograph: 1, server: 2,
+            regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
+            hub_server: 4, hub_terminal: 1, hub_lampe: 1,
+            werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1,
+            reaktor: 1, hv_leitung: 3, plasma_lampe: 1,
+            q_core: 1, q_node: 2, photon_lampe: 1,
+            // NEU: Hochspannungs-Verteiler
+            hv_trafo: 1, hv_kondensator: 4, hv_relais: 2
+        };
+
+        for (let k in allLimits) {
+            let max = allLimits[k];
+            let current = parseInt(inventory[k]) || 0;
+            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+            
+            if (btn) {
+                if (current >= max) {
+                    btn.innerText = "[ BEREITS INSTALLIERT ]";
+                    btn.disabled = true;
+                    btn.style.background = "#333";
+                    btn.style.color = "#555";
+                    btn.style.cursor = "not-allowed";
+                    btn.style.boxShadow = "none";
+                } else {
+                    btn.disabled = false;
+                    btn.style.background = ""; 
+                    btn.style.color = "";
+                    btn.style.cursor = "pointer";
+                    if (max > 1 && btn.innerText.includes('[')) {
+                        btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
+                    }
+                }
+            }
+        }
+    };
+
+    // 3. Raumwechsel patchen
+    const oldOpenRoomB6 = window.openRoom;
+    window.openRoom = (type) => {
+        if (typeof oldOpenRoomB6 === 'function') oldOpenRoomB6(type); 
+        const menuVerteilerEl = document.getElementById('menu-hochspannungs-verteiler');
+        if (menuVerteilerEl) menuVerteilerEl.style.display = (type === 'HOCHSPANNUNGS-VERTEILER') ? 'flex' : 'none';
+        if (type === 'HOCHSPANNUNGS-VERTEILER') document.getElementById('menu-platzhalter').style.display = 'none'; 
+        setTimeout(window.updateAusbauButtons, 50); 
+    };
+
+    // 4. Kauf-Logik (Rein Credits)
+    const oldBuyFurnitureB6 = window.buyFurniture;
+    window.buyFurniture = async (type, cost) => {
+        if (newItems6.includes(type)) {
+            let maxAmt = (type === 'hv_kondensator') ? 4 : (type === 'hv_relais' ? 2 : 1);
+            let current = parseInt(inventory[type]) || 0;
+            
+            if (current >= maxAmt) return; 
+            
+            if (gameState.credits >= cost) {
+                gameState.credits -= cost;
+                document.getElementById('display-credits').innerText = gameState.credits;
+
+                inventory[type] = current + 1;
+                
+                const btn = document.getElementById(`btn-buy-${type.replaceAll('_', '-')}`);
+                if (btn) {
+                    if (inventory[type] >= maxAmt) {
+                        btn.innerText = "[ INSTALLIERT ]";
+                        btn.disabled = true;
+                        btn.style.background = "#333";
+                        btn.style.color = "#555";
+                        btn.style.border = "1px solid #333";
+                        btn.style.cursor = "not-allowed";
+                    } else {
+                        btn.innerText = `KAUFEN (${cost} C) [${inventory[type]}/${maxAmt}]`;
+                    }
+                }
+                
+                window.spawnFurniture(type, inventory[type]);
+            } else { 
+                if(typeof showCustomAlert === 'function') showCustomAlert("System: Credits unzureichend."); else alert("System: Credits unzureichend.");
+            }
+        } else {
+            if (typeof oldBuyFurnitureB6 === 'function') oldBuyFurnitureB6(type, cost); 
+        }
+    };
+
+    // 5. Möbel Laden & Spawnen
+    const oldReloadB6 = window.reloadFurniture;
+    window.reloadFurniture = (type) => {
+        if (typeof oldReloadB6 === 'function') oldReloadB6(type);
+        if (type === 'HOCHSPANNUNGS-VERTEILER') {
+            if (inventory.hv_trafo > 0) window.spawnFurniture('hv_trafo', 1);
+            for (let i = 1; i <= inventory.hv_kondensator; i++) window.spawnFurniture('hv_kondensator', i);
+            for (let i = 1; i <= inventory.hv_relais; i++) window.spawnFurniture('hv_relais', i);
+        }
+    };
+
+    const oldSpawnB6 = window.spawnFurniture;
+    window.spawnFurniture = (type, count) => {
+        if (typeof oldSpawnB6 === 'function') oldSpawnB6(type, count);
+        const room = document.getElementById('room-area');
+        if (!room || !newItems6.includes(type)) return;
+        
+        const item = document.createElement('div');
+        item.classList.add('fixed-item');
+
+        if (type === 'hv_trafo') {
+            item.classList.add('item-hv-trafo');
+            item.innerHTML = `
+                <div class="trafo-coils">
+                    <div class="trafo-coil"><div class="trafo-arc"></div></div>
+                    <div class="trafo-coil"><div class="trafo-arc" style="animation-delay: 1.2s; border-color: #ffaa00;"></div></div>
+                </div>
+                <div class="trafo-base"></div>`;
+        } else if (type === 'hv_kondensator') {
+            item.classList.add('item-hv-kondensator');
+            item.innerHTML = '<div class="cap-cap"></div><div class="cap-glass"><div class="cap-fluid"></div></div>';
+            
+            // Verteilt die 4 Kondensatoren symmetrisch im Raum
+            const positions = ['15%', '25%', '75%', '85%'];
+            item.style.left = positions[count - 1];
+            // Leicht versetzte Lade-Animationen
+            item.querySelector('.cap-fluid').style.animationDelay = `${count * 0.7}s`;
+            
+        } else if (type === 'hv_relais') {
+            item.classList.add('item-hv-relais');
+            item.innerHTML = '<div class="relais-mount"></div><div class="relais-node"><div class="relais-lightning"></div></div>';
+            
+            if (count === 1) { 
+                item.style.left = '35%'; 
+                item.querySelector('.relais-lightning').style.animationDelay = '0.5s';
+                item.querySelector('.relais-lightning').style.transform = 'rotate(-15deg)';
+            } else if (count === 2) { 
+                item.style.left = '65%'; 
+                item.querySelector('.relais-lightning').style.animationDelay = '2.1s';
+                item.querySelector('.relais-lightning').style.transform = 'rotate(15deg)';
+            }
+        }
+        room.appendChild(item);
+    };
+</script>
     <script>
     // === ZENTRALER MULTI-BLOCK-WÄCHTER ===
     // Diese Funktion prüft ALLE Items aus JEDEM Block (2, 3 und 4)
