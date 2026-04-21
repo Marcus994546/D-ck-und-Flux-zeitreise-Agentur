@@ -1241,5 +1241,69 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
+    <script>
+    // === ZENTRALER MULTI-BLOCK-WÄCHTER ===
+    // Diese Funktion prüft ALLE Items aus JEDEM Block (2, 3 und 4)
+    window.updateAusbauButtons = function() {
+        if (typeof inventory === 'undefined') return;
+        
+        const allLimits = {
+            // Block 2 & 3 (Basis & Technik)
+            desk: 1, lampe: 1, kartograph: 1, server: 2,
+            regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
+            hub_server: 4, hub_terminal: 1, hub_lampe: 1,
+            werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1,
+            // Block 4 (Reaktor)
+            reaktor: 1, hv_leitung: 3, plasma_lampe: 1
+        };
+
+        for (let k in allLimits) {
+            let max = allLimits[k];
+            let current = inventory[k] || 0;
+            // Erzeugt die ID wie sie im HTML steht (z.B. btn-buy-hv-leitung)
+            let btnId = 'btn-buy-' + k.replace(/_/g, '-');
+            let btn = document.getElementById(btnId);
+            
+            if (btn) {
+                if (current >= max) {
+                    btn.innerText = "[ BEREITS INSTALLIERT ]";
+                    btn.disabled = true;
+                    btn.style.background = "#333";
+                    btn.style.color = "#555";
+                    btn.style.cursor = "not-allowed";
+                    btn.style.boxShadow = "none";
+                } else {
+                    // Falls noch Plätze frei sind (z.B. Betten oder Server), Button aktiv lassen
+                    btn.disabled = false;
+                    btn.style.background = ""; 
+                    btn.style.color = "";
+                    btn.style.cursor = "pointer";
+                    
+                    // Anzeige von Stapel-Items aktualisieren (z.B. [1/4])
+                    if (max > 1 && btn.innerText.includes('[')) {
+                        btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
+                    }
+                }
+            }
+        }
+    };
+
+    // Sicherstellen, dass beim Öffnen eines Raumes die Buttons SOFORT geprüft werden
+    // Wir überschreiben die openRoom Funktion ein letztes Mal sauber
+    const finalOpenRoom = window.openRoom;
+    window.openRoom = function(type) {
+        if (typeof finalOpenRoom === 'function') finalOpenRoom(type);
+        
+        // Timeout ist nötig, da die Menüs per Template-String erst kurz nach dem Klick erscheinen
+        setTimeout(() => {
+            window.updateAusbauButtons();
+            // Falls Möbel beim ersten Mal nicht geladen wurden (Reload-Trigger)
+            if (typeof window.reloadFurniture === 'function') window.reloadFurniture(type);
+        }, 100);
+    };
+
+    // Initialer Check beim Start der Basis
+    setTimeout(window.updateAusbauButtons, 1500);
+</script>
 </body>
 </html>
