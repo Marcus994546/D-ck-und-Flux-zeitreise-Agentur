@@ -1241,6 +1241,208 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
+    <style>
+    /* --- Quanten-Labor Animationen --- */
+    @keyframes levitate { 0%, 100% { transform: translateY(0) rotateX(20deg) rotateZ(45deg); } 50% { transform: translateY(-15px) rotateX(20deg) rotateZ(45deg); } }
+    @keyframes data-stream-up { 0% { background-position: 0 100%; opacity: 0.3; } 50% { opacity: 0.8; } 100% { background-position: 0 0; opacity: 0.3; } }
+    @keyframes q-ring-spin { 0% { transform: rotateX(70deg) rotateZ(0deg); } 100% { transform: rotateX(70deg) rotateZ(360deg); } }
+    @keyframes laser-scan { 0%, 100% { left: 10%; } 50% { left: 90%; } }
+    @keyframes node-pulse { 0%, 100% { box-shadow: 0 0 15px rgba(136, 68, 255, 0.5); } 50% { box-shadow: 0 0 30px rgba(136, 68, 255, 1); } }
+
+    /* --- Quanten-Zentralrechner (Q-Core) --- */
+    .item-qcore { width: 100%; height: 200px; position: absolute; z-index: 3; left: 0; bottom: 50px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; pointer-events: none; }
+    
+    /* Der schwebende Quanten-Würfel */
+    .q-cube { width: 60px; height: 60px; background: rgba(20, 5, 40, 0.9); border: 2px solid #84f; box-shadow: 0 0 30px #84f, inset 0 0 15px #0ff; animation: levitate 4s ease-in-out infinite; position: absolute; bottom: 80px; z-index: 5; }
+    
+    /* Holografische Datenringe */
+    .q-ring-1 { width: 140px; height: 140px; border: 2px solid rgba(0, 255, 255, 0.5); border-radius: 50%; position: absolute; bottom: 40px; animation: q-ring-spin 6s linear infinite; z-index: 4; }
+    .q-ring-2 { width: 110px; height: 110px; border: 2px dashed rgba(136, 68, 255, 0.8); border-radius: 50%; position: absolute; bottom: 55px; animation: q-ring-spin 4s linear infinite reverse; z-index: 6; }
+    
+    /* Vertikaler Datenstrom (Uplink) */
+    .q-uplink { width: 40px; height: 250px; background: repeating-linear-gradient(0deg, transparent, transparent 5px, rgba(0, 255, 255, 0.4) 5px, rgba(0, 255, 255, 0.8) 10px); background-size: 100% 200%; position: absolute; bottom: 0; animation: data-stream-up 2s linear infinite; mask-image: linear-gradient(to top, transparent, black 20%, black 80%, transparent); -webkit-mask-image: linear-gradient(to top, transparent, black 20%, black 80%, transparent); z-index: 2; }
+    
+    /* Anti-Grav Sockel */
+    .q-base { width: 100px; height: 20px; background: #050505; border: 2px solid #444; border-top: 4px solid #84f; border-radius: 50%; position: absolute; bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.9), 0 -10px 20px rgba(136, 68, 255, 0.3); z-index: 1; }
+
+    /* --- Verschränkungs-Knoten (Entanglement Nodes) --- */
+    .item-qnode { position: absolute; z-index: 4; bottom: 70px; width: 30px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .node-crystal { width: 12px; height: 40px; background: #0ff; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); animation: node-pulse 2s infinite; box-shadow: 0 0 20px #0ff; margin-bottom: 10px; }
+    .node-stand { width: 24px; height: 15px; background: #222; border: 1px solid #555; border-top: 3px solid #0ff; border-radius: 3px 3px 0 0; box-shadow: 0 5px 10px #000; }
+
+    /* --- Photonen-Scanner-Leuchte --- */
+    .item-photon-lampe { width: 120px; height: 15px; background: #111; border: 1px solid #444; border-top: none; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); border-radius: 0 0 10px 10px; overflow: hidden; }
+    .photon-track { width: 100%; height: 4px; background: #000; margin-top: 8px; position: relative; }
+    .photon-laser { width: 10px; height: 10px; background: #0ff; border-radius: 50%; position: absolute; top: -3px; animation: laser-scan 3s ease-in-out infinite; box-shadow: 0 0 15px #0ff, 0 50px 50px 20px rgba(0, 255, 255, 0.15); }
+</style>
+
+<script>
+    // 1. Menü für das Quanten-Labor einfügen
+    const menuQuantenLabor = `
+    <div id="menu-quanten-labor" style="display:none; flex-direction:column; gap:15px;">
+        <div class="upgrade-card">
+            <b>[ QUANTEN-ZENTRALRECHNER ]</b><p style="font-size: 0.7em; color: #aaa;">Schwebender Q-Core für paradoxe Berechnungen.</p>
+            <button id="btn-buy-q-core" onclick="window.buyFurniture('q_core', 4000)" class="btn-upgrade-exec" style="background:#84f; border:1px solid #84f; color:#000;">KAUFEN (4000 C + 50 MZ)</button>
+        </div>
+        <div class="upgrade-card">
+            <b>[ VERSCHRÄNKUNGS-KNOTEN ]</b><p style="font-size: 0.7em; color: #aaa;">Optische Hochfrequenz-Datenleiter. (Max. 2)</p>
+            <button id="btn-buy-q-node" onclick="window.buyFurniture('q_node', 1200)" class="btn-upgrade-exec">KAUFEN (1200 C) [0/2]</button>
+        </div>
+        <div class="upgrade-card">
+            <b>[ PHOTONEN-SCANNER ]</b><p style="font-size: 0.7em; color: #aaa;">Aktives Überwachungslichtfeld.</p>
+            <button id="btn-buy-photon-lampe" onclick="window.buyFurniture('photon_lampe', 250)" class="btn-upgrade-exec">KAUFEN (250 C)</button>
+        </div>
+    </div>`;
+    
+    if (!document.getElementById('menu-quanten-labor')) {
+        document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuQuantenLabor);
+    }
+
+    const newItems5 = ['q_core', 'q_node', 'photon_lampe'];
+    newItems5.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+    // 2. Erweiterten Master-Wächter definieren (Enthält jetzt Block 2, 3, 4 UND 5!)
+    window.updateAusbauButtons = function() {
+        if (typeof inventory === 'undefined') return;
+        const allLimits = {
+            desk: 1, lampe: 1, kartograph: 1, server: 2,
+            regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
+            hub_server: 4, hub_terminal: 1, hub_lampe: 1,
+            werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1,
+            reaktor: 1, hv_leitung: 3, plasma_lampe: 1,
+            // NEU: Quanten-Labor
+            q_core: 1, q_node: 2, photon_lampe: 1
+        };
+
+        for (let k in allLimits) {
+            let max = allLimits[k];
+            let current = inventory[k] || 0;
+            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+            if (btn) {
+                if (current >= max) {
+                    btn.innerText = "[ BEREITS INSTALLIERT ]";
+                    btn.disabled = true;
+                    btn.style.background = "#333";
+                    btn.style.color = "#555";
+                    btn.style.cursor = "not-allowed";
+                    btn.style.boxShadow = "none";
+                } else {
+                    btn.disabled = false;
+                    btn.style.background = ""; 
+                    btn.style.color = "";
+                    btn.style.cursor = "pointer";
+                    if (max > 1 && btn.innerText.includes('[')) {
+                        btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
+                    }
+                }
+            }
+        }
+    };
+
+    // 3. Raumwechsel patchen
+    const oldOpenRoomB5 = window.openRoom;
+    window.openRoom = (type) => {
+        if (oldOpenRoomB5) oldOpenRoomB5(type); 
+        const menuQuantenEl = document.getElementById('menu-quanten-labor');
+        if (menuQuantenEl) menuQuantenEl.style.display = (type === 'QUANTEN-LABOR') ? 'flex' : 'none';
+        if (type === 'QUANTEN-LABOR') document.getElementById('menu-platzhalter').style.display = 'none'; 
+        setTimeout(window.updateAusbauButtons, 50); 
+    };
+
+    // 4. Kauf-Logik
+    const oldBuyFurnitureB5 = window.buyFurniture;
+    window.buyFurniture = async (type, cost) => {
+        if (newItems5.includes(type)) {
+            let maxAmt = (type === 'q_node') ? 2 : 1;
+            if (inventory[type] >= maxAmt) return; 
+            
+            let isQCore = (type === 'q_core');
+            let costC = cost; // Standard Credit-Kosten
+            let costMZ = isQCore ? 50 : 0; // Q-Core kostet zusätzlich 50 MZ
+            
+            let hasEnough = (gameState.credits >= costC) && (gameState.materieZellen >= costMZ);
+            
+            if (hasEnough) {
+                gameState.credits -= costC;
+                document.getElementById('display-credits').innerText = gameState.credits;
+
+                if (isQCore) {
+                    gameState.materieZellen -= costMZ;
+                    document.getElementById('display-mz').innerText = gameState.materieZellen;
+                    
+                    const ag = localStorage.getItem("flux_last_agent") || "";
+                    if (ag) {
+                        const mainPKey = 'flux_agent_' + ag.toLowerCase();
+                        let d = {}; const mainP = localStorage.getItem(mainPKey);
+                        if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
+                        d.mz = gameState.materieZellen; 
+                        localStorage.setItem(mainPKey, JSON.stringify(d));
+
+                        if (window.db && window.setDoc) {
+                            try {
+                                const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
+                                await window.setDoc(bRef, { mz: gameState.materieZellen }, { merge: true });
+                            } catch(e) {}
+                        }
+                    }
+                }
+                inventory[type]++;
+                window.updateAusbauButtons();
+                window.spawnFurniture(type, inventory[type]);
+            } else { 
+                let msg = isQCore ? "System: Nicht genügend Credits oder Materie-Zellen (4000 C + 50 MZ benötigt)." : "System: Credits unzureichend.";
+                if(typeof showCustomAlert === 'function') showCustomAlert(msg); else alert(msg);
+            }
+        } else {
+            if (oldBuyFurnitureB5) oldBuyFurnitureB5(type, cost); 
+        }
+    };
+
+    // 5. Möbel Laden & Spawnen
+    const oldReloadB5 = window.reloadFurniture;
+    window.reloadFurniture = (type) => {
+        if (oldReloadB5) oldReloadB5(type);
+        if (type === 'QUANTEN-LABOR') {
+            if (inventory.photon_lampe > 0) window.spawnFurniture('photon_lampe', 1);
+            if (inventory.q_core > 0) window.spawnFurniture('q_core', 1);
+            for (let i = 1; i <= inventory.q_node; i++) window.spawnFurniture('q_node', i);
+        }
+    };
+
+    const oldSpawnB5 = window.spawnFurniture;
+    window.spawnFurniture = (type, count) => {
+        if (oldSpawnB5) oldSpawnB5(type, count);
+        const room = document.getElementById('room-area');
+        if (!room || !newItems5.includes(type)) return;
+        
+        const item = document.createElement('div');
+        item.classList.add('fixed-item');
+
+        if (type === 'photon_lampe') {
+            item.classList.add('item-photon-lampe');
+            item.innerHTML = '<div class="photon-track"><div class="photon-laser"></div></div>';
+        } else if (type === 'q_core') {
+            item.classList.add('item-qcore');
+            item.innerHTML = `
+                <div class="q-uplink"></div>
+                <div class="q-ring-1"></div>
+                <div class="q-ring-2"></div>
+                <div class="q-cube"></div>
+                <div class="q-base"></div>`;
+        } else if (type === 'q_node') {
+            item.classList.add('item-qnode');
+            item.innerHTML = '<div class="node-crystal"></div><div class="node-stand"></div>';
+            if (count === 1) { 
+                // Linker Knoten
+                item.style.left = '20px'; 
+            } else if (count === 2) { 
+                // Rechter Knoten
+                item.style.right = '20px'; 
+            }
+        }
+        room.appendChild(item);
+    };
+</script>
     <script>
     // === ZENTRALER MULTI-BLOCK-WÄCHTER ===
     // Diese Funktion prüft ALLE Items aus JEDEM Block (2, 3 und 4)
