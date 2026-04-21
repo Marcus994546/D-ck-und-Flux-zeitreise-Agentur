@@ -1530,5 +1530,56 @@ window.spawnFurniture = (type, count) => {
     // Initialer Check beim Start der Basis
     setTimeout(window.updateAusbauButtons, 1500);
 </script>
+    <script>
+    const masterLimits = {
+        desk: 1, lampe: 1, kartograph: 1, server: 2,
+        regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
+        hub_server: 4, hub_terminal: 1, hub_lampe: 1,
+        werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1,
+        reaktor: 1, hv_leitung: 3, plasma_lampe: 1,
+        q_core: 1, q_node: 2, photon_lampe: 1
+    };
+
+    window.updateAusbauButtons_FORCE = function() {
+        if (typeof inventory === 'undefined') return;
+        
+        for (let k in masterLimits) {
+            let max = masterLimits[k];
+            let current = inventory[k] || 0;
+            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+            
+            if (btn) {
+                if (current >= max) {
+                    btn.innerText = "[ BEREITS INSTALLIERT ]";
+                    btn.disabled = true;
+                    
+                    // Entfernt alle festen HTML-Farben (wie das Lila beim Q-Core)
+                    btn.removeAttribute("style"); 
+                    
+                    // Zwingt die graue Blockade-Farbe mit höchster Priorität rein
+                    btn.style.setProperty("background", "#333", "important");
+                    btn.style.setProperty("color", "#555", "important");
+                    btn.style.setProperty("border-color", "#333", "important");
+                    btn.style.setProperty("box-shadow", "none", "important");
+                    btn.style.setProperty("cursor", "not-allowed", "important");
+                } else {
+                    // Button bleibt aktiv und Text aktualisiert sich bei Mehrfach-Käufen
+                    if (max > 1 && btn.innerText.includes('[')) {
+                        btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
+                    }
+                }
+            }
+        }
+    };
+
+    // 1. Überschreibt hart alle anderen, alten Update-Funktionen
+    window.updateAusbauButtons = window.updateAusbauButtons_FORCE;
+
+    // 2. Erneuert die Überprüfung jede Sekunde, um alte Skripte permanent zu blockieren
+    setInterval(() => { 
+        window.updateAusbauButtons = window.updateAusbauButtons_FORCE; 
+        window.updateAusbauButtons_FORCE();
+    }, 1000);
+</script>
 </body>
 </html>
