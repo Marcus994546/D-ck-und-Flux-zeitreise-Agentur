@@ -1499,7 +1499,7 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
-    <style>
+<style>
     /* --- Animationen für Hochspannungs-Verteiler --- */
     @keyframes coil-buzz { 0%, 100% { transform: translateX(0); box-shadow: 0 0 10px #ffaa00; } 50% { transform: translateX(1px); box-shadow: 0 0 25px #ffaa00; } }
     @keyframes arc-flash { 0%, 100% { opacity: 0; } 1%, 5% { opacity: 1; transform: scaleX(1.1) rotate(2deg); } 2%, 4% { opacity: 0; } 3% { opacity: 1; transform: scaleX(0.9) rotate(-2deg); } }
@@ -1527,7 +1527,6 @@ window.spawnFurniture = (type, count) => {
 </style>
 
 <script>
-    // 1. Menü einfügen
     const menuVerteiler = `
     <div id="menu-hochspannungs-verteiler" style="display:none; flex-direction:column; gap:15px;">
         <div class="upgrade-card">
@@ -1551,7 +1550,6 @@ window.spawnFurniture = (type, count) => {
     const newItems6 = ['hv_trafo', 'hv_kondensator', 'hv_relais'];
     newItems6.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
-    // 2. Modulares Button-Update
     const oldUpdateAusbauB6 = window.updateAusbauButtons;
     window.updateAusbauButtons = function() {
         if (typeof oldUpdateAusbauB6 === 'function') oldUpdateAusbauB6();
@@ -1578,7 +1576,6 @@ window.spawnFurniture = (type, count) => {
         }
     };
 
-    // 3. Raumwechsel patchen (Mit !important Override für den Platzhalter)
     const oldOpenRoomB6 = window.openRoom;
     window.openRoom = (type) => {
         if (typeof oldOpenRoomB6 === 'function') oldOpenRoomB6(type); 
@@ -1592,7 +1589,6 @@ window.spawnFurniture = (type, count) => {
         setTimeout(window.updateAusbauButtons, 50); 
     };
 
-    // 4. Kauf-Logik (Rein Credits)
     const oldBuyFurnitureB6 = window.buyFurniture;
     window.buyFurniture = async (type, cost) => {
         if (newItems6.includes(type)) {
@@ -1628,7 +1624,6 @@ window.spawnFurniture = (type, count) => {
         }
     };
 
-    // 5. Möbel Laden & Spawnen
     const oldReloadB6 = window.reloadFurniture;
     window.reloadFurniture = (type) => {
         if (typeof oldReloadB6 === 'function') oldReloadB6(type);
@@ -1660,7 +1655,6 @@ window.spawnFurniture = (type, count) => {
             item.classList.add('item-hv-kondensator');
             item.innerHTML = '<div class="cap-cap"></div><div class="cap-glass"><div class="cap-fluid"></div></div>';
             
-            // Verteilt die 4 Kondensatoren symmetrisch links und rechts
             const positions = ['12%', '25%', '75%', '88%'];
             item.style.left = positions[count - 1];
             item.querySelector('.cap-fluid').style.animationDelay = `${count * 0.8}s`;
@@ -1682,6 +1676,7 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
+
     <script>
     // === ZENTRALER MULTI-BLOCK-WÄCHTER ===
     // Diese Funktion prüft ALLE Items aus JEDEM Block (2, 3 und 4)
