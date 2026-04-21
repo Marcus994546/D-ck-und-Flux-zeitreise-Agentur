@@ -1241,50 +1241,5 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
-<script>
-        // Block 99, wächter
-    window.updateAusbauButtons = function() {
-        if (typeof inventory === 'undefined') return;
-        
-        const limits = {
-            desk: 1, lampe: 1, kartograph: 1, server: 2,
-            regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
-            hub_server: 4, hub_terminal: 1, hub_lampe: 1,
-            werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1
-        };
-
-        for (let k in limits) {
-            let max = limits[k];
-            let current = inventory[k] || 0;
-            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
-            
-            if (btn) {
-                if (current >= max) {
-                    btn.innerText = "[ BEREITS INSTALLIERT ]";
-                    btn.disabled = true;
-                    btn.style.background = "#333";
-                    btn.style.color = "#555";
-                    btn.style.cursor = "not-allowed";
-                } else if (max > 1 && btn.innerText.includes('[')) {
-                    // Aktualisiert die Anzeige wie z.B. [2/4]
-                    btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
-                }
-            }
-        }
-    };
-
-    // Klinkt sich in das Öffnen der Räume ein
-    if (typeof window.oldOpenRoomVis === 'undefined') {
-        window.oldOpenRoomVis = window.openRoom;
-        window.openRoom = function(type) {
-            if (typeof window.oldOpenRoomVis === 'function') window.oldOpenRoomVis(type);
-            setTimeout(window.updateAusbauButtons, 50); 
-        };
-    }
-
-    // Führt das Update beim Start mehrfach aus, falls die Cloud einen Moment braucht
-    setTimeout(window.updateAusbauButtons, 1500);
-    setInterval(window.updateAusbauButtons, 3000); 
-</script>
 </body>
 </html>
