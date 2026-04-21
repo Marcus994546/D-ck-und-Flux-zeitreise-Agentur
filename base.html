@@ -994,12 +994,8 @@ window.spawnFurniture = (type, count) => {
 };
 </script>
 <style>
-    /* --- Komplexe Animationen --- */
-    @keyframes core-pulse { 
-        0% { box-shadow: 0 0 20px #0f8, inset 0 0 15px #fff; transform: scale(1); } 
-        50% { box-shadow: 0 0 60px #0f8, inset 0 0 30px #fff; transform: scale(1.05); } 
-        100% { box-shadow: 0 0 20px #0f8, inset 0 0 15px #fff; transform: scale(1); } 
-    }
+    /* --- Komplexe Animationen Flux-Reaktor --- */
+    @keyframes core-pulse { 0% { box-shadow: 0 0 20px #0f8, inset 0 0 15px #fff; transform: scale(1); } 50% { box-shadow: 0 0 60px #0f8, inset 0 0 30px #fff; transform: scale(1.05); } 100% { box-shadow: 0 0 20px #0f8, inset 0 0 15px #fff; transform: scale(1); } }
     @keyframes ring-spin-1 { from { transform: translate(-50%, -50%) rotateX(60deg) rotateY(0deg) rotateZ(0deg); } to { transform: translate(-50%, -50%) rotateX(60deg) rotateY(360deg) rotateZ(360deg); } }
     @keyframes ring-spin-2 { from { transform: translate(-50%, -50%) rotateX(0deg) rotateY(60deg) rotateZ(0deg); } to { transform: translate(-50%, -50%) rotateX(360deg) rotateY(60deg) rotateZ(360deg); } }
     @keyframes ring-spin-3 { from { transform: translate(-50%, -50%) rotateZ(0deg); } to { transform: translate(-50%, -50%) rotateZ(-360deg); } }
@@ -1009,121 +1005,71 @@ window.spawnFurniture = (type, count) => {
     @keyframes field-fluctuate { 0% { opacity: 0.3; } 50% { opacity: 0.6; } 100% { opacity: 0.3; } }
 
     /* --- Reaktor-Hauptstruktur --- */
-    .item-reaktor { 
-        width: 140px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; 
-        transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    }
-    .reaktor-containment {
-        position: absolute; width: 120px; height: 120px; bottom: 30px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(0,255,136,0.1) 0%, rgba(0,255,136,0) 70%);
-        border: 1px solid rgba(0, 255, 136, 0.3); animation: field-fluctuate 3s infinite; box-shadow: 0 0 30px rgba(0,255,136,0.2);
-    }
-    .reaktor-core { 
-        position: absolute; width: 35px; height: 35px; bottom: 72px; left: 50%; margin-left: -17.5px;
-        background: #fff; border-radius: 50%; animation: core-pulse 1.5s infinite; z-index: 5; 
-        box-shadow: 0 0 20px #0f8;
-    }
-    .reaktor-ring-1 { 
-        position: absolute; width: 90px; height: 90px; bottom: 45px; left: 50%; border: 3px solid #0ff; 
-        border-radius: 50%; animation: ring-spin-1 3s linear infinite; z-index: 4; box-shadow: inset 0 0 10px #0ff, 0 0 10px #0ff;
-    }
-    .reaktor-ring-2 { 
-        position: absolute; width: 80px; height: 80px; bottom: 50px; left: 50%; border: 3px dashed #ffaa00; 
-        border-radius: 50%; animation: ring-spin-2 2.5s linear infinite reverse; z-index: 6; 
-    }
-    .reaktor-ring-3 { 
-        position: absolute; width: 100px; height: 100px; bottom: 40px; left: 50%; border: 2px dotted #fff; 
-        border-radius: 50%; animation: ring-spin-3 6s linear infinite; z-index: 3; opacity: 0.5;
-    }
-    .reaktor-base {
-        width: 110px; height: 40px; background: linear-gradient(180deg, #222, #050505);
-        border: 2px solid #333; border-bottom: 4px solid #ffaa00; border-radius: 10px 10px 4px 4px;
-        position: relative; z-index: 7; display: flex; justify-content: space-around; align-items: center;
-        box-shadow: 0 15px 25px rgba(0,0,0,0.9), inset 0 5px 10px rgba(0,0,0,0.5);
-    }
+    .item-reaktor { width: 140px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .reaktor-containment { position: absolute; width: 120px; height: 120px; bottom: 30px; border-radius: 50%; background: radial-gradient(circle, rgba(0,255,136,0.1) 0%, rgba(0,255,136,0) 70%); border: 1px solid rgba(0, 255, 136, 0.3); animation: field-fluctuate 3s infinite; box-shadow: 0 0 30px rgba(0,255,136,0.2); }
+    .reaktor-core { position: absolute; width: 35px; height: 35px; bottom: 72px; left: 50%; margin-left: -17.5px; background: #fff; border-radius: 50%; animation: core-pulse 1.5s infinite; z-index: 5; box-shadow: 0 0 20px #0f8; }
+    .reaktor-ring-1 { position: absolute; width: 90px; height: 90px; bottom: 45px; left: 50%; border: 3px solid #0ff; border-radius: 50%; animation: ring-spin-1 3s linear infinite; z-index: 4; box-shadow: inset 0 0 10px #0ff, 0 0 10px #0ff; }
+    .reaktor-ring-2 { position: absolute; width: 80px; height: 80px; bottom: 50px; left: 50%; border: 3px dashed #ffaa00; border-radius: 50%; animation: ring-spin-2 2.5s linear infinite reverse; z-index: 6; }
+    .reaktor-ring-3 { position: absolute; width: 100px; height: 100px; bottom: 40px; left: 50%; border: 2px dotted #fff; border-radius: 50%; animation: ring-spin-3 6s linear infinite; z-index: 3; opacity: 0.5; }
+    .reaktor-base { width: 110px; height: 40px; background: linear-gradient(180deg, #222, #050505); border: 2px solid #333; border-bottom: 4px solid #ffaa00; border-radius: 10px 10px 4px 4px; position: relative; z-index: 7; display: flex; justify-content: space-around; align-items: center; box-shadow: 0 15px 25px rgba(0,0,0,0.9), inset 0 5px 10px rgba(0,0,0,0.5); }
     .r-led { width: 6px; height: 6px; background: #f44; border-radius: 50%; box-shadow: 0 0 8px #f44; animation: led-blink 1s infinite; }
     .r-led:nth-child(2) { background: #0f8; box-shadow: 0 0 8px #0f8; animation-delay: 0.3s; }
     .r-led:nth-child(3) { background: #0ff; box-shadow: 0 0 8px #0ff; animation-delay: 0.6s; }
     .r-panel { width: 40px; height: 10px; background: #000; border: 1px solid #0f8; box-shadow: inset 0 0 5px #0f8; }
 
-    /* --- Hochspannungsleitungen (In den Reaktor führend) --- */
-    .item-hv-leitung { 
-        position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center;
-    }
-    .hv-kabel {
-        width: 100%; height: 6px; background: #111; border-top: 1px solid #333; border-bottom: 1px solid #000;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.9); overflow: hidden; position: relative;
-    }
-    .hv-kabel.vert {
-        width: 6px; height: 100%; border-left: 1px solid #333; border-right: 1px solid #000; border-top: none; border-bottom: none;
-    }
-    .hv-isolator {
-        width: 14px; height: 14px; background: repeating-linear-gradient(90deg, #333 0px, #333 3px, #111 3px, #111 6px);
-        border-radius: 3px; border: 1px solid #000; box-shadow: 0 2px 5px #000;
-    }
-    .hv-zap { 
-        width: 100%; height: 100%; background: linear-gradient(90deg, transparent 0%, #0ff 30%, #fff 50%, #0ff 70%, transparent 100%); 
-        background-size: 50% 100%; animation: plasma-zap 0.8s linear infinite; opacity: 0.9; filter: drop-shadow(0 0 5px #0ff);
-    }
-    .hv-zap.vert {
-        background: linear-gradient(180deg, transparent 0%, #0ff 30%, #fff 50%, #0ff 70%, transparent 100%); 
-        background-size: 100% 50%; animation: plasma-zap-vert 0.8s linear infinite;
-    }
+    /* --- Hochspannungsleitungen (In den Reaktor) --- */
+    .item-hv-leitung { position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center; }
+    .hv-kabel { width: 100%; height: 6px; background: #111; border-top: 1px solid #333; border-bottom: 1px solid #000; box-shadow: 0 5px 15px rgba(0,0,0,0.9); overflow: hidden; position: relative; }
+    .hv-kabel.vert { width: 6px; height: 100%; border-left: 1px solid #333; border-right: 1px solid #000; border-top: none; border-bottom: none; }
+    .hv-isolator { width: 14px; height: 14px; background: repeating-linear-gradient(90deg, #333 0px, #333 3px, #111 3px, #111 6px); border-radius: 3px; border: 1px solid #000; box-shadow: 0 2px 5px #000; }
+    .hv-zap { width: 100%; height: 100%; background: linear-gradient(90deg, transparent 0%, #0ff 30%, #fff 50%, #0ff 70%, transparent 100%); background-size: 50% 100%; animation: plasma-zap 0.8s linear infinite; opacity: 0.9; filter: drop-shadow(0 0 5px #0ff); }
+    .hv-zap.vert { background: linear-gradient(180deg, transparent 0%, #0ff 30%, #fff 50%, #0ff 70%, transparent 100%); background-size: 100% 50%; animation: plasma-zap-vert 0.8s linear infinite; }
 
     /* --- Plasma-Bogenleuchte --- */
-    .item-plasma-lampe { 
-        width: 100px; height: 22px; background: #0a0a0a; border: 2px solid #333; border-top: none; 
-        position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); 
-        display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; 
-        box-shadow: 0 8px 25px rgba(0,255,136,0.3); border-radius: 0 0 8px 8px;
-    }
-    .plasma-arc { 
-        width: 85%; height: 2px; background: #fff; box-shadow: 0 0 10px #fff, 0 0 20px #0f8; 
-        animation: field-fluctuate 0.1s infinite; 
-    }
+    .item-plasma-lampe { width: 100px; height: 22px; background: #0a0a0a; border: 2px solid #333; border-top: none; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; box-shadow: 0 8px 25px rgba(0,255,136,0.3); border-radius: 0 0 8px 8px; }
+    .plasma-arc { width: 85%; height: 2px; background: #fff; box-shadow: 0 0 10px #fff, 0 0 20px #0f8; animation: field-fluctuate 0.1s infinite; }
     .plasma-arc:nth-child(2) { box-shadow: 0 0 10px #fff, 0 0 20px #0ff; animation-duration: 0.15s; }
 </style>
 
 <script>
+    // 1. Menü einfügen
     const menuReaktor = `
     <div id="menu-flux-reaktor" style="display:none; flex-direction:column; gap:15px;">
         <div class="upgrade-card">
-            <b>[ FLUX-KERNREAKTOR ]</b>
-            <p style="font-size: 0.7em; color: #aaa;">Induktives Hochleistungs-Herzstück mit Phasen-Kapselung.</p>
+            <b>[ FLUX-KERNREAKTOR ]</b><p style="font-size: 0.7em; color: #aaa;">Induktives Hochleistungs-Herzstück.</p>
             <button id="btn-buy-reaktor" onclick="window.buyFurniture('reaktor', 3500)" class="btn-upgrade-exec" style="background:#0f8; border:1px solid #0f8; color:#000;">KAUFEN (3500 C + 40 MZ)</button>
         </div>
         <div class="upgrade-card">
-            <b>[ HOCHSPANNUNGS-TRASSE ]</b>
-            <p style="font-size: 0.7em; color: #aaa;">Kupfer-Stränge, die direkt in den Reaktor speisen. (Max. 3)</p>
+            <b>[ HOCHSPANNUNGS-TRASSE ]</b><p style="font-size: 0.7em; color: #aaa;">Kupfer-Stränge, die in den Reaktor speisen. (Max. 3)</p>
             <button id="btn-buy-hv-leitung" onclick="window.buyFurniture('hv_leitung', 800)" class="btn-upgrade-exec">KAUFEN (800 C) [0/3]</button>
         </div>
         <div class="upgrade-card">
-            <b>[ PLASMA-BOGENLEUCHTE ]</b>
-            <p style="font-size: 0.7em; color: #aaa;">Ionisierter Dual-Lichtbogen für extreme Ausleuchtung.</p>
+            <b>[ PLASMA-BOGENLEUCHTE ]</b><p style="font-size: 0.7em; color: #aaa;">Ionisierter Dual-Lichtbogen.</p>
             <button id="btn-buy-plasma-lampe" onclick="window.buyFurniture('plasma_lampe', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button>
         </div>
-    </div>
-    `;
+    </div>`;
     
     if (!document.getElementById('menu-flux-reaktor')) {
         document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuReaktor);
     }
 
     const newItems4 = ['reaktor', 'hv_leitung', 'plasma_lampe'];
-    newItems4.forEach(item => { if(inventory[item] === undefined) inventory[item] = 0; });
+    newItems4.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
-    const oldUpdateAusbau = window.updateAusbauButtons;
+    // 2. Globaler Button-Fix für ALLE Räume
     window.updateAusbauButtons = function() {
-        if (typeof oldUpdateAusbau === 'function') oldUpdateAusbau();
         if (typeof inventory === 'undefined') return;
-        
-        const newLimits = { reaktor: 1, hv_leitung: 3, plasma_lampe: 1 };
-        
-        for (let k in newLimits) {
-            let max = newLimits[k];
+        const allLimits = {
+            desk: 1, lampe: 1, kartograph: 1, server: 2,
+            regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
+            hub_server: 4, hub_terminal: 1, hub_lampe: 1,
+            werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1,
+            reaktor: 1, hv_leitung: 3, plasma_lampe: 1
+        };
+        for (let k in allLimits) {
+            let max = allLimits[k];
             let current = inventory[k] || 0;
             let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
-            
             if (btn) {
                 if (current >= max) {
                     btn.innerText = "[ BEREITS INSTALLIERT ]";
@@ -1137,20 +1083,22 @@ window.spawnFurniture = (type, count) => {
             }
         }
     };
+    // Update sofort nach dem Laden auslösen
+    setTimeout(window.updateAusbauButtons, 1000);
+    setInterval(window.updateAusbauButtons, 2000);
 
-    const openRoomB3 = window.openRoom;
+    // 3. Raumwechsel patchen
+    const oldOpenRoomB4 = window.openRoom;
     window.openRoom = (type) => {
-        openRoomB3(type); 
+        if (oldOpenRoomB4) oldOpenRoomB4(type); 
         const menuReaktorEl = document.getElementById('menu-flux-reaktor');
-        if (menuReaktorEl) {
-            menuReaktorEl.style.display = (type === 'FLUX-REAKTOR') ? 'flex' : 'none';
-        }
-        if (type === 'FLUX-REAKTOR') {
-            document.getElementById('menu-platzhalter').style.display = 'none'; 
-        }
+        if (menuReaktorEl) menuReaktorEl.style.display = (type === 'FLUX-REAKTOR') ? 'flex' : 'none';
+        if (type === 'FLUX-REAKTOR') document.getElementById('menu-platzhalter').style.display = 'none'; 
+        setTimeout(window.updateAusbauButtons, 50); // Buttons beim Raumöffnen graufärben!
     };
 
-    const buyB3 = window.buyFurniture;
+    // 4. Kauf-Logik mit Dual-Währung (Credits + MZ)
+    const oldBuyFurnitureB4 = window.buyFurniture;
     window.buyFurniture = async (type, cost) => {
         if (newItems4.includes(type)) {
             let maxAmt = (type === 'hv_leitung') ? 3 : 1;
@@ -1163,7 +1111,6 @@ window.spawnFurniture = (type, count) => {
             let hasEnough = (gameState.credits >= costC) && (gameState.materieZellen >= costMZ);
             
             if (hasEnough) {
-                // Beide Währungen abziehen
                 gameState.credits -= costC;
                 document.getElementById('display-credits').innerText = gameState.credits;
 
@@ -1174,8 +1121,7 @@ window.spawnFurniture = (type, count) => {
                     const ag = localStorage.getItem("flux_last_agent") || "";
                     if (ag) {
                         const mainPKey = 'flux_agent_' + ag.toLowerCase();
-                        let d = {};
-                        const mainP = localStorage.getItem(mainPKey);
+                        let d = {}; const mainP = localStorage.getItem(mainPKey);
                         if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
                         d.mz = gameState.materieZellen; 
                         localStorage.setItem(mainPKey, JSON.stringify(d));
@@ -1184,43 +1130,26 @@ window.spawnFurniture = (type, count) => {
                             try {
                                 const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
                                 await window.setDoc(bRef, { mz: gameState.materieZellen }, { merge: true });
-                            } catch(e) { console.error("Cloud MZ Save Error", e); }
+                            } catch(e) {}
                         }
                     }
                 }
-                
-                inventory[type]++; // Proxy speichert den Rest
-                
-                // Button Update
-                const btn = document.getElementById(`btn-buy-${type.replaceAll('_', '-')}`);
-                let unit = isMZ ? "3500 C + 40 MZ" : `${cost} C`;
-                btn.innerText = (inventory[type] >= maxAmt) ? "[ INSTALLIERT ]" : `KAUFEN (${unit}) [${inventory[type]}/${maxAmt}]`;
-                
-                if (inventory[type] >= maxAmt) {
-                    btn.disabled = true;
-                    btn.style.background = "#333";
-                    btn.style.color = "#555";
-                    btn.style.cursor = "not-allowed";
-                }
-                
+                inventory[type]++;
+                window.updateAusbauButtons();
                 window.spawnFurniture(type, inventory[type]);
-                
             } else { 
                 let msg = isMZ ? "System: Nicht genügend Credits oder Materie-Zellen (3500 C + 40 MZ benötigt)." : "System: Credits unzureichend.";
-                if(typeof showCustomAlert === 'function') {
-                    showCustomAlert(msg);
-                } else {
-                    alert(msg);
-                }
+                if(typeof showCustomAlert === 'function') showCustomAlert(msg); else alert(msg);
             }
         } else {
-            buyB3(type, cost); 
+            if (oldBuyFurnitureB4) oldBuyFurnitureB4(type, cost); 
         }
     };
 
-    const reloadB3 = window.reloadFurniture;
+    // 5. Möbel Laden & Spawnen
+    const oldReloadB4 = window.reloadFurniture;
     window.reloadFurniture = (type) => {
-        reloadB3(type);
+        if (oldReloadB4) oldReloadB4(type);
         if (type === 'FLUX-REAKTOR') {
             if (inventory.plasma_lampe > 0) window.spawnFurniture('plasma_lampe', 1);
             if (inventory.reaktor > 0) window.spawnFurniture('reaktor', 1);
@@ -1228,9 +1157,9 @@ window.spawnFurniture = (type, count) => {
         }
     };
 
-    const spawnB3 = window.spawnFurniture;
+    const oldSpawnB4 = window.spawnFurniture;
     window.spawnFurniture = (type, count) => {
-        spawnB3(type, count);
+        if (oldSpawnB4) oldSpawnB4(type, count);
         const room = document.getElementById('room-area');
         if (!room || !newItems4.includes(type)) return;
         
@@ -1242,31 +1171,17 @@ window.spawnFurniture = (type, count) => {
             item.innerHTML = '<div class="plasma-arc"></div><div class="plasma-arc"></div>';
         } else if (type === 'reaktor') {
             item.classList.add('item-reaktor');
-            item.innerHTML = `
-                <div class="reaktor-containment"></div>
-                <div class="reaktor-ring-1"></div>
-                <div class="reaktor-ring-2"></div>
-                <div class="reaktor-ring-3"></div>
-                <div class="reaktor-core"></div>
-                <div class="reaktor-base">
-                    <div class="r-led"></div>
-                    <div class="r-panel"></div>
-                    <div class="r-led"></div>
-                    <div class="r-led"></div>
-                </div>`;
+            item.innerHTML = `<div class="reaktor-containment"></div><div class="reaktor-ring-1"></div><div class="reaktor-ring-2"></div><div class="reaktor-ring-3"></div><div class="reaktor-core"></div><div class="reaktor-base"><div class="r-led"></div><div class="r-panel"></div><div class="r-led"></div><div class="r-led"></div></div>`;
         } else if (type === 'hv_leitung') {
             item.classList.add('item-hv-leitung');
-            if (count === 1) { // Links unten in den Reaktor
-                item.style.left = '0'; item.style.bottom = '100px'; item.style.width = '45%';
-                item.style.transformOrigin = 'left center'; item.style.transform = 'rotate(15deg)';
+            if (count === 1) { // Links in den Reaktor
+                item.style.left = '0'; item.style.bottom = '100px'; item.style.width = '45%'; item.style.transformOrigin = 'left center'; item.style.transform = 'rotate(15deg)';
                 item.innerHTML = '<div class="hv-isolator"></div><div class="hv-kabel" style="flex-grow:1;"><div class="hv-zap"></div></div><div class="hv-isolator"></div>';
-            } else if (count === 2) { // Rechts unten in den Reaktor
-                item.style.right = '0'; item.style.bottom = '100px'; item.style.width = '45%';
-                item.style.transformOrigin = 'right center'; item.style.transform = 'rotate(-15deg)';
+            } else if (count === 2) { // Rechts in den Reaktor
+                item.style.right = '0'; item.style.bottom = '100px'; item.style.width = '45%'; item.style.transformOrigin = 'right center'; item.style.transform = 'rotate(-15deg)';
                 item.innerHTML = '<div class="hv-isolator"></div><div class="hv-kabel" style="flex-grow:1;"><div class="hv-zap"></div></div><div class="hv-isolator"></div>';
-            } else if (count === 3) { // Von der Decke vertikal in den Reaktor
-                item.style.left = '50%'; item.style.top = '30px'; item.style.height = '110px'; item.style.width = '20px';
-                item.style.transform = 'translateX(-50%)'; item.style.flexDirection = 'column';
+            } else if (count === 3) { // Von oben in den Reaktor
+                item.style.left = '50%'; item.style.top = '30px'; item.style.height = '110px'; item.style.width = '20px'; item.style.transform = 'translateX(-50%)'; item.style.flexDirection = 'column';
                 item.innerHTML = '<div class="hv-isolator" style="transform:rotate(90deg);"></div><div class="hv-kabel vert" style="flex-grow:1;"><div class="hv-zap vert"></div></div><div class="hv-isolator" style="transform:rotate(90deg);"></div>';
             }
         }
