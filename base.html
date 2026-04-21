@@ -1004,6 +1004,7 @@ window.spawnFurniture = (type, count) => {
     @keyframes ring-spin-2 { from { transform: translate(-50%, -50%) rotateX(0deg) rotateY(60deg) rotateZ(0deg); } to { transform: translate(-50%, -50%) rotateX(360deg) rotateY(60deg) rotateZ(360deg); } }
     @keyframes ring-spin-3 { from { transform: translate(-50%, -50%) rotateZ(0deg); } to { transform: translate(-50%, -50%) rotateZ(-360deg); } }
     @keyframes plasma-zap { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    @keyframes plasma-zap-vert { 0% { background-position: 0 -200%; } 100% { background-position: 0 200%; } }
     @keyframes led-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
     @keyframes field-fluctuate { 0% { opacity: 0.3; } 50% { opacity: 0.6; } 100% { opacity: 0.3; } }
 
@@ -1045,21 +1046,28 @@ window.spawnFurniture = (type, count) => {
     .r-led:nth-child(3) { background: #0ff; box-shadow: 0 0 8px #0ff; animation-delay: 0.6s; }
     .r-panel { width: 40px; height: 10px; background: #000; border: 1px solid #0f8; box-shadow: inset 0 0 5px #0f8; }
 
-    /* --- Hochspannungsleitungen --- */
+    /* --- Hochspannungsleitungen (In den Reaktor führend) --- */
     .item-hv-leitung { 
-        width: 100%; height: 14px; position: absolute; z-index: 1; display: flex; align-items: center; justify-content: space-between;
+        position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center;
     }
     .hv-kabel {
-        position: absolute; left: 20px; right: 20px; height: 6px; background: #111; border-top: 1px solid #333; border-bottom: 1px solid #000;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.9); overflow: hidden;
+        width: 100%; height: 6px; background: #111; border-top: 1px solid #333; border-bottom: 1px solid #000;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.9); overflow: hidden; position: relative;
+    }
+    .hv-kabel.vert {
+        width: 6px; height: 100%; border-left: 1px solid #333; border-right: 1px solid #000; border-top: none; border-bottom: none;
     }
     .hv-isolator {
-        width: 20px; height: 14px; background: repeating-linear-gradient(90deg, #333 0px, #333 3px, #111 3px, #111 6px);
-        border-radius: 3px; border: 1px solid #000; z-index: 2; box-shadow: 0 2px 5px #000;
+        width: 14px; height: 14px; background: repeating-linear-gradient(90deg, #333 0px, #333 3px, #111 3px, #111 6px);
+        border-radius: 3px; border: 1px solid #000; box-shadow: 0 2px 5px #000;
     }
     .hv-zap { 
         width: 100%; height: 100%; background: linear-gradient(90deg, transparent 0%, #0ff 30%, #fff 50%, #0ff 70%, transparent 100%); 
         background-size: 50% 100%; animation: plasma-zap 0.8s linear infinite; opacity: 0.9; filter: drop-shadow(0 0 5px #0ff);
+    }
+    .hv-zap.vert {
+        background: linear-gradient(180deg, transparent 0%, #0ff 30%, #fff 50%, #0ff 70%, transparent 100%); 
+        background-size: 100% 50%; animation: plasma-zap-vert 0.8s linear infinite;
     }
 
     /* --- Plasma-Bogenleuchte --- */
@@ -1082,11 +1090,11 @@ window.spawnFurniture = (type, count) => {
         <div class="upgrade-card">
             <b>[ FLUX-KERNREAKTOR ]</b>
             <p style="font-size: 0.7em; color: #aaa;">Induktives Hochleistungs-Herzstück mit Phasen-Kapselung.</p>
-            <button id="btn-buy-reaktor" onclick="window.buyFurniture('reaktor', 40)" class="btn-upgrade-exec" style="background:#0f8; border:1px solid #0f8; color:#000;">KAUFEN (40 MZ)</button>
+            <button id="btn-buy-reaktor" onclick="window.buyFurniture('reaktor', 3500)" class="btn-upgrade-exec" style="background:#0f8; border:1px solid #0f8; color:#000;">KAUFEN (3500 C + 40 MZ)</button>
         </div>
         <div class="upgrade-card">
             <b>[ HOCHSPANNUNGS-TRASSE ]</b>
-            <p style="font-size: 0.7em; color: #aaa;">Massive Kupfer-Stränge für den Energietransport. (Max. 3)</p>
+            <p style="font-size: 0.7em; color: #aaa;">Kupfer-Stränge, die direkt in den Reaktor speisen. (Max. 3)</p>
             <button id="btn-buy-hv-leitung" onclick="window.buyFurniture('hv_leitung', 800)" class="btn-upgrade-exec">KAUFEN (800 C) [0/3]</button>
         </div>
         <div class="upgrade-card">
@@ -1149,22 +1157,27 @@ window.spawnFurniture = (type, count) => {
             if (inventory[type] >= maxAmt) return; 
             
             let isMZ = (type === 'reaktor');
-            let hasEnough = isMZ ? (gameState.materieZellen >= cost) : (gameState.credits >= cost);
+            let costC = isMZ ? 3500 : cost;
+            let costMZ = isMZ ? 40 : 0;
+            
+            let hasEnough = (gameState.credits >= costC) && (gameState.materieZellen >= costMZ);
             
             if (hasEnough) {
-                // Währung abziehen
+                // Beide Währungen abziehen
+                gameState.credits -= costC;
+                document.getElementById('display-credits').innerText = gameState.credits;
+
                 if (isMZ) {
-                    gameState.materieZellen -= cost;
+                    gameState.materieZellen -= costMZ;
                     document.getElementById('display-mz').innerText = gameState.materieZellen;
                     
-                    // MANUELLE CLOUD-SYNCHRONISATION FÜR MZ
                     const ag = localStorage.getItem("flux_last_agent") || "";
                     if (ag) {
                         const mainPKey = 'flux_agent_' + ag.toLowerCase();
                         let d = {};
                         const mainP = localStorage.getItem(mainPKey);
                         if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
-                        d.mz = gameState.materieZellen; // Schreibt MZ hart ins Profil
+                        d.mz = gameState.materieZellen; 
                         localStorage.setItem(mainPKey, JSON.stringify(d));
 
                         if (window.db && window.setDoc) {
@@ -1174,17 +1187,14 @@ window.spawnFurniture = (type, count) => {
                             } catch(e) { console.error("Cloud MZ Save Error", e); }
                         }
                     }
-                } else {
-                    gameState.credits -= cost;
-                    document.getElementById('display-credits').innerText = gameState.credits;
                 }
                 
-                inventory[type]++; // Trigger für den Auto-Save Proxy (für Credits & Möbel)
+                inventory[type]++; // Proxy speichert den Rest
                 
                 // Button Update
                 const btn = document.getElementById(`btn-buy-${type.replaceAll('_', '-')}`);
-                let unit = isMZ ? "MZ" : "C";
-                btn.innerText = (inventory[type] >= maxAmt) ? "[ INSTALLIERT ]" : `KAUFEN (${cost} ${unit}) [${inventory[type]}/${maxAmt}]`;
+                let unit = isMZ ? "3500 C + 40 MZ" : `${cost} C`;
+                btn.innerText = (inventory[type] >= maxAmt) ? "[ INSTALLIERT ]" : `KAUFEN (${unit}) [${inventory[type]}/${maxAmt}]`;
                 
                 if (inventory[type] >= maxAmt) {
                     btn.disabled = true;
@@ -1196,7 +1206,7 @@ window.spawnFurniture = (type, count) => {
                 window.spawnFurniture(type, inventory[type]);
                 
             } else { 
-                let msg = isMZ ? "System: Nicht genügend Materie-Zellen." : "System: Credits unzureichend.";
+                let msg = isMZ ? "System: Nicht genügend Credits oder Materie-Zellen (3500 C + 40 MZ benötigt)." : "System: Credits unzureichend.";
                 if(typeof showCustomAlert === 'function') {
                     showCustomAlert(msg);
                 } else {
@@ -1246,13 +1256,19 @@ window.spawnFurniture = (type, count) => {
                 </div>`;
         } else if (type === 'hv_leitung') {
             item.classList.add('item-hv-leitung');
-            item.innerHTML = `
-                <div class="hv-isolator"></div>
-                <div class="hv-kabel"><div class="hv-zap"></div></div>
-                <div class="hv-isolator"></div>`;
-            let offsets = [30, 90, 150]; 
-            item.style.top = offsets[count-1] + 'px';
-            item.style.left = '0';
+            if (count === 1) { // Links unten in den Reaktor
+                item.style.left = '0'; item.style.bottom = '100px'; item.style.width = '45%';
+                item.style.transformOrigin = 'left center'; item.style.transform = 'rotate(15deg)';
+                item.innerHTML = '<div class="hv-isolator"></div><div class="hv-kabel" style="flex-grow:1;"><div class="hv-zap"></div></div><div class="hv-isolator"></div>';
+            } else if (count === 2) { // Rechts unten in den Reaktor
+                item.style.right = '0'; item.style.bottom = '100px'; item.style.width = '45%';
+                item.style.transformOrigin = 'right center'; item.style.transform = 'rotate(-15deg)';
+                item.innerHTML = '<div class="hv-isolator"></div><div class="hv-kabel" style="flex-grow:1;"><div class="hv-zap"></div></div><div class="hv-isolator"></div>';
+            } else if (count === 3) { // Von der Decke vertikal in den Reaktor
+                item.style.left = '50%'; item.style.top = '30px'; item.style.height = '110px'; item.style.width = '20px';
+                item.style.transform = 'translateX(-50%)'; item.style.flexDirection = 'column';
+                item.innerHTML = '<div class="hv-isolator" style="transform:rotate(90deg);"></div><div class="hv-kabel vert" style="flex-grow:1;"><div class="hv-zap vert"></div></div><div class="hv-isolator" style="transform:rotate(90deg);"></div>';
+            }
         }
         room.appendChild(item);
     };
