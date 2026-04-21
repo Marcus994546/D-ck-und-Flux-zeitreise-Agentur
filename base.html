@@ -1681,46 +1681,66 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
+<script>
+    // 1. Menü einfügen
+    const menuVerteiler = `
+    <div id="menu-hochspannungs-verteiler" style="display:none; flex-direction:column; gap:15px;">
+        <div class="upgrade-card">
+            <b>[ HAUPT-TRANSFORMATOR ]</b><p style="font-size: 0.7em; color: #aaa;">Massive Kupferspulen zur Spannungsanpassung.</p>
+            <button id="btn-buy-hv-trafo" onclick="window.buyFurniture('hv_trafo', 2800)" class="btn-upgrade-exec">KAUFEN (2800 C)</button>
+        </div>
+        <div class="upgrade-card">
+            <b>[ KONDENSATOR-BANK ]</b><p style="font-size: 0.7em; color: #aaa;">Flüssiggekühlte Energiespeicher. (Max. 4)</p>
+            <button id="btn-buy-hv-kondensator" onclick="window.buyFurniture('hv_kondensator', 900)" class="btn-upgrade-exec">KAUFEN (900 C) [0/4]</button>
+        </div>
+        <div class="upgrade-card">
+            <b>[ PLASMA-RELAIS ]</b><p style="font-size: 0.7em; color: #aaa;">Deckenmontierte Entladungsstrecken. (Max. 2)</p>
+            <button id="btn-buy-hv-relais" onclick="window.buyFurniture('hv_relais', 400)" class="btn-upgrade-exec">KAUFEN (400 C) [0/2]</button>
+        </div>
+    </div>`;
+    
+    if (!document.getElementById('menu-hochspannungs-verteiler')) {
+        document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuVerteiler);
+    }
 
-    <script>
-    // === ZENTRALER MULTI-BLOCK-WÄCHTER ===
-    // Diese Funktion prüft ALLE Items aus JEDEM Block (2, 3 und 4)
+    const newItems6 = ['hv_trafo', 'hv_kondensator', 'hv_relais'];
+    newItems6.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+    // 2. ABSOLUTER MASTER-WÄCHTER (Bypasst alle alten Fehlerketten)
     window.updateAusbauButtons = function() {
         if (typeof inventory === 'undefined') return;
-        
-        const allLimits = {
-            // Block 2 & 3 (Basis & Technik)
+
+        // Enthält restlos ALLE Items aus der gesamten Basis
+        const allLimitsMaster = {
             desk: 1, lampe: 1, kartograph: 1, server: 2,
             regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
             hub_server: 4, hub_terminal: 1, hub_lampe: 1,
             werkbank: 1, montagearm: 4, fabricator: 1, teststand: 1, lampe_technik: 1,
-            // Block 4 (Reaktor)
-            reaktor: 1, hv_leitung: 3, plasma_lampe: 1
+            reaktor: 1, hv_leitung: 3, plasma_lampe: 1,
+            q_core: 1, q_node: 2, photon_lampe: 1,
+            hv_trafo: 1, hv_kondensator: 4, hv_relais: 2
         };
 
-        for (let k in allLimits) {
-            let max = allLimits[k];
-            let current = inventory[k] || 0;
-            // Erzeugt die ID wie sie im HTML steht (z.B. btn-buy-hv-leitung)
-            let btnId = 'btn-buy-' + k.replace(/_/g, '-');
-            let btn = document.getElementById(btnId);
-            
+        for (let k in allLimitsMaster) {
+            let max = allLimitsMaster[k];
+            let current = parseInt(inventory[k]) || 0;
+            let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+
             if (btn) {
                 if (current >= max) {
-                    btn.innerText = "[ BEREITS INSTALLIERT ]";
+                    btn.innerText = "[ INSTALLIERT ]";
                     btn.disabled = true;
-                    btn.style.background = "#333";
-                    btn.style.color = "#555";
-                    btn.style.cursor = "not-allowed";
-                    btn.style.boxShadow = "none";
+                    // Zwingt das Design rein, egal was vorher im CSS stand
+                    btn.style.setProperty('background', '#333', 'important');
+                    btn.style.setProperty('color', '#555', 'important');
+                    btn.style.setProperty('border', '1px solid #333', 'important');
+                    btn.style.setProperty('cursor', 'not-allowed', 'important');
                 } else {
-                    // Falls noch Plätze frei sind (z.B. Betten oder Server), Button aktiv lassen
                     btn.disabled = false;
-                    btn.style.background = ""; 
+                    btn.style.background = "";
                     btn.style.color = "";
+                    btn.style.border = "";
                     btn.style.cursor = "pointer";
-                    
-                    // Anzeige von Stapel-Items aktualisieren (z.B. [1/4])
                     if (max > 1 && btn.innerText.includes('[')) {
                         btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
                     }
@@ -1728,23 +1748,102 @@ window.spawnFurniture = (type, count) => {
             }
         }
     };
+    
+    // Zwingt die GUI alle 1,5 Sekunden zum Update
+    setInterval(window.updateAusbauButtons, 1500);
 
-    // Sicherstellen, dass beim Öffnen eines Raumes die Buttons SOFORT geprüft werden
-    // Wir überschreiben die openRoom Funktion ein letztes Mal sauber
-    const finalOpenRoom = window.openRoom;
-    window.openRoom = function(type) {
-        if (typeof finalOpenRoom === 'function') finalOpenRoom(type);
+    // 3. Raumwechsel patchen
+    const oldOpenRoomB6 = window.openRoom;
+    window.openRoom = (type) => {
+        if (typeof oldOpenRoomB6 === 'function') oldOpenRoomB6(type); 
+        const menuVerteilerEl = document.getElementById('menu-hochspannungs-verteiler');
+        if (menuVerteilerEl) menuVerteilerEl.style.display = (type === 'HOCHSPANNUNGS-VERTEILER') ? 'flex' : 'none';
         
-        // Timeout ist nötig, da die Menüs per Template-String erst kurz nach dem Klick erscheinen
-        setTimeout(() => {
-            window.updateAusbauButtons();
-            // Falls Möbel beim ersten Mal nicht geladen wurden (Reload-Trigger)
-            if (typeof window.reloadFurniture === 'function') window.reloadFurniture(type);
-        }, 100);
+        if (type === 'HOCHSPANNUNGS-VERTEILER') {
+            const ph = document.getElementById('menu-platzhalter');
+            if (ph) ph.style.setProperty('display', 'none', 'important'); 
+        }
+        setTimeout(window.updateAusbauButtons, 50); 
     };
 
-    // Initialer Check beim Start der Basis
-    setTimeout(window.updateAusbauButtons, 1500);
+    // 4. Kauf-Logik (Sofortiges Update erzwungen)
+    const oldBuyFurnitureB6 = window.buyFurniture;
+    window.buyFurniture = async (type, cost) => {
+        if (newItems6.includes(type)) {
+            let maxAmt = (type === 'hv_kondensator') ? 4 : (type === 'hv_relais' ? 2 : 1);
+            let current = parseInt(inventory[type]) || 0;
+            if (current >= maxAmt) return; 
+            
+            if (gameState.credits >= cost) {
+                gameState.credits -= cost;
+                document.getElementById('display-credits').innerText = gameState.credits;
+
+                inventory[type] = current + 1;
+                window.updateAusbauButtons(); // Update sofort auslösen
+                window.spawnFurniture(type, inventory[type]);
+            } else { 
+                if(typeof showCustomAlert === 'function') showCustomAlert("System: Credits unzureichend."); else alert("Credits fehlen!");
+            }
+        } else {
+            if (typeof oldBuyFurnitureB6 === 'function') oldBuyFurnitureB6(type, cost); 
+        }
+    };
+
+    // 5. Möbel Laden & Spawnen
+    const oldReloadB6 = window.reloadFurniture;
+    window.reloadFurniture = (type) => {
+        if (typeof oldReloadB6 === 'function') oldReloadB6(type);
+        if (type === 'HOCHSPANNUNGS-VERTEILER') {
+            if (inventory.hv_trafo > 0) window.spawnFurniture('hv_trafo', 1);
+            for (let i = 1; i <= inventory.hv_kondensator; i++) window.spawnFurniture('hv_kondensator', i);
+            for (let i = 1; i <= inventory.hv_relais; i++) window.spawnFurniture('hv_relais', i);
+        }
+    };
+
+    const oldSpawnB6 = window.spawnFurniture;
+    window.spawnFurniture = (type, count) => {
+        if (typeof oldSpawnB6 === 'function') oldSpawnB6(type, count);
+        const room = document.getElementById('room-area');
+        if (!room || !newItems6.includes(type)) return;
+        
+        const item = document.createElement('div');
+        item.classList.add('fixed-item');
+
+        if (type === 'hv_trafo') {
+            item.classList.add('item-hv-trafo');
+            item.innerHTML = `
+                <div class="trafo-coils">
+                    <div class="trafo-coil"><div class="trafo-arc"></div></div>
+                    <div class="trafo-coil"><div class="trafo-arc" style="animation-delay: 1.2s; border-color: #ffaa00;"></div></div>
+                </div>
+                <div class="trafo-base"></div>`;
+        } else if (type === 'hv_kondensator') {
+            item.classList.add('item-hv-kondensator');
+            item.innerHTML = '<div class="cap-cap"></div><div class="cap-glass"><div class="cap-fluid"></div></div>';
+            
+            if (count === 1) { item.style.left = '15%'; }
+            else if (count === 2) { item.style.left = '28%'; }
+            else if (count === 3) { item.style.right = '28%'; }
+            else if (count === 4) { item.style.right = '15%'; }
+            
+            item.querySelector('.cap-fluid').style.animationDelay = `${count * 0.8}s`;
+            
+        } else if (type === 'hv_relais') {
+            item.classList.add('item-hv-relais');
+            item.innerHTML = '<div class="relais-mount"></div><div class="relais-node"><div class="relais-lightning"></div></div>';
+            
+            if (count === 1) { 
+                item.style.left = '25%'; 
+                item.querySelector('.relais-lightning').style.animationDelay = '0.5s';
+                item.querySelector('.relais-lightning').style.transform = 'rotate(-10deg)';
+            } else if (count === 2) { 
+                item.style.right = '25%'; 
+                item.querySelector('.relais-lightning').style.animationDelay = '2.1s';
+                item.querySelector('.relais-lightning').style.transform = 'rotate(10deg)';
+            }
+        }
+        room.appendChild(item);
+    };
 </script>
 </body>
 </html>
