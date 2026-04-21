@@ -1156,12 +1156,30 @@ window.spawnFurniture = (type, count) => {
                 if (isMZ) {
                     gameState.materieZellen -= cost;
                     document.getElementById('display-mz').innerText = gameState.materieZellen;
+                    
+                    // MANUELLE CLOUD-SYNCHRONISATION FÜR MZ
+                    const ag = localStorage.getItem("flux_last_agent") || "";
+                    if (ag) {
+                        const mainPKey = 'flux_agent_' + ag.toLowerCase();
+                        let d = {};
+                        const mainP = localStorage.getItem(mainPKey);
+                        if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
+                        d.mz = gameState.materieZellen; // Schreibt MZ hart ins Profil
+                        localStorage.setItem(mainPKey, JSON.stringify(d));
+
+                        if (window.db && window.setDoc) {
+                            try {
+                                const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
+                                await window.setDoc(bRef, { mz: gameState.materieZellen }, { merge: true });
+                            } catch(e) { console.error("Cloud MZ Save Error", e); }
+                        }
+                    }
                 } else {
                     gameState.credits -= cost;
                     document.getElementById('display-credits').innerText = gameState.credits;
                 }
                 
-                inventory[type]++; // Trigger für den Auto-Save Proxy
+                inventory[type]++; // Trigger für den Auto-Save Proxy (für Credits & Möbel)
                 
                 // Button Update
                 const btn = document.getElementById(`btn-buy-${type.replaceAll('_', '-')}`);
@@ -1177,13 +1195,13 @@ window.spawnFurniture = (type, count) => {
                 
                 window.spawnFurniture(type, inventory[type]);
                 
-                // Extra Cloud-Save erzwingen, damit die Materie-Zellen sofort in die Datenbank gehen
-                if (isMZ && typeof window.saveGameState === 'function') {
-                    await window.saveGameState();
-                }
             } else { 
                 let msg = isMZ ? "System: Nicht genügend Materie-Zellen." : "System: Credits unzureichend.";
-                if(typeof showCustomAlert === 'function') showCustomAlert(msg); 
+                if(typeof showCustomAlert === 'function') {
+                    showCustomAlert(msg);
+                } else {
+                    alert(msg);
+                }
             }
         } else {
             buyB3(type, cost); 
@@ -1239,7 +1257,6 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
-
 <script>
         // Block 99, wächter
     window.updateAusbauButtons = function() {
