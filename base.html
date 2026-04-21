@@ -369,7 +369,7 @@
     };
 </script>
 <style>
-    /* Block 2 Raum-Ansichten */
+    /* Block 2 Zentrale, Agenten-Quatiere, Atefakten-lager    */
     #interior-screen { display: none; flex-direction: column; flex-grow: 1; background: #000; padding: 20px; padding-bottom: 50px; overflow-y: auto; }
     
     /* Visuelle Raum-Box */
@@ -579,7 +579,93 @@
     window.showCustomAlert = (msg) => { document.getElementById('custom-alert-msg').innerText = msg; document.getElementById('custom-alert-box').style.display = 'flex'; };
     window.closeCustomAlert = () => { document.getElementById('custom-alert-box').style.display = 'none'; };
 
-    let inventory = { desk: 0, server: 0, kartograph: 0, lampe: 0, regal: 0, lampe_archiv: 0, bett: 0, lampe_quartier: 0 }; 
+    // === NEU: AUTOMATISCHER CLOUD-SYNCHRONISATOR FÜR BLOCK 2 & BLOCK 3 ===
+    let _invCache = { desk: 0, server: 0, kartograph: 0, lampe: 0, regal: 0, lampe_archiv: 0, bett: 0, lampe_quartier: 0 };
+    try {
+        const lsData = localStorage.getItem('flux_base_inventory_' + (window.currentAgentName || ""));
+        if (lsData) _invCache = { ..._invCache, ...JSON.parse(lsData) };
+    } catch(e) {}
+
+    // Der Proxy überwacht jede Änderung an den Räumen und speichert sie sofort ab!
+    let inventory = new Proxy(_invCache, {
+        set: function(target, prop, val) {
+            target[prop] = val;
+            setTimeout(() => {
+                let credsDisplay = document.getElementById('display-credits');
+                if (credsDisplay) {
+                    let c = parseInt(credsDisplay.innerText);
+                    if (!isNaN(c)) gameState.credits = c;
+                }
+                if (typeof window.syncInventory === 'function') window.syncInventory();
+            }, 50);
+            return true;
+        }
+    });
+
+    window.syncInventory = async function() {
+        const ag = window.currentAgentName || "";
+        if (!ag) return;
+        
+        // Lokal sichern
+        localStorage.setItem('flux_base_inventory_' + ag, JSON.stringify(inventory));
+        
+        // Credits synchron halten
+        const mainPKey = 'flux_agent_' + ag.toLowerCase();
+        let d = {}; const mainP = localStorage.getItem(mainPKey);
+        if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
+        d.credits = gameState.credits;
+        localStorage.setItem(mainPKey, JSON.stringify(d));
+
+        // Firebase Cloud sichern
+        if (window.db && window.setDoc) {
+            try {
+                const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
+                await window.setDoc(bRef, { inventory: inventory, credits: gameState.credits }, { merge: true });
+            } catch(e) {}
+        }
+    };
+
+    window.loadInventoryFromCloud = async function() {
+        const ag = window.currentAgentName || "";
+        if (!ag || !window.db || !window.getDoc) return;
+        try {
+            const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
+            const bSnap = await window.getDoc(bRef);
+            if (bSnap.exists() && bSnap.data().inventory) {
+                let dInv = bSnap.data().inventory;
+                for (let k in dInv) inventory[k] = dInv[k];
+                window.updateAusbauButtons();
+                
+                const titleEl = document.getElementById('room-title-detail');
+                if (titleEl && document.getElementById('interior-screen').style.display === 'flex') {
+                    reloadFurniture(titleEl.innerText);
+                }
+            }
+        } catch(e) {}
+    };
+    setTimeout(window.loadInventoryFromCloud, 1000);
+
+    // Dynamische Button-Aktualisierung (funktioniert auch für zukünftige Block 3 Updates)
+    window.updateAusbauButtons = () => {
+        const allKeys = Object.keys(inventory);
+        allKeys.forEach(k => {
+            const btnId = `btn-buy-${k.replace(/_/g, '-')}`;
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                const match = btn.innerText.match(/\[\d+\/(\d+)\]/);
+                let max = match ? parseInt(match[1]) : 1;
+                
+                if (inventory[k] >= max) {
+                    btn.innerText = "[ INSTALLIERT ]";
+                    btn.disabled = true;
+                } else if (max > 1) {
+                    const costMatch = btn.innerText.match(/\((\d+)\sC\)/);
+                    let cost = costMatch ? costMatch[1] : "?";
+                    btn.innerText = `KAUFEN (${cost} C) [${inventory[k]}/${max}]`;
+                }
+            }
+        });
+    };
 
     window.openRoom = (type) => {
         document.getElementById('grid-wrapper').style.display = 'none';
@@ -617,6 +703,64 @@
             document.getElementById('menu-platzhalter').style.display = 'block';
             clearRoom(); 
         }
+    window.updateAusbauButtons = () => {
+        const allKeys = Object.keys(inventory);
+        allKeys.forEach(k => {
+            const btnId = `btn-buy-${k.replace(/_/g, '-')}`;
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                const match = btn.innerText.match(/\[\d+\/(\d+)\]/);
+                let max = match ? parseInt(match[1]) : 1;
+                
+                if (inventory[k] >= max) {
+                    btn.innerText = "[ INSTALLIERT ]";
+                    btn.disabled = true;
+                } else if (max > 1) {
+                    const costMatch = btn.innerText.match(/\((\d+)\sC\)/);
+                    let cost = costMatch ? costMatch[1] : "?";
+                    btn.innerText = `KAUFEN (${cost} C) [${inventory[k]}/${max}]`;
+                }
+            }
+        });
+    };
+
+    window.openRoom = (type) => {
+        document.getElementById('grid-wrapper').style.display = 'none';
+        document.getElementById('interior-screen').style.display = 'flex';
+        
+        document.getElementById('room-area').style.display = 'block';
+        document.getElementById('ausbau-menu').style.display = 'none';
+        document.getElementById('toggle-ausbau-btn').innerText = "AGENTUR-AUSBAU ÖFFNEN";
+        
+        document.getElementById('main-title').innerText = "RAUM-ANSICHT";
+        document.getElementById('room-title-detail').innerText = type;
+
+        if (type === 'ZENTRALE') {
+            document.getElementById('menu-zentrale').style.display = 'flex';
+            document.getElementById('menu-archiv').style.display = 'none';
+            document.getElementById('menu-quartiere').style.display = 'none';
+            document.getElementById('menu-platzhalter').style.display = 'none';
+            reloadFurniture(type); 
+        } else if (type === 'ARTEFAKT-ARCHIV') {
+            document.getElementById('menu-zentrale').style.display = 'none';
+            document.getElementById('menu-archiv').style.display = 'flex';
+            document.getElementById('menu-quartiere').style.display = 'none';
+            document.getElementById('menu-platzhalter').style.display = 'none';
+            reloadFurniture(type); 
+        } else if (type === 'AGENTEN-QUARTIERE') {
+            document.getElementById('menu-zentrale').style.display = 'none';
+            document.getElementById('menu-archiv').style.display = 'none';
+            document.getElementById('menu-quartiere').style.display = 'flex';
+            document.getElementById('menu-platzhalter').style.display = 'none';
+            reloadFurniture(type); 
+        } else {
+            document.getElementById('menu-zentrale').style.display = 'none';
+            document.getElementById('menu-archiv').style.display = 'none';
+            document.getElementById('menu-quartiere').style.display = 'none';
+            document.getElementById('menu-platzhalter').style.display = 'block';
+            clearRoom(); 
+        }
+        window.updateAusbauButtons();
     };
 
     window.closeRoom = () => {
@@ -664,14 +808,15 @@
     window.buyFurniture = (type, cost) => {
         let creds = parseInt(document.getElementById('display-credits').innerText);
         
-        // Anpassung: Betten jetzt auf maximal 4 limitiert
         let maxAmt = (type === 'server') ? 2 : (type === 'regal' ? 8 : (type === 'bett' ? 4 : 1));
         
         if (inventory[type] >= maxAmt) return; 
 
         if (creds >= cost) {
             document.getElementById('display-credits').innerText = creds - cost;
-            inventory[type]++;
+            gameState.credits = creds - cost; 
+            
+            inventory[type]++; // Der neue Proxy triggert hier vollautomatisch den Cloud-Save!
             
             const btnId = `btn-buy-${type.replace('_', '-')}`;
             const btn = document.getElementById(btnId);
@@ -699,7 +844,7 @@
         if (type === 'desk') {
             item.classList.add('item-desk');
             item.innerHTML = '<div class="desk-console"><div class="desk-led" style="background:#f44;box-shadow:0 0 5px #f44;"></div><div class="desk-led" style="background:#ffcc00;box-shadow:0 0 5px #ffcc00;"></div><div class="desk-led" style="background:#0f8;box-shadow:0 0 5px #0f8;"></div></div>';
-            item.style.left = '40%'; item.style.transform = 'translateX(-50%)'; item.style.bottom = '70px'; // Korrigiert auf Bodenkante
+            item.style.left = '40%'; item.style.transform = 'translateX(-50%)'; item.style.bottom = '70px';
         } else if (type === 'lampe') {
             item.classList.add('item-lampe');
             item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; item.style.top = '5px';
@@ -710,7 +855,7 @@
             item.classList.add('item-server');
             item.innerHTML = '<div class="server-led"></div><div class="server-led" style="animation-delay:0.3s"></div><div class="server-led" style="animation-delay:0.6s"></div>';
             let offsetR = 50 + ((count - 1) * 45); 
-            item.style.right = offsetR + 'px'; item.style.bottom = '70px'; // Korrigiert auf Bodenkante
+            item.style.right = offsetR + 'px'; item.style.bottom = '70px';
         } 
         // ARCHIV
         else if (type === 'lampe_archiv') {
@@ -722,7 +867,7 @@
             item.innerHTML = '<div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div>';
             let offsetL = 45 + ((count - 1) * 32); 
             item.style.left = offsetL + 'px';
-            item.style.bottom = '70px'; // Korrigiert auf Bodenkante
+            item.style.bottom = '70px'; 
             item.style.zIndex = '2'; 
         }
         // QUARTIERE
@@ -730,25 +875,23 @@
             item.classList.add('item-lampe-quartier');
             item.style.left = '50%'; item.style.transform = 'translateX(-50%)'; 
             item.style.top = '10px';
-} else if (type === 'bett') {
-    item.classList.add('item-bett');
-    item.innerHTML = `
-        <div class="bett-etage"><div class="bett-kissen"></div><div class="holo-screen-q"></div></div>
-        <div class="bett-etage"><div class="bett-kissen"></div><div class="holo-screen-q"></div></div>
-    `;
-    
-    // Die Betten werden jetzt prozentual über die Wandbreite verteilt
-    let offsetL = 13 + ((count - 1) * 19.5); 
-    item.style.left = offsetL + '%';
-    item.style.bottom = '70px'; 
-    item.style.zIndex = '3'; 
-}
+        } else if (type === 'bett') {
+            item.classList.add('item-bett');
+            item.innerHTML = `
+                <div class="bett-etage"><div class="bett-kissen"></div><div class="holo-screen-q"></div></div>
+                <div class="bett-etage"><div class="bett-kissen"></div><div class="holo-screen-q"></div></div>
+            `;
+            let offsetL = 13 + ((count - 1) * 19.5); 
+            item.style.left = offsetL + '%';
+            item.style.bottom = '70px'; 
+            item.style.zIndex = '3'; 
+        }
         
         room.appendChild(item);
     };
 </script>
     <style>
-/* --- GEMEINSAME ANIMATIONEN --- */
+/* --- Block 3, SERVER-HUB, TECHNIK-DECK  --- */
 @keyframes neuro-blink { 0%, 100% { opacity: 1; box-shadow: 0 0 5px #0f8; } 50% { opacity: 0.3; } }
 @keyframes holo-interface { 0% { opacity: 0.7; transform: translateX(-50%) scaleY(1); } 50% { opacity: 0.4; transform: translateX(-50%) scaleY(1.05) skewX(1deg); } 100% { opacity: 0.8; transform: translateX(-50%) scaleY(0.95); } }
 @keyframes flacker-text { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
