@@ -1705,9 +1705,113 @@ window.spawnFurniture = (type, count) => {
     .item-tachyon-netz { position: absolute; top: 0; left: 0; width: 100%; height: 40px; z-index: 5; background-image: linear-gradient(90deg, rgba(200,0,255,0.2) 1px, transparent 1px), linear-gradient(0deg, rgba(200,0,255,0.2) 1px, transparent 1px); background-size: 20px 20px; border-bottom: 2px solid #c0f; box-shadow: 0 5px 25px rgba(200,0,255,0.3); animation: glitch-flicker 6s infinite; pointer-events: none; }
     .netz-emitter { position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 40px; height: 10px; background: #111; border: 1px solid #c0f; border-radius: 5px; box-shadow: 0 0 15px #c0f; }
 </style>
+<style>
+    /* --- Paradoxon-Filter v2.0 - Standfeste Items & Dimensions-Glitches --- */
+
+    /* 1. Bodenkontakt für Items */
+    .item-anomalie-daempfer {
+        bottom: 5px !important; /* Stand am Boden */
+        z-index: 1; /* Unter dem Zentral-Item */
+    }
+    /* Neue Verteilung im Raum */
+    .item-anomalie-daempfer[data-count="1"] { left: 15%; }
+    .item-anomalie-daempfer[data-count="2"] { right: 15%; }
+    .item-anomalie-daempfer[data-count="3"] { left: 30%; bottom: 15px !important; scale: 0.85; z-index: 0; } /* Der dritte steht leicht weiter hinten/oben */
+
+    .item-chrono-kern {
+        bottom: 5px !important; /* Stand am Boden */
+    }
+    .item-chrono-kern .chrono-base {
+        bottom: 0px !important; /* Basis steht am Boden */
+        z-index: 1;
+    }
+    .item-chrono-kern .chrono-sphere, 
+    .item-chrono-kern .chrono-ring-1,
+    .item-chrono-kern .chrono-ring-2 {
+        /* Schweben dadrüber wie zuvor */
+    }
+
+    /* 2. Decken-Tachyonen-Netz (bleibt) */
+    .item-tachyon-netz {
+        top: 0 !important; /* Decke */
+        bottom: auto !important;
+    }
+
+    /* 3. Dimensions-Glitch-Overlay */
+    #dimension-glitch-overlay {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 20; /* Über allen Items, aber unter dem Menü */
+        background-color: transparent;
+        pointer-events: none; /* Klicks durchlassen */
+        opacity: 0; /* Standardmäßig unsichtbar */
+        overflow: hidden;
+    }
+
+    /* 4. Glitch-Animationen */
+    @keyframes dimension-glitch-cycle {
+        0%, 100% {
+            opacity: 0;
+            transform: scale(1) skew(0deg);
+            background-image: none;
+        }
+        1%, 1.2% { /* Kurzer Stone Age Glitch (Farbfilter & Textur) */
+            opacity: 1;
+            background-color: rgba(100, 70, 40, 0.4); /* Erdiges Braun */
+            background-image: 
+                linear-gradient(135deg, transparent 40%, rgba(50, 40, 30, 0.8) 40%, rgba(50, 40, 30, 0.8) 50%, transparent 50%),
+                conic-gradient(at 70% 30%, transparent, rgba(30, 25, 20, 0.9) 20deg, transparent 40deg),
+                radial-gradient(circle at 10% 80%, rgba(20, 15, 10, 0.9) 10px, transparent 15px);
+            transform: scale(1.05) skew(5deg) translateX(-10px);
+            filter: contrast(1.5) blur(1px);
+        }
+        1.3%, 1.4% {
+            opacity: 0.2;
+            background-color: transparent;
+            transform: scale(1) skew(0deg);
+        }
+        10.1%, 10.3% { /* Kurzer Future Glitch (Blaues Gitter & Helligkeit) */
+            opacity: 1;
+            background-color: rgba(0, 50, 100, 0.3); /* Tiefes Blau */
+            background-image: 
+                linear-gradient(90deg, transparent 50%, rgba(0, 255, 255, 0.5) 50%),
+                linear-gradient(0deg, transparent 50%, rgba(0, 255, 255, 0.5) 50%);
+            background-size: 10px 10px;
+            transform: scale(0.98) skew(-3deg) translateY(-5px);
+            filter: contrast(1.8) brightness(1.2) hue-rotate(90deg);
+        }
+        10.4%, 10.5% {
+            opacity: 0.3;
+            background-color: transparent;
+            transform: scale(1) skew(0deg);
+        }
+        15% {
+            opacity: 0;
+        }
+    }
+
+    /* Wende die Animation an, wenn aktiv */
+    #dimension-glitch-overlay.active {
+        animation: dimension-glitch-cycle 20s infinite linear; /* Sehr lange Zykluszeit für Unregelmäßigkeit */
+    }
+
+    /* Bestehende Tachyonen-Netz Animation leicht glitchiger machen */
+    @keyframes glitch-flicker-strong { 
+        0%, 100% { opacity: 0.8; transform: skewX(0deg) scaleY(1); } 
+        90% { opacity: 0.8; transform: skewX(0deg) scaleY(1); } 
+        92% { opacity: 0.1; transform: skewX(15deg) scaleY(0.95); } 
+        94% { opacity: 0.9; transform: skewX(-15deg) scaleY(1.05); } 
+        96% { opacity: 0.8; transform: skewX(0deg) scaleY(1); } 
+    }
+    .daempfer-core {
+        animation: tachyon-pulse 2s infinite, glitch-flicker-strong 4s infinite; /* Stärkerer Flicker */
+    }
+</style>
 
 <script>
-    // 1. Menü einfügen
+    // --- Paradoxon-Filter JS-Update ---
+
+    // 1. Menü einfügen (beibehalten)
     const menuParadoxonFilter = `
     <div id="menu-paradoxon-filter" style="display:none; flex-direction:column; gap:15px;">
         <div class="upgrade-card">
@@ -1731,11 +1835,10 @@ window.spawnFurniture = (type, count) => {
     const newItems7 = ['chrono_kern', 'anomalie_daempfer', 'tachyon_netz'];
     newItems7.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
-    // 2. MASTER-WÄCHTER ERWEITERN (Bypasst alles und übernimmt die Kontrolle)
+    // 2. MASTER-WÄCHTER ERWEITERN (beibehalten)
     window.updateAusbauButtons = function() {
         if (typeof inventory === 'undefined') return;
 
-        // Enthält restlos ALLE Items inkl. Paradoxon-Filter
         const allLimitsMaster = {
             desk: 1, lampe: 1, kartograph: 1, server: 2,
             regal: 8, lampe_archiv: 1, lampe_quartier: 1, bett: 4,
@@ -1774,22 +1877,85 @@ window.spawnFurniture = (type, count) => {
         }
     };
 
-    // 3. Raumwechsel patchen
-    const oldOpenRoomB7 = window.openRoom;
-    window.openRoom = (type) => {
-        if (typeof oldOpenRoomB7 === 'function') oldOpenRoomB7(type); 
-        const menuParadoxonEl = document.getElementById('menu-paradoxon-filter');
-        if (menuParadoxonEl) menuParadoxonEl.style.display = (type === 'PARADOXON-FILTER') ? 'flex' : 'none';
-        
-        if (type === 'PARADOXON-FILTER') {
-            const ph = document.getElementById('menu-platzhalter');
-            if (ph) ph.style.setProperty('display', 'none', 'important'); 
+    // 3. Patchen der Spawn-Funktion für Bodenkontakt und Anomalie-Dämpfer-Verteilung
+    const oldSpawnFurniture_B8 = window.spawnFurniture;
+    window.spawnFurniture = (type, count) => {
+        const room = document.getElementById('room-area');
+        if (!room) return;
+
+        if (newItems7.includes(type)) {
+            let item = document.createElement('div');
+            item.classList.add('fixed-item');
+            item.setAttribute('data-item-type', type); // Hilfsklasse zum Identifizieren
+            item.setAttribute('data-count', count);
+
+            if (type === 'chrono_kern') {
+                item.classList.add('item-chrono-kern');
+                // Die CSS-Klassen kümmern sich um die Positionierung
+                item.innerHTML = `
+                    <div class="chrono-ring-1"></div>
+                    <div class="chrono-ring-2"></div>
+                    <div class="chrono-sphere"></div>
+                    <div class="chrono-base"></div>`;
+            } else if (type === 'anomalie_daempfer') {
+                item.classList.add('item-anomalie-daempfer');
+                item.innerHTML = '<div class="daempfer-pillar"><div class="daempfer-core"></div></div>';
+                // Die CSS-Klassen kümmern sich um die Positionierung links/rechts/hinten.
+                // Der Core-Animation-Delay wird beibehalten
+                item.querySelector('.daempfer-core').style.animationDelay = `${count * 0.5}s`;
+            } else if (type === 'tachyon_netz') {
+                item.classList.add('item-tachyon-netz');
+                item.innerHTML = '<div class="netz-emitter"></div>';
+            }
+            room.appendChild(item);
+        } else {
+            if (typeof oldSpawnFurniture_B8 === 'function') oldSpawnFurniture_B8(type, count);
         }
-        setTimeout(window.updateAusbauButtons, 50); 
     };
 
-    // 4. Kauf-Logik mit Dual-Währung für den Chrono-Kern
-    const oldBuyFurnitureB7 = window.buyFurniture;
+    // 4. Patchen der Lade-Funktion für das Glitch-Overlay
+    const oldReloadFurniture_B8 = window.reloadFurniture;
+    window.reloadFurniture = (type) => {
+        if (typeof oldReloadFurniture_B8 === 'function') oldReloadFurniture_B8(type);
+
+        const room = document.getElementById('room-area');
+        if (type === 'PARADOXON-FILTER' && room) {
+            // Zuerst sicherstellen, dass das Glitch-Overlay vorhanden ist
+            let glitchOverlay = document.getElementById('dimension-glitch-overlay');
+            if (!glitchOverlay) {
+                glitchOverlay = document.createElement('div');
+                glitchOverlay.id = 'dimension-glitch-overlay';
+                room.appendChild(glitchOverlay);
+            }
+            // Das Overlay ist da, aber noch nicht aktiv. openRoom aktiviert es.
+        } else {
+            // Wenn ein anderer Raum geladen wird, stellen wir sicher, dass das Overlay deaktiviert ist
+            let glitchOverlay = document.getElementById('dimension-glitch-overlay');
+            if (glitchOverlay) glitchOverlay.classList.remove('active');
+        }
+    };
+
+    // 5. Patchen der Raumwechsel-Funktion zur Aktivierung des Glitches
+    const oldOpenRoom_B8 = window.openRoom;
+    window.openRoom = (type) => {
+        if (typeof oldOpenRoom_B8 === 'function') oldOpenRoom_B8(type);
+
+        const menuParadoxonEl = document.getElementById('menu-paradoxon-filter');
+        if (menuParadoxonEl) menuParadoxonEl.style.display = (type === 'PARADOXON-FILTER') ? 'flex' : 'none';
+
+        const glitchOverlay = document.getElementById('dimension-glitch-overlay');
+        if (type === 'PARADOXON-FILTER') {
+            const ph = document.getElementById('menu-platzhalter');
+            if (ph) ph.style.setProperty('display', 'none', 'important');
+            if (glitchOverlay) glitchOverlay.classList.add('active'); // Aktiviere den Glitch
+        } else {
+            if (glitchOverlay) glitchOverlay.classList.remove('active'); // Deaktiviere den Glitch
+        }
+        setTimeout(window.updateAusbauButtons, 50);
+    };
+
+    // 6. Kauf-Logik beibehalten
+    const oldBuyFurniture_B8 = window.buyFurniture;
     window.buyFurniture = async (type, cost) => {
         if (newItems7.includes(type)) {
             let maxAmt = (type === 'anomalie_daempfer') ? 3 : 1;
@@ -1835,55 +2001,11 @@ window.spawnFurniture = (type, count) => {
                 if(typeof showCustomAlert === 'function') showCustomAlert(msg); else alert(msg);
             }
         } else {
-            if (typeof oldBuyFurnitureB7 === 'function') oldBuyFurnitureB7(type, cost); 
+            if (typeof oldBuyFurniture_B8 === 'function') oldBuyFurniture_B8(type, cost); 
         }
-    };
-
-    // 5. Möbel Laden & Spawnen
-    const oldReloadB7 = window.reloadFurniture;
-    window.reloadFurniture = (type) => {
-        if (typeof oldReloadB7 === 'function') oldReloadB7(type);
-        if (type === 'PARADOXON-FILTER') {
-            if (inventory.tachyon_netz > 0) window.spawnFurniture('tachyon_netz', 1);
-            if (inventory.chrono_kern > 0) window.spawnFurniture('chrono_kern', 1);
-            for (let i = 1; i <= inventory.anomalie_daempfer; i++) window.spawnFurniture('anomalie_daempfer', i);
-        }
-    };
-
-    const oldSpawnB7 = window.spawnFurniture;
-    window.spawnFurniture = (type, count) => {
-        if (typeof oldSpawnB7 === 'function') oldSpawnB7(type, count);
-        const room = document.getElementById('room-area');
-        if (!room || !newItems7.includes(type)) return;
-        
-        const item = document.createElement('div');
-        item.classList.add('fixed-item');
-
-        if (type === 'chrono_kern') {
-            item.classList.add('item-chrono-kern');
-            item.innerHTML = `
-                <div class="chrono-ring-1"></div>
-                <div class="chrono-ring-2"></div>
-                <div class="chrono-sphere"></div>
-                <div class="chrono-base"></div>`;
-        } else if (type === 'anomalie_daempfer') {
-            item.classList.add('item-anomalie-daempfer');
-            item.innerHTML = '<div class="daempfer-pillar"><div class="daempfer-core"></div></div>';
-            
-            // Verteilung im Raum
-            if (count === 1) { item.style.left = '12%'; }
-            else if (count === 2) { item.style.right = '12%'; }
-            else if (count === 3) { item.style.left = '28%'; item.style.transform = 'scale(0.85)'; item.style.bottom = '85px'; item.style.zIndex = '1'; }
-            
-            item.querySelector('.daempfer-core').style.animationDelay = `${count * 0.5}s`;
-            
-        } else if (type === 'tachyon_netz') {
-            item.classList.add('item-tachyon-netz');
-            item.innerHTML = '<div class="netz-emitter"></div>';
-        }
-        room.appendChild(item);
     };
 </script>
+
 <script>
     // 1. Menü einfügen
     const menuVerteiler = `
