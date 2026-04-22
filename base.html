@@ -1915,6 +1915,203 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 </script>
+    <style>
+    /* --- Impuls-Kondensator: Animationen --- */
+    @keyframes impuls-charge { 
+        0% { height: 10%; background: #001133; box-shadow: 0 0 5px #0055ff; } 
+        50% { height: 95%; background: #00aaff; box-shadow: 0 0 30px #00ffff; } 
+        100% { height: 10%; background: #001133; box-shadow: 0 0 5px #0055ff; } 
+    }
+    @keyframes coil-rotate { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+    @keyframes spark-jump { 
+        0%, 90%, 100% { opacity: 0; transform: scaleY(0.5); } 
+        95% { opacity: 1; transform: scaleY(1); box-shadow: 0 0 15px #0ff; } 
+    }
+    @keyframes energy-flow-up { 
+        0% { background-position: 0 200%; } 
+        100% { background-position: 0 -200%; } 
+    }
+
+    /* --- Möbel Designs --- */
+    .item-impuls-kern { width: 140px; height: 130px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; justify-content: center; align-items: flex-end; }
+    .kern-gehaeuse { width: 80px; height: 120px; background: rgba(0, 10, 20, 0.8); border: 3px solid #333; border-radius: 40px; position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.9), inset 0 0 20px #000; z-index: 2; }
+    .kern-fluid { position: absolute; bottom: 0; left: 0; width: 100%; border-radius: 0 0 35px 35px; animation: impuls-charge 4s ease-in-out infinite; }
+    .kern-base { width: 110px; height: 30px; background: linear-gradient(180deg, #222, #050505); border: 2px solid #555; border-bottom: 4px solid #00aaff; border-radius: 5px; position: absolute; bottom: 0; z-index: 3; box-shadow: 0 15px 20px rgba(0,0,0,0.9); }
+    .kern-ring { position: absolute; top: 40px; width: 100px; height: 30px; border: 3px solid rgba(0, 255, 255, 0.6); border-radius: 50%; z-index: 4; box-shadow: 0 0 15px #0ff, inset 0 0 15px #0ff; animation: float-anomalie 3s infinite alternate; }
+
+    .item-supraleiter { width: 40px; height: 90px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .supra-stand { width: 30px; height: 15px; background: #111; border: 2px solid #444; border-bottom: 3px solid #ffaa00; border-radius: 3px; z-index: 2; }
+    .supra-coil { width: 20px; height: 60px; background: repeating-linear-gradient(0deg, #1a1a1a 0px, #1a1a1a 4px, #0055ff 4px, #0055ff 6px); border: 1px solid #000; border-radius: 10px; margin-bottom: -5px; z-index: 1; animation: coil-rotate 2s linear infinite; box-shadow: 0 0 10px rgba(0,85,255,0.4); }
+
+    .item-decken-entlader { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 50px; z-index: 4; display: flex; flex-direction: column; align-items: center; }
+    .entlader-mount { width: 100%; height: 15px; background: #1a1a1a; border: 2px solid #444; border-top: none; border-radius: 0 0 10px 10px; box-shadow: 0 5px 15px rgba(0,170,255,0.3); }
+    .entlader-beam { width: 8px; height: 140px; background: linear-gradient(180deg, rgba(0,255,255,0.8), transparent); animation: energy-flow-up 1.5s linear infinite; filter: drop-shadow(0 0 8px #0ff); }
+    .entlader-spark { position: absolute; top: 15px; width: 4px; height: 25px; background: #fff; animation: spark-jump 4s infinite; }
+</style>
+
+<script>
+// 1. Menü für Impuls-Kondensator injizieren
+const menuImpuls = `
+<div id="menu-impuls-kondensator" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card">
+        <b>[ OMEGA-SPEICHERKERN ]</b><p style="font-size: 0.7em; color: #aaa;">Zentrale Superkondensator-Bank.</p>
+        <button id="btn-buy-impuls-kern" onclick="window.buyFurniture('impuls_kern', 3200)" class="btn-upgrade-exec" style="background:#00aaff; color:#000; border:1px solid #00aaff;">KAUFEN (3200 C + 30 MZ)</button>
+    </div>
+    <div class="upgrade-card">
+        <b>[ SUPRALEITER-SPULE ]</b><p style="font-size: 0.7em; color: #aaa;">Verlustfreie Ladekapazität. (Max. 2)</p>
+        <button id="btn-buy-supraleiter" onclick="window.buyFurniture('supraleiter', 800)" class="btn-upgrade-exec">KAUFEN (800 C) [0/2]</button>
+    </div>
+    <div class="upgrade-card">
+        <b>[ DECKEN-ENTLADER ]</b><p style="font-size: 0.7em; color: #aaa;">Zieht überschüssige Energie nach oben ab.</p>
+        <button id="btn-buy-decken-entlader" onclick="window.buyFurniture('decken_entlader', 500)" class="btn-upgrade-exec">KAUFEN (500 C)</button>
+    </div>
+</div>`;
+
+if (!document.getElementById('menu-impuls-kondensator')) {
+    document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuImpuls);
+}
+
+// 2. Inventar Sicherung
+const itemsImpuls = ['impuls_kern', 'supraleiter', 'decken_entlader'];
+itemsImpuls.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+// 3. MASTER-WÄCHTER ERWEITERN (Alle vorherigen + die neuen Items)
+const oldUpdateAusbau_Impuls = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_Impuls === 'function') oldUpdateAusbau_Impuls(); 
+    
+    if (typeof inventory === 'undefined') return;
+    
+    const impulsLimits = { impuls_kern: 1, supraleiter: 2, decken_entlader: 1 };
+    
+    for (let k in impulsLimits) {
+        let max = impulsLimits[k];
+        let current = parseInt(inventory[k]) || 0;
+        let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+
+        if (btn) {
+            if (current >= max) {
+                btn.innerText = "[ INSTALLIERT ]";
+                btn.disabled = true;
+                btn.style.setProperty('background', '#333', 'important');
+                btn.style.setProperty('color', '#555', 'important');
+                btn.style.setProperty('border', '1px solid #333', 'important');
+                btn.style.setProperty('cursor', 'not-allowed', 'important');
+            } else {
+                btn.disabled = false;
+                btn.style.background = "";
+                btn.style.color = "";
+                btn.style.border = "";
+                btn.style.cursor = "pointer";
+                if (max > 1 && btn.innerText.includes('[')) {
+                    btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
+                }
+            }
+        }
+    }
+};
+
+// 4. Raum-Weiche patchen
+const oldOpenRoomImpuls = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoomImpuls) oldOpenRoomImpuls(type);
+    const menu = document.getElementById('menu-impuls-kondensator');
+    if (menu) menu.style.display = (type === 'IMPULS-KONDENSATOR') ? 'flex' : 'none';
+    
+    if (type === 'IMPULS-KONDENSATOR') {
+        const ph = document.getElementById('menu-platzhalter');
+        if (ph) ph.style.setProperty('display', 'none', 'important');
+        window.reloadFurniture(type);
+        window.updateAusbauButtons(); 
+    }
+};
+
+// 5. Shop-Kauf Logik (Credits + MZ für den Kern)
+const oldBuyFurnitureImpuls = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsImpuls.includes(type)) {
+        let maxAmt = (type === 'supraleiter') ? 2 : 1;
+        let current = parseInt(inventory[type]) || 0;
+        if (current >= maxAmt) return;
+        
+        let isKern = (type === 'impuls_kern');
+        let costC = isKern ? 3200 : cost;
+        let costMZ = isKern ? 30 : 0;
+        
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC;
+            document.getElementById('display-credits').innerText = gameState.credits;
+            
+            if (isKern) {
+                gameState.materieZellen -= costMZ;
+                document.getElementById('display-mz').innerText = gameState.materieZellen;
+                // Speichern der MZ in der Cloud/Local
+                const ag = localStorage.getItem("flux_last_agent") || "";
+                if (ag) {
+                    const mainPKey = 'flux_agent_' + ag.toLowerCase();
+                    let d = {}; const mainP = localStorage.getItem(mainPKey);
+                    if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
+                    d.mz = gameState.materieZellen; 
+                    localStorage.setItem(mainPKey, JSON.stringify(d));
+                    if (window.db && window.setDoc) {
+                        try { window.setDoc(window.doc(window.db, "Agent - Base", ag.toLowerCase()), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+                    }
+                }
+            }
+            
+            inventory[type] = current + 1; 
+            window.updateAusbauButtons(); 
+            window.spawnFurniture(type, inventory[type]);
+        } else {
+            let msg = isKern ? "System: 3200 C + 30 MZ benötigt." : "System: Credits unzureichend.";
+            if(typeof showCustomAlert === 'function') showCustomAlert(msg);
+        }
+    } else if (oldBuyFurnitureImpuls) oldBuyFurnitureImpuls(type, cost);
+};
+
+// 6. Möbel Reload patchen
+const oldReloadImpuls = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReloadImpuls) oldReloadImpuls(type);
+    if (type === 'IMPULS-KONDENSATOR') {
+        if (inventory.decken_entlader > 0) window.spawnFurniture('decken_entlader', 1);
+        if (inventory.impuls_kern > 0) window.spawnFurniture('impuls_kern', 1);
+        for (let i = 1; i <= inventory.supraleiter; i++) window.spawnFurniture('supraleiter', i);
+    }
+};
+
+// 7. Möbel Spawn patchen
+const oldSpawnImpuls = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawnImpuls) oldSpawnImpuls(type, count);
+    const room = document.getElementById('room-area');
+    if (!room || !itemsImpuls.includes(type)) return;
+    
+    const item = document.createElement('div');
+    item.classList.add('fixed-item');
+
+    if (type === 'impuls_kern') {
+        item.classList.add('item-impuls-kern');
+        item.innerHTML = `
+            <div class="kern-ring"></div>
+            <div class="kern-gehaeuse"><div class="kern-fluid"></div></div>
+            <div class="kern-base"></div>`;
+    } else if (type === 'supraleiter') {
+        item.classList.add('item-supraleiter');
+        item.innerHTML = '<div class="supra-coil"></div><div class="supra-stand"></div>';
+        
+        // Symmetrische Verteilung links und rechts
+        if (count === 1) { item.style.left = '20%'; }
+        else if (count === 2) { item.style.right = '20%'; }
+        
+    } else if (type === 'decken_entlader') {
+        item.classList.add('item-decken-entlader');
+        item.innerHTML = '<div class="entlader-mount"></div><div class="entlader-spark"></div><div class="entlader-beam"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
 <script>
     // 1. Menü einfügen
     const menuVerteiler = `
