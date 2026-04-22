@@ -2197,25 +2197,109 @@ window.spawnFurniture = (type, count) => {
     }
     .desk-holo-stream::after { content: 'LIVE'; font-family: 'Orbitron'; font-size: 6px; color: #fff; text-shadow: 0 0 5px #0ff; }
 </style>
+<style>
+    /* --- Oszillations-Kammer (Offiziers-Suite) --- */
+    @keyframes holo-stream-play { 100% { background-position: 0 -50px; } }
+    
+    /* 1. Historisches Gemälde (Holzrahmen & Dein Link) */
+    .item-offiziers-bild {
+        position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
+        width: 85px; height: 55px; 
+        border: 4px ridge #5c3a21; /* Edler Holzrahmen */
+        background-color: #222;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,0,0,0.8);
+        background-image: url('https://share.google/NbPDvtLeWcTdnhMvj');
+        background-size: cover; background-position: center; z-index: 1;
+    }
+    .bild-licht {
+        position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+        width: 30px; height: 3px; background: #fff; box-shadow: 0 0 10px #ffcc00; border-radius: 2px;
+    }
+
+    /* 2. Offiziers-Bett (Echter Stand, Holzrahmen) */
+    .item-offiziers-bett {
+        position: absolute; bottom: 75px; left: 10%; width: 85px; height: 35px;
+        background: #e0e0e0; /* Matratze */
+        border: 3px solid #3e2723; /* Massiver Holzrahmen */
+        border-radius: 2px; z-index: 2;
+        box-shadow: inset 0 -5px 10px rgba(0,0,0,0.2), 5px 15px 15px rgba(0,0,0,0.6);
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    /* Holzfüße für den 3D-Stand */
+    .item-offiziers-bett::before, .item-offiziers-bett::after {
+        content: ''; position: absolute; top: 100%; width: 6px; height: 6px; background: #27140c; border-radius: 0 0 2px 2px;
+    }
+    .item-offiziers-bett::before { left: 4px; }
+    .item-offiziers-bett::after { right: 4px; }
+    .bett-kissen { width: 18px; height: 26px; background: #fff; margin-left: 4px; border-radius: 3px; box-shadow: 1px 2px 4px rgba(0,0,0,0.2); }
+    .bett-decke { width: 55px; height: 100%; background: #2a0a33; border-left: 4px solid #ffaa00; box-shadow: inset -5px 0 15px rgba(0,0,0,0.5); }
+
+    /* 3. Getränke-Bar (Holz mit Verzierungen & echten Flaschen) */
+    .item-offiziers-bar {
+        position: absolute; bottom: 75px; left: 45%; width: 42px; height: 65px;
+        background: linear-gradient(180deg, #5c3a21, #3e2723); /* Holz-Textur */
+        border: 2px solid #27140c; border-top: 4px ridge #8b5a2b; /* Holz-Verzierung */
+        z-index: 2; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
+        box-shadow: 5px 15px 15px rgba(0,0,0,0.8);
+    }
+    .item-offiziers-bar::before, .item-offiziers-bar::after {
+        content: ''; position: absolute; top: 100%; width: 5px; height: 5px; background: #1a0d08;
+    }
+    .item-offiziers-bar::before { left: 2px; } .item-offiziers-bar::after { right: 2px; }
+    .bar-shelf { width: 90%; height: 3px; background: #27140c; display: flex; justify-content: space-around; align-items: flex-end; padding-bottom: 1px; box-shadow: 0 1px 2px rgba(255,255,255,0.1); }
+    
+    /* Echte Flaschenform (mit Hals) */
+    .bottle { position: relative; width: 6px; height: 12px; border-radius: 2px 2px 1px 1px; }
+    .bottle::before { content: ''; position: absolute; bottom: 100%; left: 1px; width: 4px; height: 5px; background: inherit; border-radius: 1px 1px 0 0; }
+    .bottle-1 { background: rgba(0, 255, 136, 0.9); box-shadow: 0 0 5px #0f8; }
+    .bottle-2 { background: rgba(255, 0, 255, 0.9); box-shadow: 0 0 5px #f0f; height: 9px; }
+    .bottle-3 { background: rgba(0, 255, 255, 0.9); box-shadow: 0 0 5px #0ff; height: 14px; }
+
+    /* 4. Schreibtisch (Verziertes Holz) */
+    .item-offiziers-desk {
+        position: absolute; bottom: 75px; right: 12%; width: 75px; height: 38px;
+        background: linear-gradient(160deg, #6d4c41, #3e2723); /* Helles/Dunkles Holz */
+        border: 2px solid #27140c; border-top: 4px ridge #8d6e63; /* Zierkante */
+        background-image: repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(0,0,0,0.15) 10px, rgba(0,0,0,0.15) 12px); /* Schubladen-Optik */
+        border-radius: 2px; z-index: 3; box-shadow: -10px 15px 15px rgba(0,0,0,0.8);
+    }
+    .item-offiziers-desk::before, .item-offiziers-desk::after {
+        content: ''; position: absolute; top: 100%; width: 8px; height: 6px; background: #1a0d08;
+    }
+    .item-offiziers-desk::before { left: 4px; } .item-offiziers-desk::after { right: 4px; }
+    
+    .desk-holo-projector {
+        position: absolute; top: -5px; left: 50%; transform: translateX(-50%);
+        width: 18px; height: 4px; background: #111; border: 1px solid #444; box-shadow: inset 0 0 5px #0ff; border-radius: 2px 2px 0 0;
+    }
+    .desk-holo-stream {
+        position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+        width: 45px; height: 35px; background: repeating-linear-gradient(0deg, rgba(0,255,255,0.1) 0px, rgba(0,255,255,0.3) 2px, transparent 3px, transparent 5px);
+        background-size: 100% 50px; border: 1px solid rgba(0,255,255,0.5); border-radius: 2px;
+        animation: holo-stream-play 1s linear infinite; box-shadow: 0 0 15px rgba(0,255,255,0.2);
+        display: flex; justify-content: center; align-items: center;
+    }
+    .desk-holo-stream::after { content: 'LIVE'; font-family: 'Orbitron'; font-size: 6px; color: #fff; text-shadow: 0 0 5px #0ff; }
+</style>
 
 <script>
-// 1. Menü für Offiziers-Suite injizieren
+// 1. Menü für Offiziers-Suite
 const menuOszillation = `
 <div id="menu-oszillations-kammer" style="display:none; flex-direction:column; gap:15px;">
     <div class="upgrade-card">
-        <b>[ OFFIZIERS-BETT ]</b><p style="font-size: 0.7em; color: #aaa;">Luxuriöses Schlaflager mit Memory-Schaum.</p>
+        <b>[ OFFIZIERS-BETT ]</b><p style="font-size: 0.7em; color: #aaa;">Luxuriöses Schlaflager mit Holzrahmen.</p>
         <button id="btn-buy-offiziers-bett" onclick="window.buyFurniture('offiziers_bett', 1500)" class="btn-upgrade-exec">KAUFEN (1500 C)</button>
     </div>
     <div class="upgrade-card">
-        <b>[ HOLO-SCHREIBTISCH ]</b><p style="font-size: 0.7em; color: #aaa;">Direkter Live-Stream zum Netzwerk.</p>
+        <b>[ HOLO-SCHREIBTISCH ]</b><p style="font-size: 0.7em; color: #aaa;">Mahagoni-Tisch mit Live-Stream.</p>
         <button id="btn-buy-offiziers-desk" onclick="window.buyFurniture('offiziers_desk', 1200)" class="btn-upgrade-exec">KAUFEN (1200 C)</button>
     </div>
     <div class="upgrade-card">
-        <b>[ GETRÄNKE-BAR ]</b><p style="font-size: 0.7em; color: #aaa;">Gekühlte kybernetische Erfrischungen.</p>
+        <b>[ GETRÄNKE-REGAL ]</b><p style="font-size: 0.7em; color: #aaa;">Holzregal mit kybernetischen Erfrischungen.</p>
         <button id="btn-buy-offiziers-bar" onclick="window.buyFurniture('offiziers_bar', 900)" class="btn-upgrade-exec">KAUFEN (900 C)</button>
     </div>
     <div class="upgrade-card">
-        <b>[ HISTORISCHES GEMÄLDE ]</b><p style="font-size: 0.7em; color: #aaa;">Original "Sternennacht" von Van Gogh.</p>
+        <b>[ HISTORISCHES GEMÄLDE ]</b><p style="font-size: 0.7em; color: #aaa;">Originalkunst im massiven Rahmen.</p>
         <button id="btn-buy-offiziers-bild" onclick="window.buyFurniture('offiziers_bild', 2500)" class="btn-upgrade-exec" style="background:#ffaa00; color:#000; border:1px solid #ffaa00;">KAUFEN (2500 C)</button>
     </div>
 </div>`;
@@ -2232,7 +2316,6 @@ itemsOszillation.forEach(item => { if(typeof inventory !== 'undefined' && invent
 const oldUpdateAusbau_Oszillation = window.updateAusbauButtons;
 window.updateAusbauButtons = function() {
     if (typeof oldUpdateAusbau_Oszillation === 'function') oldUpdateAusbau_Oszillation(); 
-    
     if (typeof inventory === 'undefined') return;
     
     const oszillationLimits = { offiziers_bett: 1, offiziers_desk: 1, offiziers_bar: 1, offiziers_bild: 1 };
@@ -2272,7 +2355,6 @@ window.openRoom = (type) => {
         const ph = document.getElementById('menu-platzhalter');
         if (ph) ph.style.setProperty('display', 'none', 'important');
         
-        // Benennt den Raum im Titel optisch zur Suite um
         const titleEl = document.getElementById('room-title-detail');
         if (titleEl) titleEl.innerText = "OSZILLATIONS-KAMMER (OFFIZIERS-SUITE)";
 
@@ -2333,8 +2415,8 @@ window.spawnFurniture = (type, count) => {
     } else if (type === 'offiziers_bar') {
         item.classList.add('item-offiziers-bar');
         item.innerHTML = `
-            <div class="bar-shelf"><div class="bottle-1"></div><div class="bottle-2"></div></div>
-            <div class="bar-shelf"><div class="bottle-3"></div><div class="bottle-1"></div></div>
+            <div class="bar-shelf"><div class="bottle bottle-1"></div><div class="bottle bottle-2"></div></div>
+            <div class="bar-shelf"><div class="bottle bottle-3"></div><div class="bottle bottle-1"></div></div>
         `;
     } else if (type === 'offiziers_desk') {
         item.classList.add('item-offiziers-desk');
