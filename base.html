@@ -1706,32 +1706,58 @@ window.spawnFurniture = (type, count) => {
     .netz-emitter { position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 40px; height: 10px; background: #111; border: 1px solid #c0f; border-radius: 5px; box-shadow: 0 0 15px #c0f; }
 </style>
 <style>
-    /* --- Paradoxon-Filter: Animationen & Glitches --- */
-    @keyframes chrono-pulse { 0%, 100% { box-shadow: 0 0 20px #c0f, inset 0 0 10px #f0f; transform: scale(1); } 50% { box-shadow: 0 0 40px #f0f, inset 0 0 20px #fff; transform: scale(1.05); } }
-    @keyframes ripple-ring { from { transform: rotateX(70deg) rotateZ(0deg); opacity: 0.8; } to { transform: rotateX(70deg) rotateZ(360deg); opacity: 0.4; } }
-    @keyframes daempfer-charge { 0%, 100% { background: rgba(204, 0, 255, 0.2); } 50% { background: rgba(0, 255, 255, 0.5); box-shadow: 0 0 15px #0ff; } }
-    
-    /* Dimensions-Glitch Animation */
-    @keyframes dim-glitch {
-        0%, 95%, 100% { opacity: 0; transform: scale(1); filter: none; }
-        96% { opacity: 0.3; background: rgba(139, 69, 19, 0.3); transform: scale(1.1) skewX(5deg); filter: sepia(1) contrast(1.2); } /* Steinzeit */
-        98% { opacity: 0.3; background: rgba(0, 255, 255, 0.2); transform: scale(0.9) skewX(-5deg); filter: hue-rotate(180deg) brightness(1.5); } /* Zukunft */
+    /* --- Paradoxon-Filter: Originales High-Detail Design --- */
+    @keyframes time-ripple { 0% { box-shadow: 0 0 0 0 rgba(200, 0, 255, 0.6); } 100% { box-shadow: 0 0 0 25px rgba(200, 0, 255, 0); } }
+    @keyframes reverse-spin { from { transform: rotate(360deg) scaleY(0.5); } to { transform: rotate(0deg) scaleY(0.5); } }
+    @keyframes tachyon-pulse { 0%, 100% { opacity: 0.6; box-shadow: inset 0 0 10px #c0f; } 50% { opacity: 1; box-shadow: inset 0 0 25px #f0f; } }
+    @keyframes float-anomalie { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
+
+    /* --- Dimensions-Glitch (Bilder aus anderen Zeiten/Welten) --- */
+    @keyframes epic-dim-glitch {
+        0%, 9%, 11%, 29%, 31%, 49%, 51%, 69%, 71%, 89%, 91%, 100% { opacity: 0; background-image: none; transform: skewX(0); filter: none; }
+        
+        /* 1. Natur / Steinzeit */
+        9.5% { opacity: 0.6; background-image: url('https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80'); transform: scale(1.05) skewX(5deg); mix-blend-mode: hard-light; filter: sepia(0.8); }
+        10% { opacity: 0.3; background-image: url('https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80'); transform: scale(1) skewX(-2deg); mix-blend-mode: hard-light; filter: sepia(0.8) invert(0.2); }
+
+        /* 2. Zukunft / Cyber-City */
+        30% { opacity: 0.7; background-image: url('https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=600&q=80'); transform: scale(1.1) skewY(3deg); mix-blend-mode: screen; filter: hue-rotate(90deg); }
+
+        /* 3. Blitze / Sturm */
+        50% { opacity: 0.8; background-image: url('https://images.unsplash.com/photo-1605722243979-fc087912411e?auto=format&fit=crop&w=600&q=80'); transform: scale(1); mix-blend-mode: screen; filter: contrast(1.5); }
+        50.2% { opacity: 0; }
+        50.4% { opacity: 0.9; background-image: url('https://images.unsplash.com/photo-1605722243979-fc087912411e?auto=format&fit=crop&w=600&q=80'); filter: invert(1); mix-blend-mode: difference; }
+
+        /* 4. Mars-Oberfläche */
+        70% { opacity: 0.5; background-image: url('https://images.unsplash.com/photo-1614728263952-84ea256f9679?auto=format&fit=crop&w=600&q=80'); transform: scale(1.02); mix-blend-mode: color-dodge; filter: contrast(1.2) hue-rotate(-20deg); }
+
+        /* 5. Weltall / Milchstraße */
+        90% { opacity: 0.6; background-image: url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=600&q=80'); transform: scale(1.08) rotate(2deg); mix-blend-mode: screen; }
+    }
+
+    #dimension-glitch-layer {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none; z-index: 10;
+        background-size: cover; background-position: center;
+        opacity: 0;
+    }
+    #dimension-glitch-layer.active {
+        animation: epic-dim-glitch 25s infinite linear;
     }
 
     /* --- Möbel Designs --- */
-    .item-chrono-kern { width: 100px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 65px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
-    .chrono-sphere { width: 40px; height: 40px; background: #fff; border-radius: 50%; position: absolute; bottom: 80px; animation: chrono-pulse 2s infinite; z-index: 5; box-shadow: 0 0 20px #c0f; }
-    .chrono-ring { position: absolute; width: 100px; height: 100px; border: 2px solid #c0f; border-radius: 50%; bottom: 50px; animation: ripple-ring 4s linear infinite; }
-    .chrono-base-heavy { width: 90px; height: 40px; background: linear-gradient(180deg, #2a0a33, #050505); border: 2px solid #444; border-top: 3px solid #c0f; border-radius: 6px 6px 2px 2px; position: absolute; bottom: 0; box-shadow: 0 10px 20px #000; }
+    .item-chrono-kern { width: 120px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .chrono-base { width: 80px; height: 25px; background: linear-gradient(180deg, #1a052a, #000); border: 2px solid #555; border-top: 4px solid #c0f; border-radius: 8px 8px 3px 3px; z-index: 2; box-shadow: 0 15px 25px rgba(0,0,0,0.9); }
+    .chrono-sphere { width: 55px; height: 55px; background: radial-gradient(circle, #f0f 0%, #408 80%, #000 100%); border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.8); position: absolute; bottom: 40px; animation: float-anomalie 5s ease-in-out infinite, time-ripple 2.5s infinite; z-index: 5; }
+    .chrono-ring-1 { width: 110px; height: 110px; border: 3px solid #0ff; border-radius: 50%; position: absolute; bottom: 12px; animation: reverse-spin 6s linear infinite; transform-origin: center; z-index: 4; }
+    .chrono-ring-2 { width: 90px; height: 90px; border: 2px dashed #f0f; border-radius: 50%; position: absolute; bottom: 22px; animation: reverse-spin 4s linear infinite reverse; transform-origin: center; z-index: 6; }
 
-    .item-anomalie-daempfer { width: 30px; height: 100px; position: absolute; z-index: 2; bottom: 65px; display: flex; flex-direction: column; align-items: center; }
-    .daempfer-posten { width: 20px; height: 90px; background: #111; border: 2px solid #333; border-top: 4px solid #0ff; border-radius: 4px; position: relative; overflow: hidden; }
-    .daempfer-light { position: absolute; top: 10%; left: 0; width: 100%; height: 80%; animation: daempfer-charge 3s infinite; }
+    .item-anomalie-daempfer { width: 35px; height: 100px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .daempfer-pillar { width: 25px; height: 90px; background: #0a0a0a; border: 2px solid #333; border-top: 3px solid #0ff; border-radius: 4px; position: relative; overflow: hidden; box-shadow: 5px 10px 15px rgba(0,0,0,0.8); }
+    .daempfer-core { position: absolute; top: 15px; bottom: 15px; left: 5px; right: 5px; background: rgba(200, 0, 255, 0.2); border-left: 1px solid #c0f; border-right: 1px solid #c0f; animation: tachyon-pulse 2s infinite; }
 
-    .item-tachyon-netz { width: 120px; height: 15px; background: #1a1a1a; border: 1px solid #c0f; border-top: none; position: absolute; z-index: 5; top: 0; left: 50%; transform: translateX(-50%); border-radius: 0 0 10px 10px; box-shadow: 0 5px 15px rgba(204, 0, 255, 0.4); }
-    .netz-glow { width: 90%; height: 2px; background: #c0f; margin: 6px auto; box-shadow: 0 0 10px #c0f; animation: led-blink 1.5s infinite; }
-
-    #dimension-glitch-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; animation: dim-glitch 15s infinite; }
+    .item-tachyon-netz { position: absolute; top: 0; left: 0; width: 100%; height: 40px; z-index: 5; background-image: linear-gradient(90deg, rgba(200,0,255,0.2) 1px, transparent 1px), linear-gradient(0deg, rgba(200,0,255,0.2) 1px, transparent 1px); background-size: 20px 20px; border-bottom: 2px solid #c0f; box-shadow: 0 5px 25px rgba(200,0,255,0.3); pointer-events: none; }
+    .netz-emitter { position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 40px; height: 10px; background: #111; border: 1px solid #c0f; border-radius: 5px; box-shadow: 0 0 15px #c0f; }
 </style>
 
 <script>
@@ -1739,15 +1765,15 @@ window.spawnFurniture = (type, count) => {
 const menuParadoxon = `
 <div id="menu-paradoxon-filter" style="display:none; flex-direction:column; gap:15px;">
     <div class="upgrade-card">
-        <b>[ CHRONO-KERN ]</b><p style="font-size: 0.7em; color: #aaa;">Massives Herzstück zur Zeitstabilisierung.</p>
-        <button id="btn-buy-chrono-kern" onclick="window.buyFurniture('chrono_kern', 4500)" class="btn-upgrade-exec" style="background:#c0f; color:#000;">KAUFEN (4500 C + 60 MZ)</button>
+        <b>[ CHRONO-KERN ]</b><p style="font-size: 0.7em; color: #aaa;">Stabilisiert die lokale Raumzeit.</p>
+        <button id="btn-buy-chrono-kern" onclick="window.buyFurniture('chrono_kern', 4500)" class="btn-upgrade-exec" style="background:#c0f; color:#000; border:1px solid #c0f;">KAUFEN (4500 C + 60 MZ)</button>
     </div>
     <div class="upgrade-card">
-        <b>[ ANOMALIE-DÄMPFER ]</b><p style="font-size: 0.7em; color: #aaa;">Erdet paradoxe Entladungen. (Max. 3)</p>
+        <b>[ ANOMALIE-DÄMPFER ]</b><p style="font-size: 0.7em; color: #aaa;">Unterdrückt Realitätsrisse. (Max. 3)</p>
         <button id="btn-buy-anomalie-daempfer" onclick="window.buyFurniture('anomalie_daempfer', 1100)" class="btn-upgrade-exec">KAUFEN (1100 C) [0/3]</button>
     </div>
     <div class="upgrade-card">
-        <b>[ TACHYONEN-NETZ ]</b><p style="font-size: 0.7em; color: #aaa;">Filtert Decken-Partikelstrahlung.</p>
+        <b>[ TACHYONEN-NETZ ]</b><p style="font-size: 0.7em; color: #aaa;">Deckenmontierter Partikel-Schutzschild.</p>
         <button id="btn-buy-tachyon-netz" onclick="window.buyFurniture('tachyon_netz', 600)" class="btn-upgrade-exec">KAUFEN (600 C)</button>
     </div>
 </div>`;
@@ -1760,14 +1786,25 @@ if (!document.getElementById('menu-paradoxon-filter')) {
 const itemsParadox = ['chrono_kern', 'anomalie_daempfer', 'tachyon_netz'];
 itemsParadox.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
-// 3. Raum-Weiche patchen
+// 3. Raum-Weiche patchen & Glitch aktivieren
 const oldOpenRoomParadox = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoomParadox) oldOpenRoomParadox(type);
     const menu = document.getElementById('menu-paradoxon-filter');
     if (menu) menu.style.display = (type === 'PARADOXON-FILTER') ? 'flex' : 'none';
-    if (type === 'PARADOXON-FILTER') document.getElementById('menu-platzhalter').style.display = 'none';
-    window.reloadFurniture(type);
+    
+    if (type === 'PARADOXON-FILTER') {
+        const ph = document.getElementById('menu-platzhalter');
+        if (ph) ph.style.setProperty('display', 'none', 'important');
+        window.reloadFurniture(type);
+    }
+    
+    // Glitch-Status verwalten
+    const glitchLayer = document.getElementById('dimension-glitch-layer');
+    if (glitchLayer) {
+        if (type === 'PARADOXON-FILTER') glitchLayer.classList.add('active');
+        else glitchLayer.classList.remove('active');
+    }
 };
 
 // 4. Shop-Kauf Logik (Credits + MZ für den Kern)
@@ -1784,11 +1821,26 @@ window.buyFurniture = async (type, cost) => {
         if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
             gameState.credits -= costC;
             document.getElementById('display-credits').innerText = gameState.credits;
+            
             if (isKern) {
                 gameState.materieZellen -= costMZ;
                 document.getElementById('display-mz').innerText = gameState.materieZellen;
+                // Speichern der MZ
+                const ag = localStorage.getItem("flux_last_agent") || "";
+                if (ag) {
+                    const mainPKey = 'flux_agent_' + ag.toLowerCase();
+                    let d = {}; const mainP = localStorage.getItem(mainPKey);
+                    if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
+                    d.mz = gameState.materieZellen; 
+                    localStorage.setItem(mainPKey, JSON.stringify(d));
+                    if (window.db && window.setDoc) {
+                        try { window.setDoc(window.doc(window.db, "Agent - Base", ag.toLowerCase()), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+                    }
+                }
             }
+            
             inventory[type]++;
+            window.updateAusbauButtons(); // Master-Wächter aufrufen
             window.spawnFurniture(type, inventory[type]);
         } else {
             let msg = isKern ? "System: 4500 C + 60 MZ benötigt." : "System: Credits unzureichend.";
@@ -1804,7 +1856,9 @@ window.reloadFurniture = (type) => {
     if (type === 'PARADOXON-FILTER') {
         const room = document.getElementById('room-area');
         if (room && !document.getElementById('dimension-glitch-layer')) {
-            const glitch = document.createElement('div'); glitch.id = 'dimension-glitch-layer';
+            const glitch = document.createElement('div'); 
+            glitch.id = 'dimension-glitch-layer';
+            glitch.classList.add('active'); // Direkt aktivieren
             room.appendChild(glitch);
         }
         if (inventory.tachyon_netz > 0) window.spawnFurniture('tachyon_netz', 1);
@@ -1825,15 +1879,25 @@ window.spawnFurniture = (type, count) => {
 
     if (type === 'chrono_kern') {
         item.classList.add('item-chrono-kern');
-        item.innerHTML = '<div class="chrono-ring"></div><div class="chrono-sphere"></div><div class="chrono-base-heavy"></div>';
+        item.innerHTML = '<div class="chrono-ring-1"></div><div class="chrono-ring-2"></div><div class="chrono-sphere"></div><div class="chrono-base"></div>';
     } else if (type === 'anomalie_daempfer') {
         item.classList.add('item-anomalie-daempfer');
-        item.innerHTML = '<div class="daempfer-posten"><div class="daempfer-light"></div></div>';
-        let offsets = [15, 85, 30]; item.style.left = offsets[count-1] + '%';
-        if(count === 3) { item.style.bottom = '85px'; item.style.scale = '0.8'; item.style.zIndex = '1'; }
+        item.innerHTML = '<div class="daempfer-pillar"><div class="daempfer-core"></div></div>';
+        
+        // Exakte Verteilung und Positionierung
+        if (count === 1) { item.style.left = '15%'; }
+        else if (count === 2) { item.style.right = '15%'; }
+        else if (count === 3) { 
+            item.style.left = '25%'; 
+            item.style.bottom = '85px'; // Leichte Tiefenwirkung für den 3.
+            item.style.transform = 'scale(0.85)'; 
+            item.style.zIndex = '1'; 
+        }
+        item.querySelector('.daempfer-core').style.animationDelay = `${count * 0.5}s`;
+        
     } else if (type === 'tachyon_netz') {
         item.classList.add('item-tachyon-netz');
-        item.innerHTML = '<div class="netz-glow"></div>';
+        item.innerHTML = '<div class="netz-emitter"></div>';
     }
     room.appendChild(item);
 };
