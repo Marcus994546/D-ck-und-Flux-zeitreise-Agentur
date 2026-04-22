@@ -2164,28 +2164,37 @@ window.spawnFurniture = (type, count) => {
         width: 40px; height: 3px; background: #fff; box-shadow: 0 0 15px #ffcc00; border-radius: 2px;
     }
 
+    /* 2. Offiziers-Bett mit rotem Teppich */
     .item-offiziers-bett {
-        position: absolute; bottom: 70px; left: 45px;
-        width: 120px; height: 45px;
-        z-index: 2; display: flex; align-items: flex-end; justify-content: flex-start;
+        position: absolute; 
+        bottom: 55px; /* Ein Ticken nach unten/vorne geschoben */
+        left: 45px;
+        width: 120px; 
+        height: 45px;
+        z-index: 2; 
+        display: flex; 
+        align-items: flex-end; 
+        justify-content: flex-start;
     }
     
-    /* FIX: Teppich liegt absolut flach und nutzt die Raum-Perspektive */
+    /* Der rote Teppich flach auf dem Boden und parallel zur Wand */
     .bett-teppich {
         position: absolute; 
-        top: 100%; 
-        left: -10px; 
-        width: 140px; 
+        top: 30px; /* Gleicht die Bett-Verschiebung aus -> Startet exakt an der Hinterwand */
+        left: -5px; /* Greift exakt in die linke Raumecke (Bett 45px - 5px = 40px Kante) */
+        width: 130px; 
         height: 60px; 
         background: #600000; 
         border-bottom: 2px solid #ffaa00; 
         border-top: 2px solid #ffaa00;
         z-index: 0; 
-        transform-origin: top center; 
-        transform: perspective(400px) rotateX(60deg); 
+        transform-origin: top left; 
+        /* Perspective für die Bodentiefe + skewX für die exakte Parallele zur linken Wand */
+        transform: perspective(400px) rotateX(60deg) skewX(-22deg); 
         box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
         background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.2) 5px, rgba(0,0,0,0.2) 10px);
     }
+
 
     .bett-legs-side { position: absolute; bottom: -5px; width: 100%; display: flex; justify-content: space-around; z-index: 2; }
     .bett-leg { width: 8px; height: 5px; background: #1a0d08; border-radius: 0 0 2px 2px; }
