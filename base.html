@@ -1915,34 +1915,59 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 </script>
-    <style>
-    /* --- Impuls-Kondensator: Animationen --- */
-    @keyframes impuls-charge { 
-        0% { height: 10%; background: #001133; box-shadow: 0 0 5px #0055ff; } 
-        50% { height: 95%; background: #00aaff; box-shadow: 0 0 30px #00ffff; } 
-        100% { height: 10%; background: #001133; box-shadow: 0 0 5px #0055ff; } 
+<style>
+    /* --- Globale Raum-Glitches (Wird vom Pulsgenerator ausgelöst) --- */
+    @keyframes room-emp-glitch {
+        0%, 93%, 100% { filter: none; transform: translate(0,0) skewX(0); }
+        94% { filter: invert(1) contrast(2) hue-rotate(180deg); transform: translate(-5px, 5px) skewX(10deg); background-color: rgba(0, 255, 255, 0.2); }
+        96% { filter: brightness(4) contrast(1.5); transform: translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
+        98% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: translate(0px, 2px) skewX(2deg); }
     }
-    @keyframes coil-rotate { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
-    @keyframes spark-jump { 
-        0%, 90%, 100% { opacity: 0; transform: scaleY(0.5); } 
-        95% { opacity: 1; transform: scaleY(1); box-shadow: 0 0 15px #0ff; } 
-    }
-    @keyframes energy-flow-up { 
-        0% { background-position: 0 200%; } 
-        100% { background-position: 0 -200%; } 
+    .emp-active {
+        animation: room-emp-glitch 5s infinite linear;
     }
 
-    /* --- Möbel Designs --- */
-    .item-impuls-kern { width: 140px; height: 130px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; justify-content: center; align-items: flex-end; }
-    .kern-gehaeuse { width: 80px; height: 120px; background: rgba(0, 10, 20, 0.8); border: 3px solid #333; border-radius: 40px; position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.9), inset 0 0 20px #000; z-index: 2; }
-    .kern-fluid { position: absolute; bottom: 0; left: 0; width: 100%; border-radius: 0 0 35px 35px; animation: impuls-charge 4s ease-in-out infinite; }
-    .kern-base { width: 110px; height: 30px; background: linear-gradient(180deg, #222, #050505); border: 2px solid #555; border-bottom: 4px solid #00aaff; border-radius: 5px; position: absolute; bottom: 0; z-index: 3; box-shadow: 0 15px 20px rgba(0,0,0,0.9); }
-    .kern-ring { position: absolute; top: 40px; width: 100px; height: 30px; border: 3px solid rgba(0, 255, 255, 0.6); border-radius: 50%; z-index: 4; box-shadow: 0 0 15px #0ff, inset 0 0 15px #0ff; animation: float-anomalie 3s infinite alternate; }
+    /* --- Omega-Speicherkern (Pulsgenerator) Redesign --- */
+    @keyframes kern-charge-pulse {
+        0% { filter: hue-rotate(0deg); box-shadow: 0 0 10px #0055ff, inset 0 0 10px #0055ff; transform: scale(1) translateY(0); }
+        80% { filter: hue-rotate(45deg); box-shadow: 0 0 60px #00aaff, inset 0 0 40px #00aaff; transform: scale(1.02) translateY(-2px); }
+        90% { filter: hue-rotate(90deg); box-shadow: 0 0 80px #0ff, inset 0 0 60px #0ff; transform: scale(1.05) translateY(-5px); }
+        95% { filter: brightness(5); box-shadow: 0 0 150px #fff, 0 0 200px #0ff, inset 0 0 150px #fff; transform: scale(1.15) translateY(-2px); background: #fff; }
+        98% { filter: none; box-shadow: 0 0 5px #0055ff; transform: scale(0.95) translateY(2px); }
+        100% { filter: none; box-shadow: 0 0 10px #0055ff; transform: scale(1) translateY(0); }
+    }
+    @keyframes ring-accel {
+        0% { transform: rotateX(75deg) rotateZ(0deg); opacity: 0.5; border-color: rgba(0, 255, 255, 0.5); }
+        85% { transform: rotateX(75deg) rotateZ(720deg); opacity: 1; border-color: #fff; box-shadow: 0 0 20px #fff; }
+        95% { transform: rotateX(75deg) rotateZ(1440deg) scale(1.8); opacity: 0; border-width: 10px; }
+        100% { transform: rotateX(75deg) rotateZ(0deg); opacity: 0; }
+    }
 
-    .item-supraleiter { width: 40px; height: 90px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-    .supra-stand { width: 30px; height: 15px; background: #111; border: 2px solid #444; border-bottom: 3px solid #ffaa00; border-radius: 3px; z-index: 2; }
-    .supra-coil { width: 20px; height: 60px; background: repeating-linear-gradient(0deg, #1a1a1a 0px, #1a1a1a 4px, #0055ff 4px, #0055ff 6px); border: 1px solid #000; border-radius: 10px; margin-bottom: -5px; z-index: 1; animation: coil-rotate 2s linear infinite; box-shadow: 0 0 10px rgba(0,85,255,0.4); }
+    .item-impuls-kern { width: 140px; height: 140px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; justify-content: center; align-items: flex-end; }
+    .kern-gehaeuse { width: 70px; height: 110px; background: rgba(0, 10, 30, 0.9); border: 2px solid #0055ff; border-radius: 10px 10px 40px 40px; position: relative; z-index: 2; animation: kern-charge-pulse 5s infinite ease-in-out; }
+    .kern-base { width: 110px; height: 25px; background: linear-gradient(180deg, #111, #000); border: 2px solid #444; border-bottom: 4px solid #00aaff; border-radius: 8px 8px 3px 3px; position: absolute; bottom: 0; z-index: 3; box-shadow: 0 15px 25px rgba(0,0,0,0.9); }
+    .kern-ring-accel { position: absolute; top: 40px; width: 110px; height: 110px; border: 3px solid #0ff; border-radius: 50%; z-index: 4; animation: ring-accel 5s infinite ease-in; pointer-events: none; }
 
+    /* --- Supraleiter-Spulen Redesign (Plasma-Säulen) --- */
+    @keyframes pillar-surge {
+        0% { transform: translateY(100%); opacity: 0; }
+        50% { opacity: 1; }
+        100% { transform: translateY(-100%); opacity: 0; }
+    }
+    @keyframes supra-sync-flash {
+        0%, 93%, 100% { filter: none; }
+        95% { filter: brightness(4) drop-shadow(0 0 30px #0ff); }
+    }
+
+    .item-supraleiter { width: 40px; height: 100px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; animation: supra-sync-flash 5s infinite linear; }
+    .supra-base { width: 36px; height: 18px; background: linear-gradient(180deg, #222, #000); border: 2px solid #0ff; border-bottom: none; border-radius: 6px 6px 0 0; z-index: 2; box-shadow: 0 10px 15px rgba(0,0,0,0.8); }
+    .supra-energy-pillar { width: 16px; height: 80px; background: rgba(0, 50, 100, 0.4); border-left: 2px solid #00aaff; border-right: 2px solid #00aaff; border-radius: 10px; margin-bottom: -5px; z-index: 1; position: relative; overflow: hidden; box-shadow: 0 0 15px rgba(0, 170, 255, 0.4); }
+    .supra-energy-pillar::after { content: ''; position: absolute; left: 0; width: 100%; height: 50%; background: #fff; box-shadow: 0 0 20px #fff, 0 0 30px #0ff; animation: pillar-surge 1.2s infinite linear; filter: blur(2px); }
+
+    /* --- Decken-Entlader (Unverändert) --- */
+    @keyframes spark-jump { 0%, 90%, 100% { opacity: 0; transform: scaleY(0.5); } 95% { opacity: 1; transform: scaleY(1); box-shadow: 0 0 15px #0ff; } }
+    @keyframes energy-flow-up { 0% { background-position: 0 200%; } 100% { background-position: 0 -200%; } }
+    
     .item-decken-entlader { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 50px; z-index: 4; display: flex; flex-direction: column; align-items: center; }
     .entlader-mount { width: 100%; height: 15px; background: #1a1a1a; border: 2px solid #444; border-top: none; border-radius: 0 0 10px 10px; box-shadow: 0 5px 15px rgba(0,170,255,0.3); }
     .entlader-beam { width: 8px; height: 140px; background: linear-gradient(180deg, rgba(0,255,255,0.8), transparent); animation: energy-flow-up 1.5s linear infinite; filter: drop-shadow(0 0 8px #0ff); }
@@ -1954,11 +1979,11 @@ window.spawnFurniture = (type, count) => {
 const menuImpuls = `
 <div id="menu-impuls-kondensator" style="display:none; flex-direction:column; gap:15px;">
     <div class="upgrade-card">
-        <b>[ OMEGA-SPEICHERKERN ]</b><p style="font-size: 0.7em; color: #aaa;">Zentrale Superkondensator-Bank.</p>
+        <b>[ OMEGA-PULSGENERATOR ]</b><p style="font-size: 0.7em; color: #aaa;">Baut extreme Ladungen für EMP-Entladungen auf.</p>
         <button id="btn-buy-impuls-kern" onclick="window.buyFurniture('impuls_kern', 3200)" class="btn-upgrade-exec" style="background:#00aaff; color:#000; border:1px solid #00aaff;">KAUFEN (3200 C + 30 MZ)</button>
     </div>
     <div class="upgrade-card">
-        <b>[ SUPRALEITER-SPULE ]</b><p style="font-size: 0.7em; color: #aaa;">Verlustfreie Ladekapazität. (Max. 2)</p>
+        <b>[ PLASMA-SUPRALEITER ]</b><p style="font-size: 0.7em; color: #aaa;">Dynamische Kühlsäulen. (Max. 2)</p>
         <button id="btn-buy-supraleiter" onclick="window.buyFurniture('supraleiter', 800)" class="btn-upgrade-exec">KAUFEN (800 C) [0/2]</button>
     </div>
     <div class="upgrade-card">
@@ -2011,7 +2036,7 @@ window.updateAusbauButtons = function() {
     }
 };
 
-// 4. Raum-Weiche patchen
+// 4. Raum-Weiche patchen & EMP Glitch aktivieren
 const oldOpenRoomImpuls = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoomImpuls) oldOpenRoomImpuls(type);
@@ -2023,6 +2048,10 @@ window.openRoom = (type) => {
         if (ph) ph.style.setProperty('display', 'none', 'important');
         window.reloadFurniture(type);
         window.updateAusbauButtons(); 
+    } else {
+        // Raum-Glitch deaktivieren, wenn man den Raum verlässt
+        const roomArea = document.getElementById('room-area');
+        if (roomArea) roomArea.classList.remove('emp-active');
     }
 };
 
@@ -2045,7 +2074,7 @@ window.buyFurniture = async (type, cost) => {
             if (isKern) {
                 gameState.materieZellen -= costMZ;
                 document.getElementById('display-mz').innerText = gameState.materieZellen;
-                // Speichern der MZ in der Cloud/Local
+                // Speichern der MZ
                 const ag = localStorage.getItem("flux_last_agent") || "";
                 if (ag) {
                     const mainPKey = 'flux_agent_' + ag.toLowerCase();
@@ -2093,14 +2122,18 @@ window.spawnFurniture = (type, count) => {
     if (type === 'impuls_kern') {
         item.classList.add('item-impuls-kern');
         item.innerHTML = `
-            <div class="kern-ring"></div>
-            <div class="kern-gehaeuse"><div class="kern-fluid"></div></div>
+            <div class="kern-ring-accel"></div>
+            <div class="kern-gehaeuse"></div>
             <div class="kern-base"></div>`;
+        
+        // Fügt dem gesamten Raum den Glitch-Effekt hinzu, sobald der Kern gebaut wird
+        room.classList.add('emp-active');
+        
     } else if (type === 'supraleiter') {
         item.classList.add('item-supraleiter');
-        item.innerHTML = '<div class="supra-coil"></div><div class="supra-stand"></div>';
+        item.innerHTML = '<div class="supra-energy-pillar"></div><div class="supra-base"></div>';
         
-        // Symmetrische Verteilung links und rechts
+        // Symmetrische Verteilung links und rechts (inklusive sync-animation delay falls gewünscht)
         if (count === 1) { item.style.left = '20%'; }
         else if (count === 2) { item.style.right = '20%'; }
         
@@ -2111,7 +2144,6 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 </script>
-
 <script>
     // 1. Menü einfügen
     const menuVerteiler = `
