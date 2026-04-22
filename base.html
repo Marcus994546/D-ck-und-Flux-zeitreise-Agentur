@@ -2144,71 +2144,19 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 </script>
-    <style>
-    /* --- Oszillations-Kammer (Offiziers-Suite) --- */
-    @keyframes holo-stream-play { 100% { background-position: 0 -50px; } }
-    
-    .item-offiziers-bild {
-        position: absolute; top: 35px; left: 50%; transform: translateX(-50%);
-        width: 80px; height: 50px; border: 3px solid #b8860b;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,0,0,0.5);
-        background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/300px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg');
-        background-size: cover; background-position: center; z-index: 1;
-    }
-    .bild-licht {
-        position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
-        width: 30px; height: 3px; background: #fff; box-shadow: 0 0 10px #ffcc00; border-radius: 2px;
-    }
-
-    .item-offiziers-bett {
-        position: absolute; bottom: 70px; left: 15%; width: 75px; height: 40px;
-        background: #111; border: 2px solid #333; border-radius: 4px; z-index: 2;
-        box-shadow: 10px 10px 15px rgba(0,0,0,0.8); display: flex; align-items: center;
-    }
-    .bett-decke { position: absolute; right: 0; width: 55px; height: 100%; background: #2a0a33; border-left: 2px solid #8844ff; border-radius: 0 2px 2px 0; }
-    .bett-kissen { position: absolute; left: 6px; width: 14px; height: 22px; background: #ddd; border-radius: 3px; box-shadow: inset -2px -2px 5px rgba(0,0,0,0.2); }
-
-    .item-offiziers-bar {
-        position: absolute; bottom: 70px; left: 45%; width: 35px; height: 60px;
-        background: linear-gradient(180deg, #1a1a1a, #0a0a0a); border: 2px solid #444; border-top: 3px solid #ffaa00;
-        z-index: 2; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
-        box-shadow: 5px 10px 15px rgba(0,0,0,0.9);
-    }
-    .bar-shelf { width: 85%; height: 2px; background: rgba(255,170,0,0.3); display: flex; justify-content: space-around; align-items: flex-end; padding-bottom: 2px; box-shadow: 0 -5px 10px rgba(255,170,0,0.1); }
-    .bottle-1 { width: 4px; height: 12px; background: #0f8; box-shadow: 0 0 5px #0f8; border-radius: 2px 2px 0 0; }
-    .bottle-2 { width: 5px; height: 10px; background: #f0f; box-shadow: 0 0 5px #f0f; border-radius: 2px 2px 0 0; }
-    .bottle-3 { width: 4px; height: 14px; background: #0ff; box-shadow: 0 0 5px #0ff; border-radius: 2px 2px 0 0; }
-
-    .item-offiziers-desk {
-        position: absolute; bottom: 70px; right: 15%; width: 65px; height: 35px;
-        background: linear-gradient(to bottom, #222, #050505); border: 2px solid #555;
-        border-top: 3px solid #0ff; border-radius: 3px; z-index: 3; box-shadow: -10px 10px 15px rgba(0,0,0,0.8);
-    }
-    .desk-holo-projector {
-        position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
-        width: 15px; height: 4px; background: #fff; box-shadow: 0 0 10px #0ff; border-radius: 2px;
-    }
-    .desk-holo-stream {
-        position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-        width: 45px; height: 35px; background: repeating-linear-gradient(0deg, rgba(0,255,255,0.1) 0px, rgba(0,255,255,0.3) 2px, transparent 3px, transparent 5px);
-        background-size: 100% 50px; border: 1px solid rgba(0,255,255,0.5); border-radius: 2px;
-        animation: holo-stream-play 1s linear infinite; box-shadow: 0 0 15px rgba(0,255,255,0.2);
-        display: flex; justify-content: center; align-items: center;
-    }
-    .desk-holo-stream::after { content: 'LIVE'; font-family: 'Orbitron'; font-size: 6px; color: #fff; text-shadow: 0 0 5px #0ff; }
-</style>
 <style>
-    /* --- Oszillations-Kammer (Offiziers-Suite) --- */
+    /* --- Oszillations-Kammer (Offiziers-Suite) - Überarbeitet --- */
     @keyframes holo-stream-play { 100% { background-position: 0 -50px; } }
     
-    /* 1. Historisches Gemälde (Echter Direkt-Link) */
+    /* 1. Historisches Gemälde (HOCHKANT - Mona Lisa) */
     .item-offiziers-bild {
         position: absolute; top: 25px; left: 50%; transform: translateX(-50%);
-        width: 100px; height: 65px; 
+        width: 50px; height: 75px; /* Hochkant Portrait ratio (ca. 2:3) */
         background-color: #111;
         border: 4px solid #5c3a21; outline: 2px solid #27140c; border-radius: 2px;
         box-shadow: 0 10px 20px rgba(0,0,0,0.9);
-        background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/600px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg');
+        /* Nutzt den hochgeladenen Mona-Lisa Link */
+        background-image: url('Mona-Lisa.png'); 
         background-size: cover; background-position: center; z-index: 1;
     }
     .bild-licht {
@@ -2216,29 +2164,36 @@ window.spawnFurniture = (type, count) => {
         width: 40px; height: 3px; background: #fff; box-shadow: 0 0 15px #ffcc00; border-radius: 2px;
     }
 
-    /* 2. Offiziers-Bett (In den Raum ragend) */
+    /* 2. Offiziers-Bett (REVOLUTION: Nicht mehr an der Wand! Massives Holzgestell auf Füßen, ragt in den Raum) */
     .item-offiziers-bett {
-        position: absolute; bottom: 70px; left: 15%; width: 56px; height: 95px;
-        z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+        position: absolute; bottom: 70px; left: 22%; /* Weiter in den Raum gerückt */
+        width: 55px; height: 100px; /* Längs im Raum stehend, tief */
+        z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
     }
-    .bett-kopfteil {
-        width: 100%; height: 15px; background: linear-gradient(180deg, #5c3a21, #3e2723);
-        border: 2px solid #27140c; border-radius: 4px 4px 0 0; z-index: 3;
-        box-shadow: 0 5px 10px rgba(0,0,0,0.5);
+    /* Holzrahmen-Teile */
+    .bett-frame {
+        width: 100%; background: linear-gradient(180deg, #5c3a21, #3e2723);
+        border: 2px solid #27140c; box-shadow: 0 5px 10px rgba(0,0,0,0.5); z-index: 4;
     }
-    .bett-gestell {
-        width: 50px; height: 80px; background: #3e2723; border: 2px solid #27140c; border-top: none;
-        position: relative; box-shadow: 10px 10px 15px rgba(0,0,0,0.8);
+    .bett-headboard { height: 20px; border-radius: 4px 4px 0 0; }
+    .bett-footboard { height: 15px; border-radius: 0 0 4px 4px; box-shadow: 0 -5px 10px rgba(0,0,0,0.3); }
+    /* Matratze & Co */
+    .bett-matratze {
+        width: 50px; height: 85px; background: #e0e0e0; border-left: 1px solid #999; border-right: 1px solid #999;
+        margin-top: -5px; margin-bottom: -5px; z-index: 3; position: relative;
+        box-shadow: 10px 10px 15px rgba(0,0,0,0.8);
     }
-    .bett-gestell::after {
-        content: ''; position: absolute; top: 100%; left: 0; width: 100%; height: 4px; background: #27140c;
-    }
-    .bett-kissen { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); width: 36px; height: 18px; background: #e0e0e0; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+    .bett-pillows { position: absolute; top: 10px; width: 100%; height: 20px; display: flex; justify-content: space-evenly; }
+    .bett-pillow { width: 18px; height: 10px; background: #fff; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
     .bett-decke { position: absolute; bottom: 0; left: 0; width: 100%; height: 50px; background: #2a0a33; border-top: 4px solid #ffaa00; box-shadow: inset 0 -10px 20px rgba(0,0,0,0.5); }
+    /* Füße für 3D Stand */
+    .bett-legs { position: absolute; bottom: -5px; width: 100%; display: flex; justify-content: space-around; z-index: 2; }
+    .bett-leg { width: 8px; height: 5px; background: #1a0d08; border-radius: 0 0 2px 2px; }
 
-    /* 3. Getränke-Bar */
+    /* 3. Getränke-Bar (SKALIERUNG: Ticken kleiner, REALISTISCHE FLASCHEN MIT VERSCHLÜSSEN) */
     .item-offiziers-bar {
-        position: absolute; bottom: 70px; left: 45%; width: 42px; height: 75px;
+        position: absolute; bottom: 70px; left: 45%;
+        width: 32px; height: 58px; /* Verkleinert */
         background: linear-gradient(180deg, #5c3a21, #3e2723);
         border: 2px solid #27140c; border-top: 4px ridge #8b5a2b;
         z-index: 2; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
@@ -2247,16 +2202,18 @@ window.spawnFurniture = (type, count) => {
     .item-offiziers-bar::before, .item-offiziers-bar::after {
         content: ''; position: absolute; top: 100%; width: 5px; height: 5px; background: #1a0d08;
     }
-    .item-offiziers-bar::before { left: 4px; } .item-offiziers-bar::after { right: 4px; }
+    .item-offiziers-bar::before { left: 2px; } .item-offiziers-bar::after { right: 2px; }
     .bar-shelf { width: 90%; height: 3px; background: #27140c; display: flex; justify-content: space-around; align-items: flex-end; padding-bottom: 1px; box-shadow: 0 1px 2px rgba(255,255,255,0.1); }
     
-    .bottle { position: relative; width: 6px; height: 12px; border-radius: 2px 2px 1px 1px; }
-    .bottle::before { content: ''; position: absolute; bottom: 100%; left: 1px; width: 4px; height: 5px; background: inherit; border-radius: 1px 1px 0 0; }
+    /* Realistische Flaschen mit Hals und Verschluss */
+    .bottle { position: relative; width: 6px; height: 14px; border-radius: 2px 2px 1px 1px; overflow: hidden; } /* Taller, clear */
+    .bottle::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 6px; border-radius: 2px 2px 0 0; background: inherit; filter: brightness(1.2); } /* Liquid top */
+    .bottle-cap { position: absolute; bottom: 100%; left: 1px; width: 4px; height: 4px; background: #999; border-radius: 2px; box-shadow: 0 0 3px rgba(255,255,255,0.3); } /* Cap */
     .bottle-1 { background: rgba(0, 255, 136, 0.9); box-shadow: 0 0 5px #0f8; }
-    .bottle-2 { background: rgba(255, 0, 255, 0.9); box-shadow: 0 0 5px #f0f; height: 9px; }
-    .bottle-3 { background: rgba(0, 255, 255, 0.9); box-shadow: 0 0 5px #0ff; height: 14px; }
+    .bottle-2 { background: rgba(255, 0, 255, 0.9); box-shadow: 0 0 5px #f0f; height: 10px; }
+    .bottle-3 { background: rgba(0, 255, 255, 0.9); box-shadow: 0 0 5px #0ff; height: 16px; }
 
-    /* 4. Schreibtisch (Echter Tisch mit Beinen) */
+    /* 4. Schreibtisch (Unverändert, Beine & Platte) */
     .item-offiziers-desk {
         position: absolute; bottom: 70px; right: 10%; width: 85px; height: 45px;
         z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
@@ -2293,7 +2250,7 @@ window.spawnFurniture = (type, count) => {
 const menuOszillation = `
 <div id="menu-oszillations-kammer" style="display:none; flex-direction:column; gap:15px;">
     <div class="upgrade-card">
-        <b>[ OFFIZIERS-BETT ]</b><p style="font-size: 0.7em; color: #aaa;">Massives Kopfteil, längs im Raum stehend.</p>
+        <b>[ OFFIZIERS-BETT ]</b><p style="font-size: 0.7em; color: #aaa;">Längs im Raum stehendes Holzbett auf Füßen.</p>
         <button id="btn-buy-offiziers-bett" onclick="window.buyFurniture('offiziers_bett', 1500)" class="btn-upgrade-exec">KAUFEN (1500 C)</button>
     </div>
     <div class="upgrade-card">
@@ -2301,11 +2258,11 @@ const menuOszillation = `
         <button id="btn-buy-offiziers-desk" onclick="window.buyFurniture('offiziers_desk', 1200)" class="btn-upgrade-exec">KAUFEN (1200 C)</button>
     </div>
     <div class="upgrade-card">
-        <b>[ GETRÄNKE-REGAL ]</b><p style="font-size: 0.7em; color: #aaa;">Holzregal mit kybernetischen Flaschen.</p>
+        <b>[ GETRÄNKE-REGAL ]</b><p style="font-size: 0.7em; color: #aaa;">Kompaktes Holzregal mit realistischen Flaschen.</p>
         <button id="btn-buy-offiziers-bar" onclick="window.buyFurniture('offiziers_bar', 900)" class="btn-upgrade-exec">KAUFEN (900 C)</button>
     </div>
     <div class="upgrade-card">
-        <b>[ HISTORISCHES GEMÄLDE ]</b><p style="font-size: 0.7em; color: #aaa;">Originalkunst im massiven Rahmen.</p>
+        <b>[ HISTORISCHES GEMÄLDE ]</b><p style="font-size: 0.7em; color: #aaa;">Originalkunst (HOCHKANT - Mona Lisa).</p>
         <button id="btn-buy-offiziers-bild" onclick="window.buyFurniture('offiziers_bild', 2500)" class="btn-upgrade-exec" style="background:#ffaa00; color:#000; border:1px solid #ffaa00;">KAUFEN (2500 C)</button>
     </div>
 </div>`;
@@ -2318,7 +2275,7 @@ if (!document.getElementById('menu-oszillations-kammer')) {
 const itemsOszillation = ['offiziers_bett', 'offiziers_desk', 'offiziers_bar', 'offiziers_bild'];
 itemsOszillation.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
-// 3. MASTER-WÄCHTER ERWEITERN
+// 3. MASTER-WÄCHTER ERWEITERN (Unverändert)
 const oldUpdateAusbau_Oszillation = window.updateAusbauButtons;
 window.updateAusbauButtons = function() {
     if (typeof oldUpdateAusbau_Oszillation === 'function') oldUpdateAusbau_Oszillation(); 
@@ -2350,7 +2307,7 @@ window.updateAusbauButtons = function() {
     }
 };
 
-// 4. Raum-Weiche patchen
+// 4. Raum-Weiche patchen (Unverändert)
 const oldOpenRoomOszillation = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoomOszillation) oldOpenRoomOszillation(type);
@@ -2369,7 +2326,7 @@ window.openRoom = (type) => {
     }
 };
 
-// 5. Shop-Kauf Logik
+// 5. Shop-Kauf Logik (Unverändert)
 const oldBuyFurnitureOszillation = window.buyFurniture;
 window.buyFurniture = async (type, cost) => {
     if (itemsOszillation.includes(type)) {
@@ -2390,7 +2347,7 @@ window.buyFurniture = async (type, cost) => {
     } else if (oldBuyFurnitureOszillation) oldBuyFurnitureOszillation(type, cost);
 };
 
-// 6. Möbel Reload patchen
+// 6. Möbel Reload patchen (Unverändert)
 const oldReloadOszillation = window.reloadFurniture;
 window.reloadFurniture = (type) => {
     if (oldReloadOszillation) oldReloadOszillation(type);
@@ -2402,7 +2359,7 @@ window.reloadFurniture = (type) => {
     }
 };
 
-// 7. Möbel Spawn patchen
+// 7. Möbel Spawn patchen (REFORMT: Neue Strukturen für Bett & Bar)
 const oldSpawnOszillation = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawnOszillation) oldSpawnOszillation(type, count);
@@ -2411,18 +2368,26 @@ window.spawnFurniture = (type, count) => {
     
     const item = document.createElement('div');
     item.classList.add('fixed-item');
+    // Mona Lisa Name im Element verankern
+    if (type === 'offiziers_bild') item.setAttribute('data-image-name', 'Mona-Lisa.png');
 
     if (type === 'offiziers_bild') {
         item.classList.add('item-offiziers-bild');
         item.innerHTML = '<div class="bild-licht"></div>';
     } else if (type === 'offiziers_bett') {
         item.classList.add('item-offiziers-bett');
-        item.innerHTML = '<div class="bett-kopfteil"></div><div class="bett-gestell"><div class="bett-kissen"></div><div class="bett-decke"></div></div>';
+        // Neue Bettstruktur: Kopfteil, Matratze (mit Kissen/Decke), Fußteil, Füße
+        item.innerHTML = `
+            <div class="bett-frame bett-headboard"></div>
+            <div class="bett-matratze"><div class="bett-pillows"><div class="bett-pillow"></div><div class="bett-pillow"></div></div><div class="bett-decke"></div></div>
+            <div class="bett-frame bett-footboard"></div>
+            <div class="bett-legs"><div class="bett-leg"></div><div class="bett-leg"></div></div>`;
     } else if (type === 'offiziers_bar') {
         item.classList.add('item-offiziers-bar');
+        // Neue Barstruktur: Kleinere Regale, Realistische Flaschen mit Verschluss
         item.innerHTML = `
-            <div class="bar-shelf"><div class="bottle bottle-1"></div><div class="bottle bottle-2"></div></div>
-            <div class="bar-shelf"><div class="bottle bottle-3"></div><div class="bottle bottle-1"></div></div>
+            <div class="bar-shelf"><div class="bottle bottle-1"><div class="bottle-cap"></div></div><div class="bottle bottle-2"><div class="bottle-cap"></div></div></div>
+            <div class="bar-shelf"><div class="bottle bottle-3"><div class="bottle-cap"></div></div><div class="bottle bottle-1"><div class="bottle-cap"></div></div></div>
         `;
     } else if (type === 'offiziers_desk') {
         item.classList.add('item-offiziers-desk');
@@ -2438,7 +2403,6 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 </script>
-
 <script>
     // 1. Menü einfügen
     const menuVerteiler = `
