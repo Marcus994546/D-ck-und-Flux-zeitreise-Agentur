@@ -1681,30 +1681,6 @@ window.spawnFurniture = (type, count) => {
         room.appendChild(item);
     };
 </script>
-    <style>
-    /* --- Animationen für Paradoxon-Filter --- */
-    @keyframes time-ripple { 0% { box-shadow: 0 0 0 0 rgba(200, 0, 255, 0.6); } 100% { box-shadow: 0 0 0 25px rgba(200, 0, 255, 0); } }
-    @keyframes reverse-spin { from { transform: rotate(360deg) scaleY(0.5); } to { transform: rotate(0deg) scaleY(0.5); } }
-    @keyframes tachyon-pulse { 0%, 100% { opacity: 0.6; box-shadow: inset 0 0 10px #c0f; } 50% { opacity: 1; box-shadow: inset 0 0 25px #f0f; } }
-    @keyframes float-anomalie { 0%, 100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-12px) rotate(5deg); } }
-    @keyframes glitch-flicker { 0%, 100% { opacity: 1; transform: skewX(0deg); } 90% { opacity: 1; transform: skewX(0deg); } 92% { opacity: 0.2; transform: skewX(10deg); } 94% { opacity: 0.8; transform: skewX(-10deg); } 96% { opacity: 1; transform: skewX(0deg); } }
-
-    /* --- Chrono-Kern --- */
-    .item-chrono-kern { width: 120px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-    .chrono-base { width: 80px; height: 25px; background: linear-gradient(180deg, #1a052a, #000); border: 2px solid #555; border-top: 4px solid #c0f; border-radius: 8px 8px 3px 3px; z-index: 2; box-shadow: 0 15px 25px rgba(0,0,0,0.9); }
-    .chrono-sphere { width: 55px; height: 55px; background: radial-gradient(circle, #f0f 0%, #408 80%, #000 100%); border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.8); position: absolute; bottom: 40px; animation: float-anomalie 5s ease-in-out infinite, time-ripple 2.5s infinite; z-index: 5; }
-    .chrono-ring-1 { width: 110px; height: 110px; border: 3px solid #0ff; border-radius: 50%; position: absolute; bottom: 12px; animation: reverse-spin 6s linear infinite; transform-origin: center; z-index: 4; }
-    .chrono-ring-2 { width: 90px; height: 90px; border: 2px dashed #f0f; border-radius: 50%; position: absolute; bottom: 22px; animation: reverse-spin 4s linear infinite reverse; transform-origin: center; z-index: 6; }
-
-    /* --- Anomalie-Dämpfer --- */
-    .item-anomalie-daempfer { width: 35px; height: 100px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-    .daempfer-pillar { width: 25px; height: 90px; background: #0a0a0a; border: 2px solid #333; border-top: 3px solid #0ff; border-radius: 4px; position: relative; overflow: hidden; box-shadow: 5px 10px 15px rgba(0,0,0,0.8); }
-    .daempfer-core { position: absolute; top: 15px; bottom: 15px; left: 5px; right: 5px; background: rgba(200, 0, 255, 0.2); border-left: 1px solid #c0f; border-right: 1px solid #c0f; animation: tachyon-pulse 2s infinite, glitch-flicker 4s infinite; }
-
-    /* --- Tachyonen-Netz (Decke) --- */
-    .item-tachyon-netz { position: absolute; top: 0; left: 0; width: 100%; height: 40px; z-index: 5; background-image: linear-gradient(90deg, rgba(200,0,255,0.2) 1px, transparent 1px), linear-gradient(0deg, rgba(200,0,255,0.2) 1px, transparent 1px); background-size: 20px 20px; border-bottom: 2px solid #c0f; box-shadow: 0 5px 25px rgba(200,0,255,0.3); animation: glitch-flicker 6s infinite; pointer-events: none; }
-    .netz-emitter { position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 40px; height: 10px; background: #111; border: 1px solid #c0f; border-radius: 5px; box-shadow: 0 0 15px #c0f; }
-</style>
 <style>
     /* --- Paradoxon-Filter: Originales High-Detail Design --- */
     @keyframes time-ripple { 0% { box-shadow: 0 0 0 0 rgba(200, 0, 255, 0.6); } 100% { box-shadow: 0 0 0 25px rgba(200, 0, 255, 0); } }
@@ -1786,7 +1762,43 @@ if (!document.getElementById('menu-paradoxon-filter')) {
 const itemsParadox = ['chrono_kern', 'anomalie_daempfer', 'tachyon_netz'];
 itemsParadox.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
-// 3. Raum-Weiche patchen & Glitch aktivieren
+// 3. MASTER-WÄCHTER ERWEITERN (Zwingt das globale System, die neuen Items zu kennen)
+const oldUpdateAusbau_Paradox = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_Paradox === 'function') oldUpdateAusbau_Paradox(); // Aktualisiert alle alten Räume
+    
+    if (typeof inventory === 'undefined') return;
+    
+    const paradoxLimits = { chrono_kern: 1, anomalie_daempfer: 3, tachyon_netz: 1 };
+    
+    for (let k in paradoxLimits) {
+        let max = paradoxLimits[k];
+        let current = parseInt(inventory[k]) || 0;
+        let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+
+        if (btn) {
+            if (current >= max) {
+                btn.innerText = "[ INSTALLIERT ]";
+                btn.disabled = true;
+                btn.style.setProperty('background', '#333', 'important');
+                btn.style.setProperty('color', '#555', 'important');
+                btn.style.setProperty('border', '1px solid #333', 'important');
+                btn.style.setProperty('cursor', 'not-allowed', 'important');
+            } else {
+                btn.disabled = false;
+                btn.style.background = "";
+                btn.style.color = "";
+                btn.style.border = "";
+                btn.style.cursor = "pointer";
+                if (max > 1 && btn.innerText.includes('[')) {
+                    btn.innerText = btn.innerText.replace(/\[\d+\/\d+\]/, `[${current}/${max}]`);
+                }
+            }
+        }
+    }
+};
+
+// 4. Raum-Weiche patchen & Glitch aktivieren
 const oldOpenRoomParadox = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoomParadox) oldOpenRoomParadox(type);
@@ -1797,6 +1809,7 @@ window.openRoom = (type) => {
         const ph = document.getElementById('menu-platzhalter');
         if (ph) ph.style.setProperty('display', 'none', 'important');
         window.reloadFurniture(type);
+        window.updateAusbauButtons(); // Aktualisiert die Buttons direkt beim Betreten
     }
     
     // Glitch-Status verwalten
@@ -1807,12 +1820,13 @@ window.openRoom = (type) => {
     }
 };
 
-// 4. Shop-Kauf Logik (Credits + MZ für den Kern)
+// 5. Shop-Kauf Logik (Credits + MZ)
 const oldBuyFurnitureParadox = window.buyFurniture;
 window.buyFurniture = async (type, cost) => {
     if (itemsParadox.includes(type)) {
         let maxAmt = (type === 'anomalie_daempfer') ? 3 : 1;
-        if (inventory[type] >= maxAmt) return;
+        let current = parseInt(inventory[type]) || 0;
+        if (current >= maxAmt) return;
         
         let isKern = (type === 'chrono_kern');
         let costC = isKern ? 4500 : cost;
@@ -1839,8 +1853,8 @@ window.buyFurniture = async (type, cost) => {
                 }
             }
             
-            inventory[type]++;
-            window.updateAusbauButtons(); // Master-Wächter aufrufen
+            inventory[type] = current + 1; // Sicherer Zähler
+            window.updateAusbauButtons(); // Globales Update erzwingen
             window.spawnFurniture(type, inventory[type]);
         } else {
             let msg = isKern ? "System: 4500 C + 60 MZ benötigt." : "System: Credits unzureichend.";
@@ -1849,7 +1863,7 @@ window.buyFurniture = async (type, cost) => {
     } else if (oldBuyFurnitureParadox) oldBuyFurnitureParadox(type, cost);
 };
 
-// 5. Möbel Reload patchen
+// 6. Möbel Reload patchen
 const oldReloadParadox = window.reloadFurniture;
 window.reloadFurniture = (type) => {
     if (oldReloadParadox) oldReloadParadox(type);
@@ -1867,7 +1881,7 @@ window.reloadFurniture = (type) => {
     }
 };
 
-// 6. Möbel Spawn patchen
+// 7. Möbel Spawn patchen
 const oldSpawnParadox = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawnParadox) oldSpawnParadox(type, count);
@@ -1884,12 +1898,11 @@ window.spawnFurniture = (type, count) => {
         item.classList.add('item-anomalie-daempfer');
         item.innerHTML = '<div class="daempfer-pillar"><div class="daempfer-core"></div></div>';
         
-        // Exakte Verteilung und Positionierung
         if (count === 1) { item.style.left = '15%'; }
         else if (count === 2) { item.style.right = '15%'; }
         else if (count === 3) { 
             item.style.left = '25%'; 
-            item.style.bottom = '85px'; // Leichte Tiefenwirkung für den 3.
+            item.style.bottom = '85px';
             item.style.transform = 'scale(0.85)'; 
             item.style.zIndex = '1'; 
         }
@@ -1902,7 +1915,6 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 </script>
-
 <script>
     // 1. Menü einfügen
     const menuVerteiler = `
