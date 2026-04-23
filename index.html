@@ -3316,6 +3316,21 @@ window.f_showDescription = function(withVoice) {
     .videosteuerung { position: absolute; bottom: 40px; display: flex; gap: 20px; z-index: 20; }
     .videosteuerung button { padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer; background: rgba(0, 255, 204, 0.2); border: 2px solid #0f8; color: #0f8; border-radius: 8px; touch-action: manipulation; user-select: none; font-family: 'Orbitron', monospace; text-shadow: 0 0 5px #0f8; }
     .videosteuerung button:active { background: #0f8; color: #000; }
+    
+    /* NEU: Die versteckte Flasche */
+    #hidden-plastik-flasche {
+        position: absolute;
+        bottom: 38%; /* Höhe auf dem Weg im Screenshot */
+        right: 26%;  /* Rechts neben dem Weg */
+        width: 18px; /* Sehr klein, wie gewollt */
+        height: auto;
+        cursor: pointer;
+        display: none; /* Anfangs unsichtbar */
+        z-index: 25;
+        filter: drop-shadow(0 0 2px rgba(0, 255, 255, 0.6)); /* Minimales Leuchten als Hinweis */
+        transition: transform 0.2s;
+    }
+    #hidden-plastik-flasche:active { transform: scale(1.5); }
 </style>
 
 <div id="interactive-mission-overlay">
@@ -3335,6 +3350,9 @@ window.f_showDescription = function(withVoice) {
         <video id="video-interaktiv-12000" playsinline muted preload="auto">
             <source src="Mission 1, Mission.mp4" type="video/mp4">
         </video>
+        
+        <img id="hidden-plastik-flasche" src="1776945520365.png" alt="Anomalie">
+
         <div class="videosteuerung" id="controls-12000">
             <button id="btn-zurueck-12000">ZURÜCK</button>
             <button id="btn-vorwaerts-12000">VORWÄRTS</button>
@@ -3346,15 +3364,20 @@ window.f_showDescription = function(withVoice) {
 <script>
     const vIntro = document.getElementById('video-intro-12000');
     const vInter = document.getElementById('video-interaktiv-12000');
+    const hiddenBottle = document.getElementById('hidden-plastik-flasche');
+    const btnAbschluss = document.getElementById('btn-abschluss-12000');
     
-    // Aufruf durch Block 3 Router (Die ID 12000 ist in window.runMission verknüpft)
+    // Aufruf durch Block 3 Router
     window.startMission_12000 = function() {
-        document.getElementById('interactive-mission-overlay').style.display = 'flex';
+        document.getElementById('interactive-mission-overlay').style.setProperty('display', 'flex', 'important');
         document.getElementById('start-screen-12000').style.display = 'flex';
         document.getElementById('phase-intro-12000').style.display = 'none';
         document.getElementById('phase-interaktiv-12000').style.display = 'none';
         document.getElementById('controls-12000').style.display = 'flex';
-        document.getElementById('btn-abschluss-12000').style.display = 'none';
+        
+        // Reset Buttons & Objekt
+        hiddenBottle.style.display = 'none';
+        btnAbschluss.style.display = 'none';
         vInter.currentTime = 0;
     };
 
@@ -3375,56 +3398,58 @@ window.f_showDescription = function(withVoice) {
 
     // Steuerung Interaktives Video
     btnVor.onmousedown = btnVor.ontouchstart = (e) => { e.preventDefault(); vInter.play(); };
-    btnZurueck.onmousedown = btnZurueck.ontouchstart = (e) => { e.preventDefault(); vInter.pause(); vInter.currentTime = 0; };
+    btnZurueck.onmousedown = btnZurueck.ontouchstart = (e) => { 
+        e.preventDefault(); vInter.pause(); vInter.currentTime = 0; 
+        hiddenBottle.style.display = 'none'; // Verstecke Flasche beim Zurückspulen
+    };
     const stoppeVorwaerts = (e) => { e.preventDefault(); vInter.pause(); };
     btnVor.onmouseup = btnVor.onmouseleave = btnVor.ontouchend = stoppeVorwaerts;
 
-    // Wenn das Video das Ende erreicht, taucht der Abschluss-Button auf
+    // NEU: Wenn das Video das Ende erreicht, taucht die Flasche auf (nicht der Button)
     vInter.onended = () => {
         document.getElementById('controls-12000').style.display = 'none';
-        document.getElementById('btn-abschluss-12000').style.display = 'block';
+        hiddenBottle.style.display = 'block'; // Flasche wird sichtbar
     };
 
-    // Belohnungslogik & Zurück zur Basis
-    document.getElementById('btn-abschluss-12000').onclick = async () => {
+    // NEU: Wenn man die Flasche anklickt
+    hiddenBottle.onclick = () => {
+        if (typeof playBeep === 'function') playBeep(1500, 0.1);
+        hiddenBottle.style.display = 'none'; // Flasche verschwindet
+        btnAbschluss.style.display = 'block'; // Abschluss-Button erscheint
+    };
+
+    // Belohnungslogik & Zurück zur Basis (inklusive Fix für beide Speicher)
+    btnAbschluss.onclick = async () => {
         if (typeof playBeep === 'function') playBeep(2000, 0.2);
         
-        // 1. XP Vergeben
         if (typeof window.updateXP === 'function') window.updateXP(15);
         
-        // 2. Credits & Materiezellen (MZ) in ALLEN Abzweigungen speichern
         let agent = window.agentName ? window.agentName.toLowerCase() : "";
         if (agent) {
             let currentCredits = 0;
             let currentMz = 0;
 
-            // A) Normales Agenten-Profil laden
             let mainP = localStorage.getItem('flux_agent_' + agent);
             let d = mainP ? JSON.parse(mainP) : {};
             if (d.credits !== undefined) currentCredits = d.credits;
             if (d.mz !== undefined) currentMz = d.mz;
 
-            // B) Base-Cache laden (Die Abzweigung, die base.html nutzt!)
             let baseP = localStorage.getItem('flux_base_cache_' + agent);
             let b = baseP ? JSON.parse(baseP) : {};
-            // Wir nehmen den jeweils höheren Wert, falls ein Speicher hinterherhängt
             if (b.credits !== undefined) currentCredits = Math.max(currentCredits, b.credits);
             if (b.materieZellen !== undefined) currentMz = Math.max(currentMz, b.materieZellen);
 
-            // C) Belohnung draufrechnen
             let newCredits = currentCredits + 20;
             let newMz = currentMz + 1;
 
-            // D) In BEIDE lokalen Speicher zurückschreiben
             d.credits = newCredits;
             d.mz = newMz;
             localStorage.setItem('flux_agent_' + agent, JSON.stringify(d));
 
             b.credits = newCredits;
-            b.materieZellen = newMz; // In der Base heißt die Variable "materieZellen"
+            b.materieZellen = newMz; 
             localStorage.setItem('flux_base_cache_' + agent, JSON.stringify(b));
             
-            // E) Parallel sofort in beide Datenbank-Pfade hochladen
             if (window.db && window.setDoc) {
                 try {
                     await window.setDoc(window.doc(window.db, "Agent - Base", agent), { credits: newCredits, mz: newMz }, { merge: true });
@@ -3435,7 +3460,6 @@ window.f_showDescription = function(withVoice) {
         
         document.getElementById('interactive-mission-overlay').style.display = 'none';
         
-        // Globale Rückreise-Animation starten (Übergibt 0 XP, da wir die 15 XP schon vergeben haben)
         if (typeof window.starteRueckreiseAnim === 'function') {
             window.starteRueckreiseAnim(0);
         }
