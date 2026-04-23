@@ -3314,21 +3314,24 @@ window.f_showDescription = function(withVoice) {
     .phase-12000 { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; }
     .phase-12000 video { width: 100%; height: 100%; object-fit: cover; background-color: #000; }
     
-    /* Endbild-Stil */
-    #end-image-12000 { width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; top: 0; left: 0; z-index: 21; }
+    #end-image-12000 { width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; top: 0; left: 0; z-index: 21; cursor: crosshair; }
 
-    /* Unsichtbarer Button über der Flasche */
+    /* Sichtbarer Hilfs-Button über der Flasche (Entwicklungs-Modus) */
     #invisible-bottle-trigger {
         position: absolute;
-        bottom: 35%; /* Positioniert über der Flasche auf dem Boden */
+        bottom: 35%; 
         right: 24%;
-        width: 80px;  /* Groß genug für Touch-Eingabe */
-        height: 80px;
-        background: transparent;
-        border: none;
+        width: 85px;
+        height: 85px;
+        background: rgba(0, 255, 136, 0.1);
+        /* Der Kreis zur Orientierung */
+        border: 2px solid #0f8; 
+        border-radius: 50%;
+        box-shadow: 0 0 15px #0f8;
         cursor: pointer;
         display: none;
         z-index: 40;
+        outline: none;
     }
 
     .videosteuerung { position: absolute; bottom: 40px; display: flex; gap: 20px; z-index: 20; }
@@ -3376,10 +3379,6 @@ window.f_showDescription = function(withVoice) {
     window.startMission_12000 = function() {
         document.getElementById('interactive-mission-overlay').style.setProperty('display', 'flex', 'important');
         document.getElementById('start-screen-12000').style.display = 'flex';
-        document.getElementById('phase-intro-12000').style.display = 'none';
-        document.getElementById('phase-interaktiv-12000').style.display = 'none';
-        document.getElementById('controls-12000').style.display = 'flex';
-        
         vInter.style.display = 'block';
         endImage.style.display = 'none';
         bottleTrigger.style.display = 'none';
@@ -3413,21 +3412,25 @@ window.f_showDescription = function(withVoice) {
         btnAbschluss.style.display = 'none'; 
     };
     
-    const stoppeVorwaerts = (e) => { e.preventDefault(); vInter.pause(); };
-    btnVor.onmouseup = btnVor.onmouseleave = btnVor.ontouchend = stoppeVorwaerts;
+    btnVor.onmouseup = btnVor.onmouseleave = btnVor.ontouchend = (e) => { e.preventDefault(); vInter.pause(); };
 
     vInter.onended = () => {
         document.getElementById('controls-12000').style.display = 'none';
         vInter.style.display = 'none';
         endImage.style.display = 'block';
-        bottleTrigger.style.display = 'block'; // Jetzt muss der Spieler suchen
+        bottleTrigger.style.display = 'block';
     };
 
-    // NEU: Logik für den unsichtbaren Fund
-    bottleTrigger.onclick = () => {
+    // RICHTIGER KLICK: Zeigt den Button an
+    bottleTrigger.onclick = (e) => {
+        e.stopPropagation(); // Verhindert, dass der Klick das Bild darunter trifft
         if (typeof playBeep === 'function') playBeep(1800, 0.1);
-        bottleTrigger.style.display = 'none';
-        btnAbschluss.style.display = 'block'; // Erst jetzt wird der Button freigeschaltet
+        btnAbschluss.style.display = 'block'; 
+    };
+
+    // FALSCHER KLICK: Wenn man auf das Bild statt auf den Button klickt
+    endImage.onclick = () => {
+        btnAbschluss.style.display = 'none'; 
     };
 
     btnAbschluss.onclick = async () => {
