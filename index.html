@@ -3316,12 +3316,12 @@ window.f_showDescription = function(withVoice) {
     
     #end-image-12000 { width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; top: 0; left: 0; z-index: 21; cursor: crosshair; }
 
-    /* Sichtbarer Hilfs-Button über der Flasche */
+    /* Sichtbarer Hilfs-Button über der Flasche - Feinjustierung */
     #invisible-bottle-trigger {
         position: absolute !important;
-        bottom: 3% !important;  /* 1 cm weiter runter */
-        right: 12% !important;  /* Ein Stück weiter nach rechts */
-        width: 70px !important; /* Etwas kleiner für perfekte Passform */
+        bottom: 6.5% !important; /* Ein Stück höher */
+        right: 13.5% !important; /* Ein Tick nach links */
+        width: 70px !important;
         height: 70px !important;
         background: rgba(0, 255, 136, 0.1);
         border: 2px solid #0f8; 
@@ -3332,6 +3332,7 @@ window.f_showDescription = function(withVoice) {
         z-index: 40;
         outline: none;
     }
+
 
     /* Sichtbarer Hilfs-Button über der Flasche (Entwicklungs-Modus) */
     #invisible-bottle-trigger {
