@@ -3392,21 +3392,44 @@ window.f_showDescription = function(withVoice) {
         // 1. XP Vergeben
         if (typeof window.updateXP === 'function') window.updateXP(15);
         
-        // 2. Credits & Materiezellen (MZ) vergeben
+        // 2. Credits & Materiezellen (MZ) in ALLEN Abzweigungen speichern
         let agent = window.agentName ? window.agentName.toLowerCase() : "";
         if (agent) {
+            let currentCredits = 0;
+            let currentMz = 0;
+
+            // A) Normales Agenten-Profil laden
             let mainP = localStorage.getItem('flux_agent_' + agent);
             let d = mainP ? JSON.parse(mainP) : {};
-            d.credits = (d.credits || 0) + 20; 
-            d.mz = (d.mz || 0) + 1; 
+            if (d.credits !== undefined) currentCredits = d.credits;
+            if (d.mz !== undefined) currentMz = d.mz;
+
+            // B) Base-Cache laden (Die Abzweigung, die base.html nutzt!)
+            let baseP = localStorage.getItem('flux_base_cache_' + agent);
+            let b = baseP ? JSON.parse(baseP) : {};
+            // Wir nehmen den jeweils höheren Wert, falls ein Speicher hinterherhängt
+            if (b.credits !== undefined) currentCredits = Math.max(currentCredits, b.credits);
+            if (b.materieZellen !== undefined) currentMz = Math.max(currentMz, b.materieZellen);
+
+            // C) Belohnung draufrechnen
+            let newCredits = currentCredits + 20;
+            let newMz = currentMz + 1;
+
+            // D) In BEIDE lokalen Speicher zurückschreiben
+            d.credits = newCredits;
+            d.mz = newMz;
             localStorage.setItem('flux_agent_' + agent, JSON.stringify(d));
+
+            b.credits = newCredits;
+            b.materieZellen = newMz; // In der Base heißt die Variable "materieZellen"
+            localStorage.setItem('flux_base_cache_' + agent, JSON.stringify(b));
             
-            // In Firestore ablegen, damit base.html es hat
+            // E) Parallel sofort in beide Datenbank-Pfade hochladen
             if (window.db && window.setDoc) {
                 try {
-                    await window.setDoc(window.doc(window.db, "Agent - Base", agent), { credits: d.credits, mz: d.mz }, { merge: true });
-                    await window.setDoc(window.doc(window.db, "agenten", agent), { credits: d.credits, mz: d.mz }, { merge: true });
-                } catch(e) { console.error(e); }
+                    await window.setDoc(window.doc(window.db, "Agent - Base", agent), { credits: newCredits, mz: newMz }, { merge: true });
+                    await window.setDoc(window.doc(window.db, "agenten", agent), { credits: newCredits, mz: newMz }, { merge: true });
+                } catch(e) { console.error("Uplink-Fehler:", e); }
             }
         }
         
