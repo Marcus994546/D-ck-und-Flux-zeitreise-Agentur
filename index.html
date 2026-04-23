@@ -3313,24 +3313,27 @@ window.f_showDescription = function(withVoice) {
     #interactive-mission-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:75000; background:#000; display:none; flex-direction:column; align-items:center; justify-content:center; }
     .phase-12000 { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; }
     .phase-12000 video { width: 100%; height: 100%; object-fit: cover; background-color: #000; }
+    
+    /* Endbild-Stil */
+    #end-image-12000 { width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; top: 0; left: 0; z-index: 21; }
+
+    /* Unsichtbarer Button über der Flasche */
+    #invisible-bottle-trigger {
+        position: absolute;
+        bottom: 35%; /* Positioniert über der Flasche auf dem Boden */
+        right: 24%;
+        width: 80px;  /* Groß genug für Touch-Eingabe */
+        height: 80px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        display: none;
+        z-index: 40;
+    }
+
     .videosteuerung { position: absolute; bottom: 40px; display: flex; gap: 20px; z-index: 20; }
     .videosteuerung button { padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer; background: rgba(0, 255, 204, 0.2); border: 2px solid #0f8; color: #0f8; border-radius: 8px; touch-action: manipulation; user-select: none; font-family: 'Orbitron', monospace; text-shadow: 0 0 5px #0f8; }
     .videosteuerung button:active { background: #0f8; color: #000; }
-    
-    /* NEU: Die versteckte Flasche */
-    #hidden-plastik-flasche {
-        position: absolute;
-        bottom: 38%; /* Höhe auf dem Weg im Screenshot */
-        right: 26%;  /* Rechts neben dem Weg */
-        width: 18px; /* Sehr klein, wie gewollt */
-        height: auto;
-        cursor: pointer;
-        display: none; /* Anfangs unsichtbar */
-        z-index: 25;
-        filter: drop-shadow(0 0 2px rgba(0, 255, 255, 0.6)); /* Minimales Leuchten als Hinweis */
-        transition: transform 0.2s;
-    }
-    #hidden-plastik-flasche:active { transform: scale(1.5); }
 </style>
 
 <div id="interactive-mission-overlay">
@@ -3351,7 +3354,9 @@ window.f_showDescription = function(withVoice) {
             <source src="Mission 1, Mission.mp4" type="video/mp4">
         </video>
         
-        <img id="hidden-plastik-flasche" src="1776945520365.png" alt="Anomalie">
+        <img id="end-image-12000" src="Mission 1 Ende.png" alt="Sektor-Scan">
+
+        <button id="invisible-bottle-trigger"></button>
 
         <div class="videosteuerung" id="controls-12000">
             <button id="btn-zurueck-12000">ZURÜCK</button>
@@ -3364,10 +3369,10 @@ window.f_showDescription = function(withVoice) {
 <script>
     const vIntro = document.getElementById('video-intro-12000');
     const vInter = document.getElementById('video-interaktiv-12000');
-    const hiddenBottle = document.getElementById('hidden-plastik-flasche');
+    const endImage = document.getElementById('end-image-12000');
+    const bottleTrigger = document.getElementById('invisible-bottle-trigger');
     const btnAbschluss = document.getElementById('btn-abschluss-12000');
     
-    // Aufruf durch Block 3 Router
     window.startMission_12000 = function() {
         document.getElementById('interactive-mission-overlay').style.setProperty('display', 'flex', 'important');
         document.getElementById('start-screen-12000').style.display = 'flex';
@@ -3375,8 +3380,9 @@ window.f_showDescription = function(withVoice) {
         document.getElementById('phase-interaktiv-12000').style.display = 'none';
         document.getElementById('controls-12000').style.display = 'flex';
         
-        // Reset Buttons & Objekt
-        hiddenBottle.style.display = 'none';
+        vInter.style.display = 'block';
+        endImage.style.display = 'none';
+        bottleTrigger.style.display = 'none';
         btnAbschluss.style.display = 'none';
         vInter.currentTime = 0;
     };
@@ -3396,39 +3402,41 @@ window.f_showDescription = function(withVoice) {
     const btnVor = document.getElementById('btn-vorwaerts-12000');
     const btnZurueck = document.getElementById('btn-zurueck-12000');
 
-    // Steuerung Interaktives Video
     btnVor.onmousedown = btnVor.ontouchstart = (e) => { e.preventDefault(); vInter.play(); };
     btnZurueck.onmousedown = btnZurueck.ontouchstart = (e) => { 
-        e.preventDefault(); vInter.pause(); vInter.currentTime = 0; 
-        hiddenBottle.style.display = 'none'; // Verstecke Flasche beim Zurückspulen
+        e.preventDefault(); 
+        vInter.pause(); 
+        vInter.currentTime = 0; 
+        vInter.style.display = 'block';
+        endImage.style.display = 'none';
+        bottleTrigger.style.display = 'none';
+        btnAbschluss.style.display = 'none'; 
     };
+    
     const stoppeVorwaerts = (e) => { e.preventDefault(); vInter.pause(); };
     btnVor.onmouseup = btnVor.onmouseleave = btnVor.ontouchend = stoppeVorwaerts;
 
-    // NEU: Wenn das Video das Ende erreicht, taucht die Flasche auf (nicht der Button)
     vInter.onended = () => {
         document.getElementById('controls-12000').style.display = 'none';
-        hiddenBottle.style.display = 'block'; // Flasche wird sichtbar
+        vInter.style.display = 'none';
+        endImage.style.display = 'block';
+        bottleTrigger.style.display = 'block'; // Jetzt muss der Spieler suchen
     };
 
-    // NEU: Wenn man die Flasche anklickt
-    hiddenBottle.onclick = () => {
-        if (typeof playBeep === 'function') playBeep(1500, 0.1);
-        hiddenBottle.style.display = 'none'; // Flasche verschwindet
-        btnAbschluss.style.display = 'block'; // Abschluss-Button erscheint
+    // NEU: Logik für den unsichtbaren Fund
+    bottleTrigger.onclick = () => {
+        if (typeof playBeep === 'function') playBeep(1800, 0.1);
+        bottleTrigger.style.display = 'none';
+        btnAbschluss.style.display = 'block'; // Erst jetzt wird der Button freigeschaltet
     };
 
-    // Belohnungslogik & Zurück zur Basis (inklusive Fix für beide Speicher)
     btnAbschluss.onclick = async () => {
         if (typeof playBeep === 'function') playBeep(2000, 0.2);
-        
         if (typeof window.updateXP === 'function') window.updateXP(15);
         
         let agent = window.agentName ? window.agentName.toLowerCase() : "";
         if (agent) {
-            let currentCredits = 0;
-            let currentMz = 0;
-
+            let currentCredits = 0, currentMz = 0;
             let mainP = localStorage.getItem('flux_agent_' + agent);
             let d = mainP ? JSON.parse(mainP) : {};
             if (d.credits !== undefined) currentCredits = d.credits;
@@ -3442,27 +3450,20 @@ window.f_showDescription = function(withVoice) {
             let newCredits = currentCredits + 20;
             let newMz = currentMz + 1;
 
-            d.credits = newCredits;
-            d.mz = newMz;
+            d.credits = newCredits; d.mz = newMz;
             localStorage.setItem('flux_agent_' + agent, JSON.stringify(d));
-
-            b.credits = newCredits;
-            b.materieZellen = newMz; 
+            b.credits = newCredits; b.materieZellen = newMz; 
             localStorage.setItem('flux_base_cache_' + agent, JSON.stringify(b));
             
             if (window.db && window.setDoc) {
                 try {
                     await window.setDoc(window.doc(window.db, "Agent - Base", agent), { credits: newCredits, mz: newMz }, { merge: true });
                     await window.setDoc(window.doc(window.db, "agenten", agent), { credits: newCredits, mz: newMz }, { merge: true });
-                } catch(e) { console.error("Uplink-Fehler:", e); }
+                } catch(e) {}
             }
         }
-        
         document.getElementById('interactive-mission-overlay').style.display = 'none';
-        
-        if (typeof window.starteRueckreiseAnim === 'function') {
-            window.starteRueckreiseAnim(0);
-        }
+        if (typeof window.starteRueckreiseAnim === 'function') window.starteRueckreiseAnim(0);
     };
 </script>
 
