@@ -3319,6 +3319,22 @@ window.f_showDescription = function(withVoice) {
     /* Sichtbarer Hilfs-Button über der Flasche (Entwicklungs-Modus) */
     #invisible-bottle-trigger {
         position: absolute;
+        bottom: 8%;  /* Noch weiter nach unten */
+        right: 15%;  /* Ein paar Millimeter weiter nach rechts */
+        width: 85px;
+        height: 85px;
+        background: rgba(0, 255, 136, 0.1);
+        border: 2px solid #0f8; 
+        border-radius: 50%;
+        box-shadow: 0 0 15px #0f8;
+        cursor: pointer;
+        display: none;
+        z-index: 40;
+        outline: none;
+    }
+    /* Sichtbarer Hilfs-Button über der Flasche (Entwicklungs-Modus) */
+    #invisible-bottle-trigger {
+        position: absolute;
         bottom: 12%; /* Deutlich weiter unten */
         right: 18%;  /* Etwas weiter rechts */
         width: 85px;
