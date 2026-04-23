@@ -3308,92 +3308,116 @@ window.f_showDescription = function(withVoice) {
         border-bottom: 1px solid rgba(255, 170, 0, 0.1);
     }
 </style>
+<style>
+    /* Interaktive Video-Mission Styles */
+    #interactive-mission-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:75000; background:#000; display:none; flex-direction:column; align-items:center; justify-content:center; }
+    .phase-12000 { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; }
+    .phase-12000 video { width: 100%; height: 100%; object-fit: cover; background-color: #000; }
+    .videosteuerung { position: absolute; bottom: 40px; display: flex; gap: 20px; z-index: 20; }
+    .videosteuerung button { padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer; background: rgba(0, 255, 204, 0.2); border: 2px solid #0f8; color: #0f8; border-radius: 8px; touch-action: manipulation; user-select: none; font-family: 'Orbitron', monospace; text-shadow: 0 0 5px #0f8; }
+    .videosteuerung button:active { background: #0f8; color: #000; }
+</style>
 
-<div id="ar-special-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:75000; background:#000; flex-direction:column; justify-content:center; align-items:center;">
-    
-    <div id="ar-pre-scan-ui" class="stone-terminal-frame">
-        <div class="terminal-inner-border">
-            <div class="data-grid-deco">
-                <div class="data-box">CHRONO_IN: OK</div>
-                <div class="data-box">TEMP: 14.2°C</div>
-                <div class="data-box">ATMOS: PURE</div>
-                <div class="data-box">SYNC: 99.1%</div>
-            </div>
-
-            <div style="text-align: center; margin-bottom: 20px;">
-                <h3 class="pulse-amber" style="margin: 0; font-size: 1.2em; letter-spacing: 2px;">ANOMALIE GEORTET</h3>
-                <div style="font-size: 0.6em; color: rgba(255, 170, 0, 0.7);">SEKTOR_PRIME // JURA-PLATEAU</div>
-            </div>
-
-            <div style="background: rgba(255, 170, 0, 0.05); padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid rgba(255, 170, 0, 0.2);">
-                <div class="stat-line"><span>OBJEKT-TYP:</span> <span>SYNTH. POLYMER</span></div>
-                <div class="stat-line"><span>STÖRFELD:</span> <span>STUFE 4 (HOCH)</span></div>
-                <div class="stat-line"><span>LOKALISIERUNG:</span> <span>AKTIV...</span></div>
-                
-                <p style="font-size: 0.75em; margin-top: 15px; line-height: 1.4; color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.3);">
-                    > Ein unnatürliches Objekt stört das ökologische Gleichgewicht dieses Zeitstrangs.<br>
-                    > Manuelle Lokalisierung per RADAR-Uplink erforderlich.
-                </p>
-            </div>
-
-            <button class="key exe" onclick="window.startARWithPermission()" 
-                    style="width:100%; background: #ffaa00; color:#000; border:none; padding:15px; font-weight:bold; cursor:pointer; font-size: 1em; letter-spacing: 1px; box-shadow: 0 0 20px rgba(255, 170, 0, 0.4);">
-                RADAR AKTIVIEREN
-            </button>
-            
-            <div style="margin-top: 15px; font-size: 8px; text-align: center; opacity: 0.5;">
-                WARP-DRIVE-KOPPLUNG: STABIL // SENSOR-CALIB: AUTO
-            </div>
-        </div>
+<div id="interactive-mission-overlay">
+    <div id="start-screen-12000" class="phase-12000" style="display: flex; background: rgba(0,0,0,0.9);">
+        <h2 style="color: #0f8; text-shadow: 0 0 10px #0f8; margin-bottom: 20px;">PLASTIK-PARADOXON</h2>
+        <p style="color: #aaa; text-align: center; max-width: 80%; margin-bottom: 30px;">Finde und extrahiere das synthetische Objekt aus dem Sektor. Halte "VORWÄRTS" gedrückt, um den Zeitstrang zu spulen.</p>
+        <button class="key exe" id="btn-start-12000" style="padding: 15px 30px; font-size: 1.2em; border: 2px solid #0f8; background: rgba(0,255,136,0.1); color: #0f8; cursor: pointer; font-family: 'Orbitron', monospace;">STARTEN</button>
     </div>
 
-    <div id="ar-video-container-special" style="width:100%; height:100%; position:absolute; top:0; left:0; display:none;">
-        <video id="ar-feed-special" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
-        <div class="ar-urzeit-filter"></div>
-        <div class="ar-scanlines"></div>
-        <div id="ar-target-icon" onclick="window.startExtractionAnim()"></div>
+    <div id="phase-intro-12000" class="phase-12000">
+        <video id="video-intro-12000" playsinline preload="auto">
+            <source src="Mission 1, Vorspiel.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <div id="phase-interaktiv-12000" class="phase-12000">
+        <video id="video-interaktiv-12000" playsinline muted preload="auto">
+            <source src="Mission 1, Mission.mp4" type="video/mp4">
+        </video>
+        <div class="videosteuerung" id="controls-12000">
+            <button id="btn-zurueck-12000">ZURÜCK</button>
+            <button id="btn-vorwaerts-12000">VORWÄRTS</button>
+        </div>
+        <button id="btn-abschluss-12000" style="display:none; position:absolute; bottom:40px; padding: 20px 40px; font-size: 22px; font-weight: bold; cursor: pointer; background: #ffaa00; border: 2px solid #fff; color: #000; border-radius: 12px; z-index: 30;">OBJEKT EXTRAHIEREN</button>
     </div>
 </div>
 
 <script>
-    let gyroActive = false;
-
-    // Aufruf durch Block 3 Router
+    const vIntro = document.getElementById('video-intro-12000');
+    const vInter = document.getElementById('video-interaktiv-12000');
+    
+    // Aufruf durch Block 3 Router (Die ID 12000 ist in window.runMission verknüpft)
     window.startMission_12000 = function() {
-        document.getElementById('ar-special-overlay').style.display = 'flex';
-        document.getElementById('ar-pre-scan-ui').style.display = 'block';
-        document.getElementById('ar-video-container-special').style.display = 'none';
+        document.getElementById('interactive-mission-overlay').style.display = 'flex';
+        document.getElementById('start-screen-12000').style.display = 'flex';
+        document.getElementById('phase-intro-12000').style.display = 'none';
+        document.getElementById('phase-interaktiv-12000').style.display = 'none';
+        document.getElementById('controls-12000').style.display = 'flex';
+        document.getElementById('btn-abschluss-12000').style.display = 'none';
+        vInter.currentTime = 0;
     };
 
-    window.startARWithPermission = function() {
-        document.getElementById('ar-pre-scan-ui').style.display = 'none';
-        document.getElementById('ar-video-container-special').style.display = 'block';
-        
-        if (window.DeviceOrientationEvent && !gyroActive) {
-            window.addEventListener('deviceorientation', (e) => {
-                const icon = document.getElementById('ar-target-icon');
-                if (icon) icon.style.transform = `translate(${e.gamma * 2}px, ${(e.beta - 45) * 2}px)`;
-            });
-            gyroActive = true;
-        }
-
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => {
-            document.getElementById('ar-feed-special').srcObject = s;
-            setTimeout(() => { 
-                document.getElementById('ar-target-icon').style.display = 'block'; 
-                if (typeof playBeep === 'function') playBeep(1200, 0.1);
-            }, 2000);
-        }).catch(e => {
-            document.getElementById('ar-video-container-special').innerHTML = '<div style="color:#f44; padding:20px; text-align:center;">KAMERA-ZUGRIFF VERWEIGERT.<br><br><button onclick="window.startExtractionAnim()" style="padding:10px; background:#ffaa00; border:none; border-radius:5px; font-weight:bold;">BLIND-SCAN AUSFÜHREN</button></div>';
-        });
+    document.getElementById('btn-start-12000').onclick = () => {
+        document.getElementById('start-screen-12000').style.display = 'none';
+        document.getElementById('phase-intro-12000').style.display = 'flex';
+        vIntro.play();
     };
 
-    window.startExtractionAnim = function() {
+    vIntro.onended = () => {
+        document.getElementById('phase-intro-12000').style.display = 'none';
+        document.getElementById('phase-interaktiv-12000').style.display = 'flex';
+        vInter.load();
+    };
+
+    const btnVor = document.getElementById('btn-vorwaerts-12000');
+    const btnZurueck = document.getElementById('btn-zurueck-12000');
+
+    // Steuerung Interaktives Video
+    btnVor.onmousedown = btnVor.ontouchstart = (e) => { e.preventDefault(); vInter.play(); };
+    btnZurueck.onmousedown = btnZurueck.ontouchstart = (e) => { e.preventDefault(); vInter.pause(); vInter.currentTime = 0; };
+    const stoppeVorwaerts = (e) => { e.preventDefault(); vInter.pause(); };
+    btnVor.onmouseup = btnVor.onmouseleave = btnVor.ontouchend = stoppeVorwaerts;
+
+    // Wenn das Video das Ende erreicht, taucht der Abschluss-Button auf
+    vInter.onended = () => {
+        document.getElementById('controls-12000').style.display = 'none';
+        document.getElementById('btn-abschluss-12000').style.display = 'block';
+    };
+
+    // Belohnungslogik & Zurück zur Basis
+    document.getElementById('btn-abschluss-12000').onclick = async () => {
         if (typeof playBeep === 'function') playBeep(2000, 0.2);
+        
+        // 1. XP Vergeben
+        if (typeof window.updateXP === 'function') window.updateXP(15);
+        
+        // 2. Credits & Materiezellen (MZ) vergeben
+        let agent = window.agentName ? window.agentName.toLowerCase() : "";
+        if (agent) {
+            let mainP = localStorage.getItem('flux_agent_' + agent);
+            let d = mainP ? JSON.parse(mainP) : {};
+            d.credits = (d.credits || 0) + 20; 
+            d.mz = (d.mz || 0) + 1; 
+            localStorage.setItem('flux_agent_' + agent, JSON.stringify(d));
+            
+            // In Firestore ablegen, damit base.html es hat
+            if (window.db && window.setDoc) {
+                try {
+                    await window.setDoc(window.doc(window.db, "Agent - Base", agent), { credits: d.credits, mz: d.mz }, { merge: true });
+                    await window.setDoc(window.doc(window.db, "agenten", agent), { credits: d.credits, mz: d.mz }, { merge: true });
+                } catch(e) { console.error(e); }
+            }
+        }
+        
+        document.getElementById('interactive-mission-overlay').style.display = 'none';
+        
+        // Globale Rückreise-Animation starten (Übergibt 0 XP, da wir die 15 XP schon vergeben haben)
         if (typeof window.starteRueckreiseAnim === 'function') {
-            window.starteRueckreiseAnim(10);
+            window.starteRueckreiseAnim(0);
         }
     };
 </script>
+
 </body>
 </html>
