@@ -3319,12 +3319,11 @@ window.f_showDescription = function(withVoice) {
     /* Sichtbarer Hilfs-Button über der Flasche (Entwicklungs-Modus) */
     #invisible-bottle-trigger {
         position: absolute;
-        bottom: 35%; 
-        right: 24%;
+        bottom: 12%; /* Deutlich weiter unten */
+        right: 18%;  /* Etwas weiter rechts */
         width: 85px;
         height: 85px;
         background: rgba(0, 255, 136, 0.1);
-        /* Der Kreis zur Orientierung */
         border: 2px solid #0f8; 
         border-radius: 50%;
         box-shadow: 0 0 15px #0f8;
@@ -3333,6 +3332,7 @@ window.f_showDescription = function(withVoice) {
         z-index: 40;
         outline: none;
     }
+
 
     .videosteuerung { position: absolute; bottom: 40px; display: flex; gap: 20px; z-index: 20; }
     .videosteuerung button { padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer; background: rgba(0, 255, 204, 0.2); border: 2px solid #0f8; color: #0f8; border-radius: 8px; touch-action: manipulation; user-select: none; font-family: 'Orbitron', monospace; text-shadow: 0 0 5px #0f8; }
