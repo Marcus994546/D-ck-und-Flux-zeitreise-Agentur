@@ -2379,5 +2379,1148 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 </script>
+<script>
+// === HELPER: Materie-Zellen speichern (für alle neuen Räume) ===
+window._saveMZ = function() {
+    const ag = localStorage.getItem("flux_last_agent") || "";
+    if (!ag) return;
+    const mainPKey = 'flux_agent_' + ag.toLowerCase();
+    let d = {}; const mainP = localStorage.getItem(mainPKey);
+    if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
+    d.mz = gameState.materieZellen;
+    localStorage.setItem(mainPKey, JSON.stringify(d));
+    if (window.db && window.setDoc) {
+        try { window.setDoc(window.doc(window.db, "Agent - Base", ag.toLowerCase()), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+    }
+};
+</script>
+<style>
+/* === TRANSFORMATOREN-STATION === */
+@keyframes tachyon-bolt { 0%,100% { opacity:0; } 3%,8% { opacity:1; box-shadow:0 0 15px #c0f; } 5% { opacity:0.3; } 10% { opacity:0; } }
+@keyframes led-async-blink { 0%,100% { opacity:1; } 30% { opacity:0.2; } 60% { opacity:0.8; } }
+@keyframes warn-pulse-slow { 0%,100% { opacity:0.2; box-shadow:0 0 5px #f44; } 50% { opacity:1; box-shadow:0 0 20px #f44; } }
+@keyframes plasma-thread { 0% { transform:translateX(-15px); opacity:0.3; } 50% { transform:translateX(15px); opacity:1; } 100% { transform:translateX(-15px); opacity:0.3; } }
+
+.item-temp-inverter { width:100px; height:120px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ti-casing { width:90px; height:80px; background:linear-gradient(180deg,#1a0a2a,#050010); border:2px solid #555; border-bottom:4px solid #c0f; border-radius:6px; position:relative; z-index:2; box-shadow:0 15px 25px rgba(0,0,0,0.9), inset 0 0 20px rgba(200,0,255,0.2); display:flex; justify-content:space-around; align-items:center; padding:0 10px; box-sizing:border-box; }
+.ti-magnet { width:16px; height:50px; background:rgba(200,0,255,0.15); border:1px solid #c0f; border-radius:8px; position:relative; }
+.ti-bolt { position:absolute; top:-5px; left:0; width:100%; height:60px; pointer-events:none; }
+.ti-bolt::before { content:''; position:absolute; top:10px; left:30%; width:3px; height:40px; background:#c0f; box-shadow:0 0 10px #c0f; animation:tachyon-bolt 1.5s infinite; }
+.ti-bolt::after { content:''; position:absolute; top:5px; left:60%; width:2px; height:45px; background:#f0f; box-shadow:0 0 10px #f0f; animation:tachyon-bolt 2s infinite 0.5s; }
+.ti-led { position:absolute; bottom:5px; width:5px; height:5px; border-radius:50%; }
+.ti-led.l1 { left:10px; background:#0f8; box-shadow:0 0 8px #0f8; animation:led-async-blink 0.8s infinite; }
+.ti-led.l2 { right:10px; background:#ffcc00; box-shadow:0 0 8px #ffcc00; animation:led-async-blink 1.3s infinite 0.4s; }
+.ti-base { width:110px; height:20px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px 4px 2px 2px; z-index:1; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
+
+.item-chrono-knoten { width:40px; height:100px; position:absolute; z-index:2; bottom:70px; left:50px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ck-frame { width:100%; height:85px; background:rgba(255,0,0,0.05); border:1px solid #333; border-top:2px solid #f44; border-radius:4px; position:relative; overflow:hidden; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.ck-warn-bar { position:absolute; left:0; width:100%; height:4px; background:#f44; border-radius:2px; }
+.ck-warn-bar.b1 { top:15px; animation:warn-pulse-slow 2s infinite; }
+.ck-warn-bar.b2 { top:40px; animation:warn-pulse-slow 2s infinite 1s; }
+.ck-warn-bar.b3 { top:65px; animation:warn-pulse-slow 2s infinite 0.5s; }
+.ck-base { width:100%; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-wartungs-drohne { width:50px; height:80px; position:absolute; z-index:2; bottom:70px; right:50px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.wd-station { width:100%; height:20px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px 4px 8px 8px; box-shadow:0 8px 15px rgba(0,0,0,0.9); position:relative; }
+.wd-station::before { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:20px; height:4px; background:#333; border-radius:2px; }
+.wd-body { width:30px; height:25px; background:#1a1a2a; border:1px solid #555; border-radius:50% 50% 30% 30%; margin-bottom:-3px; position:relative; }
+.wd-eye { width:8px; height:4px; background:#333; border-radius:50%; position:absolute; top:8px; left:50%; transform:translateX(-50%); }
+.wd-arm { width:3px; height:12px; background:#444; position:absolute; bottom:0; }
+.wd-arm.l { left:-2px; transform:rotate(20deg); }
+.wd-arm.r { right:-2px; transform:rotate(-20deg); }
+
+.item-lampe-trans { width:80px; height:12px; background:#0a0a0a; border:1px solid #333; border-top:none; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); border-radius:0 0 8px 8px; overflow:hidden; }
+.lt-plasma { width:4px; height:8px; background:#c0f; box-shadow:0 0 15px #c0f, 0 0 25px #f0f; border-radius:2px; margin:2px auto; animation:plasma-thread 0.3s infinite; }
+
+/* === RENAISSANCE-GENERATOR === */
+@keyframes quantum-glow { 0%,100% { box-shadow:0 0 20px #0af, inset 0 0 15px #0ff; } 50% { box-shadow:0 0 50px #0af, inset 0 0 30px #0ff; } }
+@keyframes ring-rotate-steady { from { transform:rotateX(70deg) rotateZ(0deg); } to { transform:rotateX(70deg) rotateZ(360deg); } }
+@keyframes anvil-press { 0%,80%,100% { transform:translateY(0); } 85%,90% { transform:translateY(15px); } }
+@keyframes press-led { 0%,80%,100% { opacity:0.2; } 85%,90% { opacity:1; box-shadow:0 0 15px #0f8; } }
+
+.item-materie-rekon { width:80px; height:150px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.mr-cylinder { width:50px; height:100px; background:rgba(0,10,30,0.9); border:2px solid #0af; border-radius:25px 25px 5px 5px; position:relative; z-index:2; animation:quantum-glow 2s infinite; box-shadow:0 0 20px #0af; }
+.mr-ring { position:absolute; width:70px; height:70px; border:2px solid #0ff; border-radius:50%; left:50%; bottom:60px; transform:translateX(-50%); animation:ring-rotate-steady 4s linear infinite; z-index:1; }
+.mr-ring.r2 { width:55px; height:55px; border-style:dashed; border-color:#0af; animation-duration:3s; animation-direction:reverse; z-index:3; bottom:75px; }
+.mr-base { width:70px; height:20px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
+
+.item-singularitaet-komp { width:60px; height:80px; position:absolute; z-index:2; bottom:70px; left:50px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.sk-anvil { width:50px; height:40px; background:linear-gradient(180deg,#333,#111); border:2px solid #555; border-radius:4px 4px 2px 2px; position:relative; z-index:2; box-shadow:5px 10px 15px rgba(0,0,0,0.9); animation:anvil-press 4s infinite; }
+.sk-led { position:absolute; bottom:5px; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background:#0f8; animation:press-led 4s infinite; }
+.sk-base { width:55px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-nullpunkt-cluster { width:60px; height:50px; position:absolute; z-index:2; bottom:80px; right:50px; display:flex; gap:3px; align-items:flex-end; }
+.np-cube { width:14px; height:14px; background:rgba(0,255,255,0.1); border:1px solid #0ff; border-radius:2px; box-shadow:inset 0 0 8px rgba(0,255,255,0.3); }
+.np-cube:nth-child(2) { height:20px; }
+.np-cube:nth-child(3) { height:16px; }
+.np-cube:nth-child(4) { height:24px; }
+
+.item-lampe-ren { width:50px; height:30px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; }
+.lr-coil { width:30px; height:20px; border:2px solid #ffcc00; border-radius:15px; background:rgba(255,204,0,0.15); box-shadow:0 0 20px #ffcc00, 0 8px 15px rgba(255,204,0,0.3); }
+.lr-mount { width:3px; height:8px; background:#333; }
+
+/* === THERMO-KOPPLER === */
+@keyframes drill-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes led-bar-run { 0% { transform:translateY(100%); opacity:0; } 20% { opacity:1; } 100% { transform:translateY(-100%); opacity:0; } }
+@keyframes coolant-flow { 0% { background-position:0 0; } 100% { background-position:0 -20px; } }
+@keyframes needle-jitter { 0%,100% { transform:rotate(0deg); } 25% { transform:rotate(3deg); } 75% { transform:rotate(-2deg); } }
+@keyframes thermo-blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+@keyframes magma-pulse { 0%,100% { box-shadow:0 0 10px #f40, inset 0 0 10px #f40; opacity:0.7; } 50% { box-shadow:0 0 30px #f40, inset 0 0 20px #f40; opacity:1; } }
+
+.item-erdkern-res { width:80px; height:140px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.er-drill { width:30px; height:60px; background:linear-gradient(180deg,#333,#111); border:2px solid #555; border-radius:3px; position:relative; z-index:2; }
+.er-bit { width:20px; height:30px; background:conic-gradient(#555,#222,#555,#222,#555); border-radius:50% 50% 5px 5px; margin-top:-3px; animation:drill-spin 0.3s linear infinite; box-shadow:0 0 15px rgba(0,255,136,0.5); }
+.er-control { width:60px; height:35px; background:#0a0a0a; border:2px solid #333; border-radius:4px; position:relative; overflow:hidden; z-index:3; display:flex; flex-direction:column; gap:3px; padding:4px; box-sizing:border-box; }
+.er-led-bar { width:100%; height:3px; background:#0f8; border-radius:1px; animation:led-bar-run 1.5s infinite; }
+.er-led-bar:nth-child(2) { animation-delay:0.5s; }
+.er-led-bar:nth-child(3) { animation-delay:1s; }
+.er-base { width:70px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; z-index:1; }
+
+.item-kryo-kuehl { width:100px; height:70px; position:absolute; z-index:2; bottom:80px; left:40px; display:flex; gap:5px; }
+.kk-tube { width:12px; height:100%; background:rgba(0,100,200,0.1); border:1px solid #0af; border-radius:6px; position:relative; overflow:hidden; }
+.kk-fluid { position:absolute; top:0; width:100%; height:200%; background:repeating-linear-gradient(0deg, rgba(0,170,255,0.6) 0px, rgba(0,170,255,0.6) 3px, transparent 3px, transparent 8px); animation:coolant-flow 0.8s linear infinite; }
+
+.item-holo-thermo { width:50px; height:60px; position:absolute; z-index:4; bottom:80px; right:45px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ht-screen { width:100%; height:40px; background:rgba(0,255,255,0.08); border:1px solid #0ff; border-radius:4px; position:relative; overflow:hidden; box-shadow:0 0 15px rgba(0,255,255,0.3); }
+.ht-needle { position:absolute; bottom:5px; left:50%; width:2px; height:15px; background:#0f8; transform-origin:bottom; animation:needle-jitter 0.15s infinite; box-shadow:0 0 5px #0f8; }
+.ht-led { position:absolute; width:4px; height:4px; border-radius:50%; }
+.ht-led.l { top:5px; left:5px; background:#ffcc00; box-shadow:0 0 5px #ffcc00; animation:thermo-blink 1s infinite; }
+.ht-led.r { top:5px; right:5px; background:#f44; box-shadow:0 0 5px #f44; animation:thermo-blink 1.3s infinite 0.5s; }
+.ht-base { width:100%; height:12px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-lampe-thermo { width:30px; height:30px; position:absolute; z-index:5!important; top:5px; left:50%; transform:translateX(-50%); }
+.lt-crystal { width:20px; height:20px; background:radial-gradient(circle,#f40,#800); border-radius:50%; border:2px solid #f40; animation:magma-pulse 3s infinite; }
+
+/* === KINETIK-LABOR === */
+@keyframes centrifuge-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes led-color-shift { 0% { background:#0f8; box-shadow:0 0 10px #0f8; } 50% { background:#ffcc00; box-shadow:0 0 10px #ffcc00; } 100% { background:#f44; box-shadow:0 0 10px #f44; } }
+@keyframes absorber-flash { 0%,90%,100% { opacity:0; } 95% { opacity:1; box-shadow:0 0 20px #0af; } }
+@keyframes pendulum-swing { 0%,100% { transform:rotate(15deg); } 50% { transform:rotate(-15deg); } }
+
+.item-grav-zentrifuge { width:90px; height:130px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.gz-cylinder { width:80px; height:100px; border:3px solid #444; border-radius:8px; background:rgba(0,0,0,0.5); position:relative; z-index:2; overflow:hidden; box-shadow:0 15px 25px rgba(0,0,0,0.9); }
+.gz-core { width:25px; height:25px; background:radial-gradient(circle,#fff,#0af); border-radius:50%; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); animation:centrifuge-spin 1s linear infinite; box-shadow:0 0 20px #0af; }
+.gz-led-strip { position:absolute; top:0; right:0; width:4px; height:100%; border-radius:2px; animation:led-color-shift 1s infinite; }
+.gz-base { width:90px; height:18px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; }
+
+.item-kinetik-absorber { width:120px; height:30px; position:absolute; z-index:2; bottom:72px; left:50%; transform:translateX(-50%); display:flex; gap:4px; }
+.ka-plate { flex:1; height:100%; background:#111; border:1px solid #333; border-radius:3px; position:relative; overflow:hidden; }
+.ka-plate::before { content:''; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,170,255,0.6); animation:absorber-flash 3s infinite; }
+.ka-plate:nth-child(2)::before { animation-delay:1s; }
+.ka-plate:nth-child(3)::before { animation-delay:2s; }
+
+.item-holo-matrix { width:60px; height:50px; position:absolute; z-index:4; bottom:100px; right:40px; }
+.hm-proj { width:100%; height:100%; background:rgba(136,68,255,0.08); border:1px solid rgba(136,68,255,0.5); border-radius:4px; display:flex; align-items:center; justify-content:center; font-family:'Orbitron'; font-size:6px; color:#84f; text-shadow:0 0 5px #84f; line-height:1.2; text-align:center; box-shadow:0 0 15px rgba(136,68,255,0.2); }
+
+.item-lampe-kinetik { width:40px; height:50px; position:absolute; z-index:5!important; top:0; left:30%; display:flex; flex-direction:column; align-items:center; }
+.lk-arm { width:2px; height:20px; background:#333; }
+.lk-pendel { width:15px; height:15px; background:radial-gradient(circle,#ffcc00,#660); border-radius:50%; box-shadow:0 0 15px #ffcc00; animation:pendulum-swing 2s ease-in-out infinite; transform-origin:top center; }
+
+/* === MATERIE-DEKOMPRESSOR === */
+@keyframes field-rotate-cw { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes field-rotate-ccw { from { transform:rotate(0deg); } to { transform:rotate(-360deg); } }
+@keyframes warn-blink-fast { 0%,100% { opacity:0.2; } 50% { opacity:1; box-shadow:0 0 15px #f80; } }
+@keyframes lightstream-flow { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+@keyframes barrier-flash { 0%,90%,100% { opacity:0; } 95% { opacity:1; background:#f44; box-shadow:0 0 15px #f44; } }
+@keyframes strobe-rotate { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+
+.item-molekular-disruptor { width:100px; height:120px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.md-field-container { width:100%; height:80px; position:relative; display:flex; justify-content:space-between; align-items:center; }
+.md-field { width:35px; height:70px; border:2px solid #f80; border-radius:50%; background:rgba(255,136,0,0.1); box-shadow:0 0 15px rgba(255,136,0,0.4); }
+.md-field.left { animation:field-rotate-cw 2s linear infinite; }
+.md-field.right { animation:field-rotate-ccw 2s linear infinite; }
+.md-warn { position:absolute; top:-15px; left:50%; transform:translateX(-50%); width:10px; height:10px; border-radius:50%; background:#f80; animation:warn-blink-fast 0.4s infinite; }
+.md-base { width:90px; height:18px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
+
+.item-antigrav-transport { width:120px; height:25px; position:absolute; z-index:2; bottom:75px; left:50%; transform:translateX(-50%); }
+.at-belt { width:100%; height:100%; background:repeating-linear-gradient(90deg, rgba(255,255,255,0.3) 0px, rgba(255,255,255,0.3) 2px, transparent 2px, transparent 10px); background-size:200% 100%; animation:lightstream-flow 1s linear infinite; border:1px solid rgba(255,255,255,0.4); border-radius:4px; overflow:hidden; position:relative; }
+.at-barrier { position:absolute; top:-8px; right:10px; width:3px; height:8px; border-radius:2px; animation:barrier-flash 2s infinite; }
+
+.item-quarantaene-stasis { width:50px; height:60px; position:absolute; z-index:2; bottom:80px; right:45px; }
+.qs-box { width:100%; height:100%; background:rgba(0,255,255,0.05); border:2px solid rgba(0,255,255,0.4); border-radius:4px; box-shadow:inset 0 0 15px rgba(0,255,255,0.1), 0 5px 15px rgba(0,0,0,0.8); }
+
+.item-lampe-dekomp { width:30px; height:30px; position:absolute; z-index:5!important; top:5px; left:50%; transform:translateX(-50%); }
+.ld-strobe { width:20px; height:20px; background:conic-gradient(#ffcc00, transparent, #ffcc00, transparent, #ffcc00); border-radius:50%; animation:strobe-rotate 1s linear infinite; box-shadow:0 0 20px #ffcc00; }
+
+/* === VAKUUM-SCHMIEDE === */
+@keyframes robot-arm-adjust { 0%,70%,100% { transform:rotate(0deg); } 75% { transform:rotate(10deg); } 85% { transform:rotate(-5deg); } }
+@keyframes pressure-display { 0%,70%,100% { opacity:0.3; } 75%,90% { opacity:1; box-shadow:0 0 10px #f44; } }
+@keyframes valve-led-const { 0%,100% { opacity:1; box-shadow:0 0 8px #0f8; } }
+@keyframes door-status { 0%,40% { background:#f44; box-shadow:0 0 10px #f44; } 50%,100% { background:#0f8; box-shadow:0 0 10px #0f8; } }
+
+.item-nullraum-synth { width:100px; height:110px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ns-field { width:90px; height:60px; border:1px solid rgba(0,255,255,0.4); border-radius:4px; background:rgba(0,255,255,0.05); position:relative; z-index:2; overflow:hidden; box-shadow:0 0 20px rgba(0,255,255,0.2); }
+.ns-table { width:70px; height:10px; background:#222; border:1px solid #555; position:absolute; bottom:10px; left:50%; transform:translateX(-50%); }
+.ns-arm { position:absolute; bottom:20px; width:3px; height:25px; background:#555; border-radius:2px; transform-origin:bottom; }
+.ns-arm.l { left:20px; animation:robot-arm-adjust 3s infinite; }
+.ns-arm.r { right:20px; animation:robot-arm-adjust 3s infinite 1.5s; }
+.ns-pressure { position:absolute; top:5px; right:5px; width:20px; height:8px; background:#200; border:1px solid #f44; border-radius:2px; font-family:'Orbitron'; font-size:5px; color:#f44; display:flex; align-items:center; justify-content:center; animation:pressure-display 3s infinite; }
+.ns-base { width:100px; height:18px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; }
+
+.item-dunkle-materie-tanks { width:50px; height:90px; position:absolute; z-index:2; bottom:70px; left:45px; display:flex; flex-direction:column; gap:5px; }
+.dm-tank { width:100%; height:40px; background:rgba(20,0,30,0.8); border:2px solid #555; border-radius:4px; position:relative; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.dm-core { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:15px; height:15px; background:radial-gradient(circle,#c0f,#400); border-radius:50%; box-shadow:0 0 15px #c0f; }
+.dm-valve-led { position:absolute; bottom:3px; right:3px; width:4px; height:4px; border-radius:50%; background:#0f8; animation:valve-led-const 2s infinite; }
+
+.item-ionen-schott { width:60px; height:120px; position:absolute; z-index:4; bottom:70px; right:45px; }
+.is-door { width:100%; height:100%; background:linear-gradient(180deg,#1a1a1a,#0a0a0a); border:3px solid #555; border-radius:6px 6px 2px 2px; box-shadow:5px 10px 20px rgba(0,0,0,0.9); position:relative; }
+.is-status { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:8px; height:8px; border-radius:50%; animation:door-status 4s infinite; }
+.is-seal { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:80%; height:2px; background:#333; }
+
+.item-lampe-vakuum { width:50px; height:15px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
+.lv-ring { width:40px; height:8px; border:2px solid #fff; border-radius:50%; background:rgba(255,255,255,0.3); box-shadow:0 0 25px #fff, 0 0 40px #aaf; }
+
+/* === RESONANZ-KAMMER === */
+@keyframes ring-vibrate { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(1.15); } }
+@keyframes freq-line-scan { 0% { left:0; } 100% { left:100%; } }
+@keyframes keypad-blink { 0%,100% { opacity:0.3; } 50% { opacity:1; box-shadow:0 0 8px #0f8; } }
+@keyframes freq-tube-flicker { 0%,100% { opacity:0.8; } 50% { opacity:0.3; } }
+
+.item-chrono-oszillator { width:80px; height:130px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.co-pedestal { width:50px; height:25px; background:linear-gradient(180deg,#333,#111); border:2px solid #555; border-radius:4px; z-index:2; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
+.co-ring-container { position:absolute; bottom:25px; left:50%; transform:translateX(-50%); width:60px; height:80px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:5px; z-index:3; }
+.co-ring { width:50px; height:8px; border:2px solid #0ff; border-radius:50%; box-shadow:0 0 15px #0ff; animation:ring-vibrate 0.1s infinite; }
+.co-ring:nth-child(2) { width:40px; animation-delay:0.05s; }
+.co-ring:nth-child(3) { width:30px; animation-delay:0.1s; }
+
+.item-tachyon-spektrometer { width:55px; height:65px; position:absolute; z-index:2; bottom:75px; left:45px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ts-console { width:100%; height:45px; background:#0a0a0a; border:2px solid #333; border-radius:4px; position:relative; overflow:hidden; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.ts-holo { width:90%; height:15px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.4); border-radius:2px; margin:5px auto; position:relative; overflow:hidden; }
+.ts-freq-line { position:absolute; top:50%; transform:translateY(-50%); width:2px; height:100%; background:#0f8; box-shadow:0 0 8px #0f8; animation:freq-line-scan 2s linear infinite; }
+.ts-keypad { display:flex; gap:2px; justify-content:center; padding:3px; }
+.ts-key { width:4px; height:4px; background:#0f8; border-radius:1px; animation:keypad-blink 0.8s infinite; }
+.ts-key:nth-child(2) { animation-delay:0.3s; }
+.ts-key:nth-child(3) { animation-delay:0.6s; }
+.ts-base { width:100%; height:12px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-schall-nullifizierung { width:60px; height:70px; position:absolute; z-index:2; bottom:75px; right:45px; display:flex; flex-wrap:wrap; gap:3px; align-content:flex-end; }
+.sn-panel { width:25px; height:30px; background:rgba(136,68,255,0.08); border:1px solid rgba(136,68,255,0.4); border-radius:3px; }
+.sn-panel:nth-child(3) { border-radius:50%; }
+.sn-panel:nth-child(4) { transform:rotate(45deg); }
+
+.item-lampe-resonanz { width:12px; height:100px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
+.lr-tube { width:100%; height:80px; background:linear-gradient(180deg,#0ff,rgba(0,255,255,0.2)); border-radius:6px; box-shadow:0 0 15px #0ff; animation:freq-tube-flicker 0.1s infinite; }
+
+/* === KYBERNETIK-STATION === */
+@keyframes synapse-blink { 0%,100% { opacity:0.2; } 50% { opacity:1; box-shadow:0 0 10px #0af; } }
+@keyframes holo-scan-line { 0% { transform:translateY(0); opacity:0.5; } 50% { opacity:1; } 100% { transform:translateY(30px); opacity:0.5; } }
+@keyframes standby-blink { 0%,100% { opacity:0.3; } 50% { opacity:1; } }
+
+.item-neural-sync { width:90px; height:100px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ns-chair { width:70px; height:55px; position:relative; z-index:2; }
+.ns-backrest { width:50px; height:40px; background:linear-gradient(180deg,#1a1a2a,#0a0a1a); border:2px solid #444; border-radius:8px 8px 4px 4px; position:relative; box-shadow:5px 10px 15px rgba(0,0,0,0.9); }
+.ns-synapse { position:absolute; width:4px; height:4px; border-radius:50%; background:#0af; animation:synapse-blink 1s infinite; }
+.ns-synapse.s1 { top:8px; left:8px; }
+.ns-synapse.s2 { top:15px; right:8px; animation-delay:0.3s; }
+.ns-synapse.s3 { top:25px; left:15px; animation-delay:0.6s; }
+.ns-synapse.s4 { bottom:8px; right:12px; animation-delay:0.9s; }
+.ns-seat { width:60px; height:12px; background:#1a1a2a; border:2px solid #444; border-radius:4px; margin-top:-3px; }
+.ns-base { width:80px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-nanobot-deck { width:55px; height:55px; position:absolute; z-index:2; bottom:75px; left:45px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.nd-table { width:100%; height:8px; background:#222; border:1px solid #555; border-radius:2px; }
+.nd-scan { width:90%; height:35px; position:relative; overflow:hidden; border:1px solid rgba(0,170,255,0.3); border-radius:3px; background:rgba(0,170,255,0.05); }
+.nd-scan-line { position:absolute; top:0; left:50%; transform:translateX(-50%); width:80%; height:2px; background:#0af; box-shadow:0 0 10px #0af; animation:holo-scan-line 1.5s infinite; }
+.nd-led { position:absolute; bottom:3px; right:3px; width:4px; height:4px; border-radius:50%; background:#0af; animation:standby-blink 2s infinite; }
+.nd-base { width:100%; height:10px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-bio-gewebe-kultivator { width:50px; height:85px; position:absolute; z-index:2; bottom:75px; right:45px; display:flex; flex-direction:column; gap:4px; }
+.bg-shelf { width:100%; height:25px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.3); border-radius:3px; position:relative; box-shadow:0 4px 10px rgba(0,0,0,0.7); }
+.bg-vial { position:absolute; bottom:2px; width:6px; height:15px; border-radius:0 0 3px 3px; }
+.bg-vial.v1 { left:5px; background:rgba(0,255,136,0.6); box-shadow:0 0 8px #0f8; }
+.bg-vial.v2 { left:15px; background:rgba(0,170,255,0.6); box-shadow:0 0 8px #0af; }
+.bg-vial.v3 { left:25px; background:rgba(200,0,255,0.6); box-shadow:0 0 8px #c0f; }
+
+.item-lampe-kybernetik { width:20px; height:20px; position:absolute; z-index:5!important; top:5px; left:50%; transform:translateX(-50%); }
+.lk-spot { width:15px; height:15px; background:radial-gradient(circle,#fff,#aaa); border-radius:50%; box-shadow:0 0 30px #fff, 0 0 50px #aaf; }
+
+/* === SCANNER-PHALANX === */
+@keyframes scan-line-rotate { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes data-stream-burst { 0% { opacity:0; } 10% { opacity:1; box-shadow:0 0 8px #0ff; } 20% { opacity:0; } }
+@keyframes ir-dim { 0%,100% { opacity:0.3; } 50% { opacity:1; box-shadow:0 0 10px #f44; } }
+
+.item-zeitstrom-kartograf { width:90px; height:100px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.zk-table { width:80px; height:30px; background:linear-gradient(180deg,#1a1a1a,#050505); border:2px solid #333; border-radius:50%; z-index:2; box-shadow:0 15px 25px rgba(0,0,0,0.9); position:relative; overflow:hidden; }
+.zk-holo { position:absolute; top:-50px; left:50%; transform:translateX(-50%); width:60px; height:50px; border:1px solid rgba(0,255,136,0.3); border-radius:50% 50% 0 0; background:rgba(0,255,136,0.05); }
+.zk-scan-line { position:absolute; top:50%; left:50%; transform-origin:left center; width:30px; height:2px; background:#0f8; box-shadow:0 0 10px #0f8; animation:scan-line-rotate 3s linear infinite; }
+.zk-base { width:90px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-ki-quantenkerne { width:55px; height:90px; position:absolute; z-index:2; bottom:75px; left:45px; display:flex; gap:4px; }
+.kq-cabinet { width:25px; height:100%; background:rgba(0,255,255,0.05); border:1px solid rgba(0,255,255,0.3); border-radius:3px; position:relative; overflow:hidden; box-shadow:0 5px 15px rgba(0,0,0,0.8); }
+.kq-stream { position:absolute; width:2px; height:100%; background:#0ff; border-radius:1px; animation:data-stream-burst 0.3s infinite; }
+.kq-stream:nth-child(1) { left:5px; }
+.kq-stream:nth-child(2) { left:12px; animation-delay:0.1s; }
+.kq-stream:nth-child(3) { left:18px; animation-delay:0.2s; }
+
+.item-synthetik-replikator { width:35px; height:45px; position:absolute; z-index:2; bottom:80px; right:50px; }
+.sr-body { width:100%; height:100%; background:#1a1a1a; border:2px solid #444; border-radius:4px; position:relative; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.sr-led { position:absolute; top:5px; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background:#f44; box-shadow:0 0 10px #f44; }
+
+.item-lampe-scanner { width:60px; height:15px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); display:flex; gap:5px; justify-content:center; }
+.ls-sensor { width:10px; height:10px; border-radius:50%; background:#f44; }
+.ls-sensor:nth-child(1) { animation:ir-dim 2s infinite; }
+.ls-sensor:nth-child(2) { animation:ir-dim 2s infinite 0.7s; }
+.ls-sensor:nth-child(3) { animation:ir-dim 2s infinite 1.4s; }
+
+/* === DEKONTAMINATIONS-SCHLEUSE === */
+@keyframes ion-mist { 0%,100% { opacity:0.2; transform:translateX(-5px); } 50% { opacity:0.5; transform:translateX(5px); } }
+@keyframes battery-blink { 0%,100% { opacity:0.3; } 50% { opacity:1; box-shadow:0 0 8px #0af; } }
+@keyframes uv-flicker-charge { 0%,5% { opacity:0; } 10%,15% { opacity:1; } 20%,25% { opacity:0.3; } 30%,100% { opacity:0.8; box-shadow:0 0 20px #c0f; } }
+
+.item-temp-partikel-filter { width:100px; height:130px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.tpf-arch { width:90px; height:100px; border:3px solid #0af; border-bottom:none; border-radius:50% 50% 0 0; background:rgba(0,170,255,0.05); position:relative; z-index:2; overflow:hidden; box-shadow:0 0 20px rgba(0,170,255,0.3); }
+.tpf-mist { position:absolute; top:20px; left:0; width:100%; height:60px; background:radial-gradient(ellipse,rgba(0,170,255,0.3),transparent); animation:ion-mist 3s infinite; }
+.tpf-barrier { position:absolute; top:0; left:30%; width:1px; height:100%; background:rgba(0,170,255,0.6); box-shadow:0 0 5px #0af; }
+.tpf-barrier.b2 { left:60%; }
+.tpf-green-led { position:absolute; bottom:5px; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background:#0f8; box-shadow:0 0 10px #0f8; }
+.tpf-base { width:100px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-exo-phasen-anzuege { width:45px; height:80px; position:absolute; z-index:2; bottom:75px; left:45px; display:flex; gap:5px; }
+.epa-rack { width:18px; height:100%; background:#1a1a1a; border:2px solid #444; border-radius:4px 4px 2px 2px; position:relative; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.epa-suit { position:absolute; top:5px; left:50%; transform:translateX(-50%); width:12px; height:50px; background:rgba(200,200,200,0.2); border:1px solid #666; border-radius:6px 6px 4px 4px; }
+.epa-battery { position:absolute; top:8px; right:1px; width:4px; height:6px; background:#0af; border-radius:1px; animation:battery-blink 1.5s infinite; }
+
+.item-ionen-ablaufigitter { width:120px; height:25px; position:absolute; z-index:2; bottom:72px; left:50%; transform:translateX(-50%); background:repeating-linear-gradient(90deg, rgba(0,170,255,0.2) 0px, rgba(0,170,255,0.2) 1px, transparent 1px, transparent 8px); border:1px solid rgba(0,170,255,0.3); border-radius:3px; }
+
+.item-lampe-dekont { width:50px; height:20px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
+.ld-array { width:100%; height:15px; background:radial-gradient(ellipse,#c0f,rgba(200,0,255,0.3)); border:1px solid #c0f; border-radius:4px; animation:uv-flicker-charge 4s infinite; box-shadow:0 0 20px #c0f; }
+</style>
+<script>
+// === TRANSFORMATOREN-STATION ===
+const menuTransStation = `
+<div id="menu-transformatoren-station" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ TEMPORALER ENERGIE-INVERTER ]</b><p style="font-size:0.7em; color:#aaa;">Fetter Kasten mit schwebenden Magnet-Isolatoren.</p><button id="btn-buy-temp-inverter" onclick="window.buyFurniture('temp_inverter', 2800)" class="btn-upgrade-exec" style="background:#c0f; color:#000; border:1px solid #c0f;">KAUFEN (2800 C + 40 MZ)</button></div>
+    <div class="upgrade-card"><b>[ CHRONO-VERTEILERKNOTEN ]</b><p style="font-size:0.7em; color:#aaa;">Schlanker Hologramm-Schrank.</p><button id="btn-buy-chrono-knoten" onclick="window.buyFurniture('chrono_knoten', 950)" class="btn-upgrade-exec">KAUFEN (950 C)</button></div>
+    <div class="upgrade-card"><b>[ WARTUNGSDROHNE ]</b><p style="font-size:0.7em; color:#aaa;">Schwebt deaktiviert in einer Ladestation.</p><button id="btn-buy-wartungs-drohne" onclick="window.buyFurniture('wartungs_drohne', 450)" class="btn-upgrade-exec">KAUFEN (450 C)</button></div>
+    <div class="upgrade-card"><b>[ PLASMA-RÖHRENLAMPE ]</b><p style="font-size:0.7em; color:#aaa;">Glasröhre mit lila Plasmafaden.</p><button id="btn-buy-lampe-trans" onclick="window.buyFurniture('lampe_trans', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-transformatoren-station')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuTransStation);
+
+const itemsTransStation = ['temp_inverter','chrono_knoten','wartungs_drohne','lampe_trans'];
+itemsTransStation.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_TS = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_TS === 'function') oldUpdateAusbau_TS();
+    if (typeof inventory === 'undefined') return;
+    const limits = { temp_inverter:1, chrono_knoten:1, wartungs_drohne:1, lampe_trans:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_TS = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_TS) oldOpenRoom_TS(type);
+    const m = document.getElementById('menu-transformatoren-station');
+    if (m) m.style.display = (type === 'TRANSFORMATOREN-STATION') ? 'flex' : 'none';
+    if (type === 'TRANSFORMATOREN-STATION') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_TS = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsTransStation.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'temp_inverter'); let costC = cost; let costMZ = isMZ ? 40 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 2800 C + 40 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_TS) oldBuyFurniture_TS(type, cost);
+};
+
+const oldReload_TS = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_TS) oldReload_TS(type);
+    if (type === 'TRANSFORMATOREN-STATION') {
+        if (inventory.lampe_trans > 0) window.spawnFurniture('lampe_trans', 1);
+        if (inventory.temp_inverter > 0) window.spawnFurniture('temp_inverter', 1);
+        if (inventory.chrono_knoten > 0) window.spawnFurniture('chrono_knoten', 1);
+        if (inventory.wartungs_drohne > 0) window.spawnFurniture('wartungs_drohne', 1);
+    }
+};
+
+const oldSpawn_TS = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_TS) oldSpawn_TS(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsTransStation.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'temp_inverter') {
+        item.classList.add('item-temp-inverter');
+        item.innerHTML = '<div class="ti-casing"><div class="ti-magnet"><div class="ti-bolt"></div></div><div class="ti-magnet"><div class="ti-bolt" style="animation-delay:0.7s;"></div></div><div class="ti-led l1"></div><div class="ti-led l2"></div></div><div class="ti-base"></div>';
+    } else if (type === 'chrono_knoten') {
+        item.classList.add('item-chrono-knoten');
+        item.innerHTML = '<div class="ck-frame"><div class="ck-warn-bar b1"></div><div class="ck-warn-bar b2"></div><div class="ck-warn-bar b3"></div></div><div class="ck-base"></div>';
+    } else if (type === 'wartungs_drohne') {
+        item.classList.add('item-wartungs-drohne');
+        item.innerHTML = '<div class="wd-body"><div class="wd-eye"></div><div class="wd-arm l"></div><div class="wd-arm r"></div></div><div class="wd-station"></div>';
+    } else if (type === 'lampe_trans') {
+        item.classList.add('item-lampe-trans');
+        item.innerHTML = '<div class="lt-plasma"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
+<script>
+// === RENAISSANCE-GENERATOR ===
+const menuRenaissance = `
+<div id="menu-renaissance-generator" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ MATERIE-REKONSTRUKTOR ]</b><p style="font-size:0.7em; color:#aaa;">Schlanker Zylinder, quantenblau glühend.</p><button id="btn-buy-materie-rekon" onclick="window.buyFurniture('materie_rekon', 3200)" class="btn-upgrade-exec" style="background:#0af; color:#000; border:1px solid #0af;">KAUFEN (3200 C + 50 MZ)</button></div>
+    <div class="upgrade-card"><b>[ SINGULARITÄTS-KOMPRESSOR ]</b><p style="font-size:0.7em; color:#aaa;">Schwebender Amboss-Block.</p><button id="btn-buy-singularitaet-komp" onclick="window.buyFurniture('singularitaet_komp', 1500)" class="btn-upgrade-exec" style="background:#0f8; color:#000; border:1px solid #0f8;">KAUFEN (1500 C + 20 MZ)</button></div>
+    <div class="upgrade-card"><b>[ NULLPUNKT-ZELLEN-CLUSTER ]</b><p style="font-size:0.7em; color:#aaa;">Verbundene Energie-Würfel an der Wand.</p><button id="btn-buy-nullpunkt-cluster" onclick="window.buyFurniture('nullpunkt_cluster', 600)" class="btn-upgrade-exec">KAUFEN (600 C)</button></div>
+    <div class="upgrade-card"><b>[ LUMINESZENZ-SPULE ]</b><p style="font-size:0.7em; color:#aaa;">Schwebende gelbe Lichtspule.</p><button id="btn-buy-lampe-ren" onclick="window.buyFurniture('lampe_ren', 120)" class="btn-upgrade-exec">KAUFEN (120 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-renaissance-generator')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuRenaissance);
+
+const itemsRenaissance = ['materie_rekon','singularitaet_komp','nullpunkt_cluster','lampe_ren'];
+itemsRenaissance.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_RG = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_RG === 'function') oldUpdateAusbau_RG();
+    if (typeof inventory === 'undefined') return;
+    const limits = { materie_rekon:1, singularitaet_komp:1, nullpunkt_cluster:1, lampe_ren:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_RG = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_RG) oldOpenRoom_RG(type);
+    const m = document.getElementById('menu-renaissance-generator');
+    if (m) m.style.display = (type === 'RENAISSANCE-GENERATOR') ? 'flex' : 'none';
+    if (type === 'RENAISSANCE-GENERATOR') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_RG = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsRenaissance.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'materie_rekon' || type === 'singularitaet_komp');
+        let costC = cost; let costMZ = 0;
+        if (type === 'materie_rekon') costMZ = 50;
+        if (type === 'singularitaet_komp') costMZ = 20;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? `System: ${cost} C + ${costMZ} MZ benötigt.` : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_RG) oldBuyFurniture_RG(type, cost);
+};
+
+const oldReload_RG = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_RG) oldReload_RG(type);
+    if (type === 'RENAISSANCE-GENERATOR') {
+        if (inventory.lampe_ren > 0) window.spawnFurniture('lampe_ren', 1);
+        if (inventory.materie_rekon > 0) window.spawnFurniture('materie_rekon', 1);
+        if (inventory.singularitaet_komp > 0) window.spawnFurniture('singularitaet_komp', 1);
+        if (inventory.nullpunkt_cluster > 0) window.spawnFurniture('nullpunkt_cluster', 1);
+    }
+};
+
+const oldSpawn_RG = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_RG) oldSpawn_RG(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsRenaissance.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'materie_rekon') {
+        item.classList.add('item-materie-rekon');
+        item.innerHTML = '<div class="mr-ring"></div><div class="mr-ring r2"></div><div class="mr-cylinder"></div><div class="mr-base"></div>';
+    } else if (type === 'singularitaet_komp') {
+        item.classList.add('item-singularitaet-komp');
+        item.innerHTML = '<div class="sk-anvil"><div class="sk-led"></div></div><div class="sk-base"></div>';
+    } else if (type === 'nullpunkt_cluster') {
+        item.classList.add('item-nullpunkt-cluster');
+        item.innerHTML = '<div class="np-cube"></div><div class="np-cube"></div><div class="np-cube"></div><div class="np-cube"></div>';
+    } else if (type === 'lampe_ren') {
+        item.classList.add('item-lampe-ren');
+        item.innerHTML = '<div class="lr-mount"></div><div class="lr-coil"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
+<script>
+// === THERMO-KOPPLER ===
+const menuThermo = `
+<div id="menu-thermo-koppler" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ ERDKERN-RESONATOR ]</b><p style="font-size:0.7em; color:#aaa;">Rotierender Laser-Bohrkopf.</p><button id="btn-buy-erdkern-res" onclick="window.buyFurniture('erdkern_res', 3500)" class="btn-upgrade-exec" style="background:#0f8; color:#000; border:1px solid #0f8;">KAUFEN (3500 C + 60 MZ)</button></div>
+    <div class="upgrade-card"><b>[ KRYO-KÜHLSCHLEIFEN ]</b><p style="font-size:0.7em; color:#aaa;">Wandsystem mit blauem Kühlmittel.</p><button id="btn-buy-kryo-kuehl" onclick="window.buyFurniture('kryo_kuehl', 850)" class="btn-upgrade-exec">KAUFEN (850 C)</button></div>
+    <div class="upgrade-card"><b>[ HOLO-THERMOKONSOLE ]</b><p style="font-size:0.7em; color:#aaa;">Schwebendes Interface.</p><button id="btn-buy-holo-thermo" onclick="window.buyFurniture('holo_thermo', 650)" class="btn-upgrade-exec">KAUFEN (650 C)</button></div>
+    <div class="upgrade-card"><b>[ MAGMA-KRISTALL-LAMPE ]</b><p style="font-size:0.7em; color:#aaa;">Pulsiert langsam rot.</p><button id="btn-buy-lampe-thermo" onclick="window.buyFurniture('lampe_thermo', 200)" class="btn-upgrade-exec">KAUFEN (200 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-thermo-koppler')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuThermo);
+
+const itemsThermo = ['erdkern_res','kryo_kuehl','holo_thermo','lampe_thermo'];
+itemsThermo.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_TK = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_TK === 'function') oldUpdateAusbau_TK();
+    if (typeof inventory === 'undefined') return;
+    const limits = { erdkern_res:1, kryo_kuehl:1, holo_thermo:1, lampe_thermo:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_TK = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_TK) oldOpenRoom_TK(type);
+    const m = document.getElementById('menu-thermo-koppler');
+    if (m) m.style.display = (type === 'THERMO-KOPPLER') ? 'flex' : 'none';
+    if (type === 'THERMO-KOPPLER') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_TK = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsThermo.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'erdkern_res'); let costC = cost; let costMZ = isMZ ? 60 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 3500 C + 60 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_TK) oldBuyFurniture_TK(type, cost);
+};
+
+const oldReload_TK = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_TK) oldReload_TK(type);
+    if (type === 'THERMO-KOPPLER') {
+        if (inventory.lampe_thermo > 0) window.spawnFurniture('lampe_thermo', 1);
+        if (inventory.erdkern_res > 0) window.spawnFurniture('erdkern_res', 1);
+        if (inventory.kryo_kuehl > 0) window.spawnFurniture('kryo_kuehl', 1);
+        if (inventory.holo_thermo > 0) window.spawnFurniture('holo_thermo', 1);
+    }
+};
+
+const oldSpawn_TK = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_TK) oldSpawn_TK(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsThermo.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'erdkern_res') {
+        item.classList.add('item-erdkern-res');
+        item.innerHTML = '<div class="er-control"><div class="er-led-bar"></div><div class="er-led-bar"></div><div class="er-led-bar"></div></div><div class="er-drill"></div><div class="er-bit"></div><div class="er-base"></div>';
+    } else if (type === 'kryo_kuehl') {
+        item.classList.add('item-kryo-kuehl');
+        item.innerHTML = '<div class="kk-tube"><div class="kk-fluid"></div></div><div class="kk-tube"><div class="kk-fluid" style="animation-delay:0.3s;"></div></div><div class="kk-tube"><div class="kk-fluid" style="animation-delay:0.6s;"></div></div><div class="kk-tube"><div class="kk-fluid" style="animation-delay:0.9s;"></div></div>';
+    } else if (type === 'holo_thermo') {
+        item.classList.add('item-holo-thermo');
+        item.innerHTML = '<div class="ht-screen"><div class="ht-led l"></div><div class="ht-led r"></div><div class="ht-needle"></div></div><div class="ht-base"></div>';
+    } else if (type === 'lampe_thermo') {
+        item.classList.add('item-lampe-thermo');
+        item.innerHTML = '<div class="lt-crystal"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
+<script>
+// === KINETIK-LABOR ===
+const menuKinetik = `
+<div id="menu-kinetik-labor" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ GRAVITATIONS-ZENTRIFUGE ]</b><p style="font-size:0.7em; color:#aaa;">Offener Zylinder mit schwebendem Kern.</p><button id="btn-buy-grav-zentrifuge" onclick="window.buyFurniture('grav_zentrifuge', 3000)" class="btn-upgrade-exec" style="background:#0af; color:#000; border:1px solid #0af;">KAUFEN (3000 C + 45 MZ)</button></div>
+    <div class="upgrade-card"><b>[ KINETIK-ABSORBER-GITTER ]</b><p style="font-size:0.7em; color:#aaa;">Bodenplatten mit Energielinien.</p><button id="btn-buy-kinetik-absorber" onclick="window.buyFurniture('kinetik_absorber', 1200)" class="btn-upgrade-exec">KAUFEN (1200 C)</button></div>
+    <div class="upgrade-card"><b>[ HOLO-MATRIX-PROJEKTOR ]</b><p style="font-size:0.7em; color:#aaa;">Zeigt komplexe Gleichungen.</p><button id="btn-buy-holo-matrix" onclick="window.buyFurniture('holo_matrix', 750)" class="btn-upgrade-exec">KAUFEN (750 C)</button></div>
+    <div class="upgrade-card"><b>[ PHOTONEN-PENDEL ]</b><p style="font-size:0.7em; color:#aaa;">Schwingt leicht, dynamische Schatten.</p><button id="btn-buy-lampe-kinetik" onclick="window.buyFurniture('lampe_kinetik', 180)" class="btn-upgrade-exec">KAUFEN (180 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-kinetik-labor')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuKinetik);
+
+const itemsKinetik = ['grav_zentrifuge','kinetik_absorber','holo_matrix','lampe_kinetik'];
+itemsKinetik.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_KL = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_KL === 'function') oldUpdateAusbau_KL();
+    if (typeof inventory === 'undefined') return;
+    const limits = { grav_zentrifuge:1, kinetik_absorber:1, holo_matrix:1, lampe_kinetik:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_KL = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_KL) oldOpenRoom_KL(type);
+    const m = document.getElementById('menu-kinetik-labor');
+    if (m) m.style.display = (type === 'KINETIK-LABOR') ? 'flex' : 'none';
+    if (type === 'KINETIK-LABOR') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_KL = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsKinetik.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'grav_zentrifuge'); let costC = cost; let costMZ = isMZ ? 45 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 3000 C + 45 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_KL) oldBuyFurniture_KL(type, cost);
+};
+
+const oldReload_KL = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_KL) oldReload_KL(type);
+    if (type === 'KINETIK-LABOR') {
+        if (inventory.lampe_kinetik > 0) window.spawnFurniture('lampe_kinetik', 1);
+        if (inventory.grav_zentrifuge > 0) window.spawnFurniture('grav_zentrifuge', 1);
+        if (inventory.kinetik_absorber > 0) window.spawnFurniture('kinetik_absorber', 1);
+        if (inventory.holo_matrix > 0) window.spawnFurniture('holo_matrix', 1);
+    }
+};
+
+const oldSpawn_KL = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_KL) oldSpawn_KL(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsKinetik.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'grav_zentrifuge') {
+        item.classList.add('item-grav-zentrifuge');
+        item.innerHTML = '<div class="gz-cylinder"><div class="gz-core"></div><div class="gz-led-strip"></div></div><div class="gz-base"></div>';
+    } else if (type === 'kinetik_absorber') {
+        item.classList.add('item-kinetik-absorber');
+        item.innerHTML = '<div class="ka-plate"></div><div class="ka-plate"></div><div class="ka-plate"></div>';
+    } else if (type === 'holo_matrix') {
+        item.classList.add('item-holo-matrix');
+        item.innerHTML = '<div class="hm-proj">E=mc²<br>∇·F=0<br>ψ→∞</div>';
+    } else if (type === 'lampe_kinetik') {
+        item.classList.add('item-lampe-kinetik');
+        item.innerHTML = '<div class="lk-arm"></div><div class="lk-pendel"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+<script>
+// === MATERIE-DEKOMPRESSOR ===
+const menuDekomp = `
+<div id="menu-materie-dekompressor" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ MOLEKULAR-DISRUPTOR ]</b><p style="font-size:0.7em; color:#aaa;">Zwei schwebende Energiefelder, gegenläufig rotierend.</p><button id="btn-buy-molekular-disruptor" onclick="window.buyFurniture('molekular_disruptor', 3800)" class="btn-upgrade-exec" style="background:#f80; color:#000; border:1px solid #f80;">KAUFEN (3800 C + 55 MZ)</button></div>
+    <div class="upgrade-card"><b>[ ANTI-GRAV-TRANSPORTFELD ]</b><p style="font-size:0.7em; color:#aaa;">Ausgangsband aus purem Licht.</p><button id="btn-buy-antigrav-transport" onclick="window.buyFurniture('antigrav_transport', 1600)" class="btn-upgrade-exec" style="background:#0f8; color:#000; border:1px solid #0f8;">KAUFEN (1600 C + 15 MZ)</button></div>
+    <div class="upgrade-card"><b>[ QUARANTÄNE-STASISFELD ]</b><p style="font-size:0.7em; color:#aaa;">Transparente Eindämmungsbox.</p><button id="btn-buy-quarantaene-stasis" onclick="window.buyFurniture('quarantaene_stasis', 800)" class="btn-upgrade-exec">KAUFEN (800 C)</button></div>
+    <div class="upgrade-card"><b>[ HOLO-WARN-STROBOSKOP ]</b><p style="font-size:0.7em; color:#aaa;">Drehendes gelbes Warnlicht.</p><button id="btn-buy-lampe-dekomp" onclick="window.buyFurniture('lampe_dekomp', 220)" class="btn-upgrade-exec">KAUFEN (220 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-materie-dekompressor')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuDekomp);
+
+const itemsDekomp = ['molekular_disruptor','antigrav_transport','quarantaene_stasis','lampe_dekomp'];
+itemsDekomp.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_MD = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_MD === 'function') oldUpdateAusbau_MD();
+    if (typeof inventory === 'undefined') return;
+    const limits = { molekular_disruptor:1, antigrav_transport:1, quarantaene_stasis:1, lampe_dekomp:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_MD = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_MD) oldOpenRoom_MD(type);
+    const m = document.getElementById('menu-materie-dekompressor');
+    if (m) m.style.display = (type === 'MATERIE-DEKOMPRESSOR') ? 'flex' : 'none';
+    if (type === 'MATERIE-DEKOMPRESSOR') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_MD = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsDekomp.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'molekular_disruptor' || type === 'antigrav_transport');
+        let costC = cost; let costMZ = 0;
+        if (type === 'molekular_disruptor') costMZ = 55;
+        if (type === 'antigrav_transport') costMZ = 15;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? `System: ${cost} C + ${costMZ} MZ benötigt.` : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_MD) oldBuyFurniture_MD(type, cost);
+};
+
+const oldReload_MD = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_MD) oldReload_MD(type);
+    if (type === 'MATERIE-DEKOMPRESSOR') {
+        if (inventory.lampe_dekomp > 0) window.spawnFurniture('lampe_dekomp', 1);
+        if (inventory.molekular_disruptor > 0) window.spawnFurniture('molekular_disruptor', 1);
+        if (inventory.antigrav_transport > 0) window.spawnFurniture('antigrav_transport', 1);
+        if (inventory.quarantaene_stasis > 0) window.spawnFurniture('quarantaene_stasis', 1);
+    }
+};
+
+const oldSpawn_MD = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_MD) oldSpawn_MD(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsDekomp.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'molekular_disruptor') {
+        item.classList.add('item-molekular-disruptor');
+        item.innerHTML = '<div class="md-field-container"><div class="md-warn"></div><div class="md-field left"></div><div class="md-field right"></div></div><div class="md-base"></div>';
+    } else if (type === 'antigrav_transport') {
+        item.classList.add('item-antigrav-transport');
+        item.innerHTML = '<div class="at-belt"><div class="at-barrier"></div></div>';
+    } else if (type === 'quarantaene_stasis') {
+        item.classList.add('item-quarantaene-stasis');
+        item.innerHTML = '<div class="qs-box"></div>';
+    } else if (type === 'lampe_dekomp') {
+        item.classList.add('item-lampe-dekomp');
+        item.innerHTML = '<div class="ld-strobe"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
+<script>
+// === VAKUUM-SCHMIEDE ===
+const menuVakuum = `
+<div id="menu-vakuum-schmiede" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ NULLRAUM-SYNTHESIZER ]</b><p style="font-size:0.7em; color:#aaa;">Tisch hinter Kraftfeld, Roboterarme.</p><button id="btn-buy-nullraum-synth" onclick="window.buyFurniture('nullraum_synth', 3300)" class="btn-upgrade-exec" style="background:#0ff; color:#000; border:1px solid #0ff;">KAUFEN (3300 C + 48 MZ)</button></div>
+    <div class="upgrade-card"><b>[ DUNKLE-MATERIE-TANKS ]</b><p style="font-size:0.7em; color:#aaa;">Wandtanks mit leuchtendem Kern.</p><button id="btn-buy-dunkle-materie-tanks" onclick="window.buyFurniture('dunkle_materie_tanks', 1100)" class="btn-upgrade-exec">KAUFEN (1100 C)</button></div>
+    <div class="upgrade-card"><b>[ IONEN-SCHOTT ]</b><p style="font-size:0.7em; color:#aaa;">Massive Raumtür.</p><button id="btn-buy-ionen-schott" onclick="window.buyFurniture('ionen_schott', 900)" class="btn-upgrade-exec">KAUFEN (900 C)</button></div>
+    <div class="upgrade-card"><b>[ KALTPLASMA-RING ]</b><p style="font-size:0.7em; color:#aaa;">Sehr helles kaltweißes Licht.</p><button id="btn-buy-lampe-vakuum" onclick="window.buyFurniture('lampe_vakuum', 250)" class="btn-upgrade-exec">KAUFEN (250 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-vakuum-schmiede')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuVakuum);
+
+const itemsVakuum = ['nullraum_synth','dunkle_materie_tanks','ionen_schott','lampe_vakuum'];
+itemsVakuum.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_VS = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_VS === 'function') oldUpdateAusbau_VS();
+    if (typeof inventory === 'undefined') return;
+    const limits = { nullraum_synth:1, dunkle_materie_tanks:1, ionen_schott:1, lampe_vakuum:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_VS = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_VS) oldOpenRoom_VS(type);
+    const m = document.getElementById('menu-vakuum-schmiede');
+    if (m) m.style.display = (type === 'VAKUUM-SCHMIEDE') ? 'flex' : 'none';
+    if (type === 'VAKUUM-SCHMIEDE') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_VS = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsVakuum.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'nullraum_synth'); let costC = cost; let costMZ = isMZ ? 48 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 3300 C + 48 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_VS) oldBuyFurniture_VS(type, cost);
+};
+
+const oldReload_VS = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_VS) oldReload_VS(type);
+    if (type === 'VAKUUM-SCHMIEDE') {
+        if (inventory.lampe_vakuum > 0) window.spawnFurniture('lampe_vakuum', 1);
+        if (inventory.nullraum_synth > 0) window.spawnFurniture('nullraum_synth', 1);
+        if (inventory.dunkle_materie_tanks > 0) window.spawnFurniture('dunkle_materie_tanks', 1);
+        if (inventory.ionen_schott > 0) window.spawnFurniture('ionen_schott', 1);
+    }
+};
+
+const oldSpawn_VS = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_VS) oldSpawn_VS(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsVakuum.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'nullraum_synth') {
+        item.classList.add('item-nullraum-synth');
+        item.innerHTML = '<div class="ns-field"><div class="ns-pressure">P:99</div><div class="ns-table"></div><div class="ns-arm l"></div><div class="ns-arm r"></div></div><div class="ns-base"></div>';
+    } else if (type === 'dunkle_materie_tanks') {
+        item.classList.add('item-dunkle-materie-tanks');
+        item.innerHTML = '<div class="dm-tank"><div class="dm-core"></div><div class="dm-valve-led"></div></div><div class="dm-tank"><div class="dm-core"></div><div class="dm-valve-led"></div></div>';
+    } else if (type === 'ionen_schott') {
+        item.classList.add('item-ionen-schott');
+        item.innerHTML = '<div class="is-door"><div class="is-status"></div><div class="is-seal"></div></div>';
+    } else if (type === 'lampe_vakuum') {
+        item.classList.add('item-lampe-vakuum');
+        item.innerHTML = '<div class="lv-ring"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
+<script>
+// === RESONANZ-KAMMER ===
+const menuResonanz = `
+<div id="menu-resonanz-kammer" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ CHRONO-OSZILLATOR ]</b><p style="font-size:0.7em; color:#aaa;">Metallsockel mit schwebenden Emitter-Ringen.</p><button id="btn-buy-chrono-oszillator" onclick="window.buyFurniture('chrono_oszillator', 3600)" class="btn-upgrade-exec" style="background:#0ff; color:#000; border:1px solid #0ff;">KAUFEN (3600 C + 52 MZ)</button></div>
+    <div class="upgrade-card"><b>[ TACHYONEN-SPEKTROMETER ]</b><p style="font-size:0.7em; color:#aaa;">Rechnerpult mit Frequenz-Linie.</p><button id="btn-buy-tachyon-spektrometer" onclick="window.buyFurniture('tachyon_spektrometer', 1000)" class="btn-upgrade-exec">KAUFEN (1000 C)</button></div>
+    <div class="upgrade-card"><b>[ SCHALL-NULLIFIZIERUNGS-PANEELE ]</b><p style="font-size:0.7em; color:#aaa;">Geometrische Wandkacheln.</p><button id="btn-buy-schall-nullifizierung" onclick="window.buyFurniture('schall_nullifizierung', 700)" class="btn-upgrade-exec">KAUFEN (700 C)</button></div>
+    <div class="upgrade-card"><b>[ FREQUENZ-RÖHRENLAMPE ]</b><p style="font-size:0.7em; color:#aaa;">Flackert im Takt der Vibrationen.</p><button id="btn-buy-lampe-resonanz" onclick="window.buyFurniture('lampe_resonanz', 210)" class="btn-upgrade-exec">KAUFEN (210 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-resonanz-kammer')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuResonanz);
+
+const itemsResonanz = ['chrono_oszillator','tachyon_spektrometer','schall_nullifizierung','lampe_resonanz'];
+itemsResonanz.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_RK = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_RK === 'function') oldUpdateAusbau_RK();
+    if (typeof inventory === 'undefined') return;
+    const limits = { chrono_oszillator:1, tachyon_spektrometer:1, schall_nullifizierung:1, lampe_resonanz:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_RK = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_RK) oldOpenRoom_RK(type);
+    const m = document.getElementById('menu-resonanz-kammer');
+    if (m) m.style.display = (type === 'RESONANZ-KAMMER') ? 'flex' : 'none';
+    if (type === 'RESONANZ-KAMMER') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_RK = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsResonanz.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'chrono_oszillator'); let costC = cost; let costMZ = isMZ ? 52 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 3600 C + 52 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_RK) oldBuyFurniture_RK(type, cost);
+};
+
+const oldReload_RK = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_RK) oldReload_RK(type);
+    if (type === 'RESONANZ-KAMMER') {
+        if (inventory.lampe_resonanz > 0) window.spawnFurniture('lampe_resonanz', 1);
+        if (inventory.chrono_oszillator > 0) window.spawnFurniture('chrono_oszillator', 1);
+        if (inventory.tachyon_spektrometer > 0) window.spawnFurniture('tachyon_spektrometer', 1);
+        if (inventory.schall_nullifizierung > 0) window.spawnFurniture('schall_nullifizierung', 1);
+    }
+};
+
+const oldSpawn_RK = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_RK) oldSpawn_RK(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsResonanz.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'chrono_oszillator') {
+        item.classList.add('item-chrono-oszillator');
+        item.innerHTML = '<div class="co-ring-container"><div class="co-ring"></div><div class="co-ring"></div><div class="co-ring"></div></div><div class="co-pedestal"></div>';
+    } else if (type === 'tachyon_spektrometer') {
+        item.classList.add('item-tachyon-spektrometer');
+        item.innerHTML = '<div class="ts-console"><div class="ts-holo"><div class="ts-freq-line"></div></div><div class="ts-keypad"><div class="ts-key"></div><div class="ts-key"></div><div class="ts-key"></div></div></div><div class="ts-base"></div>';
+    } else if (type === 'schall_nullifizierung') {
+        item.classList.add('item-schall-nullifizierung');
+        item.innerHTML = '<div class="sn-panel"></div><div class="sn-panel"></div><div class="sn-panel"></div><div class="sn-panel"></div>';
+    } else if (type === 'lampe_resonanz') {
+        item.classList.add('item-lampe-resonanz');
+        item.innerHTML = '<div class="lr-tube"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
+<script>
+// === KYBERNETIK-STATION ===
+const menuKybernetik = `
+<div id="menu-kybernetik-station" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ NEURAL-SYNCHRONISATOR ]</b><p style="font-size:0.7em; color:#aaa;">Verkabelter Hightech-Liegesitz.</p><button id="btn-buy-neural-sync" onclick="window.buyFurniture('neural_sync', 2900)" class="btn-upgrade-exec" style="background:#0af; color:#000; border:1px solid #0af;">KAUFEN (2900 C + 35 MZ)</button></div>
+    <div class="upgrade-card"><b>[ NANOBOT-PROGRAMMIERDECK ]</b><p style="font-size:0.7em; color:#aaa;">Arbeitstisch mit Holo-Scan-Strahl.</p><button id="btn-buy-nanobot-deck" onclick="window.buyFurniture('nanobot_deck', 1400)" class="btn-upgrade-exec">KAUFEN (1400 C)</button></div>
+    <div class="upgrade-card"><b>[ BIO-GEWEBE-KULTIVATOR ]</b><p style="font-size:0.7em; color:#aaa;">Schrank mit leuchtenden Nährlösungen.</p><button id="btn-buy-bio-gewebe-kultivator" onclick="window.buyFurniture('bio_gewebe_kultivator', 850)" class="btn-upgrade-exec">KAUFEN (850 C)</button></div>
+    <div class="upgrade-card"><b>[ FOKUS-LASER-SPOT ]</b><p style="font-size:0.7em; color:#aaa;">Blendend hell fokussiert.</p><button id="btn-buy-lampe-kybernetik" onclick="window.buyFurniture('lampe_kybernetik', 280)" class="btn-upgrade-exec">KAUFEN (280 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-kybernetik-station')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuKybernetik);
+
+const itemsKybernetik = ['neural_sync','nanobot_deck','bio_gewebe_kultivator','lampe_kybernetik'];
+itemsKybernetik.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_KS = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_KS === 'function') oldUpdateAusbau_KS();
+    if (typeof inventory === 'undefined') return;
+    const limits = { neural_sync:1, nanobot_deck:1, bio_gewebe_kultivator:1, lampe_kybernetik:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_KS = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_KS) oldOpenRoom_KS(type);
+    const m = document.getElementById('menu-kybernetik-station');
+    if (m) m.style.display = (type === 'KYBERNETIK-STATION') ? 'flex' : 'none';
+    if (type === 'KYBERNETIK-STATION') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_KS = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsKybernetik.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'neural_sync'); let costC = cost; let costMZ = isMZ ? 35 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 2900 C + 35 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_KS) oldBuyFurniture_KS(type, cost);
+};
+
+const oldReload_KS = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_KS) oldReload_KS(type);
+    if (type === 'KYBERNETIK-STATION') {
+        if (inventory.lampe_kybernetik > 0) window.spawnFurniture('lampe_kybernetik', 1);
+        if (inventory.neural_sync > 0) window.spawnFurniture('neural_sync', 1);
+        if (inventory.nanobot_deck > 0) window.spawnFurniture('nanobot_deck', 1);
+        if (inventory.bio_gewebe_kultivator > 0) window.spawnFurniture('bio_gewebe_kultivator', 1);
+    }
+};
+
+const oldSpawn_KS = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_KS) oldSpawn_KS(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsKybernetik.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'neural_sync') {
+        item.classList.add('item-neural-sync');
+        item.innerHTML = '<div class="ns-chair"><div class="ns-backrest"><div class="ns-synapse s1"></div><div class="ns-synapse s2"></div><div class="ns-synapse s3"></div><div class="ns-synapse s4"></div></div><div class="ns-seat"></div></div><div class="ns-base"></div>';
+    } else if (type === 'nanobot_deck') {
+        item.classList.add('item-nanobot-deck');
+        item.innerHTML = '<div class="nd-scan"><div class="nd-scan-line"></div><div class="nd-led"></div></div><div class="nd-table"></div><div class="nd-base"></div>';
+    } else if (type === 'bio_gewebe_kultivator') {
+        item.classList.add('item-bio-gewebe-kultivator');
+        item.innerHTML = '<div class="bg-shelf"><div class="bg-vial v1"></div><div class="bg-vial v2"></div><div class="bg-vial v3"></div></div><div class="bg-shelf"><div class="bg-vial v1"></div><div class="bg-vial v2"></div></div>';
+    } else if (type === 'lampe_kybernetik') {
+        item.classList.add('item-lampe-kybernetik');
+        item.innerHTML = '<div class="lk-spot"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
+<script>
+// === SCANNER-PHALANX ===
+const menuScanner = `
+<div id="menu-scanner-phalanx" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ ZEITSTROM-KARTOGRAF ]</b><p style="font-size:0.7em; color:#aaa;">Runder Holotisch mit 3D-Zeitlinien.</p><button id="btn-buy-zeitstrom-kartograf" onclick="window.buyFurniture('zeitstrom_kartograf', 4000)" class="btn-upgrade-exec" style="background:#0f8; color:#000; border:1px solid #0f8;">KAUFEN (4000 C + 60 MZ)</button></div>
+    <div class="upgrade-card"><b>[ KI-QUANTENKERNE ]</b><p style="font-size:0.7em; color:#aaa;">Glas-Schränke mit wilden Datenströmen.</p><button id="btn-buy-ki-quantenkerne" onclick="window.buyFurniture('ki_quantenkerne', 2200)" class="btn-upgrade-exec" style="background:#0ff; color:#000; border:1px solid #0ff;">KAUFEN (2200 C + 25 MZ)</button></div>
+    <div class="upgrade-card"><b>[ SYNTHETIK-STIMULANZ-REPLIKATOR ]</b><p style="font-size:0.7em; color:#aaa;">Rote Bereit-LED leuchtet dauerhaft.</p><button id="btn-buy-synthetik-replikator" onclick="window.buyFurniture('synthetik_replikator', 300)" class="btn-upgrade-exec">KAUFEN (300 C)</button></div>
+    <div class="upgrade-card"><b>[ INFRAROT-SENSOR-ARRAY ]</b><p style="font-size:0.7em; color:#aaa;">Dimmen abwechselnd an und aus.</p><button id="btn-buy-lampe-scanner" onclick="window.buyFurniture('lampe_scanner', 350)" class="btn-upgrade-exec">KAUFEN (350 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-scanner-phalanx')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuScanner);
+
+const itemsScanner = ['zeitstrom_kartograf','ki_quantenkerne','synthetik_replikator','lampe_scanner'];
+itemsScanner.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_SP = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_SP === 'function') oldUpdateAusbau_SP();
+    if (typeof inventory === 'undefined') return;
+    const limits = { zeitstrom_kartograf:1, ki_quantenkerne:1, synthetik_replikator:1, lampe_scanner:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_SP = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_SP) oldOpenRoom_SP(type);
+    const m = document.getElementById('menu-scanner-phalanx');
+    if (m) m.style.display = (type === 'SCANNER-PHALANX') ? 'flex' : 'none';
+    if (type === 'SCANNER-PHALANX') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_SP = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsScanner.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'zeitstrom_kartograf' || type === 'ki_quantenkerne');
+        let costC = cost; let costMZ = 0;
+        if (type === 'zeitstrom_kartograf') costMZ = 60;
+        if (type === 'ki_quantenkerne') costMZ = 25;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? `System: ${cost} C + ${costMZ} MZ benötigt.` : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_SP) oldBuyFurniture_SP(type, cost);
+};
+
+const oldReload_SP = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_SP) oldReload_SP(type);
+    if (type === 'SCANNER-PHALANX') {
+        if (inventory.lampe_scanner > 0) window.spawnFurniture('lampe_scanner', 1);
+        if (inventory.zeitstrom_kartograf > 0) window.spawnFurniture('zeitstrom_kartograf', 1);
+        if (inventory.ki_quantenkerne > 0) window.spawnFurniture('ki_quantenkerne', 1);
+        if (inventory.synthetik_replikator > 0) window.spawnFurniture('synthetik_replikator', 1);
+    }
+};
+
+const oldSpawn_SP = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_SP) oldSpawn_SP(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsScanner.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'zeitstrom_kartograf') {
+        item.classList.add('item-zeitstrom-kartograf');
+        item.innerHTML = '<div class="zk-holo"></div><div class="zk-table"><div class="zk-scan-line"></div></div><div class="zk-base"></div>';
+    } else if (type === 'ki_quantenkerne') {
+        item.classList.add('item-ki-quantenkerne');
+        item.innerHTML = '<div class="kq-cabinet"><div class="kq-stream"></div><div class="kq-stream"></div><div class="kq-stream"></div></div><div class="kq-cabinet"><div class="kq-stream" style="animation-delay:0.15s;"></div><div class="kq-stream" style="animation-delay:0.25s;"></div><div class="kq-stream" style="animation-delay:0.35s;"></div></div>';
+    } else if (type === 'synthetik_replikator') {
+        item.classList.add('item-synthetik-replikator');
+        item.innerHTML = '<div class="sr-body"><div class="sr-led"></div></div>';
+    } else if (type === 'lampe_scanner') {
+        item.classList.add('item-lampe-scanner');
+        item.innerHTML = '<div class="ls-sensor"></div><div class="ls-sensor"></div><div class="ls-sensor"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
+<script>
+// === DEKONTAMINATIONS-SCHLEUSE ===
+const menuDekont = `
+<div id="menu-dekontaminations-schleuse" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ TEMPORAL-PARTIKEL-FILTER ]</b><p style="font-size:0.7em; color:#aaa;">Torbogen mit Ionen-Nebel und Lichtschranken.</p><button id="btn-buy-temp-partikel-filter" onclick="window.buyFurniture('temp_partikel_filter', 2500)" class="btn-upgrade-exec" style="background:#0af; color:#000; border:1px solid #0af;">KAUFEN (2500 C + 30 MZ)</button></div>
+    <div class="upgrade-card"><b>[ EXO-PHASEN-ANZÜGE ]</b><p style="font-size:0.7em; color:#aaa;">Halterung für Schutzanzüge.</p><button id="btn-buy-exo-phasen-anzuege" onclick="window.buyFurniture('exo_phasen_anzuege', 950)" class="btn-upgrade-exec">KAUFEN (950 C)</button></div>
+    <div class="upgrade-card"><b>[ IONEN-ABLAUFGITTER ]</b><p style="font-size:0.7em; color:#aaa;">Boden mit Energielinien.</p><button id="btn-buy-ionen-ablaufigitter" onclick="window.buyFurniture('ionen_ablaufigitter', 450)" class="btn-upgrade-exec">KAUFEN (450 C)</button></div>
+    <div class="upgrade-card"><b>[ UV-C-DESINFEKTIONS-ARRAY ]</b><p style="font-size:0.7em; color:#aaa;">Violettes Reinigungslicht.</p><button id="btn-buy-lampe-dekont" onclick="window.buyFurniture('lampe_dekont', 190)" class="btn-upgrade-exec">KAUFEN (190 C)</button></div>
+</div>`;
+if (!document.getElementById('menu-dekontaminations-schleuse')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuDekont);
+
+const itemsDekont = ['temp_partikel_filter','exo_phasen_anzuege','ionen_ablaufigitter','lampe_dekont'];
+itemsDekont.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_DS = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_DS === 'function') oldUpdateAusbau_DS();
+    if (typeof inventory === 'undefined') return;
+    const limits = { temp_partikel_filter:1, exo_phasen_anzuege:1, ionen_ablaufigitter:1, lampe_dekont:1 };
+    for (let k in limits) {
+        let max = limits[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_DS = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_DS) oldOpenRoom_DS(type);
+    const m = document.getElementById('menu-dekontaminations-schleuse');
+    if (m) m.style.display = (type === 'DEKONTAMINATIONS-SCHLEUSE') ? 'flex' : 'none';
+    if (type === 'DEKONTAMINATIONS-SCHLEUSE') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_DS = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsDekont.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'temp_partikel_filter'); let costC = cost; let costMZ = isMZ ? 30 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 2500 C + 30 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_DS) oldBuyFurniture_DS(type, cost);
+};
+
+const oldReload_DS = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_DS) oldReload_DS(type);
+    if (type === 'DEKONTAMINATIONS-SCHLEUSE') {
+        if (inventory.lampe_dekont > 0) window.spawnFurniture('lampe_dekont', 1);
+        if (inventory.temp_partikel_filter > 0) window.spawnFurniture('temp_partikel_filter', 1);
+        if (inventory.exo_phasen_anzuege > 0) window.spawnFurniture('exo_phasen_anzuege', 1);
+        if (inventory.ionen_ablaufigitter > 0) window.spawnFurniture('ionen_ablaufigitter', 1);
+    }
+};
+
+const oldSpawn_DS = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_DS) oldSpawn_DS(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsDekont.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'temp_partikel_filter') {
+        item.classList.add('item-temp-partikel-filter');
+        item.innerHTML = '<div class="tpf-arch"><div class="tpf-mist"></div><div class="tpf-barrier"></div><div class="tpf-barrier b2"></div><div class="tpf-green-led"></div></div><div class="tpf-base"></div>';
+    } else if (type === 'exo_phasen_anzuege') {
+        item.classList.add('item-exo-phasen-anzuege');
+        item.innerHTML = '<div class="epa-rack"><div class="epa-suit"></div><div class="epa-battery"></div></div><div class="epa-rack"><div class="epa-suit"></div><div class="epa-battery"></div></div>';
+    } else if (type === 'ionen_ablaufigitter') {
+        item.classList.add('item-ionen-ablaufigitter');
+    } else if (type === 'lampe_dekont') {
+        item.classList.add('item-lampe-dekont');
+        item.innerHTML = '<div class="ld-array"></div>';
+    }
+    room.appendChild(item);
+};
+</script>
+
 </body>
 </html>
