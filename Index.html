@@ -6,6 +6,8 @@
     <title>Dück & Flux Zeitreiseagentur | Zentral-Terminal</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <meta name="description" content="Dück & Flux Zeitreiseagentur - Das ultimative Terminal-Browsergame im GlobalerAgentur-Sektor. Erfülle Missionen, sammle XP und stabilisiere die Zeitlinie.">
     <meta name="keywords" content="Zeitreise, Zeitagentur, Dück & Flux, Marcus Dück, Terminal Game, Retro Terminal, Sci-Fi Simulator, Browsergame, Flux-Kondensator, Minigame, Zeitstränge, Cyberpunk, Text-Adventure, Zeitmaschine, Paradoxon, Zeitlinie, Zeitreise buchen, Zeit-Agent">
     <meta name="author" content="Marcus Dück">
@@ -51,7 +53,7 @@
             letter-spacing: 1px;
         }
 /* ANTI-GEISTER-REGEL UPDATE */
-body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#cinematic-overlay):not(#gameplay-overlay):not(#ar-special-overlay):not(#standard-mission-overlay):not(#return-anim-global):not(#einstellungs-btn):not(#interactive-mission-overlay) {
+body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#gps-mission-overlay):not(#einstellungs-btn) {
     display: none !important;
 }
 
@@ -335,11 +337,43 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
 
     function startCoherenceTicker() {
         setInterval(() => {
-            let change = Math.random() < 0.5 ? -0.1 : 0.1;
-            currentCoherence = Math.min(99.9, Math.max(94.1, currentCoherence + change));
-            currentCoherence = parseFloat(currentCoherence.toFixed(1));
             const display = document.getElementById('coherence-display');
-            if (display) display.innerText = currentCoherence.toFixed(1) + "%";
+
+            if (currentSystemStatus === "STABIL") {
+                let change = Math.random() < 0.5 ? -0.1 : 0.1;
+                currentCoherence = Math.min(99.9, Math.max(94.1, currentCoherence + change));
+                currentCoherence = parseFloat(currentCoherence.toFixed(1));
+                if (display) display.innerText = currentCoherence.toFixed(1) + "%";
+            } else if (currentSystemStatus === "WARNUNG") {
+                let drop = 0.5 + Math.random() * 1.0;
+                currentCoherence = Math.max(0, currentCoherence - drop);
+                currentCoherence = parseFloat(currentCoherence.toFixed(1));
+                if (display) display.innerText = currentCoherence.toFixed(1) + "%";
+
+                if (currentCoherence <= 80.0 && currentSystemStatus === "WARNUNG") {
+                    currentSystemStatus = "INSTABIL";
+                    const navBtn = document.getElementById('status-nav-btn');
+                    if (navBtn) navBtn.classList.remove('status-warn-pulse');
+                    erzwingeStatus('INSTABIL', 'status-crit', true);
+                    if (navBtn) navBtn.classList.add('alert-pulse');
+                    currentLogs.unshift("> KRITISCH: Kohärenz unter 80%! System instabil!");
+                    if (currentLogs.length > 5) currentLogs.pop();
+                    if (document.getElementById('log-display')) f_start();
+                    playBeep(200, 0.3);
+                }
+            } else if (currentSystemStatus === "INSTABIL") {
+                let drop = 0.5 + Math.random() * 1.0;
+                currentCoherence = Math.max(0, currentCoherence - drop);
+                currentCoherence = parseFloat(currentCoherence.toFixed(1));
+                if (display) display.innerText = currentCoherence.toFixed(1) + "%";
+
+                if (currentCoherence <= 70.0 && currentSystemStatus === "INSTABIL") {
+                    currentLogs.unshift("> NOTFALL: Kohärenz kritisch! System-Crash eingeleitet!");
+                    if (currentLogs.length > 5) currentLogs.pop();
+                    if (document.getElementById('log-display')) f_start();
+                    if (typeof startResetSequence === 'function') startResetSequence(false, true);
+                }
+            }
         }, 500);
     }
 
@@ -348,32 +382,15 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         currentSystemStatus = "WARNUNG";
         erzwingeStatus('WARNUNG', 'status-warn', true);
         if (navBtn) navBtn.classList.add('status-warn-pulse');
-
-        activeAlertTimeout = setTimeout(() => {
-            currentSystemStatus = "INSTABIL";
-            if (navBtn) navBtn.classList.remove('status-warn-pulse');
-            erzwingeStatus('INSTABIL', 'status-crit', true);
-            if (navBtn) navBtn.classList.add('alert-pulse');
-
-            activeAlertTimeout = setTimeout(() => {
-                
-                if (typeof updateXP === 'function') {
-                    updateXP(-200); 
-                }
-                starteSynchronenZyklus(); 
-                
-                window.speechSynthesis.cancel();
-                const msg = new SpeechSynthesisUtterance("Fehler kritisch. System hat sich eigenständig stabilisiert. Levelverlust verzeichnet.");
-                msg.lang = 'de-DE';
-                window.speechSynthesis.speak(msg);
-                
-            }, 25000); 
-        }, 60000);
+        currentLogs.unshift("> Warnung: Temporale Kohärenz sinkt! System unter Beobachtung.");
+        if (currentLogs.length > 5) currentLogs.pop();
+        if (document.getElementById('log-display')) f_start();
     }
 
     function starteSynchronenZyklus() {
         const navBtn = document.getElementById('status-nav-btn');
         currentSystemStatus = "STABIL";
+        currentCoherence = 98.4;
         erzwingeStatus('STABIL', 'status-ok', false);
         
         if (navBtn) {
@@ -387,7 +404,7 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
             } else {
                 starteSynchronenZyklus();
             }
-        }, 120000); 
+        }, 30000); 
     }
 
     function erzwingeStatus(text, klasse, glitch) {
@@ -1052,12 +1069,20 @@ window.startGlobalNotification = function() {
         window.speechSynthesis.speak(msg);
     }
 
-    function startResetSequence(isEMP = false) {
+    function startResetSequence(isEMP = false, isAutoCrash = false) {
         const rbLayer = document.getElementById('reboot-layer');
         const rbBar = document.getElementById('reboot-bar-container');
         const rbFill = document.getElementById('reboot-bar-fill');
         const rbStatus = document.getElementById('reboot-status');
         const rbHeader = document.getElementById('reboot-header');
+
+        if (isAutoCrash) {
+            if (typeof updateXP === 'function') updateXP(-200);
+            window.speechSynthesis.cancel();
+            const msg = new SpeechSynthesisUtterance("Fehler kritisch. System hat sich eigenständig stabilisiert. Levelverlust verzeichnet.");
+            msg.lang = 'de-DE';
+            window.speechSynthesis.speak(msg);
+        }
 
         const statusEl = document.getElementById('status-val');
         const currentStatus = statusEl ? statusEl.innerText : "STABIL";
@@ -1490,7 +1515,7 @@ window.startGlobalNotification = function() {
                     </div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-                    <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em;" onclick="window.startCinematicMission()">MISSIONEN</button>
+                    <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em;" onclick="window.startGpsMission()">MISSIONEN</button>
                     <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em; border-color: #8844ff; color: #8844ff; box-shadow: 0 0 15px rgba(136, 68, 255, 0.2), inset 0 0 10px rgba(136, 68, 255, 0.1); text-shadow: 0 0 10px #8844ff;" onmouseover="this.style.background='#8844ff'; this.style.color='#000'; this.style.textShadow='none'; this.style.boxShadow='0 0 25px #8844ff';" onmouseout="this.style.background='rgba(0, 255, 204, 0.05)'; this.style.color='#8844ff'; this.style.textShadow='0 0 10px #8844ff'; this.style.boxShadow='0 0 15px rgba(136, 68, 255, 0.2), inset 0 0 10px rgba(136, 68, 255, 0.1)';" onclick="window.location.href='base.html'">AGENTUR-BASIS</button>
                 </div>`;
         } else {
@@ -1685,7 +1710,7 @@ window.finishStartupSetup = function() {
             if (window.agentName.toLowerCase() === "admin_dück_994645") window.adminMerkerAktiv = true;
             
             if (typeof window.activateFullscreen === 'function') window.activateFullscreen();
-            await window.loadProgress();
+            try { await window.loadProgress(); } catch(e) {}
             
             document.getElementById('startup-layer').style.opacity = "0";
             setTimeout(() => { 
@@ -1738,9 +1763,8 @@ window.finishStartupSetup = function() {
                 xp: window.playerXP,
                 lvl: window.playerLevel
             };
-            await window.setDoc(agentRef, newData, { merge: true });
-            
             if (typeof window.activateFullscreen === 'function') window.activateFullscreen();
+            try { await window.setDoc(agentRef, newData, { merge: true }); } catch(e) {}
             
             document.getElementById('startup-layer').style.opacity = "0";
             setTimeout(() => { 
@@ -2796,585 +2820,414 @@ window.f_showDescription = function(withVoice) {
     };
 </script>
 <style>
-    #cinematic-overlay {
+    #gps-mission-overlay {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: #000; z-index: 60000; display: none;
+        flex-direction: column; overflow: hidden;
+    }
+    #gps-map-container { flex: 1; position: relative; }
+    #gps-map { width: 100%; height: 100%; }
+    .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+    .leaflet-control-container { display: none; }
+
+    #gps-hud {
+        position: absolute; top: 0; left: 0; width: 100%;
+        padding: 15px; box-sizing: border-box;
+        background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%);
+        z-index: 1000; pointer-events: none;
+        font-family: 'Orbitron', monospace; color: #0f8;
+    }
+    #gps-distance { font-size: 1.5em; font-weight: bold; text-shadow: 0 0 10px #0f8; }
+    #gps-status { font-size: 0.75em; opacity: 0.7; margin-top: 5px; }
+
+    #gps-cancel-btn {
+        position: absolute; top: 15px; right: 15px; z-index: 1001;
+        background: rgba(255,68,68,0.2); border: 1px solid #f44; color: #f44;
+        padding: 8px 16px; border-radius: 4px; font-family: 'Orbitron', monospace;
+        font-size: 0.7em; cursor: pointer; pointer-events: auto;
+    }
+    #gps-cancel-btn:active { background: #f44; color: #000; }
+
+    .gps-player-marker { width: 16px; height: 16px; background: #0f8; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 15px #0f8; }
+    .gps-target-marker { width: 24px; height: 24px; background: transparent; border: 2px solid #f44; border-radius: 50%; box-shadow: 0 0 20px #f44; animation: gpsPulse 1.5s infinite; }
+    @keyframes gpsPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.6; } }
+
+    #ar-mission-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: #000; z-index: 65000; display: none;
+        flex-direction: column; overflow: hidden;
+    }
+    #ar-video {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        object-fit: cover; z-index: 1;
+        filter: sepia(0.6) hue-rotate(-30deg) saturate(2) contrast(1.5) brightness(0.7);
+        animation: arFlicker 0.15s infinite;
+    }
+    @keyframes arFlicker { 0%,100% { opacity: 1; } 48% { opacity: 0.92; } 50% { opacity: 0.98; } 52% { opacity: 0.9; } }
+
+    #ar-scanlines {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
+        pointer-events: none;
+        background: linear-gradient(rgba(0,0,0,0) 50%, rgba(255,40,0,0.08) 50%);
+        background-size: 100% 4px;
+    }
+    #ar-vignette {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3;
+        pointer-events: none;
+        background: radial-gradient(ellipse at center, transparent 40%, rgba(80,0,0,0.6) 100%);
+    }
+
+    #ar-crosshair {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 10; pointer-events: none;
+        width: 60px; height: 60px;
+    }
+    #ar-crosshair::before, #ar-crosshair::after {
+        content: ''; position: absolute; background: #0f8; box-shadow: 0 0 8px #0f8;
+    }
+    #ar-crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
+    #ar-crosshair::after { top: 0; left: 50%; width: 2px; height: 100%; transform: translateX(-50%); }
+
+    #ar-anomaly {
+        position: absolute; width: 80px; height: 80px;
+        z-index: 9; pointer-events: none;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255,40,0,0.8) 0%, rgba(255,100,0,0.4) 40%, transparent 70%);
+        box-shadow: 0 0 30px rgba(255,40,0,0.6);
+        transition: none;
+    }
+    #ar-anomaly::before {
+        content: ''; position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 2px; height: 100%; background: rgba(255,200,0,0.7);
+        box-shadow: 0 0 10px rgba(255,200,0,0.8);
+        animation: riftShake 0.3s infinite alternate;
+    }
+    @keyframes riftShake { 0% { transform: translate(-50%, -50%) rotate(2deg) scaleY(1); } 100% { transform: translate(-50%, -50%) rotate(-2deg) scaleY(1.1); } }
+
+    #ar-hud {
+        position: absolute; top: 0; left: 0; width: 100%; padding: 15px; box-sizing: border-box;
+        z-index: 11; pointer-events: none;
+        font-family: 'Orbitron', monospace; color: #0f8; font-size: 0.7em;
+        background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+    }
+    #ar-instructions { text-shadow: 0 0 5px #0f8; }
+
+    #ar-extract-btn {
+        position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+        z-index: 12; pointer-events: auto;
+        padding: 18px 40px; font-size: 1em; font-weight: bold;
+        font-family: 'Orbitron', monospace; text-transform: uppercase;
+        border: 2px solid #555; color: #555; background: rgba(0,0,0,0.6);
+        border-radius: 8px; cursor: pointer; user-select: none;
+        touch-action: none; transition: all 0.2s;
+    }
+    #ar-extract-btn.ar-active {
+        border-color: #0f8; color: #0f8; background: rgba(0,255,136,0.15);
+        box-shadow: 0 0 20px #0f8; text-shadow: 0 0 10px #0f8;
+        animation: btnGlow 1s infinite alternate;
+    }
+    @keyframes btnGlow { 0% { box-shadow: 0 0 15px #0f8; } 100% { box-shadow: 0 0 30px #0f8; } }
+
+    #ar-extract-bar-container {
+        position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%);
+        width: 70%; max-width: 300px; height: 6px;
+        background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3);
+        z-index: 12; border-radius: 3px; overflow: hidden;
+    }
+    #ar-extract-bar { width: 0%; height: 100%; background: #0f8; box-shadow: 0 0 10px #0f8; transition: width 0.05s linear; }
+
+    #ar-cancel-btn {
+        position: absolute; top: 15px; right: 15px; z-index: 13;
+        background: rgba(255,68,68,0.2); border: 1px solid #f44; color: #f44;
+        padding: 8px 16px; border-radius: 4px; font-family: 'Orbitron', monospace;
+        font-size: 0.7em; cursor: pointer; pointer-events: auto;
+    }
+    #ar-cancel-btn:active { background: #f44; color: #000; }
+
+    #mission-return-anim {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: #000; z-index: 80000; display: none;
         flex-direction: column; justify-content: center; align-items: center;
-        perspective: 1000px; overflow: hidden;
+        color: #0f8; font-family: 'Orbitron', monospace;
     }
-    
-    #video-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: center center; }
-    .cinematic-vid { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
-    #cinematic-video-2, #cinematic-video-3 { opacity: 0; }
-    
-    #white-flash-transition { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; opacity: 0; z-index: 60005; pointer-events: none; }
-    
-    #cinematic-terminal {
-        position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%) rotateX(16deg); 
-        background: transparent; border: none; display: none; flex-direction: column; 
-        align-items: center; justify-content: center; font-family: 'Orbitron', monospace; 
-        z-index: 60001; width: 100%; pointer-events: auto;
-    }
-
-    .terminal-stone { color: #ffaa00; text-shadow: 0 0 5px #ff6600; } 
-    .terminal-mystic { color: #00ccff; text-shadow: 0 0 5px #0066ff; } 
-    .terminal-steam { color: #ffcc00; text-shadow: 0 0 5px #ff8800; } 
-    .terminal-noir { color: #00ff88; text-shadow: 0 0 5px #00ff44; } 
-    .terminal-holo { color: #00ffff; text-shadow: 0 0 10px #00ffff; } 
-
-    .terminal-glitch-active { animation: terminal-stress 0.8s infinite alternate; }
-    @keyframes terminal-stress {
-        0% { transform: translate(-50%, -50%) rotateX(16deg) scale(1); filter: brightness(1); opacity: 1; }
-        20% { transform: translate(-50.5%, -49.5%) rotateX(16deg) scale(1.05); filter: brightness(1.5) hue-rotate(90deg); }
-        40% { transform: translate(-49%, -51%) rotateX(16deg) scale(0.98); opacity: 0.8; }
-        100% { transform: translate(-50%, -50%) rotateX(16deg) scale(1.1); filter: brightness(2); }
-    }
-
-    #cinematic-display-screen {
-        background: rgba(0,0,0,0.8); color: inherit; border: 1px solid currentColor;
-        width: 100%; height: 32px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center;
-        font-size: 1.2em; letter-spacing: 3px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-    }
-
-    .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; max-width: 220px; }
-    .key { background: rgba(255, 255, 255, 0.05); border: 1px solid currentColor; color: inherit; padding: 7px; font-size: 0.8em; cursor: pointer; font-family: 'Orbitron', monospace; border-radius: 4px; text-align: center; }
-    .key:active { background: #fff; color: #000; transform: scale(0.95); }
-    .key.exe { grid-column: span 3; background: rgba(255, 255, 255, 0.15); font-weight: bold; margin-top: 5px; padding: 10px; }
-    .key.del { color: #f44 !important; border-color: rgba(255, 68, 68, 0.5) !important; }
-
-    .warp-jump { animation: warp-zoom 0.8s ease-in forwards; }
-    @keyframes warp-zoom { 0% { transform: scale(1); filter: brightness(1); } 100% { transform: scale(4); filter: brightness(5) blur(3px); } }
-    .portal-dive { animation: dive-in 1.2s ease-in forwards; }
-    @keyframes dive-in { 0% { transform: scale(1); filter: brightness(1) blur(0px); opacity: 1; } 100% { transform: scale(15); filter: brightness(4) blur(2px); opacity: 0; } }
-    .portal-exit { animation: dive-out 1.5s ease-out forwards; }
-    @keyframes dive-out { 0% { transform: scale(15); filter: brightness(4) blur(2px); } 100% { transform: scale(1); filter: brightness(1) blur(0px); } }
-
-    #rotate-blocker { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #0f8; z-index: 60010; display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-family: 'Orbitron', monospace; }
+    #mission-return-anim h2 { letter-spacing: 2px; text-shadow: 0 0 10px #0f8; }
+    #mission-return-bar-bg { width: 60%; height: 4px; border: 1px solid #0f8; background: rgba(0,255,136,0.1); margin-top: 20px; }
+    #mission-return-bar { width: 0%; height: 100%; background: #0f8; transition: width 2s linear; }
 </style>
 
-<div id="cinematic-overlay">
-    <div id="white-flash-transition"></div>
-    <div id="rotate-blocker">
-        <span style="font-size: 3em; margin-bottom: 20px;">🔄</span>
-        <h3 style="margin-top: 0;">ATMOSPHÄREN-BRUCH</h3>
-        <p style="color: #aaa; font-size: 0.9em; max-width: 80%;">Bitte Gerät quer halten.</p>
+<div id="gps-mission-overlay">
+    <div id="gps-hud">
+        <div id="gps-distance">--- m</div>
+        <div id="gps-status">Suche GPS-Signal...</div>
     </div>
+    <button id="gps-cancel-btn" onclick="window.cancelGpsMission()">ABBRECHEN</button>
+    <div id="gps-map-container"><div id="gps-map"></div></div>
+</div>
 
-    <div id="video-container">
-        <video id="cinematic-video-1" class="cinematic-vid" src="hanger.mp4" playsinline preload="auto"></video>
-        <video id="cinematic-video-2" class="cinematic-vid" src="zeitmaschine.mp4" playsinline preload="auto"></video>
-        <video id="cinematic-video-3" class="cinematic-vid" src="wurmloch.mp4" playsinline preload="auto"></video>
-        <audio id="snd-wurmloch" src="VerzerrungVurmloch.mp3" preload="auto"></audio>
-    </div>
-    
-    <div id="cinematic-terminal">
-        <div id="briefing-layer" style="display: flex; flex-direction: column; align-items: center; width: 45%; max-width: 220px;">
-            <div id="mission-briefing-box" style="text-align: center; width: 100%;">
-                <div class="briefing-title" id="brief-title" style="font-weight: bold; border-bottom: 1px solid currentColor; margin-bottom: 8px;">ANOMALIE ENTDECKT</div>
-                <div class="briefing-text" id="brief-text" style="font-size: 0.65em; line-height: 1.3; margin-bottom: 12px;">Analysiere temporale Datenströme...</div>
-                <div id="brief-target-year" style="font-size: 1.5em; font-weight: bold; margin-bottom: 15px; letter-spacing: 2px;">----</div>
-                <button class="key exe" onclick="window.acceptMission()">MISSION STARTEN</button>
-            </div>
-        </div>
-        <div id="keypad-layer" style="display: none; flex-direction: row; align-items: flex-start; gap: 15px; width: 65%; max-width: 380px;">
-            <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center;">
-                <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 5px;">
-                    <span style="font-size: 0.5em; opacity: 0.7;">COORDINATES_IN</span>
-                    <span id="hint-year" style="font-size: 0.7em; font-weight: bold;"></span>
-                </div>
-                <div id="cinematic-display-screen" style="width: 100%; font-size: 1em;">____</div>
-                <div class="keypad" style="width: 100%;">
-                    <div class="key" onclick="kpIn(7)">7</div><div class="key" onclick="kpIn(8)">8</div><div class="key" onclick="kpIn(9)">9</div>
-                    <div class="key" onclick="kpIn(4)">4</div><div class="key" onclick="kpIn(5)">5</div><div class="key" onclick="kpIn(6)">6</div>
-                    <div class="key" onclick="kpIn(1)">1</div><div class="key" onclick="kpIn(2)">2</div><div class="key" onclick="kpIn(3)">3</div>
-                    <div class="key del" onclick="kpIn('DEL')">DEL</div><div class="key" onclick="kpIn(0)">0</div><div class="key" onclick="kpIn('.')">.</div>
-                    <div class="key exe" onclick="executeTimeJumpStrict()">SPRUNG INITIALISIEREN</div>
-                </div>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 28px;">
-                <div class="key" id="cin-vchr" style="padding: 18px 8px; width: 65px; font-size: 0.6em;" onclick="setCinEra('v. Chr.')">V. CHR</div>
-                <div class="key" id="cin-nchr" style="padding: 18px 8px; width: 65px; font-size: 0.6em; background: #fff; color: #000;" onclick="setCinEra('n. Chr.')">N. CHR</div>
-            </div>
-        </div>
-    </div>
+<div id="ar-mission-overlay">
+    <video id="ar-video" playsinline muted></video>
+    <div id="ar-scanlines"></div>
+    <div id="ar-vignette"></div>
+    <div id="ar-hud"><div id="ar-instructions">Drehe dich, um die Anomalie zu finden!</div></div>
+    <div id="ar-anomaly"></div>
+    <div id="ar-crosshair"></div>
+    <div id="ar-extract-bar-container"><div id="ar-extract-bar"></div></div>
+    <button id="ar-extract-btn">FLUX-EXTRAKTOR</button>
+    <button id="ar-cancel-btn" onclick="window.cancelArMission()">ABBRECHEN</button>
+</div>
+
+<div id="mission-return-anim">
+    <h2>RÜCKREISE LÄUFT...</h2>
+    <div id="mission-return-bar-bg"><div id="mission-return-bar"></div></div>
 </div>
 
 <script>
-    let kpVal = "";
-    let currentMissionYear = "";
-    let currentMissionEra = ""; 
-    let currentCinEra = "n. Chr."; 
+    let gpsWatchId = null;
+    let gpsMap = null;
+    let gpsPlayerMarker = null;
+    let gpsTargetMarker = null;
+    let gpsTargetLat = 0;
+    let gpsTargetLng = 0;
+    let gpsArmed = false;
 
-    window.setCinEra = function(era) {
-        currentCinEra = era.trim();
-        const term = document.getElementById('cinematic-terminal');
-        if (term) term.dataset.era = currentCinEra.toLowerCase();
+    window.startGpsMission = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        if (typeof playBeep === 'function') playBeep(800, 0.1);
 
-        if (typeof playBeep === 'function') playBeep(1000, 0.05);
-        
-        const btnV = document.getElementById('cin-vchr');
-        const btnN = document.getElementById('cin-nchr');
-        if (btnV && btnN) {
-            btnV.style.background = (currentCinEra === 'v. Chr.') ? '#fff' : 'rgba(255,255,255,0.05)';
-            btnV.style.color = (currentCinEra === 'v. Chr.') ? '#000' : 'inherit';
-            btnN.style.background = (currentCinEra === 'n. Chr.') ? '#fff' : 'rgba(255,255,255,0.05)';
-            btnN.style.color = (currentCinEra === 'n. Chr.') ? '#000' : 'inherit';
-        }
-        const screen = document.getElementById('cinematic-display-screen');
-        if (screen) screen.innerText = currentCinEra + " " + (kpVal || "____");
-    };
-
-    window.kpIn = function(val) {
-        if (typeof playBeep === 'function') playBeep(1200, 0.02);
-        const screen = document.getElementById('cinematic-display-screen');
-        if (val === 'DEL') kpVal = kpVal.slice(0, -1); else if (kpVal.length < 10) kpVal += val;
-        if (screen) screen.innerText = currentCinEra + " " + (kpVal || "____");
-    };
-
-    window.acceptMission = function() {
-        if (typeof playBeep === 'function') playBeep(1000, 0.1);
-        document.getElementById('briefing-layer').style.display = 'none';
-        document.getElementById('keypad-layer').style.display = 'flex';
-        kpVal = ""; 
-        window.setCinEra('n. Chr.'); 
-    };
-
-    window.startCinematicMission = function() {
-        if (!window.activeEpoch) {
-            if (typeof triggerScan === 'function') triggerScan();
-            if (typeof playBeep === 'function') playBeep(300, 0.2);
-            document.getElementById('content-body').innerHTML = `
-                <h3 style="color:#f44;">[ ZIEL FEHLT ]</h3>
-                <p style="color:#aaa; font-size: 0.9em; margin-bottom: 20px;">Es wurden keine Koordinaten geladen.<br>Bitte wähle zuerst einen <b>Zeit Strang</b> aus, bevor du eine Mission startest.</p>
-                <button class="modell-btn" style="border-color: #ffcc00; color: #ffcc00;" onclick="window.f_epochen()">ZEIT STRÄNGE ÖFFNEN</button>
-                <button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>
-            `;
-            return; 
-        }
-
-        kpVal = "";
-        window.setCinEra('n. Chr.');
-        document.getElementById('cinematic-display-screen').innerText = "____";
-        document.getElementById('briefing-layer').style.display = 'flex';
-        document.getElementById('keypad-layer').style.display = 'none';
-        
-        const vid1 = document.getElementById('cinematic-video-1'), vid2 = document.getElementById('cinematic-video-2'), vid3 = document.getElementById('cinematic-video-3');
-        const sndWurmloch = document.getElementById('snd-wurmloch');
-        [vid1, vid2, vid3].forEach(v => { if(v) { v.pause(); v.currentTime = 0; } });
-        if (sndWurmloch) { sndWurmloch.pause(); sndWurmloch.currentTime = 0; }
-
-        try { if (document.fullscreenElement && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e => {}); } catch(err) {}
-
-        const m = typeof window.holeMissionFuerEpoche === 'function' ? window.holeMissionFuerEpoche(window.activeEpoch) : { title: "FEHLER", text: "Datenbank-Uplink fehlgeschlagen.", year: "0000", style: "terminal-noir" };
-        currentMissionYear = String(m.year).trim();
-
-        const epoche = window.epochenDaten.find(e => e.id === window.activeEpoch);
-        currentMissionEra = epoche ? epoche.sfx.trim() : "n. Chr.";
-
-        document.getElementById('brief-title').innerText = m.title;
-        document.getElementById('brief-text').innerText = m.text;
-        document.getElementById('brief-target-year').innerText = currentMissionYear + " " + currentMissionEra;
-        document.getElementById('hint-year').innerText = "ZIEL: " + currentMissionYear;
-        
-        const term = document.getElementById('cinematic-terminal');
-        term.className = ''; term.classList.add(m.style);
-
-        const bgMusic = document.getElementById('bg-music');
-        window.wasMusicPlaying = (bgMusic && !bgMusic.paused);
-        if (bgMusic) bgMusic.pause();
-
-        const overlay = document.getElementById('cinematic-overlay');
-        const container = document.getElementById('video-container');
-        const flash = document.getElementById('white-flash-transition');
-        
-        overlay.style.display = 'flex'; term.style.display = 'none'; term.classList.remove('terminal-glitch-active');
-        container.classList.remove('warp-jump', 'portal-dive', 'portal-exit'); flash.style.opacity = '0';
-        if(vid1) vid1.style.opacity = '1'; if(vid2) vid2.style.opacity = '0'; if(vid3) vid3.style.opacity = '0';
-        
-        if(vid1) {
-            vid1.play().catch(() => {});
-            vid1.ontimeupdate = function() {
-                if (vid1.duration > 0 && vid1.currentTime >= vid1.duration - 1.5) { term.style.display = 'flex'; vid1.ontimeupdate = null; }
-            };
-        }
-    };
-
-    window.executeTimeJumpStrict = function() {
-        const userJahr = String(kpVal).trim();
-        const zielJahr = String(currentMissionYear).trim();
-        
-        const term = document.getElementById('cinematic-terminal');
-        const userEpoche = term && term.dataset.era ? term.dataset.era : "n. chr.";
-        const zielEpoche = String(currentMissionEra).trim().toLowerCase();
-
-        if (userJahr !== zielJahr || userEpoche !== zielEpoche) {
-            if (typeof playBeep === 'function') playBeep(200, 0.4);
-            const screen = document.getElementById('cinematic-display-screen');
-            
-            if (screen) {
-                screen.style.color = '#f44';
-                if (userJahr !== zielJahr) {
-                    screen.innerText = "[ FALSCHES JAHR ]";
-                } else {
-                    screen.innerText = "[ FALSCHE EPOCHE ]";
-                }
-
-                setTimeout(() => { 
-                    screen.style.color = 'inherit'; 
-                    screen.innerText = currentCinEra + " " + (kpVal || "____"); 
-                }, 2000); 
-            }
+        if (!navigator.geolocation) {
+            document.getElementById('content-body').innerHTML = '<h3 style="color:#f44;">[ GPS OFFLINE ]</h3><p style="color:#aaa;font-size:0.9em;">Dein Gerät unterstützt keine GPS-Navigation.</p><button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>';
             return;
         }
 
-        const vid1 = document.getElementById('cinematic-video-1'), vid2 = document.getElementById('cinematic-video-2'), vid3 = document.getElementById('cinematic-video-3');
-        const sndWurmloch = document.getElementById('snd-wurmloch'), container = document.getElementById('video-container'), terminal = document.getElementById('cinematic-terminal'), flash = document.getElementById('white-flash-transition');
+        const overlay = document.getElementById('gps-mission-overlay');
+        overlay.style.display = 'flex';
+        document.getElementById('gps-distance').innerText = '--- m';
+        document.getElementById('gps-status').innerText = 'Suche GPS-Signal...';
+        gpsArmed = false;
 
-        terminal.classList.add('terminal-glitch-active');
-        if (typeof playBeep === 'function') playBeep(400, 0.5);
-        
-        setTimeout(() => {
-            terminal.style.display = 'none'; container.classList.add('warp-jump');
-            setTimeout(() => {
-                flash.style.transition = 'none'; flash.style.opacity = '1';
-                setTimeout(() => {
-                    if (vid1) vid1.style.opacity = '0'; if (vid2) vid2.style.opacity = '1'; container.classList.remove('warp-jump');
-                    if (vid2) {
-                        vid2.onplaying = function() { flash.style.transition = 'opacity 1s ease-out'; flash.style.opacity = '0'; vid2.onplaying = null; };
-                        vid2.play();
-                        
-                        let diveTriggered = false;
-                        vid2.ontimeupdate = function() {
-                            if (!diveTriggered && vid2.duration > 0 && vid2.currentTime >= vid2.duration - 1.2) { diveTriggered = true; container.classList.add('portal-dive'); }
-                        };
-                        
-                        vid2.onended = function() {
-                            vid2.style.opacity = '0'; if (vid3) vid3.style.opacity = '1';
-                            if (sndWurmloch) sndWurmloch.play().catch(e => {});
-                            container.classList.remove('portal-dive'); container.classList.add('portal-exit');
-                            if (vid3) {
-                                vid3.play();
-                                vid3.onended = function() {
-                                    document.getElementById('cinematic-overlay').style.display = 'none';
-                                    if (sndWurmloch) { sndWurmloch.pause(); sndWurmloch.currentTime = 0; }
-                                    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(err) {}
-                                    
-                                    if (typeof window.runMission === 'function') window.runMission(); 
-                                    
-                                    if (window.wasMusicPlaying) { const bgM = document.getElementById('bg-music'); if(bgM) bgM.play().catch(e => {}); }
-                                };
-                            }
-                        };
-                    }
-                }, 100);
-            }, 600); 
-        }, 800); 
+        if (gpsMap) { gpsMap.remove(); gpsMap = null; }
+        gpsMap = L.map('gps-map', { zoomControl: false, attributionControl: false }).setView([0, 0], 18);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 22 }).addTo(gpsMap);
+
+        gpsWatchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const acc = pos.coords.accuracy || 0;
+
+                if (!gpsPlayerMarker) {
+                    gpsPlayerMarker = L.marker([lat, lng], { icon: L.divIcon({ className: 'gps-player-marker', iconSize: [16,16], iconAnchor: [8,8] }) }).addTo(gpsMap);
+                    gpsTargetLat = lat + (Math.random() * 0.0009 - 0.00045);
+                    gpsTargetLng = lng + (Math.random() * 0.0009 - 0.00045);
+                    gpsTargetMarker = L.marker([gpsTargetLat, gpsTargetLng], { icon: L.divIcon({ className: 'gps-target-marker', iconSize: [24,24], iconAnchor: [12,12] }) }).addTo(gpsMap);
+                } else {
+                    gpsPlayerMarker.setLatLng([lat, lng]);
+                }
+
+                gpsMap.setView([lat, lng], 18);
+                const dist = haversine(lat, lng, gpsTargetLat, gpsTargetLng);
+                document.getElementById('gps-distance').innerText = dist < 1000 ? Math.round(dist) + ' m' : (dist/1000).toFixed(2) + ' km';
+                document.getElementById('gps-status').innerText = 'GPS-Genauigkeit: ±' + Math.round(acc) + ' m';
+
+                if (dist < 15 && !gpsArmed) {
+                    gpsArmed = true;
+                    stopGpsTracking();
+                    if (typeof playBeep === 'function') playBeep(1500, 0.2);
+                    setTimeout(() => { closeGpsOverlay(); startArMission(); }, 600);
+                }
+            },
+            (err) => {
+                document.getElementById('gps-status').innerText = 'GPS-Fehler: ' + (err.message || 'Zugriff verweigert');
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
+        );
     };
-</script>
 
-<style>
-    .gameplay-terminal { background: #050505; border: 2px solid #0f8; width: 90%; max-width: 450px; color: #0f8; z-index: 50; position: relative; overflow: hidden; box-shadow: inset 0 0 20px rgba(0, 255, 136, 0.1), 0 0 25px rgba(0, 255, 136, 0.3); font-family: 'Orbitron', monospace; text-align: center; }
-    .term-header { background: #0f8; color: #000; padding: 8px 15px; font-weight: bold; font-size: 0.85em; display: flex; justify-content: space-between; }
-    .term-body { padding: 25px; position: relative; text-align: left; }
-</style>
+    function haversine(lat1, lng1, lat2, lng2) {
+        const R = 6371000;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2) * Math.sin(dLng/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
 
-<div id="standard-mission-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:70000; background:#000; flex-direction:column; justify-content:center; align-items:center;">
-    <div class="gameplay-terminal">
-        <div class="term-header"><span>MISSION STATUS</span><span id="std-year">----</span></div>
-        <div class="term-body">
-            <h3 id="std-title" style="margin-top:0; text-shadow:0 0 10px #0f8;">[ ZIEL ERREICHT ]</h3>
-            <p style="font-size:0.85em; color:#aaa; margin-bottom:20px;">Sektor erfolgreich infiltriert. Anomalie-Isolation läuft im Hintergrund.</p>
-            <button class="key exe" style="width:100%; border:1px solid #0f8; color:#0f8; padding:15px; background:rgba(0,255,136,0.1); font-weight:bold; cursor:pointer;" onclick="window.startStandardReturn()">RÜCKKEHR ZUR BASIS</button>
-        </div>
-    </div>
-</div>
+    function stopGpsTracking() {
+        if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+    }
 
-<div id="return-anim-global" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#000; z-index:80000; flex-direction:column; justify-content:center; align-items:center; color:#0f8; font-family:'Orbitron', monospace;">
-    <h2 style="letter-spacing:2px; text-shadow:0 0 10px #0f8;">RÜCKREISE LÄUFT...</h2>
-    <div style="width:60%; height:4px; border:1px solid #0f8; background:rgba(0,255,136,0.1);"><div id="return-bar-global" style="width:0%; height:100%; background:#0f8; transition:width 2s linear;"></div></div>
-</div>
+    function closeGpsOverlay() {
+        document.getElementById('gps-mission-overlay').style.display = 'none';
+        stopGpsTracking();
+        if (gpsMap) { gpsMap.remove(); gpsMap = null; gpsPlayerMarker = null; gpsTargetMarker = null; }
+    }
 
-<script>
-    window.runMission = function() {
-        const pc = document.querySelector('.portal-container');
-        if (pc) pc.style.display = 'none';
+    window.cancelGpsMission = function() {
+        if (typeof playBeep === 'function') playBeep(300, 0.15);
+        closeGpsOverlay();
+        window.f_start();
+    };
 
-        const standardOverlay = document.getElementById('standard-mission-overlay');
-        if (standardOverlay) standardOverlay.style.display = 'none';
+    let arStream = null;
+    let arOrientationHandler = null;
+    let arAnomalyAzimuth = 0;
+    let arAnomalyElevation = 0;
+    let arCurrentAlpha = 0;
+    let arCurrentBeta = 0;
+    let arCharging = false;
+    let arChargeStart = 0;
+    let arChargeRaf = null;
 
-        if (currentMissionYear == "12000" || currentMissionYear == 12000) {
-            if (typeof window.startMission_12000 === 'function') {
-                window.startMission_12000();
+    function startArMission() {
+        const overlay = document.getElementById('ar-mission-overlay');
+        overlay.style.display = 'flex';
+        document.getElementById('ar-instructions').innerText = 'Drehe dich, um die Anomalie zu finden!';
+        document.getElementById('ar-extract-bar').style.width = '0%';
+        document.getElementById('ar-extract-btn').classList.remove('ar-active');
+        arCharging = false;
+
+        arAnomalyAzimuth = Math.random() * 360;
+        arAnomalyElevation = (Math.random() - 0.5) * 40;
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+            .then((stream) => {
+                arStream = stream;
+                const video = document.getElementById('ar-video');
+                video.srcObject = stream;
+                video.play().catch(() => {});
+            })
+            .catch(() => {
+                document.getElementById('ar-instructions').innerText = 'Kamera nicht verfügbar - Demo-Modus aktiv';
+            });
+
+        arOrientationHandler = (e) => {
+            arCurrentAlpha = e.alpha || 0;
+            arCurrentBeta = e.beta || 0;
+            updateAnomalyPosition();
+        };
+
+        if (typeof DeviceOrientationEvent !== 'undefined') {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then((s) => {
+                    if (s === 'granted') window.addEventListener('deviceorientation', arOrientationHandler);
+                }).catch(() => {
+                    window.addEventListener('deviceorientationabs', arOrientationHandler);
+                });
             } else {
-                fallbackStandardMission();
+                window.addEventListener('deviceorientation', arOrientationHandler);
             }
-        } 
-        else {
-            fallbackStandardMission();
         }
-    };
 
-    function fallbackStandardMission() {
-        document.getElementById('standard-mission-overlay').style.display = 'flex';
-        const briefTitle = document.getElementById('brief-title');
-        document.getElementById('std-title').innerText = briefTitle ? briefTitle.innerText : "MISSION LÄUFT...";
-        document.getElementById('std-year').innerText = currentMissionYear || "----";
+        const btn = document.getElementById('ar-extract-btn');
+        const startCharge = (e) => {
+            e.preventDefault();
+            if (!btn.classList.contains('ar-active')) return;
+            arCharging = true;
+            arChargeStart = performance.now();
+            if (typeof playBeep === 'function') playBeep(600, 0.05);
+            animateCharge();
+        };
+        const endCharge = (e) => {
+            if (e) e.preventDefault();
+            if (!arCharging) return;
+            arCharging = false;
+            const elapsed = performance.now() - arChargeStart;
+            if (elapsed >= 3000) { completeExtraction(); }
+            else { document.getElementById('ar-extract-bar').style.width = '0%'; }
+        };
+        btn.addEventListener('mousedown', startCharge);
+        btn.addEventListener('touchstart', startCharge, { passive: false });
+        btn.addEventListener('mouseup', endCharge);
+        btn.addEventListener('mouseleave', endCharge);
+        btn.addEventListener('touchend', endCharge);
+        btn.addEventListener('touchcancel', endCharge);
     }
 
-    window.startStandardReturn = function() {
-        if (typeof playBeep === 'function') playBeep(800, 0.2);
-        window.starteRueckreiseAnim(5);
-    };
+    function updateAnomalyPosition() {
+        const anomaly = document.getElementById('ar-anomaly');
+        const overlay = document.getElementById('ar-mission-overlay');
+        const w = overlay.clientWidth;
+        const h = overlay.clientHeight;
 
-    window.starteRueckreiseAnim = function(xp) {
-        const overlays = ['ar-special-overlay', 'standard-mission-overlay'];
-        overlays.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = 'none';
-        });
-        
-        document.getElementById('return-anim-global').style.display = 'flex';
-        setTimeout(() => { document.getElementById('return-bar-global').style.width = '100%'; }, 50);
-        
+        let deltaAz = arAnomalyAzimuth - arCurrentAlpha;
+        if (deltaAz > 180) deltaAz -= 360;
+        if (deltaAz < -180) deltaAz += 360;
+
+        const pxPerDeg = w / 90;
+        let x = w / 2 + deltaAz * pxPerDeg;
+        let y = h / 2 + (arCurrentBeta - 0 - arAnomalyElevation) * (h / 90);
+
+        if (x < -100) x += w + 200;
+        if (x > w + 100) x -= w + 200;
+        x = Math.max(-100, Math.min(w + 100, x));
+        y = Math.max(-100, Math.min(h + 100, y));
+
+        anomaly.style.left = (x - 40) + 'px';
+        anomaly.style.top = (y - 40) + 'px';
+
+        const inCrosshair = Math.abs(deltaAz) < 12 && Math.abs(arCurrentBeta - arAnomalyElevation) < 15;
+        const btn = document.getElementById('ar-extract-btn');
+        if (inCrosshair) {
+            btn.classList.add('ar-active');
+            anomaly.style.opacity = '1';
+        } else {
+            btn.classList.remove('ar-active');
+            anomaly.style.opacity = '0.5';
+            if (arCharging) {
+                arCharging = false;
+                document.getElementById('ar-extract-bar').style.width = '0%';
+                if (typeof playBeep === 'function') playBeep(200, 0.15);
+                document.getElementById('ar-instructions').innerText = 'Kurzschluss! Anomalie aus dem Fadenkreuz gedriftet.';
+                setTimeout(() => { const inst = document.getElementById('ar-instructions'); if (inst) inst.innerText = 'Drehe dich, um die Anomalie zu finden!'; }, 2000);
+            }
+        }
+    }
+
+    function animateCharge() {
+        if (!arCharging) return;
+        const elapsed = performance.now() - arChargeStart;
+        const pct = Math.min(100, (elapsed / 3000) * 100);
+        document.getElementById('ar-extract-bar').style.width = pct + '%';
+        if (pct >= 100) { completeExtraction(); return; }
+        arChargeRaf = requestAnimationFrame(animateCharge);
+    }
+
+    async function completeExtraction() {
+        arCharging = false;
+        cancelAnimationFrame(arChargeRaf);
+        document.getElementById('ar-extract-bar').style.width = '100%';
+        if (typeof playBeep === 'function') playBeep(2000, 0.3);
+        document.getElementById('ar-instructions').innerText = 'Extraktion erfolgreich!';
+
+        stopArCamera();
+        closeArOverlay();
+
+        document.getElementById('mission-return-anim').style.display = 'flex';
+        setTimeout(() => { document.getElementById('mission-return-bar').style.width = '100%'; }, 50);
         setTimeout(() => {
-            if (typeof window.updateXP === 'function') window.updateXP(xp);
-            
-            const video = document.getElementById('ar-feed-special');
-            if (video && video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
-            }
-
-            document.getElementById('return-anim-global').style.display = 'none';
-            document.getElementById('return-bar-global').style.width = '0%';
-            
-            const pc = document.querySelector('.portal-container');
-            if (pc) pc.style.display = 'block';
-            if (typeof window.fullSystemRestore === 'function') window.fullSystemRestore();
-
+            if (typeof window.updateXP === 'function') window.updateXP(25);
+            document.getElementById('mission-return-anim').style.display = 'none';
+            document.getElementById('mission-return-bar').style.width = '0%';
+            window.f_start();
         }, 2200);
-    };
-</script>
-<style>
-    .ar-urzeit-filter { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: rgba(255, 100, 0, 0.2); mix-blend-mode: color; z-index: 2; }
-    .ar-scanlines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(255, 170, 0, 0.1) 50%); background-size: 100% 4px; z-index: 3; }
-    
-    #ar-target-icon { 
-        position: absolute; top: 35%; left: 40%; width: 40px; height: 90px; 
-        background: rgba(0, 255, 255, 0.2); border: 2px solid #0ff; 
-        border-radius: 5px 5px 10px 10px; display: none; cursor: pointer; 
-        z-index: 10; transition: transform 0.1s ease-out; 
-        box-shadow: 0 0 15px rgba(0, 255, 255, 0.5); 
-    }
-    #ar-target-icon::before { content: ''; position: absolute; top: -12px; left: 10px; width: 16px; height: 10px; background: #0ff; border-radius: 2px 2px 0 0; }
-    #ar-target-icon::after { content: 'PET'; position: absolute; top: 35px; left: 0; width: 100%; height: 20px; background: rgba(0, 255, 255, 0.5); color: #fff; font-size: 10px; line-height: 20px; text-align: center; font-weight: bold; letter-spacing: 1px; }
-
-    .stone-terminal-frame {
-        background: #080500;
-        border: 4px double #ffaa00;
-        width: 90%;
-        max-width: 500px;
-        padding: 5px;
-        box-shadow: 0 0 40px rgba(255, 136, 0, 0.2), inset 0 0 100px rgba(0,0,0,1);
-        font-family: 'Orbitron', monospace;
-        color: #ffaa00;
-        position: relative;
-        overflow: hidden;
     }
 
-    .terminal-inner-border {
-        border: 1px solid rgba(255, 170, 0, 0.3);
-        padding: 20px;
-        background: radial-gradient(circle at center, rgba(40, 20, 0, 0.2) 0%, rgba(0,0,0,0) 80%);
+    function stopArCamera() {
+        if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
+        const video = document.getElementById('ar-video');
+        if (video) video.srcObject = null;
     }
 
-    .data-grid-deco {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 5px;
-        margin-bottom: 15px;
-        opacity: 0.6;
+    function closeArOverlay() {
+        document.getElementById('ar-mission-overlay').style.display = 'none';
+        if (arOrientationHandler) { window.removeEventListener('deviceorientation', arOrientationHandler); window.removeEventListener('deviceorientationabs', arOrientationHandler); arOrientationHandler = null; }
     }
 
-    .data-box {
-        border: 1px solid #ffaa00;
-        font-size: 8px;
-        padding: 3px;
-        text-transform: uppercase;
-    }
-
-    .pulse-amber {
-        animation: pulseAmber 2s infinite ease-in-out;
-    }
-
-    @keyframes pulseAmber {
-        0% { opacity: 0.4; }
-        50% { opacity: 1; text-shadow: 0 0 10px #ffaa00; }
-        100% { opacity: 0.4; }
-    }
-
-    .stat-line {
-        display: flex;
-        justify-content: space-between;
-        font-size: 10px;
-        margin: 5px 0;
-        border-bottom: 1px solid rgba(255, 170, 0, 0.1);
-    }
-</style>
-<style>
-    #interactive-mission-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:75000; background:#000; display:none; flex-direction:column; align-items:center; justify-content:center; }
-    .phase-12000 { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; }
-    .phase-12000 video { width: 100%; height: 100%; object-fit: cover; background-color: #000; }
-    
-    #end-image-12000 { width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; top: 0; left: 0; z-index: 21; cursor: crosshair; }
-
-    #invisible-bottle-trigger {
-        position: absolute;
-        bottom: 12%;
-        right: 18%;
-        width: 85px;
-        height: 85px;
-        background: rgba(0, 255, 136, 0.1);
-        border: 2px solid #0f8; 
-        border-radius: 50%;
-        box-shadow: 0 0 15px #0f8;
-        cursor: pointer;
-        display: none;
-        z-index: 40;
-        outline: none;
-    }
-
-    .videosteuerung { position: absolute; bottom: 40px; display: flex; gap: 20px; z-index: 20; }
-    .videosteuerung button { padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer; background: rgba(0, 255, 204, 0.2); border: 2px solid #0f8; color: #0f8; border-radius: 8px; touch-action: manipulation; user-select: none; font-family: 'Orbitron', monospace; text-shadow: 0 0 5px #0f8; }
-    .videosteuerung button:active { background: #0f8; color: #000; }
-</style>
-
-<div id="interactive-mission-overlay">
-    <div id="start-screen-12000" class="phase-12000" style="display: flex; background: rgba(0,0,0,0.9);">
-        <h2 style="color: #0f8; text-shadow: 0 0 10px #0f8; margin-bottom: 20px;">PLASTIK-PARADOXON</h2>
-        <p style="color: #aaa; text-align: center; max-width: 80%; margin-bottom: 30px;">Finde und extrahiere das synthetische Objekt aus dem Sektor. Halte "VORWÄRTS" gedrückt, um den Zeitstrang zu spulen.</p>
-        <button class="key exe" id="btn-start-12000" style="padding: 15px 30px; font-size: 1.2em; border: 2px solid #0f8; background: rgba(0,255,136,0.1); color: #0f8; cursor: pointer; font-family: 'Orbitron', monospace;">STARTEN</button>
-    </div>
-
-    <div id="phase-intro-12000" class="phase-12000">
-        <video id="video-intro-12000" playsinline preload="auto">
-            <source src="Mission 1, Vorspiel.mp4" type="video/mp4">
-        </video>
-    </div>
-
-    <div id="phase-interaktiv-12000" class="phase-12000">
-        <video id="video-interaktiv-12000" playsinline muted preload="auto">
-            <source src="Mission 1, Mission.mp4" type="video/mp4">
-        </video>
-        
-        <img id="end-image-12000" src="Mission 1 Ende.png" alt="Sektor-Scan">
-
-        <button id="invisible-bottle-trigger"></button>
-
-        <div class="videosteuerung" id="controls-12000">
-            <button id="btn-zurueck-12000">ZURÜCK</button>
-            <button id="btn-vorwaerts-12000">VORWÄRTS</button>
-        </div>
-        <button id="btn-abschluss-12000" style="display:none; position:absolute; bottom:40px; padding: 20px 40px; font-size: 22px; font-weight: bold; cursor: pointer; background: #ffaa00; border: 2px solid #fff; color: #000; border-radius: 12px; z-index: 30;">OBJEKT EXTRAHIEREN</button>
-    </div>
-</div>
-
-<script>
-    const vIntro = document.getElementById('video-intro-12000');
-    const vInter = document.getElementById('video-interaktiv-12000');
-    const endImage = document.getElementById('end-image-12000');
-    const bottleTrigger = document.getElementById('invisible-bottle-trigger');
-    const btnAbschluss = document.getElementById('btn-abschluss-12000');
-    
-    window.startMission_12000 = function() {
-        document.getElementById('interactive-mission-overlay').style.setProperty('display', 'flex', 'important');
-        document.getElementById('start-screen-12000').style.display = 'flex';
-        vInter.style.display = 'block';
-        endImage.style.display = 'none';
-        bottleTrigger.style.display = 'none';
-        btnAbschluss.style.display = 'none';
-        vInter.currentTime = 0;
-    };
-
-    document.getElementById('btn-start-12000').onclick = () => {
-        document.getElementById('start-screen-12000').style.display = 'none';
-        document.getElementById('phase-intro-12000').style.display = 'flex';
-        vIntro.play();
-    };
-
-    vIntro.onended = () => {
-        document.getElementById('phase-intro-12000').style.display = 'none';
-        document.getElementById('phase-interaktiv-12000').style.display = 'flex';
-        vInter.load();
-    };
-
-    const btnVor = document.getElementById('btn-vorwaerts-12000');
-    const btnZurueck = document.getElementById('btn-zurueck-12000');
-
-    btnVor.onmousedown = btnVor.ontouchstart = (e) => { e.preventDefault(); vInter.play(); };
-    btnZurueck.onmousedown = btnZurueck.ontouchstart = (e) => { 
-        e.preventDefault(); 
-        vInter.pause(); 
-        vInter.currentTime = 0; 
-        vInter.style.display = 'block';
-        endImage.style.display = 'none';
-        bottleTrigger.style.display = 'none';
-        btnAbschluss.style.display = 'none'; 
-    };
-    
-    btnVor.onmouseup = btnVor.onmouseleave = btnVor.ontouchend = (e) => { e.preventDefault(); vInter.pause(); };
-
-    vInter.onended = () => {
-        document.getElementById('controls-12000').style.display = 'none';
-        vInter.style.display = 'none';
-        endImage.style.display = 'block';
-        bottleTrigger.style.display = 'block';
-    };
-
-    bottleTrigger.onclick = (e) => {
-        e.stopPropagation();
-        if (typeof playBeep === 'function') playBeep(1800, 0.1);
-        btnAbschluss.style.display = 'block'; 
-    };
-
-    endImage.onclick = () => {
-        btnAbschluss.style.display = 'none'; 
-    };
-
-    btnAbschluss.onclick = async () => {
-        if (typeof playBeep === 'function') playBeep(2000, 0.2);
-        if (typeof window.updateXP === 'function') window.updateXP(15);
-        
-        let agent = window.agentName ? window.agentName.toLowerCase() : "";
-        if (agent) {
-            let currentCredits = 0, currentMz = 0;
-            let mainP = localStorage.getItem('flux_agent_' + agent);
-            let d = mainP ? JSON.parse(mainP) : {};
-            if (d.credits !== undefined) currentCredits = d.credits;
-            if (d.mz !== undefined) currentMz = d.mz;
-
-            let baseP = localStorage.getItem('flux_base_cache_' + agent);
-            let b = baseP ? JSON.parse(baseP) : {};
-            if (b.credits !== undefined) currentCredits = Math.max(currentCredits, b.credits);
-            if (b.materieZellen !== undefined) currentMz = Math.max(currentMz, b.materieZellen);
-
-            let newCredits = currentCredits + 20;
-            let newMz = currentMz + 1;
-
-            d.credits = newCredits; d.mz = newMz;
-            localStorage.setItem('flux_agent_' + agent, JSON.stringify(d));
-            b.credits = newCredits; b.materieZellen = newMz; 
-            localStorage.setItem('flux_base_cache_' + agent, JSON.stringify(b));
-            
-            if (window.db && window.setDoc) {
-                try {
-                    await window.setDoc(window.doc(window.db, "Agent - Base", agent), { credits: newCredits, mz: newMz }, { merge: true });
-                    await window.setDoc(window.doc(window.db, "agenten", agent), { credits: newCredits, mz: newMz }, { merge: true });
-                } catch(e) {}
-            }
-        }
-        document.getElementById('interactive-mission-overlay').style.display = 'none';
-        if (typeof window.starteRueckreiseAnim === 'function') window.starteRueckreiseAnim(0);
+    window.cancelArMission = function() {
+        if (typeof playBeep === 'function') playBeep(300, 0.15);
+        stopArCamera();
+        closeArOverlay();
+        window.f_start();
     };
 </script>
 
