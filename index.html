@@ -2850,8 +2850,6 @@ window.f_showDescription = function(withVoice) {
     #gps-cancel-btn:active { background: #f44; color: #000; }
 
     .gps-player-marker { width: 16px; height: 16px; background: #0f8; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 15px #0f8; }
-    .gps-target-marker { width: 24px; height: 24px; background: transparent; border: 2px solid #f44; border-radius: 50%; box-shadow: 0 0 20px #f44; animation: gpsPulse 1.5s infinite; }
-    @keyframes gpsPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.6; } }
 
     #ar-mission-overlay {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -2987,7 +2985,6 @@ window.f_showDescription = function(withVoice) {
     let gpsWatchId = null;
     let gpsMap = null;
     let gpsPlayerMarker = null;
-    let gpsTargetMarker = null;
     let gpsTargetLat = 0;
     let gpsTargetLng = 0;
     let gpsArmed = false;
@@ -3033,10 +3030,10 @@ window.f_showDescription = function(withVoice) {
                     document.getElementById('gps-status').innerText = 'GPS-Genauigkeit: ±' + Math.round(acc) + ' m';
 
                     if (dist < 15 && !gpsArmed) {
-                    gpsArmed = true;
-                    stopGpsTracking();
-                    if (typeof playBeep === 'function') playBeep(1500, 0.2);
-                    setTimeout(() => { closeGpsOverlay(); startArMission(); }, 600);
+                        gpsArmed = true;
+                        stopGpsTracking();
+                        if (typeof playBeep === 'function') playBeep(1500, 0.2);
+                        setTimeout(() => { closeGpsOverlay(); startArMission(); }, 600);
                     }
                 }
             },
@@ -3078,9 +3075,8 @@ window.f_showDescription = function(withVoice) {
                     const pick = candidates[Math.floor(Math.random() * candidates.length)];
                     gpsTargetLat = pick.lat;
                     gpsTargetLng = pick.lng;
-                    gpsTargetMarker = L.marker([gpsTargetLat, gpsTargetLng], { icon: L.divIcon({ className: 'gps-target-marker', iconSize: [24,24], iconAnchor: [12,12] }) }).addTo(gpsMap);
                     gpsTargetReady = true;
-                    document.getElementById('gps-status').innerText = 'Anomalie auf erreichbarem Weg geortet.';
+                    document.getElementById('gps-status').innerText = 'Anomalie geortet. Navigation per Meter-Anzeige.';
                     return;
                 }
             }
@@ -3088,9 +3084,8 @@ window.f_showDescription = function(withVoice) {
 
         gpsTargetLat = lat + (Math.random() * 0.0009 - 0.00045);
         gpsTargetLng = lng + (Math.random() * 0.0009 - 0.00045);
-        gpsTargetMarker = L.marker([gpsTargetLat, gpsTargetLng], { icon: L.divIcon({ className: 'gps-target-marker', iconSize: [24,24], iconAnchor: [12,12] }) }).addTo(gpsMap);
         gpsTargetReady = true;
-        document.getElementById('gps-status').innerText = 'Anomalie geortet.';
+        document.getElementById('gps-status').innerText = 'Anomalie geortet. Navigation per Meter-Anzeige.';
     }
 
     function haversine(lat1, lng1, lat2, lng2) {
@@ -3108,7 +3103,7 @@ window.f_showDescription = function(withVoice) {
     function closeGpsOverlay() {
         document.getElementById('gps-mission-overlay').style.display = 'none';
         stopGpsTracking();
-        if (gpsMap) { gpsMap.remove(); gpsMap = null; gpsPlayerMarker = null; gpsTargetMarker = null; gpsTargetReady = false; }
+        if (gpsMap) { gpsMap.remove(); gpsMap = null; gpsPlayerMarker = null; gpsTargetReady = false; }
     }
 
     window.cancelGpsMission = function() {
@@ -3130,6 +3125,7 @@ window.f_showDescription = function(withVoice) {
     function startArMission() {
         const overlay = document.getElementById('ar-mission-overlay');
         overlay.style.display = 'flex';
+        overlay.style.zIndex = '65000';
         document.getElementById('ar-instructions').innerText = 'Drehe dich, um die Anomalie zu finden!';
         document.getElementById('ar-extract-bar').style.width = '0%';
         document.getElementById('ar-extract-btn').classList.remove('ar-active');
@@ -3138,15 +3134,31 @@ window.f_showDescription = function(withVoice) {
         arAnomalyAzimuth = Math.random() * 360;
         arAnomalyElevation = (Math.random() - 0.5) * 40;
 
+        const video = document.getElementById('ar-video');
+        if (video) { video.srcObject = null; video.style.filter = 'sepia(0.6) hue-rotate(-30deg) saturate(2) contrast(1.5) brightness(0.7)'; }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById('ar-instructions').innerText = 'Kamera nicht verfügbar - Demo-Modus aktiv';
+            return;
+        }
+
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
             .then((stream) => {
                 arStream = stream;
-                const video = document.getElementById('ar-video');
+                if (!video) return;
                 video.srcObject = stream;
-                video.play().catch(() => {});
+                video.setAttribute('playsinline', '');
+                video.muted = true;
+                video.play().then(() => {
+                    overlay.style.display = 'flex';
+                }).catch(() => {
+                    overlay.style.display = 'flex';
+                });
             })
             .catch(() => {
+                if (video) video.srcObject = null;
                 document.getElementById('ar-instructions').innerText = 'Kamera nicht verfügbar - Demo-Modus aktiv';
+                overlay.style.display = 'flex';
             });
 
         arOrientationHandler = (e) => {
