@@ -2871,12 +2871,12 @@ window.f_showDescription = function(withVoice) {
 
     #ar-mission-overlay {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: #000; z-index: 9999; display: none;
+        background: #000; z-index: 9999 !important; display: none;
         flex-direction: column; overflow: hidden;
     }
     #ar-video {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        object-fit: cover; z-index: 1;
+        object-fit: cover; z-index: 1; display: block;
         filter: sepia(0.6) hue-rotate(-30deg) saturate(2) contrast(1.5) brightness(0.7);
         animation: arFlicker 0.15s infinite;
     }
@@ -2983,7 +2983,7 @@ window.f_showDescription = function(withVoice) {
 </div>
 
 <div id="ar-mission-overlay">
-    <video id="ar-video" playsinline muted></video>
+    <video id="ar-video" autoplay muted playsinline></video>
     <div id="ar-scanlines"></div>
     <div id="ar-vignette"></div>
     <div id="ar-hud"><div id="ar-instructions">Drehe dich, um die Anomalie zu finden!</div></div>
