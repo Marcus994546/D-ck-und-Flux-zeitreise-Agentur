@@ -335,8 +335,15 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
         }
     }
 
+    let coherenceTickerId = null;
+    let crashSequenceActive = false;
+    window.missionActive = false;
+
     function startCoherenceTicker() {
-        setInterval(() => {
+        if (coherenceTickerId) clearInterval(coherenceTickerId);
+        coherenceTickerId = setInterval(() => {
+            if (crashSequenceActive) return;
+
             const display = document.getElementById('coherence-display');
 
             if (currentSystemStatus === "STABIL") {
@@ -367,7 +374,8 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
                 currentCoherence = parseFloat(currentCoherence.toFixed(1));
                 if (display) display.innerText = currentCoherence.toFixed(1) + "%";
 
-                if (currentCoherence <= 70.0 && currentSystemStatus === "INSTABIL") {
+                if (currentCoherence <= 70.0 && !crashSequenceActive && !window.missionActive) {
+                    crashSequenceActive = true;
                     currentLogs.unshift("> NOTFALL: Kohärenz kritisch! System-Crash eingeleitet!");
                     if (currentLogs.length > 5) currentLogs.pop();
                     if (document.getElementById('log-display')) f_start();
@@ -375,6 +383,10 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
                 }
             }
         }, 500);
+    }
+
+    function stopCoherenceTicker() {
+        if (coherenceTickerId) { clearInterval(coherenceTickerId); coherenceTickerId = null; }
     }
 
     function erzeugeWarnSequenz() {
@@ -1070,6 +1082,9 @@ window.startGlobalNotification = function() {
     }
 
     function startResetSequence(isEMP = false, isAutoCrash = false) {
+        crashSequenceActive = true;
+        stopCoherenceTicker();
+
         const rbLayer = document.getElementById('reboot-layer');
         const rbBar = document.getElementById('reboot-bar-container');
         const rbFill = document.getElementById('reboot-bar-fill');
@@ -1143,7 +1158,10 @@ window.startGlobalNotification = function() {
         }, 8500);
 
         setTimeout(() => {
-            if (typeof starteSynchronenZyklus === 'function') starteSynchronenZyklus(); 
+            crashSequenceActive = false;
+            currentCoherence = 98.4;
+            if (typeof starteSynchronenZyklus === 'function') starteSynchronenZyklus();
+            startCoherenceTicker();
             window.fullSystemRestore();
             rbLayer.classList.remove('flicker-active');
             rbHeader.innerText = "[ SYSTEM RESET ]";
@@ -2993,6 +3011,7 @@ window.f_showDescription = function(withVoice) {
     window.startGpsMission = function() {
         if (typeof triggerScan === 'function') triggerScan();
         if (typeof playBeep === 'function') playBeep(800, 0.1);
+        window.missionActive = true;
 
         if (!navigator.geolocation) {
             document.getElementById('content-body').innerHTML = '<h3 style="color:#f44;">[ GPS OFFLINE ]</h3><p style="color:#aaa;font-size:0.9em;">Dein Gerät unterstützt keine GPS-Navigation.</p><button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>';
@@ -3121,6 +3140,7 @@ window.f_showDescription = function(withVoice) {
 
     window.cancelGpsMission = function() {
         if (typeof playBeep === 'function') playBeep(300, 0.15);
+        window.missionActive = false;
         closeGpsOverlay();
         window.f_start();
     };
@@ -3283,6 +3303,7 @@ window.f_showDescription = function(withVoice) {
             document.getElementById('mission-return-anim').style.display = 'none';
             document.getElementById('mission-return-bar').style.width = '0%';
             restoreHomescreen();
+            window.missionActive = false;
             window.f_start();
         }, 2200);
     }
@@ -3311,6 +3332,7 @@ window.f_showDescription = function(withVoice) {
 
     window.cancelArMission = function() {
         if (typeof playBeep === 'function') playBeep(300, 0.15);
+        window.missionActive = false;
         stopArCamera();
         closeArOverlay();
         restoreHomescreen();
