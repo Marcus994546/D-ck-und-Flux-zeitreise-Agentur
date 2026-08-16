@@ -834,6 +834,9 @@ window.startGlobalNotification = function() {
     window.hs1200 = 0;
     window.hs3000 = 0;
     window.hs4400 = 0;
+    window.playerCredits = 0;
+    window.playerMaterialzellen = 0;
+    window.currentMissionType = 'normal';
 
     let lastAgent = localStorage.getItem('flux_last_agent');
     if (lastAgent) {
@@ -873,6 +876,8 @@ window.startGlobalNotification = function() {
             hs1200: window.hs1200, 
             hs3000: window.hs3000, 
             hs4400: window.hs4400,
+            credits: window.playerCredits,
+            materialzellen: window.playerMaterialzellen,
             music: localStorage.getItem('flux_music_' + window.agentName.toLowerCase()) === 'true',
             sound: window.klickTonAktiv,
             agentOrigin: `${locationData.country}, ${locationData.region} (${locationData.city})`,
@@ -910,6 +915,8 @@ window.startGlobalNotification = function() {
                 window.hs1200 = data.hs1200 || 0;
                 window.hs3000 = data.hs3000 || 0;
                 window.hs4400 = data.hs4400 || 0;
+                window.playerCredits = data.credits || 0;
+                window.playerMaterialzellen = data.materialzellen || 0;
                 
                 window.klickTonAktiv = data.sound !== undefined ? data.sound : true;
                 localStorage.setItem('flux_music_' + window.agentName.toLowerCase(), data.music || false);
@@ -1534,7 +1541,7 @@ window.startGlobalNotification = function() {
                     </div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-                    <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em;" onclick="window.startGpsMission()">MISSIONEN</button>
+                    <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em;" onclick="window.showMissionMenu()">MISSIONEN</button>
                     <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em; border-color: #8844ff; color: #8844ff; box-shadow: 0 0 15px rgba(136, 68, 255, 0.2), inset 0 0 10px rgba(136, 68, 255, 0.1); text-shadow: 0 0 10px #8844ff;" onmouseover="this.style.background='#8844ff'; this.style.color='#000'; this.style.textShadow='none'; this.style.boxShadow='0 0 25px #8844ff';" onmouseout="this.style.background='rgba(0, 255, 204, 0.05)'; this.style.color='#8844ff'; this.style.textShadow='0 0 10px #8844ff'; this.style.boxShadow='0 0 15px rgba(136, 68, 255, 0.2), inset 0 0 10px rgba(136, 68, 255, 0.1)';" onclick="window.location.href='base.html'">AGENTUR-BASIS</button>
                 </div>`;
         } else {
@@ -3000,6 +3007,100 @@ window.f_showDescription = function(withVoice) {
 </div>
 
 <script>
+    window.missionLootTables = {
+        normal:       { level: 1,  xp: 50,    credits: 100,  materialzellen: 0 },
+        fortgeschritten: { level: 3, xp: 0,     credits: 200,  materialzellen: 2 },
+        weit:         { level: 6,  xp: 50,    credits: 500,  materialzellen: 8 },
+        galaktisch:   { level: 25, xp: 0,     credits: 2000, materialzellen: 15 }
+    };
+
+    window.missionLabels = {
+        normal: 'Normale Mission',
+        fortgeschritten: 'Fortgeschrittene Mission',
+        weit: 'Weit entfernte Mission',
+        galaktisch: 'Galaktische Mission'
+    };
+
+    window.missionColors = {
+        normal: '#0f8',
+        fortgeschritten: '#ffaa00',
+        weit: '#ff8800',
+        galaktisch: '#b0f'
+    };
+
+    window.missionDistances = {
+        normal: [50, 100],
+        fortgeschritten: [300, 500],
+        weit: [1000, 5000],
+        galaktisch: [50000, 60000]
+    };
+
+    window.showMissionMenu = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        const types = ['normal', 'fortgeschritten', 'weit', 'galaktisch'];
+        let html = '<h3>Missionsauswahl</h3><div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">';
+        types.forEach(function(type) {
+            const loot = window.missionLootTables[type];
+            const color = window.missionColors[type];
+            const label = window.missionLabels[type];
+            const dist = window.missionDistances[type];
+            const distText = type === 'weit' ? '1 km - 5 km' : (type === 'galaktisch' ? '50 km - 60 km' : (dist[0] + ' m - ' + dist[1] + ' m'));
+            html += `
+                <div style="display:flex;align-items:center;gap:10px;border:1px solid ${color};background:rgba(0,0,0,0.3);border-radius:6px;padding:12px;">
+                    <button class="modell-btn" style="flex:1;margin:0;border-color:${color};color:${color};text-align:left;padding:12px;" onclick="window.startGpsMission('${type}')">${label}<br><span style="font-size:0.7em;opacity:0.7;">Distanz: ${distText}</span></button>
+                    <button onclick="window.showLootPopup('${type}')" style="background:none;border:none;cursor:pointer;padding:5px;font-size:1.8em;" title="Belohnungen ansehen">📦</button>
+                </div>`;
+        });
+        html += '</div><hr><button onclick="window.f_start()">Zurück</button>';
+        document.getElementById('content-body').innerHTML = html;
+    };
+
+    window.showLootPopup = function(type) {
+        if (typeof playBeep === 'function') playBeep(700, 0.05);
+        const loot = window.missionLootTables[type];
+        const label = window.missionLabels[type];
+        const color = window.missionColors[type];
+        let items = [];
+        if (loot.level > 0) items.push(`<div style="color:#0f8;">⬆ ${loot.level} Level</div>`);
+        if (loot.xp > 0) items.push(`<div style="color:#00aaff;">⚡ ${loot.xp} XP</div>`);
+        if (loot.credits > 0) items.push(`<div style="color:#ffcc00;">💰 ${loot.credits} Credits</div>`);
+        if (loot.materialzellen > 0) items.push(`<div style="color:#b0f;">🧬 ${loot.materialzellen} Materialzellen</div>`);
+
+        const popup = document.getElementById('loot-popup');
+        const popupContent = document.getElementById('loot-popup-content');
+        popupContent.innerHTML = `
+            <div style="color:${color};font-weight:bold;font-size:1.1em;margin-bottom:15px;text-align:center;">📦 ${label}</div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:0.9em;">${items.join('')}</div>
+            <div style="font-size:0.7em;color:#aaa;margin-top:15px;text-align:center;">Potenzielle Belohnungen bei Abschluss</div>
+            <button class="modell-btn" style="margin-top:15px;" onclick="window.closeLootPopup()">Schließen</button>
+        `;
+        popup.style.display = 'flex';
+    };
+
+    window.closeLootPopup = function() {
+        document.getElementById('loot-popup').style.display = 'none';
+    };
+
+    window.applyMissionRewards = function(type) {
+        const loot = window.missionLootTables[type];
+        if (!loot) return;
+        if (loot.xp > 0 && typeof window.updateXP === 'function') window.updateXP(loot.xp);
+        if (loot.level > 0) {
+            window.playerLevel += loot.level;
+            window.updateUI();
+            window.saveProgress();
+        }
+        if (loot.credits > 0) window.playerCredits += loot.credits;
+        if (loot.materialzellen > 0) window.playerMaterialzellen += loot.materialzellen;
+        window.saveProgress();
+    };
+</script>
+
+<div id="loot-popup" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:50000;display:none;justify-content:center;align-items:center;">
+    <div id="loot-popup-content" style="background:#0a0a0a;border:1px solid #0f8;border-radius:10px;padding:25px;max-width:320px;width:90%;font-family:'Orbitron',monospace;"></div>
+</div>
+
+<script>
     let gpsWatchId = null;
     let gpsMap = null;
     let gpsPlayerMarker = null;
@@ -3008,10 +3109,11 @@ window.f_showDescription = function(withVoice) {
     let gpsArmed = false;
     let gpsTargetReady = false;
 
-    window.startGpsMission = function() {
+    window.startGpsMission = function(missionType) {
         if (typeof triggerScan === 'function') triggerScan();
         if (typeof playBeep === 'function') playBeep(800, 0.1);
         window.missionActive = true;
+        window.currentMissionType = missionType || 'normal';
 
         if (!navigator.geolocation) {
             document.getElementById('content-body').innerHTML = '<h3 style="color:#f44;">[ GPS OFFLINE ]</h3><p style="color:#aaa;font-size:0.9em;">Dein Gerät unterstützt keine GPS-Navigation.</p><button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>';
@@ -3080,42 +3182,52 @@ window.f_showDescription = function(withVoice) {
         gpsTargetReady = false;
         document.getElementById('gps-status').innerText = 'Suche erreichbare Wege...';
 
-        const radius = 150;
-        const query = '[out:json][timeout:10];(way["highway"](around:' + radius + ',' + lat + ',' + lng + '););out geom;';
+        const distRange = window.missionDistances[window.currentMissionType] || [50, 100];
+        const targetDist = distRange[0] + Math.random() * (distRange[1] - distRange[0]);
 
-        try {
-            const response = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                body: 'data=' + encodeURIComponent(query)
-            });
-            const data = await response.json();
+        if (window.currentMissionType === 'normal') {
+            const radius = 150;
+            const query = '[out:json][timeout:10];(way["highway"](around:' + radius + ',' + lat + ',' + lng + '););out geom;';
 
-            if (data.elements && data.elements.length > 0) {
-                const candidates = [];
-                data.elements.forEach(function(el) {
-                    if (el.geometry) {
-                        el.geometry.forEach(function(node) {
-                            const d = haversine(lat, lng, node.lat, node.lon);
-                            if (d >= 50 && d <= 100) {
-                                candidates.push({ lat: node.lat, lng: node.lon });
-                            }
-                        });
-                    }
+            try {
+                const response = await fetch('https://overpass-api.de/api/interpreter', {
+                    method: 'POST',
+                    body: 'data=' + encodeURIComponent(query)
                 });
+                const data = await response.json();
 
-                if (candidates.length > 0) {
-                    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-                    gpsTargetLat = pick.lat;
-                    gpsTargetLng = pick.lng;
-                    gpsTargetReady = true;
-                    document.getElementById('gps-status').innerText = 'Anomalie geortet. Navigation per Meter-Anzeige.';
-                    return;
+                if (data.elements && data.elements.length > 0) {
+                    const candidates = [];
+                    data.elements.forEach(function(el) {
+                        if (el.geometry) {
+                            el.geometry.forEach(function(node) {
+                                const d = haversine(lat, lng, node.lat, node.lon);
+                                if (d >= distRange[0] && d <= distRange[1]) {
+                                    candidates.push({ lat: node.lat, lng: node.lon });
+                                }
+                            });
+                        }
+                    });
+
+                    if (candidates.length > 0) {
+                        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+                        gpsTargetLat = pick.lat;
+                        gpsTargetLng = pick.lng;
+                        gpsTargetReady = true;
+                        document.getElementById('gps-status').innerText = 'Anomalie geortet. Navigation per Meter-Anzeige.';
+                        return;
+                    }
                 }
-            }
-        } catch(e) {}
+            } catch(e) {}
+        }
 
-        gpsTargetLat = lat + (Math.random() * 0.0009 - 0.00045);
-        gpsTargetLng = lng + (Math.random() * 0.0009 - 0.00045);
+        const bearing = Math.random() * 2 * Math.PI;
+        const R = 6371000;
+        const latRad = lat * Math.PI / 180;
+        const deltaLat = targetDist / R;
+        const deltaLng = targetDist / (R * Math.cos(latRad));
+        gpsTargetLat = lat + (deltaLat * 180 / Math.PI) * Math.cos(bearing);
+        gpsTargetLng = lng + (deltaLng * 180 / Math.PI) * Math.sin(bearing);
         gpsTargetReady = true;
         document.getElementById('gps-status').innerText = 'Anomalie geortet. Navigation per Meter-Anzeige.';
     }
@@ -3299,7 +3411,7 @@ window.f_showDescription = function(withVoice) {
         document.getElementById('mission-return-anim').style.display = 'flex';
         setTimeout(() => { document.getElementById('mission-return-bar').style.width = '100%'; }, 50);
         setTimeout(() => {
-            if (typeof window.updateXP === 'function') window.updateXP(25);
+            window.applyMissionRewards(window.currentMissionType);
             document.getElementById('mission-return-anim').style.display = 'none';
             document.getElementById('mission-return-bar').style.width = '0%';
             restoreHomescreen();
