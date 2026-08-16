@@ -2853,7 +2853,7 @@ window.f_showDescription = function(withVoice) {
 
     #ar-mission-overlay {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: #000; z-index: 65000; display: none;
+        background: #000; z-index: 9999; display: none;
         flex-direction: column; overflow: hidden;
     }
     #ar-video {
@@ -3029,11 +3029,24 @@ window.f_showDescription = function(withVoice) {
                     document.getElementById('gps-distance').innerText = dist < 1000 ? Math.round(dist) + ' m' : (dist/1000).toFixed(2) + ' km';
                     document.getElementById('gps-status').innerText = 'GPS-Genauigkeit: ±' + Math.round(acc) + ' m';
 
-                    if (dist < 15 && !gpsArmed) {
+                    if (dist <= 10 && !gpsArmed) {
                         gpsArmed = true;
                         stopGpsTracking();
                         if (typeof playBeep === 'function') playBeep(1500, 0.2);
-                        setTimeout(() => { closeGpsOverlay(); startArMission(); }, 600);
+                        setTimeout(() => {
+                            const gpsOverlay = document.getElementById('gps-mission-overlay');
+                            if (gpsOverlay) gpsOverlay.style.display = 'none';
+                            const portal = document.querySelector('.portal-container');
+                            if (portal) portal.style.display = 'none';
+                            const anzeige = document.getElementById('anzeige');
+                            if (anzeige) anzeige.style.display = 'none';
+                            ['header', 'nav', '#xp-leiste-auto'].forEach(function(s) {
+                                const el = document.querySelector(s);
+                                if (el) el.style.display = 'none';
+                            });
+                            if (gpsMap) { gpsMap.remove(); gpsMap = null; gpsPlayerMarker = null; gpsTargetReady = false; }
+                            startArMission();
+                        }, 600);
                     }
                 }
             },
@@ -3125,7 +3138,7 @@ window.f_showDescription = function(withVoice) {
     function startArMission() {
         const overlay = document.getElementById('ar-mission-overlay');
         overlay.style.display = 'flex';
-        overlay.style.zIndex = '65000';
+        overlay.style.zIndex = '9999';
         document.getElementById('ar-instructions').innerText = 'Drehe dich, um die Anomalie zu finden!';
         document.getElementById('ar-extract-bar').style.width = '0%';
         document.getElementById('ar-extract-btn').classList.remove('ar-active');
@@ -3269,6 +3282,7 @@ window.f_showDescription = function(withVoice) {
             if (typeof window.updateXP === 'function') window.updateXP(25);
             document.getElementById('mission-return-anim').style.display = 'none';
             document.getElementById('mission-return-bar').style.width = '0%';
+            restoreHomescreen();
             window.f_start();
         }, 2200);
     }
@@ -3284,10 +3298,22 @@ window.f_showDescription = function(withVoice) {
         if (arOrientationHandler) { window.removeEventListener('deviceorientation', arOrientationHandler); window.removeEventListener('deviceorientationabs', arOrientationHandler); arOrientationHandler = null; }
     }
 
+    function restoreHomescreen() {
+        const portal = document.querySelector('.portal-container');
+        if (portal) portal.style.display = '';
+        const anzeige = document.getElementById('anzeige');
+        if (anzeige) anzeige.style.display = '';
+        ['header', 'nav', '#xp-leiste-auto'].forEach(function(s) {
+            const el = document.querySelector(s);
+            if (el) el.style.display = s.includes('xp') ? 'flex' : 'block';
+        });
+    }
+
     window.cancelArMission = function() {
         if (typeof playBeep === 'function') playBeep(300, 0.15);
         stopArCamera();
         closeArOverlay();
+        restoreHomescreen();
         window.f_start();
     };
 </script>
