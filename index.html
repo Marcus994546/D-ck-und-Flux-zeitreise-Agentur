@@ -53,7 +53,7 @@
             letter-spacing: 1px;
         }
 /* ANTI-GEISTER-REGEL UPDATE */
-body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#gps-mission-overlay):not(#einstellungs-btn) {
+body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#gps-mission-overlay):not(#ar-mission-overlay):not(#loot-popup):not(#einstellungs-btn) {
     display: none !important;
 }
 
@@ -379,7 +379,7 @@ body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not
                     currentLogs.unshift("> NOTFALL: Kohärenz kritisch! System-Crash eingeleitet!");
                     if (currentLogs.length > 5) currentLogs.pop();
                     if (document.getElementById('log-display')) f_start();
-                    if (typeof window.startResetSequence === 'function') window.startResetSequence(false, true);
+                    if (typeof window.startBlackoutMission === 'function') window.startBlackoutMission();
                 }
             }
         }, 500);
@@ -3271,6 +3271,8 @@ window.f_showDescription = function(withVoice) {
         const overlay = document.getElementById('ar-mission-overlay');
         overlay.style.display = 'flex';
         overlay.style.zIndex = '9999';
+        const bgOverlay = document.querySelector('.background-overlay');
+        if (bgOverlay) bgOverlay.style.display = 'none';
         document.getElementById('ar-instructions').innerText = 'Drehe dich, um die Anomalie zu finden!';
         document.getElementById('ar-extract-bar').style.width = '0%';
         document.getElementById('ar-extract-btn').classList.remove('ar-active');
@@ -3434,6 +3436,8 @@ window.f_showDescription = function(withVoice) {
     function restoreHomescreen() {
         const portal = document.querySelector('.portal-container');
         if (portal) portal.style.display = '';
+        const bgOverlay = document.querySelector('.background-overlay');
+        if (bgOverlay) bgOverlay.style.display = '';
         const anzeige = document.getElementById('anzeige');
         if (anzeige) anzeige.style.display = '';
         ['header', 'nav', '#xp-leiste-auto'].forEach(function(s) {
