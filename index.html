@@ -2887,6 +2887,10 @@ window.f_showDescription = function(withVoice) {
         filter: sepia(0.6) hue-rotate(-30deg) saturate(2) contrast(1.5) brightness(0.7);
         animation: arFlicker 0.15s infinite;
     }
+    #ar-ash-canvas {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 4; pointer-events: none;
+    }
     @keyframes arFlicker { 0%,100% { opacity: 1; } 48% { opacity: 0.92; } 50% { opacity: 0.98; } 52% { opacity: 0.9; } }
 
     #ar-scanlines {
@@ -2991,6 +2995,7 @@ window.f_showDescription = function(withVoice) {
 
 <div id="ar-mission-overlay">
     <video id="ar-video" autoplay muted playsinline></video>
+    <canvas id="ar-ash-canvas"></canvas>
     <div id="ar-scanlines"></div>
     <div id="ar-vignette"></div>
     <div id="ar-hud"><div id="ar-instructions">Drehe dich, um die Anomalie zu finden!</div></div>
@@ -3266,6 +3271,67 @@ window.f_showDescription = function(withVoice) {
     let arCharging = false;
     let arChargeStart = 0;
     let arChargeRaf = null;
+    let arRenderRaf = null;
+    let arHasOrientation = false;
+    let arAshCanvas = null;
+    let arAshCtx = null;
+    let arAshParticles = [];
+    let arAshRaf = null;
+
+    function initAshRain() {
+        arAshCanvas = document.getElementById('ar-ash-canvas');
+        if (!arAshCanvas) return;
+        arAshCtx = arAshCanvas.getContext('2d');
+        resizeAshCanvas();
+        arAshParticles = [];
+        for (let i = 0; i < 80; i++) {
+            arAshParticles.push({
+                x: Math.random() * arAshCanvas.width,
+                y: Math.random() * arAshCanvas.height,
+                vy: 0.5 + Math.random() * 1.5,
+                vx: (Math.random() - 0.5) * 0.3,
+                size: 1 + Math.random() * 2.5,
+                opacity: 0.3 + Math.random() * 0.4,
+                drift: Math.random() * Math.PI * 2
+            });
+        }
+        animateAshRain();
+    }
+
+    function resizeAshCanvas() {
+        if (!arAshCanvas) return;
+        arAshCanvas.width = window.innerWidth;
+        arAshCanvas.height = window.innerHeight;
+    }
+
+    function animateAshRain() {
+        if (!arAshCtx || !arAshCanvas) return;
+        arAshCtx.clearRect(0, 0, arAshCanvas.width, arAshCanvas.height);
+        arAshCtx.fillStyle = 'rgba(180, 120, 80, 1)';
+        arAshParticles.forEach(function(p) {
+            p.drift += 0.02;
+            p.y += p.vy;
+            p.x += p.vx + Math.sin(p.drift) * 0.3;
+            if (p.y > arAshCanvas.height) {
+                p.y = -10;
+                p.x = Math.random() * arAshCanvas.width;
+            }
+            if (p.x < -10) p.x = arAshCanvas.width + 10;
+            if (p.x > arAshCanvas.width + 10) p.x = -10;
+            arAshCtx.globalAlpha = p.opacity;
+            arAshCtx.beginPath();
+            arAshCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            arAshCtx.fill();
+        });
+        arAshCtx.globalAlpha = 1;
+        arAshRaf = requestAnimationFrame(animateAshRain);
+    }
+
+    function stopAshRain() {
+        if (arAshRaf) { cancelAnimationFrame(arAshRaf); arAshRaf = null; }
+        if (arAshCtx && arAshCanvas) arAshCtx.clearRect(0, 0, arAshCanvas.width, arAshCanvas.height);
+        arAshParticles = [];
+    }
 
     function startArMission() {
         const overlay = document.getElementById('ar-mission-overlay');
@@ -3277,6 +3343,7 @@ window.f_showDescription = function(withVoice) {
         document.getElementById('ar-extract-bar').style.width = '0%';
         document.getElementById('ar-extract-btn').classList.remove('ar-active');
         arCharging = false;
+        arHasOrientation = false;
 
         arAnomalyAzimuth = Math.random() * 360;
         arAnomalyElevation = (Math.random() - 0.5) * 40;
@@ -3284,8 +3351,11 @@ window.f_showDescription = function(withVoice) {
         const video = document.getElementById('ar-video');
         if (video) { video.srcObject = null; video.style.filter = 'sepia(0.6) hue-rotate(-30deg) saturate(2) contrast(1.5) brightness(0.7)'; }
 
+        initAshRain();
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             document.getElementById('ar-instructions').innerText = 'Kamera nicht verfügbar - Demo-Modus aktiv';
+            updateAnomalyPosition();
             return;
         }
 
@@ -3298,19 +3368,27 @@ window.f_showDescription = function(withVoice) {
                 video.muted = true;
                 video.play().then(() => {
                     overlay.style.display = 'flex';
+                    updateAnomalyPosition();
                 }).catch(() => {
                     overlay.style.display = 'flex';
+                    updateAnomalyPosition();
                 });
             })
             .catch(() => {
                 if (video) video.srcObject = null;
                 document.getElementById('ar-instructions').innerText = 'Kamera nicht verfügbar - Demo-Modus aktiv';
                 overlay.style.display = 'flex';
+                updateAnomalyPosition();
             });
 
         arOrientationHandler = (e) => {
-            arCurrentAlpha = e.alpha || 0;
-            arCurrentBeta = e.beta || 0;
+            if (e.alpha !== null && e.alpha !== undefined) {
+                arCurrentAlpha = e.alpha;
+                arHasOrientation = true;
+            }
+            if (e.beta !== null && e.beta !== undefined) {
+                arCurrentBeta = e.beta;
+            }
             updateAnomalyPosition();
         };
 
@@ -3325,6 +3403,8 @@ window.f_showDescription = function(withVoice) {
                 window.addEventListener('deviceorientation', arOrientationHandler);
             }
         }
+
+        arRenderRaf = requestAnimationFrame(arRenderLoop);
 
         const btn = document.getElementById('ar-extract-btn');
         const startCharge = (e) => {
@@ -3351,11 +3431,18 @@ window.f_showDescription = function(withVoice) {
         btn.addEventListener('touchcancel', endCharge);
     }
 
+    function arRenderLoop() {
+        updateAnomalyPosition();
+        arRenderRaf = requestAnimationFrame(arRenderLoop);
+    }
+
     function updateAnomalyPosition() {
         const anomaly = document.getElementById('ar-anomaly');
+        if (!anomaly) return;
         const overlay = document.getElementById('ar-mission-overlay');
-        const w = overlay.clientWidth;
-        const h = overlay.clientHeight;
+        if (!overlay) return;
+        const w = overlay.clientWidth || window.innerWidth;
+        const h = overlay.clientHeight || window.innerHeight;
 
         let deltaAz = arAnomalyAzimuth - arCurrentAlpha;
         if (deltaAz > 180) deltaAz -= 360;
@@ -3372,6 +3459,7 @@ window.f_showDescription = function(withVoice) {
 
         anomaly.style.left = (x - 40) + 'px';
         anomaly.style.top = (y - 40) + 'px';
+        anomaly.style.display = 'block';
 
         const inCrosshair = Math.abs(deltaAz) < 12 && Math.abs(arCurrentBeta - arAnomalyElevation) < 15;
         const btn = document.getElementById('ar-extract-btn');
@@ -3426,11 +3514,14 @@ window.f_showDescription = function(withVoice) {
         if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
         const video = document.getElementById('ar-video');
         if (video) video.srcObject = null;
+        if (arRenderRaf) { cancelAnimationFrame(arRenderRaf); arRenderRaf = null; }
+        stopAshRain();
     }
 
     function closeArOverlay() {
         document.getElementById('ar-mission-overlay').style.display = 'none';
         if (arOrientationHandler) { window.removeEventListener('deviceorientation', arOrientationHandler); window.removeEventListener('deviceorientationabs', arOrientationHandler); arOrientationHandler = null; }
+        stopAshRain();
     }
 
     function restoreHomescreen() {
