@@ -53,7 +53,7 @@
             letter-spacing: 1px;
         }
 /* ANTI-GEISTER-REGEL UPDATE */
-body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#gps-mission-overlay):not(#ar-mission-overlay):not(#loot-popup):not(#einstellungs-btn) {
+body > *:not(.background-overlay):not(.portal-container):not(#startup-layer):not(#emp-flare):not(#reboot-layer):not(#mission-overlay):not(#gps-mission-overlay):not(#ar-mission-overlay):not(#mission-return-anim):not(#loot-popup):not(#einstellungs-btn) {
     display: none !important;
 }
 
@@ -2918,8 +2918,9 @@ window.f_showDescription = function(withVoice) {
 
     #ar-anomaly {
         position: absolute; width: 80px; height: 80px;
-        z-index: 9; pointer-events: none;
+        z-index: 15; pointer-events: none;
         border-radius: 50%;
+        display: block !important;
         background: radial-gradient(circle, rgba(255,40,0,0.8) 0%, rgba(255,100,0,0.4) 40%, transparent 70%);
         box-shadow: 0 0 30px rgba(255,40,0,0.6);
         transition: none;
@@ -3352,34 +3353,31 @@ window.f_showDescription = function(withVoice) {
         if (video) { video.srcObject = null; video.style.filter = 'sepia(0.6) hue-rotate(-30deg) saturate(2) contrast(1.5) brightness(0.7)'; }
 
         initAshRain();
+        updateAnomalyPosition();
+        arRenderRaf = requestAnimationFrame(arRenderLoop);
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             document.getElementById('ar-instructions').innerText = 'Kamera nicht verfügbar - Demo-Modus aktiv';
-            updateAnomalyPosition();
-            return;
-        }
-
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-            .then((stream) => {
-                arStream = stream;
-                if (!video) return;
-                video.srcObject = stream;
-                video.setAttribute('playsinline', '');
-                video.muted = true;
-                video.play().then(() => {
+        } else {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then((stream) => {
+                    arStream = stream;
+                    if (!video) return;
+                    video.srcObject = stream;
+                    video.setAttribute('playsinline', '');
+                    video.muted = true;
+                    video.play().then(() => {
+                        overlay.style.display = 'flex';
+                    }).catch(() => {
+                        overlay.style.display = 'flex';
+                    });
+                })
+                .catch(() => {
+                    if (video) video.srcObject = null;
+                    document.getElementById('ar-instructions').innerText = 'Kamera nicht verfügbar - Demo-Modus aktiv';
                     overlay.style.display = 'flex';
-                    updateAnomalyPosition();
-                }).catch(() => {
-                    overlay.style.display = 'flex';
-                    updateAnomalyPosition();
                 });
-            })
-            .catch(() => {
-                if (video) video.srcObject = null;
-                document.getElementById('ar-instructions').innerText = 'Kamera nicht verfügbar - Demo-Modus aktiv';
-                overlay.style.display = 'flex';
-                updateAnomalyPosition();
-            });
+        }
 
         arOrientationHandler = (e) => {
             if (e.alpha !== null && e.alpha !== undefined) {
@@ -3389,7 +3387,6 @@ window.f_showDescription = function(withVoice) {
             if (e.beta !== null && e.beta !== undefined) {
                 arCurrentBeta = e.beta;
             }
-            updateAnomalyPosition();
         };
 
         if (typeof DeviceOrientationEvent !== 'undefined') {
@@ -3403,8 +3400,6 @@ window.f_showDescription = function(withVoice) {
                 window.addEventListener('deviceorientation', arOrientationHandler);
             }
         }
-
-        arRenderRaf = requestAnimationFrame(arRenderLoop);
 
         const btn = document.getElementById('ar-extract-btn');
         const startCharge = (e) => {
