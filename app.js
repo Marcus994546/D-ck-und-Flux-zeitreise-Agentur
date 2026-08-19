@@ -1329,25 +1329,10 @@ window.activateFullscreen = function() {
         const email = window.agentNameToEmail(nameInput);
 
         try {
-            try {
-                // Regulärer Login über Firebase Authentication.
-                await window.fbSignIn(window.auth, email, passInput);
-            } catch (authErr) {
-                // Einmalige, transparente Migration alter Accounts (Passwort war nur base64-kodiert in Firestore).
-                if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
-                    const agentRef = window.doc(window.db, "agenten", nameInput.toLowerCase());
-                    const docSnap = await window.getDoc(agentRef);
-                    if (docSnap.exists() && docSnap.data().pass && docSnap.data().pass === btoa(passInput)) {
-                        await window.fbCreateUser(window.auth, email, passInput);
-                        // Altes, unsicheres Passwortfeld entfernen - Firebase Auth ist jetzt die einzige Quelle der Wahrheit.
-                        try { await window.setDoc(agentRef, { pass: window.deleteField() }, { merge: true }); } catch(e) {}
-                    } else {
-                        throw authErr;
-                    }
-                } else {
-                    throw authErr;
-                }
-            }
+            await window.fbSignIn(window.auth, email, passInput);
+            // Hinweis: Sehr alte Accounts (von vor dem Sicherheits-Update) müssen sich einmalig
+            // neu registrieren - eine automatische Migration würde einen unauthentifizierten
+            // Lesezugriff auf "agenten" erfordern, den die Security Rules bewusst verbieten.
 
             if (window.auth.currentUser && window.auth.currentUser.displayName !== nameInput) {
                 try { await window.fbUpdateProfile(window.auth.currentUser, { displayName: nameInput }); } catch(e) {}
@@ -1372,7 +1357,7 @@ window.activateFullscreen = function() {
 
         } catch (e) {
             errDiv.style.color = "#f44";
-            errDiv.innerText = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? "Passwort inkorrekt!" : "Agenten-ID unbekannt oder Verbindungsfehler!";
+            errDiv.innerText = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? "Passwort inkorrekt!" : (e.code === 'auth/user-not-found' ? "Agenten-ID unbekannt!" : "Fehler: " + (e.code || e.message || "unbekannt"));
         }
     };
 
@@ -1387,21 +1372,15 @@ window.activateFullscreen = function() {
         
         errDiv.style.color = "#0f8"; errDiv.innerText = "Prüfe Zentral-Server...";
 
-        if (!window.db || !window.getDoc) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
+        if (!window.db || !window.auth) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
 
         try {
-            const agentRef = window.doc(window.db, "agenten", nameInput.toLowerCase());
-            const docSnap = await window.getDoc(agentRef);
-
-            if (docSnap.exists() && docSnap.data().registered) {
-                errDiv.style.color = "#f44"; errDiv.innerText = "Agenten-ID bereits vergeben!";
-                return;
-            }
-
             const email = window.agentNameToEmail(nameInput);
             const cred = await window.fbCreateUser(window.auth, email, passInput);
+            // Ab hier ist der Nutzer authentifiziert - Firestore-Zugriff ist jetzt erlaubt.
             try { await window.fbUpdateProfile(cred.user, { displayName: nameInput }); } catch(e) {}
 
+            const agentRef = window.doc(window.db, "agenten", nameInput.toLowerCase());
             window.playerXP = 0;
             window.playerLevel = 1;
             window.agentName = nameInput;
@@ -1427,7 +1406,7 @@ window.activateFullscreen = function() {
 
         } catch (e) {
             errDiv.style.color = "#f44";
-            errDiv.innerText = (e.code === 'auth/email-already-in-use') ? "Agenten-ID bereits vergeben!" : (e.code === 'auth/weak-password' ? "Passwort zu schwach (min. 6 Zeichen)!" : "Verbindungsfehler!");
+            errDiv.innerText = (e.code === 'auth/email-already-in-use') ? "Agenten-ID bereits vergeben!" : (e.code === 'auth/weak-password' ? "Passwort zu schwach (min. 6 Zeichen)!" : "Fehler: " + (e.code || e.message || "unbekannt"));
         }
     };
 
