@@ -1,0 +1,107 @@
+rules_version = '2';
+
+// ============================================================================
+// Dück & Flux Zeitreiseagentur – Firestore Security Rules
+// ============================================================================
+// WICHTIG: Diese Datei ersetzt NICHT den Code in index.html/base.html.
+// Sie muss zusätzlich in der Firebase-Konsole hinterlegt werden:
+// Firebase Console -> Firestore Database -> Regeln -> Inhalt einfügen -> Veröffentlichen.
+// Ohne diese Regeln ist der clientseitige Code allein KEIN echter Schutz, da jeder über
+// die Browser-Konsole oder die REST-API direkt mit dem Firestore-SDK sprechen kann.
+//
+// GRENZEN DIESES ANSATZES (bitte lesen):
+// Security Rules können Feld-für-Feld-Schreibrechte einschränken (z.B. "isAdmin darf sich
+// nie ändern", "xp darf pro Schreibvorgang nur um max. X steigen"). Sie können aber NICHT
+// prüfen, ob eine bestimmte Mission tatsächlich absolviert wurde – das erfordert serverseitige
+// Logik über Cloud Functions (Firebase Blaze-Tarif nötig). Diese Regeln verhindern also die
+// offensichtlichsten Cheats (z.B. "setze xp auf 999999"), aber ein sehr hartnäckiger Nutzer
+// könnte theoretisch weiterhin in kleinen, plausiblen Schritten schummeln. Für 100%ige
+// serverseitige Autorität wird eine Cloud Function empfohlen (siehe README.md).
+// ============================================================================
+
+function isSignedIn() {
+  return request.auth != null;
+}
+
+// Der Agenten-Name (Dokument-ID in "agenten") muss dem Firebase-Auth-Displaynamen entsprechen.
+function ownsAgentDoc(agentId) {
+  return isSignedIn() &&
+         request.auth.token.name != null &&
+         request.auth.token.name.lower() == agentId;
+}
+
+// Fallback, falls "name" nicht im Token steht (Standard bei E-Mail/Passwort-Auth):
+// Wir vergleichen stattdessen die aus dem Agentennamen abgeleitete synthetische E-Mail.
+function ownsAgentDocByEmail(agentId) {
+  return isSignedIn() &&
+         request.auth.token.email != null &&
+         request.auth.token.email.lower().matches(agentId + '@agenten\\.flux-terminal\\.local');
+}
+
+function isOwner(agentId) {
+  return ownsAgentDoc(agentId) || ownsAgentDocByEmail(agentId);
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Agenten-Profile (xp, lvl, isAdmin, registered) ---
+    match /agenten/{agentId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(agentId)
+                    && request.resource.data.isAdmin == false
+                    && !('pass' in request.resource.data); // altes base64-Passwortfeld darf nie neu angelegt werden
+      allow update: if isOwner(agentId)
+                    // isAdmin darf ein Client NIEMALS selbst setzen/ändern - nur manuell per Firebase Console.
+                    && request.resource.data.isAdmin == resource.data.isAdmin
+                    // xp/lvl dürfen sich pro Schreibvorgang nur in einem plausiblen Rahmen ändern.
+                    && (!('xp' in request.resource.data) ||
+                        (request.resource.data.xp is int &&
+                         request.resource.data.xp >= 0 &&
+                         request.resource.data.xp <= 100))
+                    && (!('lvl' in request.resource.data) ||
+                        (request.resource.data.lvl is int &&
+                         request.resource.data.lvl >= (resource.data.lvl != null ? resource.data.lvl : 1) &&
+                         request.resource.data.lvl <= (resource.data.lvl != null ? resource.data.lvl : 1) + 3));
+      allow delete: if isOwner(agentId);
+    }
+
+    // --- Agentur-Basis (Credits, Materie-Zellen, Räume) ---
+    match /Agent - Base/{agentId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(agentId);
+      // Hinweis: Ohne Cloud Function kann Rules allein keine "plausible Credit-Obergrenze pro
+      // Sekunde" durchsetzen, ohne die Spiel-Balance genau zu kennen. Für strengeren Schutz:
+      // increment-only-Regeln analog zu "xp" oben ergänzen, sobald die Wirtschafts-Werte fix sind.
+    }
+
+    // Legacy-Sammlung (falls noch in Verwendung) - gleiche Regel wie "agenten"
+    match /SLAs Agent/{agentId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(agentId)
+                   && (!('lvl' in request.resource.data) ||
+                       (request.resource.data.lvl is int && request.resource.data.lvl >= 1));
+    }
+
+    // --- Funk / Chat ---
+    match /agenten_funk/{channelId} {
+      allow read, write: if isSignedIn();
+
+      match /nachrichten/{msgId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+                      && request.resource.data.absender is string
+                      && request.resource.data.absender.size() <= 40
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0
+                      && request.resource.data.text.size() <= 500;
+        // Chatnachrichten sind unveränderlich/unlöschbar (kein update/delete durch Clients).
+      }
+    }
+
+    // Alles andere: standardmäßig gesperrt.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
