@@ -409,7 +409,7 @@ window.f_chat = function() {
     if (window.db) {
         if (window.chatListListener) window.chatListListener();
         const funkRef = window.collection(window.db, "agenten_funk");
-        const q = window.query(funkRef, window.where("teilnehmer", "array-contains", window.agentName.toLowerCase()));
+        const q = window.query(funkRef, window.where("teilnehmer", "array-contains", window.agentSlug(window.agentName)));
         window.chatListListener = window.onSnapshot(q, (snapshot) => {
             const listContainer = document.getElementById('active-chat-list');
             if (!listContainer) return; 
@@ -420,10 +420,10 @@ window.f_chat = function() {
             let html = "";
             snapshot.forEach(doc => {
                 const data = doc.data();
-                const other = data.teilnehmer.find(n => n !== window.agentName.toLowerCase()) || window.agentName.toLowerCase();
-                const style = (data.ungelesen_fuer === window.agentName.toLowerCase()) ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
+                const other = data.teilnehmer.find(n => n !== window.agentSlug(window.agentName)) || window.agentSlug(window.agentName);
+                const style = (data.ungelesen_fuer === window.agentSlug(window.agentName)) ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
                 html += `<div class="log-entry" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
-                    <span style="cursor: pointer; flex-grow: 1; ${style}" onclick="window.openPrivateChat('${other}')">> AGENT: ${other.toUpperCase()}${data.ungelesen_fuer === window.agentName.toLowerCase() ? " [NEUE NACHRICHT]" : ""}</span>
+                    <span style="cursor: pointer; flex-grow: 1; ${style}" onclick="window.openPrivateChat('${other}')">> AGENT: ${other.toUpperCase()}${data.ungelesen_fuer === window.agentSlug(window.agentName) ? " [NEUE NACHRICHT]" : ""}</span>
                     <span style="cursor: pointer; color: #f44; padding: 0 10px;" onclick="window.deleteChat('${other}')">🗑️</span>
                 </div>`;
             });
@@ -460,7 +460,7 @@ window.f_chat = function() {
             let htmlList = "", htmlRadar = "", count = 0;
             snapshot.forEach((doc) => {
                 const data = doc.data();
-                if (data.last_ping && (now - data.last_ping < 120000) && doc.id !== window.agentName.toLowerCase()) {
+                if (data.last_ping && (now - data.last_ping < 120000) && doc.id !== window.agentSlug(window.agentName)) {
                     count++;
                     const top = Math.floor(Math.random() * 70) + 15, left = Math.floor(Math.random() * 70) + 15;
                     htmlRadar += `<div class="pulse-amber" style="position: absolute; top:${top}%; left:${left}%; width:6px; height:6px; background:#0f8; border-radius:50%; box-shadow:0 0 5px #0f8;"></div>`;
@@ -474,8 +474,8 @@ window.f_chat = function() {
 
 window.openPrivateChat = function(targetAgentName) {
     if (typeof triggerScan === 'function') triggerScan();
-    const myName = window.agentName.toLowerCase();
-    const targetName = targetAgentName.toLowerCase();
+    const myName = window.agentSlug(window.agentName);
+    const targetName = window.agentSlug(targetAgentName);
     const channelId = [myName, targetName].sort().join("_");
     window.currentChatTarget = targetName; 
 
@@ -529,7 +529,7 @@ window.openPrivateChat = function(targetAgentName) {
         if (text === "" || !window.db) return;
         inp.value = "";
         try {
-            const myName = window.agentName.toLowerCase();
+            const myName = window.agentSlug(window.agentName);
             const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
             await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
             const channelRef = window.doc(window.db, "agenten_funk", channelId);
@@ -544,8 +544,8 @@ window.openPrivateChat = function(targetAgentName) {
     window.deleteChat = async function(targetName) {
         if(!confirm(`Kanal mit ${targetName.toUpperCase()} wirklich im Briefkasten löschen?`)) return;
 
-        const myName = window.agentName.toLowerCase();
-        const targetNameLow = targetName.toLowerCase();
+        const myName = window.agentSlug(window.agentName);
+        const targetNameLow = targetName;
         const channelId = [myName, targetNameLow].sort().join("_");
 
         if (window.db && window.getDocs && window.deleteDoc) {
@@ -574,7 +574,7 @@ window.startGlobalNotification = function() {
         setTimeout(window.startGlobalNotification, 2000);
         return;
     }
-    const myName = window.agentName.toLowerCase();
+    const myName = window.agentSlug(window.agentName);
     const q = window.query(window.collection(window.db, "agenten_funk"), window.where("teilnehmer", "array-contains", myName));
 
     if (window.globalChatListener) window.globalChatListener();
@@ -602,7 +602,7 @@ window.startGlobalNotification = function() {
     window.sendRadarPing = async function() {
         if (!window.db || !window.agentName) return;
         try {
-            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+            const agentRef = window.doc(window.db, "agenten", window.agentSlug(window.agentName));
             await window.setDoc(agentRef, { last_ping: Date.now() }, { merge: true });
         } catch(e) {}
     };
@@ -677,7 +677,7 @@ window.startGlobalNotification = function() {
 
         if (window.db && window.setDoc) {
             try {
-                const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+                const agentRef = window.doc(window.db, "agenten", window.agentSlug(window.agentName));
                 await window.setDoc(agentRef, data, { merge: true });
             } catch (e) {
                 console.error("Cloud-Fehler:", e);
@@ -691,7 +691,7 @@ window.startGlobalNotification = function() {
         if (!window.db) { setTimeout(window.loadProgress, 200); return; }
 
         try {
-            const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+            const agentRef = window.doc(window.db, "agenten", window.agentSlug(window.agentName));
             const docSnap = await window.getDoc(agentRef);
             
             if (docSnap.exists()) {
@@ -720,7 +720,7 @@ window.startGlobalNotification = function() {
     window.adminDeleteProfile = function(targetName) {
         if (!targetName) return false;
         localStorage.removeItem('flux_agent_' + targetName.toLowerCase());
-        if (window.agentName.toLowerCase() === targetName.toLowerCase()) {
+        if (window.agentSlug(window.agentName) === targetName) {
             localStorage.removeItem('flux_last_agent');
             location.reload(); 
         }
@@ -1196,7 +1196,7 @@ window.startGlobalNotification = function() {
             window.agentName = fbUser.displayName || (fbUser.email || '').split('@')[0];
             window.isAgentVerified = true;
             try {
-                const agentRef = window.doc(window.db, "agenten", window.agentName.toLowerCase());
+                const agentRef = window.doc(window.db, "agenten", window.agentSlug(window.agentName));
                 const snap = await window.getDoc(agentRef);
                 window.adminMerkerAktiv = snap.exists() && !!snap.data().isAdmin;
             } catch (e) { window.adminMerkerAktiv = false; }
@@ -1338,7 +1338,7 @@ window.activateFullscreen = function() {
                 try { await window.fbUpdateProfile(window.auth.currentUser, { displayName: nameInput }); } catch(e) {}
             }
 
-            const agentRef = window.doc(window.db, "agenten", nameInput.toLowerCase());
+            const agentRef = window.doc(window.db, "agenten", window.agentSlug(nameInput));
             const docSnap = await window.getDoc(agentRef);
             const data = docSnap.exists() ? docSnap.data() : {};
 
@@ -1380,7 +1380,7 @@ window.activateFullscreen = function() {
             // Ab hier ist der Nutzer authentifiziert - Firestore-Zugriff ist jetzt erlaubt.
             try { await window.fbUpdateProfile(cred.user, { displayName: nameInput }); } catch(e) {}
 
-            const agentRef = window.doc(window.db, "agenten", nameInput.toLowerCase());
+            const agentRef = window.doc(window.db, "agenten", window.agentSlug(nameInput));
             window.playerXP = 0;
             window.playerLevel = 1;
             window.agentName = nameInput;
@@ -1394,8 +1394,12 @@ window.activateFullscreen = function() {
                 lvl: window.playerLevel,
                 isAdmin: false
             };
+            // WICHTIG: Dieser Schreibvorgang wird NICHT mehr stillschweigend verschluckt.
+            // Schlägt er fehl (z.B. durch die Firestore Security Rules), gilt die Registrierung
+            // als fehlgeschlagen - sonst hätte man einen Auth-Account ohne Profil-Dokument.
+            await window.setDoc(agentRef, newData, { merge: true });
+
             if (typeof window.activateFullscreen === 'function') window.activateFullscreen();
-            try { await window.setDoc(agentRef, newData, { merge: true }); } catch(e) {}
             
             document.getElementById('startup-layer').style.opacity = "0";
             setTimeout(() => { 
@@ -1405,6 +1409,7 @@ window.activateFullscreen = function() {
             }, 500);
 
         } catch (e) {
+            console.error("Registrierungsfehler:", e);
             errDiv.style.color = "#f44";
             errDiv.innerText = (e.code === 'auth/email-already-in-use') ? "Agenten-ID bereits vergeben!" : (e.code === 'auth/weak-password' ? "Passwort zu schwach (min. 6 Zeichen)!" : "Fehler: " + (e.code || e.message || "unbekannt"));
         }
@@ -1465,7 +1470,7 @@ window.activateFullscreen = function() {
             const cred = window.fbEmailAuthProvider.credential(user.email, passInput);
             await window.fbReauthenticate(user, cred); // wirft bei falschem Passwort
 
-            const agentRef = window.doc(window.db, "agenten", myName.toLowerCase());
+            const agentRef = window.doc(window.db, "agenten", window.agentSlug(myName));
             await window.deleteDoc(agentRef);
             await window.fbDeleteUser(user);
 

@@ -9,7 +9,7 @@
         if (!currentAgentName) { window.location.href = 'index.html'; return; }
 
         try {
-            const snap = await window.getDoc(window.doc(window.db, "agenten", currentAgentName.toLowerCase()));
+            const snap = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)));
             isAdminSession = snap.exists() && !!snap.data().isAdmin;
         } catch (e) { isAdminSession = false; }
 
@@ -120,19 +120,19 @@
                 let maxLevel = 1;
 
                 try {
-                    const snap1 = await window.getDoc(window.doc(window.db, "agenten", currentAgentName.toLowerCase()));
+                    const snap1 = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)));
                     if (snap1.exists() && snap1.data().lvl) maxLevel = Math.max(maxLevel, snap1.data().lvl);
                 } catch(e) {}
 
                 try {
-                    const snap2 = await window.getDoc(window.doc(window.db, "SLAs Agent", currentAgentName.toLowerCase()));
+                    const snap2 = await window.getDoc(window.doc(window.db, "SLAs Agent", window.agentSlug(currentAgentName)));
                     if (snap2.exists() && snap2.data().lvl) maxLevel = Math.max(maxLevel, snap2.data().lvl);
                 } catch(e) {}
 
                 gameState.userLevel = maxLevel;
 
                 // 4. Räume & Währungen aus der Basis-Datenbank laden
-                const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
+                const baseRef = window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName));
                 const baseSnap = await window.getDoc(baseRef);
                 if (baseSnap.exists()) {
                     const data = baseSnap.data();
@@ -163,7 +163,7 @@
         // Basis in Cloud sichern (ohne das Level dort zu speichern, um Konflikte zu vermeiden)
         if (window.db && window.setDoc) {
             try {
-                const baseRef = window.doc(window.db, "Agent - Base", currentAgentName.toLowerCase());
+                const baseRef = window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName));
                 await window.setDoc(baseRef, {
                     credits: gameState.credits, mz: gameState.materieZellen, baseData: gameState.baseData,
                     letztesUpdate: new Date().toISOString()
@@ -287,7 +287,7 @@
         localStorage.setItem(mainPKey, JSON.stringify(d));
         if (window.db && window.setDoc) {
             try {
-                const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
+                const bRef = window.doc(window.db, "Agent - Base", window.agentSlug(ag));
                 await window.setDoc(bRef, { inventory: inventory, credits: gameState.credits }, { merge: true });
             } catch(e) {}
         }
@@ -297,7 +297,7 @@
         const ag = localStorage.getItem("flux_last_agent") || "";
         if (!ag || !window.db || !window.getDoc) return;
         try {
-            const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
+            const bRef = window.doc(window.db, "Agent - Base", window.agentSlug(ag));
             const bSnap = await window.getDoc(bRef);
             if (bSnap.exists() && bSnap.data().inventory) {
                 let dInv = bSnap.data().inventory;
@@ -692,7 +692,7 @@ window.spawnFurniture = (type, count) => {
 
                         if (window.db && window.setDoc) {
                             try {
-                                const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
+                                const bRef = window.doc(window.db, "Agent - Base", window.agentSlug(ag));
                                 await window.setDoc(bRef, { mz: gameState.materieZellen }, { merge: true });
                             } catch(e) {}
                         }
@@ -872,7 +872,7 @@ window.spawnFurniture = (type, count) => {
 
                         if (window.db && window.setDoc) {
                             try {
-                                const bRef = window.doc(window.db, "Agent - Base", ag.toLowerCase());
+                                const bRef = window.doc(window.db, "Agent - Base", window.agentSlug(ag));
                                 await window.setDoc(bRef, { mz: gameState.materieZellen }, { merge: true });
                             } catch(e) {}
                         }
@@ -1230,7 +1230,7 @@ window.buyFurniture = async (type, cost) => {
                     d.mz = gameState.materieZellen; 
                     localStorage.setItem(mainPKey, JSON.stringify(d));
                     if (window.db && window.setDoc) {
-                        try { window.setDoc(window.doc(window.db, "Agent - Base", ag.toLowerCase()), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+                        try { window.setDoc(window.doc(window.db, "Agent - Base", window.agentSlug(ag)), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
                     }
                 }
             }
@@ -1409,7 +1409,7 @@ window.buyFurniture = async (type, cost) => {
                     d.mz = gameState.materieZellen; 
                     localStorage.setItem(mainPKey, JSON.stringify(d));
                     if (window.db && window.setDoc) {
-                        try { window.setDoc(window.doc(window.db, "Agent - Base", ag.toLowerCase()), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+                        try { window.setDoc(window.doc(window.db, "Agent - Base", window.agentSlug(ag)), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
                     }
                 }
             }
@@ -1635,7 +1635,7 @@ window._saveMZ = function() {
     d.mz = gameState.materieZellen;
     localStorage.setItem(mainPKey, JSON.stringify(d));
     if (window.db && window.setDoc) {
-        try { window.setDoc(window.doc(window.db, "Agent - Base", ag.toLowerCase()), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+        try { window.setDoc(window.doc(window.db, "Agent - Base", window.agentSlug(ag)), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
     }
 };
 

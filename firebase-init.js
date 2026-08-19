@@ -20,15 +20,19 @@
   window.fbSignIn = signInWithEmailAndPassword;
   window.fbSignOut = signOut;
   window.fbOnAuthStateChanged = onAuthStateChanged;
-  // Agenten-Namen sind keine echten E-Mails; Firebase Auth verlangt aber ein E-Mail-Format.
-  // Wir bilden daher jeden Agenten-Namen auf eine synthetische, interne Adresse ab.
-  window.agentNameToEmail = (name) => name.trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '_') + "@agenten.flux-terminal.local";
   window.doc = doc;
   window.deleteField = deleteField;
   window.fbUpdateProfile = updateProfile;
   window.fbReauthenticate = reauthenticateWithCredential;
   window.fbEmailAuthProvider = EmailAuthProvider;
   window.fbDeleteUser = deleteUser;
+
+  // Kanonische, ASCII-sichere Kurzform eines Agentennamens (Umlaute/Sonderzeichen -> "_").
+  // WICHTIG: Wird ab jetzt konsequent überall verwendet, wo der Name zu einer Firestore-
+  // Dokument-ID wird - sonst passt die Dokument-ID nicht mehr zur synthetischen E-Mail-Adresse
+  // des Auth-Accounts, und die Security Rules (isOwner) lehnen den Zugriff ab.
+  window.agentSlug = (name) => (name || '').trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '_');
+  window.agentNameToEmail = (name) => window.agentSlug(name) + "@agenten.flux-terminal.local";
 
   // WICHTIG: Die Session-Gültigkeit wird jetzt ausschließlich von Firebase Auth entschieden,
   // NICHT mehr von einem manipulierbaren localStorage-Flag. onAuthStateChanged liefert den

@@ -20,6 +20,11 @@
   window.setDoc = setDoc;
   window.getDoc = getDoc;
 
+  // Gleiche kanonische Namensform wie in index.html: Umlaute/Sonderzeichen -> "_".
+  // Muss mit dem Schema übereinstimmen, das bei Login/Registrierung verwendet wird,
+  // sonst passen die Firestore-Dokument-IDs nicht mehr zur Security-Rule-Prüfung.
+  window.agentSlug = (name) => (name || '').trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '_');
+
   // Wie in index.html: Zugriff wird nur gewährt, wenn Firebase Auth eine ECHTE Session bestätigt.
   // localStorage wird nicht mehr als Vertrauensquelle genutzt.
   window.baseAuthReady = new Promise((resolve) => {
