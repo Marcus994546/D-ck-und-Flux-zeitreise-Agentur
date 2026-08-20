@@ -183,6 +183,9 @@
                 
                 localStorage.setItem(localKey, JSON.stringify(gameState));
                 updateUI(); renderGrid();
+                // Inventar erst NACH abgeschlossener Credits-Fusion nachladen (nicht mehr per
+                // festem 1s-Timer, der bei langsameren Verbindungen zu früh feuern konnte).
+                if (typeof window.loadInventoryFromCloud === 'function') window.loadInventoryFromCloud();
             } catch (e) { console.error("Cloud-Ladefehler:", e); }
         } else { setTimeout(loadGameState, 300); }
     }
@@ -311,11 +314,12 @@
         set: function(target, prop, val) {
             target[prop] = val;
             setTimeout(() => {
-                let credsDisplay = document.getElementById('display-credits');
-                if (credsDisplay) {
-                    let c = parseInt(credsDisplay.innerText);
-                    if (!isNaN(c)) gameState.credits = c;
-                }
+                // WICHTIG: gameState.credits wird hier NICHT mehr aus dem angezeigten DOM-Text
+                // neu abgeleitet. Das lief der asynchronen Credits-Fusion beim Laden den Rang ab
+                // (v.a. bei langsameren Verbindungen/Mobilgeräten): sobald das Inventar aus der
+                // Cloud nachgeladen wurde, konnte dieser Trap einen noch nicht aktualisierten
+                // "0"-Anzeigewert zurück nach Firestore schreiben und frisch gesetzte/fusionierte
+                // Credits überschreiben. gameState.credits ist bereits die korrekte Quelle.
                 if (typeof window.syncInventory === 'function') window.syncInventory();
             }, 50);
             return true;
@@ -356,8 +360,9 @@
                 }
             }
         } catch(e) {}
-    };
-    setTimeout(window.loadInventoryFromCloud, 1000);
+    }; // Ende window.loadInventoryFromCloud
+    // Hinweis: wird jetzt direkt am Ende von loadGameState() aufgerufen (s.o.), nicht mehr per
+    // festem setTimeout - das eliminiert den Wettlauf mit der Credits-Fusion.
 
     window.openRoom = (type) => {
         document.getElementById('grid-wrapper').style.display = 'none';
