@@ -2,8 +2,23 @@
     let currentAgentName = null;
     let isAdminSession = false;
 
+    // WICHTIG: base-firebase-init.js läuft als type="module" (vom Browser automatisch
+    // verzögert ausgeführt), dieses Skript hier ist ein normales, sofort blockierendes
+    // <script src="...">. Ohne diese Wartefunktion konnte guardBaseAccess() starten,
+    // BEVOR window.baseAuthReady überhaupt existiert - "await undefined" löst sofort mit
+    // "kein Nutzer" auf und die Seite springt sofort wieder zu index.html zurück.
+    function waitForBaseAuthReady() {
+        return new Promise((resolve) => {
+            (function check() {
+                if (window.baseAuthReady) { resolve(window.baseAuthReady); }
+                else { setTimeout(check, 20); }
+            })();
+        });
+    }
+
     (async function guardBaseAccess() {
-        const user = await window.baseAuthReady;
+        const authPromise = await waitForBaseAuthReady();
+        const user = await authPromise;
         if (!user) { window.location.href = 'index.html'; return; }
         currentAgentName = user.displayName || (user.email || '').split('@')[0];
         if (!currentAgentName) { window.location.href = 'index.html'; return; }
@@ -266,7 +281,8 @@
     };
 
     window.onload = async () => {
-        const user = await window.baseAuthReady;
+        const authPromise = await waitForBaseAuthReady();
+        const user = await authPromise;
         if (!user) return; // guardBaseAccess leitet in diesem Fall bereits zu index.html um
         currentAgentName = currentAgentName || user.displayName || (user.email || '').split('@')[0];
         let isM = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';

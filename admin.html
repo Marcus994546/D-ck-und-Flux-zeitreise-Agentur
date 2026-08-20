@@ -285,7 +285,8 @@
 
   window.doLogout = async function() {
     await window.fbSignOut(window.auth);
-    location.reload();
+    // Zurück zur Spiel-Startseite statt nur die Admin-Login-Maske neu zu laden.
+    window.location.href = 'index.html';
   };
 
   window.loadAllAgents = async function() {
