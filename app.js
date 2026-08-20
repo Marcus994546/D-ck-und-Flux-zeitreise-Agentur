@@ -2466,6 +2466,54 @@ window.f_showDescription = function(withVoice) {
     let gpsArmed = false;
     let gpsTargetReady = false;
 
+    // --- Anomalie-Optik: Land -> Farbe, Postleitzahl -> Animations-Variante ---
+    window.currentAnomalyCountryCode = 'xx';
+    window.currentAnomalyPostcode = '';
+    window.currentAnomalyHue = 260;       // Fallback: das bisherige Standard-Lila
+    window.currentAnomalyVariant = 0;
+    window.currentAnomalyHueJitter = 0;
+    window.currentAnomalySpeedJitter = 1;
+    window.currentAnomalyArmJitter = 0;
+
+    // Einfacher, deterministischer String-Hash (32-bit). Gleicher Input -> immer derselbe Wert,
+    // dadurch bekommt z.B. "de" (Deutschland) IMMER denselben Farbton, "fr" einen anderen usw.
+    function hashStringToInt(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = (hash * 31 + str.charCodeAt(i)) | 0;
+        }
+        return Math.abs(hash);
+    }
+
+    async function resolveAnomalyTraits(lat, lng) {
+        // Fallback, falls die Geocoding-Abfrage fehlschlägt (z.B. kein Netz): aus den
+        // Koordinaten selbst einen stabilen Ersatzwert ableiten, statt ganz auszufallen.
+        let countryCode = 'xx';
+        let postcode = Math.round(lat * 500) + '_' + Math.round(lng * 500);
+
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`);
+            const data = await resp.json();
+            if (data && data.address) {
+                if (data.address.country_code) countryCode = data.address.country_code.toLowerCase();
+                if (data.address.postcode) postcode = data.address.postcode;
+            }
+        } catch (e) {}
+
+        window.currentAnomalyCountryCode = countryCode;
+        window.currentAnomalyPostcode = postcode;
+        // Land -> Farbton (0-360°), berechnet statt fest hinterlegt: jedes Länderkürzel hasht
+        // auf einen eigenen, aber immer gleichbleibenden Farbwert.
+        window.currentAnomalyHue = hashStringToInt(countryCode) % 360;
+        // Postleitzahl -> eine von 4 strukturellen Animations-Varianten (Spiralarme, Bewegungsmuster).
+        window.currentAnomalyVariant = hashStringToInt(String(postcode)) % 4;
+        // Zusätzlich bei JEDEM Besuch eine kleine, neue Zufalls-Abweichung obendrauf, damit es
+        // nie exakt identisch aussieht, auch am selben Ort nicht.
+        window.currentAnomalyHueJitter = (Math.random() - 0.5) * 30;
+        window.currentAnomalySpeedJitter = 0.8 + Math.random() * 0.4;
+        window.currentAnomalyArmJitter = Math.floor(Math.random() * 2);
+    }
+
     window.startGpsMission = function(missionType) {
         if (typeof triggerScan === 'function') triggerScan();
         if (typeof playBeep === 'function') playBeep(800, 0.1);
@@ -2511,19 +2559,18 @@ window.f_showDescription = function(withVoice) {
                         gpsArmed = true;
                         stopGpsTracking();
                         if (typeof playBeep === 'function') playBeep(1500, 0.2);
+
+                        // Land/PLZ-Merkmale schon jetzt im Hintergrund auflösen, während der Spieler
+                        // das Popup sieht - so steht die Optik bereit, sobald "RADAR STARTEN" fällt.
+                        resolveAnomalyTraits(gpsTargetLat, gpsTargetLng);
+
                         setTimeout(() => {
                             const gpsOverlay = document.getElementById('gps-mission-overlay');
                             if (gpsOverlay) gpsOverlay.style.display = 'none';
-                            const portal = document.querySelector('.portal-container');
-                            if (portal) portal.style.display = 'none';
-                            const anzeige = document.getElementById('anzeige');
-                            if (anzeige) anzeige.style.display = 'none';
-                            ['header', 'nav', '#xp-leiste-auto'].forEach(function(s) {
-                                const el = document.querySelector(s);
-                                if (el) el.style.display = 'none';
-                            });
                             if (gpsMap) { gpsMap.remove(); gpsMap = null; gpsPlayerMarker = null; gpsTargetReady = false; }
-                            startArMission();
+
+                            const popup = document.getElementById('radar-arrival-popup');
+                            if (popup) popup.style.display = 'flex';
                         }, 600);
                     }
                 }
@@ -2607,9 +2654,31 @@ window.f_showDescription = function(withVoice) {
         if (gpsMap) { gpsMap.remove(); gpsMap = null; gpsPlayerMarker = null; gpsTargetReady = false; }
     }
 
+    // WICHTIG: Muss direkt aus einem echten Klick heraus laufen (nicht aus einem GPS-Callback
+    // oder setTimeout) - iOS blockiert DeviceOrientationEvent.requestPermission() sonst
+    // stillschweigend, wenn es nicht innerhalb einer direkten Nutzer-Interaktion aufgerufen wird.
+    // Das war vermutlich der Grund, warum die Anomalie zuletzt gar nicht mehr aufgetaucht ist.
+    window.confirmStartRadar = function() {
+        const popup = document.getElementById('radar-arrival-popup');
+        if (popup) popup.style.display = 'none';
+
+        const portal = document.querySelector('.portal-container');
+        if (portal) portal.style.display = 'none';
+        const anzeige = document.getElementById('anzeige');
+        if (anzeige) anzeige.style.display = 'none';
+        ['header', 'nav', '#xp-leiste-auto'].forEach(function(s) {
+            const el = document.querySelector(s);
+            if (el) el.style.display = 'none';
+        });
+
+        startArMission();
+    };
+
     window.cancelGpsMission = function() {
         if (typeof playBeep === 'function') playBeep(300, 0.15);
         window.missionActive = false;
+        const popup = document.getElementById('radar-arrival-popup');
+        if (popup) popup.style.display = 'none';
         closeGpsOverlay();
         window.f_start();
     };
@@ -2698,7 +2767,11 @@ window.f_showDescription = function(withVoice) {
         arAnomalyCtx = arAnomalyCanvas.getContext('2d');
         arNebulaParticles = [];
         const cx = 110, cy = 110;
-        for (let i = 0; i < 120; i++) {
+        // Basis-Farbton kommt vom Land (+ kleine Zufalls-Abweichung pro Besuch), damit jedes
+        // Land eine eigene, aber wiedererkennbare Farbe hat.
+        const baseHue = (window.currentAnomalyHue + window.currentAnomalyHueJitter + 360) % 360;
+        const particleCount = 90 + (window.currentAnomalyVariant * 15);
+        for (let i = 0; i < particleCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const dist = Math.pow(Math.random(), 0.5) * 80;
             arNebulaParticles.push({
@@ -2707,8 +2780,8 @@ window.f_showDescription = function(withVoice) {
                 angle: angle,
                 dist: dist,
                 size: 0.5 + Math.random() * 2.5,
-                speed: 0.3 + Math.random() * 0.8,
-                hue: 200 + Math.random() * 100,
+                speed: (0.3 + Math.random() * 0.8) * window.currentAnomalySpeedJitter,
+                hue: (baseHue - 60 + Math.random() * 100 + 360) % 360,
                 alpha: 0.2 + Math.random() * 0.6,
                 twinkle: Math.random() * Math.PI * 2
             });
@@ -2719,8 +2792,8 @@ window.f_showDescription = function(withVoice) {
                 angle: Math.random() * Math.PI * 2,
                 dist: 0,
                 size: 1 + Math.random() * 3,
-                speed: 0.5 + Math.random() * 1.5,
-                hue: 280 + Math.random() * 60,
+                speed: (0.5 + Math.random() * 1.5) * window.currentAnomalySpeedJitter,
+                hue: (baseHue + 20 + Math.random() * 60) % 360,
                 alpha: 0.5 + Math.random() * 0.5,
                 twinkle: Math.random() * Math.PI * 2,
                 isStar: true
@@ -2737,15 +2810,20 @@ window.f_showDescription = function(withVoice) {
         const cx = w / 2, cy = h / 2;
         arNebulaTime += 0.016;
 
+        const baseHue = (window.currentAnomalyHue + window.currentAnomalyHueJitter + 360) % 360;
+        // Variante steuert Drehrichtung (2 von 4 Varianten laufen rückwärts) + Armzahl (2 oder 3).
+        const spinDir = (window.currentAnomalyVariant % 2 === 0) ? 1 : -1;
+        const armCount = 2 + window.currentAnomalyArmJitter + (window.currentAnomalyVariant >= 2 ? 1 : 0);
+
         ctx.clearRect(0, 0, w, h);
 
         ctx.save();
         ctx.translate(cx, cy);
-        ctx.rotate(arNebulaTime * 0.1);
+        ctx.rotate(arNebulaTime * 0.1 * spinDir);
         const bgGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 100);
-        bgGrad.addColorStop(0, 'rgba(80, 30, 120, 0.5)');
-        bgGrad.addColorStop(0.3, 'rgba(40, 20, 80, 0.3)');
-        bgGrad.addColorStop(0.6, 'rgba(20, 10, 40, 0.15)');
+        bgGrad.addColorStop(0, 'hsla(' + baseHue + ', 70%, 45%, 0.5)');
+        bgGrad.addColorStop(0.3, 'hsla(' + baseHue + ', 65%, 30%, 0.3)');
+        bgGrad.addColorStop(0.6, 'hsla(' + baseHue + ', 60%, 18%, 0.15)');
         bgGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(-w/2, -h/2, w, h);
@@ -2753,19 +2831,19 @@ window.f_showDescription = function(withVoice) {
 
         const armGrad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 95);
         armGrad.addColorStop(0, 'rgba(255, 240, 220, 0.4)');
-        armGrad.addColorStop(0.15, 'rgba(200, 150, 255, 0.3)');
-        armGrad.addColorStop(0.4, 'rgba(100, 80, 200, 0.15)');
-        armGrad.addColorStop(0.7, 'rgba(40, 30, 80, 0.08)');
+        armGrad.addColorStop(0.15, 'hsla(' + baseHue + ', 80%, 75%, 0.3)');
+        armGrad.addColorStop(0.4, 'hsla(' + baseHue + ', 70%, 55%, 0.15)');
+        armGrad.addColorStop(0.7, 'hsla(' + baseHue + ', 60%, 30%, 0.08)');
         armGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = armGrad;
         ctx.beginPath();
         ctx.arc(cx, cy, 95, 0, Math.PI * 2);
         ctx.fill();
 
-        for (let arm = 0; arm < 2; arm++) {
+        for (let arm = 0; arm < armCount; arm++) {
             ctx.save();
             ctx.translate(cx, cy);
-            ctx.rotate(arNebulaTime * 0.15 + arm * Math.PI);
+            ctx.rotate(arNebulaTime * 0.15 * spinDir + arm * (2 * Math.PI / armCount));
             for (let t = 0; t < 1; t += 0.01) {
                 const r = t * 90;
                 const a = t * 4.5;
@@ -2773,7 +2851,7 @@ window.f_showDescription = function(withVoice) {
                 const y = Math.sin(a) * r * 0.4;
                 const alpha = (1 - t) * 0.4;
                 const size = (1 - t) * 3 + 0.5;
-                const hue = 250 + t * 60;
+                const hue = (baseHue + t * 60) % 360;
                 ctx.fillStyle = 'hsla(' + hue + ', 80%, ' + (50 + t * 20) + '%, ' + alpha + ')';
                 ctx.beginPath();
                 ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -2784,7 +2862,7 @@ window.f_showDescription = function(withVoice) {
 
         arNebulaParticles.forEach(function(p) {
             p.twinkle += 0.05;
-            p.angle += 0.002 * p.speed;
+            p.angle += 0.002 * p.speed * spinDir;
             if (!p.isStar) {
                 p.x = cx + Math.cos(p.angle) * p.dist;
                 p.y = cy + Math.sin(p.angle) * p.dist;
@@ -2809,9 +2887,9 @@ window.f_showDescription = function(withVoice) {
 
         const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
         coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-        coreGrad.addColorStop(0.2, 'rgba(200, 220, 255, 0.6)');
-        coreGrad.addColorStop(0.5, 'rgba(150, 100, 255, 0.3)');
-        coreGrad.addColorStop(1, 'rgba(100, 50, 200, 0)');
+        coreGrad.addColorStop(0.2, 'hsla(' + baseHue + ', 60%, 85%, 0.6)');
+        coreGrad.addColorStop(0.5, 'hsla(' + baseHue + ', 80%, 65%, 0.3)');
+        coreGrad.addColorStop(1, 'hsla(' + baseHue + ', 80%, 45%, 0)');
         ctx.fillStyle = coreGrad;
         ctx.beginPath();
         ctx.arc(cx, cy, 30, 0, Math.PI * 2);
@@ -2826,7 +2904,7 @@ window.f_showDescription = function(withVoice) {
         if (Math.random() < 0.05) {
             const gx = cx + (Math.random() - 0.5) * 60;
             const gy = cy + (Math.random() - 0.5) * 60;
-            ctx.fillStyle = 'rgba(255, 100, 255, 0.4)';
+            ctx.fillStyle = 'hsla(' + ((baseHue + 180) % 360) + ', 90%, 65%, 0.4)';
             ctx.fillRect(gx - 15, gy - 1, 30, 2);
         }
 

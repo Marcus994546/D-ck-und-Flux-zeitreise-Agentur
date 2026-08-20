@@ -163,6 +163,14 @@
     <div id="gps-map-container"><div id="gps-map"></div></div>
 </div>
 
+<div id="radar-arrival-popup" class="top-level" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:9998;display:none;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:20px;box-sizing:border-box;font-family:'Orbitron',monospace;">
+    <div style="font-size:2.5em;margin-bottom:10px;">📡</div>
+    <h2 style="color:#0f8;text-shadow:0 0 15px #0f8;margin:0 0 10px 0;">ANOMALIE GEORTET</h2>
+    <p id="radar-arrival-info" style="color:#aaa;font-size:0.85em;max-width:320px;margin-bottom:30px;">Du befindest dich am Zielort. Aktiviere den Radar-Scanner, um die Anomalie sichtbar zu machen.</p>
+    <button class="modell-btn" style="border-color:#0f8;color:#0f8;font-size:1.1em;padding:14px 30px;" onclick="window.confirmStartRadar()">📡 RADAR STARTEN</button>
+    <button class="modell-btn" style="border-color:#f44;color:#f44;margin-top:12px;" onclick="window.cancelGpsMission()">ABBRECHEN</button>
+</div>
+
 <div id="ar-mission-overlay" class="top-level">
     <video id="ar-video" autoplay muted playsinline></video>
     <canvas id="ar-ash-canvas"></canvas>
