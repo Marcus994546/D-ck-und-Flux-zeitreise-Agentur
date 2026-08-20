@@ -951,7 +951,7 @@ window.startGlobalNotification = function() {
     window.fullSystemRestore = function() {
         overlay.style.display = 'none';
         document.getElementById('reboot-layer').style.display = 'none';
-        document.getElementById('back-button-global').style.display = 'none';
+        document.getElementById('back-button-global').style.setProperty('display', 'none', 'important');
         ['header', 'nav', '#xp-leiste-auto'].forEach(s => {
             const el = document.querySelector(s);
             if(el) el.style.setProperty('display', s.includes('xp') ? 'flex' : 'block', 'important');
@@ -971,7 +971,7 @@ window.startGlobalNotification = function() {
 
         const anzeige = document.getElementById('anzeige');
         ['header', 'nav', '#xp-leiste-auto'].forEach(s => { const el = document.querySelector(s); if(el) el.style.display = 'none'; });
-        document.getElementById('back-button-global').style.display = 'block';
+        document.getElementById('back-button-global').style.setProperty('display', 'block', 'important');
 
         if (cmd === '/flux-boost' || cmd === '/flux-test' || cmd === '/flux-override' || cmd === '/flux-loeschen' || cmd === 'control') {
             if (!window.adminMerkerAktiv) {
