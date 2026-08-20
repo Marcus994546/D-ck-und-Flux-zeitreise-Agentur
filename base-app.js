@@ -131,15 +131,40 @@
 
                 gameState.userLevel = maxLevel;
 
-                // 4. Räume & Währungen aus der Basis-Datenbank laden
+                // --- DATEN-FUSION: Credits/Materiezellen gab es bisher doppelt (einmal hier in
+                // "Agent - Base", einmal im Haupt-Terminal-Profil unter "agenten"). Das Profil
+                // "agenten" ist ab jetzt die EINZIGE Quelle der Wahrheit für Credits/Materiezellen.
+                // Einmalig wird der jeweils höhere Wert übernommen, damit beim Umstieg nichts
+                // verloren geht; danach schreibt/liest nur noch "agenten".
+                let fusedCredits = 0, fusedMz = 0;
+                try {
+                    const agentSnap = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)));
+                    if (agentSnap.exists()) {
+                        const ad = agentSnap.data();
+                        fusedCredits = Math.max(fusedCredits, ad.credits || 0);
+                        fusedMz = Math.max(fusedMz, (ad.materiezellen !== undefined ? ad.materiezellen : (ad.materialzellen || 0)));
+                    }
+                } catch(e) {}
+
+                // 4. Räume aus der Basis-Datenbank laden (Credits/MZ dort sind Legacy und werden nur
+                // noch für die einmalige Fusion gelesen, s.o.)
                 const baseRef = window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName));
                 const baseSnap = await window.getDoc(baseRef);
                 if (baseSnap.exists()) {
                     const data = baseSnap.data();
-                    if (data.credits !== undefined) gameState.credits = data.credits;
-                    if (data.mz !== undefined) gameState.materieZellen = data.mz;
+                    fusedCredits = Math.max(fusedCredits, data.credits || 0);
+                    fusedMz = Math.max(fusedMz, data.mz || 0);
                     if (data.baseData) gameState.baseData = data.baseData;
                 }
+                gameState.credits = fusedCredits;
+                gameState.materieZellen = fusedMz;
+
+                // Fusionierten Stand sofort zurück in die kanonische Quelle ("agenten") schreiben.
+                try {
+                    await window.setDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)), {
+                        credits: fusedCredits, materiezellen: fusedMz
+                    }, { merge: true });
+                } catch(e) { console.error("Fusions-Speicherfehler:", e); }
                 
                 localStorage.setItem(localKey, JSON.stringify(gameState));
                 updateUI(); renderGrid();
@@ -160,12 +185,17 @@
         d.lvl = gameState.userLevel; 
         localStorage.setItem(mainProfileKey, JSON.stringify(d));
 
-        // Basis in Cloud sichern (ohne das Level dort zu speichern, um Konflikte zu vermeiden)
+        // Credits/Materiezellen gehen jetzt in die kanonische Quelle "agenten" (fusioniert, s.o.).
+        // "Agent - Base" speichert nur noch die Raum-/Grid-Daten (keine Währungen mehr).
         if (window.db && window.setDoc) {
             try {
+                await window.setDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)), {
+                    credits: gameState.credits, materiezellen: gameState.materieZellen
+                }, { merge: true });
+
                 const baseRef = window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName));
                 await window.setDoc(baseRef, {
-                    credits: gameState.credits, mz: gameState.materieZellen, baseData: gameState.baseData,
+                    baseData: gameState.baseData,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -288,7 +318,8 @@
         if (window.db && window.setDoc) {
             try {
                 const bRef = window.doc(window.db, "Agent - Base", window.agentSlug(ag));
-                await window.setDoc(bRef, { inventory: inventory, credits: gameState.credits }, { merge: true });
+                await window.setDoc(bRef, { inventory: inventory }, { merge: true });
+                await window.setDoc(window.doc(window.db, "agenten", window.agentSlug(ag)), { credits: gameState.credits }, { merge: true });
             } catch(e) {}
         }
     };
@@ -691,9 +722,9 @@ window.spawnFurniture = (type, count) => {
                         localStorage.setItem(mainPKey, JSON.stringify(d));
 
                         if (window.db && window.setDoc) {
+                            // Materiezellen sind fusioniert: kanonisch in "agenten", nicht mehr in "Agent - Base".
                             try {
-                                const bRef = window.doc(window.db, "Agent - Base", window.agentSlug(ag));
-                                await window.setDoc(bRef, { mz: gameState.materieZellen }, { merge: true });
+                                await window.setDoc(window.doc(window.db, "agenten", window.agentSlug(ag)), { materiezellen: gameState.materieZellen }, { merge: true });
                             } catch(e) {}
                         }
                     }
@@ -871,9 +902,9 @@ window.spawnFurniture = (type, count) => {
                         localStorage.setItem(mainPKey, JSON.stringify(d));
 
                         if (window.db && window.setDoc) {
+                            // Materiezellen sind fusioniert: kanonisch in "agenten", nicht mehr in "Agent - Base".
                             try {
-                                const bRef = window.doc(window.db, "Agent - Base", window.agentSlug(ag));
-                                await window.setDoc(bRef, { mz: gameState.materieZellen }, { merge: true });
+                                await window.setDoc(window.doc(window.db, "agenten", window.agentSlug(ag)), { materiezellen: gameState.materieZellen }, { merge: true });
                             } catch(e) {}
                         }
                     }
@@ -1230,7 +1261,7 @@ window.buyFurniture = async (type, cost) => {
                     d.mz = gameState.materieZellen; 
                     localStorage.setItem(mainPKey, JSON.stringify(d));
                     if (window.db && window.setDoc) {
-                        try { window.setDoc(window.doc(window.db, "Agent - Base", window.agentSlug(ag)), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+                        try { window.setDoc(window.doc(window.db, "agenten", window.agentSlug(ag)), { materiezellen: gameState.materieZellen }, { merge: true }); } catch(e) {}
                     }
                 }
             }
@@ -1409,7 +1440,7 @@ window.buyFurniture = async (type, cost) => {
                     d.mz = gameState.materieZellen; 
                     localStorage.setItem(mainPKey, JSON.stringify(d));
                     if (window.db && window.setDoc) {
-                        try { window.setDoc(window.doc(window.db, "Agent - Base", window.agentSlug(ag)), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+                        try { window.setDoc(window.doc(window.db, "agenten", window.agentSlug(ag)), { materiezellen: gameState.materieZellen }, { merge: true }); } catch(e) {}
                     }
                 }
             }
@@ -1635,7 +1666,7 @@ window._saveMZ = function() {
     d.mz = gameState.materieZellen;
     localStorage.setItem(mainPKey, JSON.stringify(d));
     if (window.db && window.setDoc) {
-        try { window.setDoc(window.doc(window.db, "Agent - Base", window.agentSlug(ag)), { mz: gameState.materieZellen }, { merge: true }); } catch(e) {}
+        try { window.setDoc(window.doc(window.db, "agenten", window.agentSlug(ag)), { materiezellen: gameState.materieZellen }, { merge: true }); } catch(e) {}
     }
 };
 

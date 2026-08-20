@@ -144,14 +144,9 @@
                     if (document.getElementById('log-display')) f_start();
                     playBeep(200, 0.3);
                 }
-
-                if (currentCoherence <= 70.0 && !crashSequenceActive && !window.missionActive) {
-                    crashSequenceActive = true;
-                    currentLogs.unshift("> NOTFALL: Kohärenz kritisch! System-Crash eingeleitet!");
-                    if (currentLogs.length > 5) currentLogs.pop();
-                    if (document.getElementById('log-display')) f_start();
-                    if (typeof window.startBlackoutMission === 'function') window.startBlackoutMission();
-                }
+                // Hinweis: Der automatische Crash-Trigger sitzt NICHT mehr hier bei 70% -
+                // das übernimmt jetzt ausschließlich die unabhängige Crashout-Automatik bei 50%
+                // (separates setInterval, siehe unten bei stopCoherenceTicker).
             }
         }, 500);
     }
@@ -159,6 +154,29 @@
     function stopCoherenceTicker() {
         if (coherenceTickerId) { clearInterval(coherenceTickerId); coherenceTickerId = null; }
     }
+
+    // --- CRASHOUT-AUTOMATIK ---
+    // Permanente, vom normalen Kohärenz-Ticker UNABHÄNGIGE Überwachung. Läuft dauerhaft im
+    // Hintergrund (nicht nur während startCoherenceTicker aktiv ist) und erzwingt den
+    // Crash-Prozess, sobald die Kohärenz unter 50% fällt - als harte Notbremse, unabhängig
+    // davon, auf welchem Bildschirm sich der Spieler gerade befindet.
+    setInterval(() => {
+        if (crashSequenceActive) return;
+        if (currentCoherence < 50.0) {
+            crashSequenceActive = true;
+            currentLogs.unshift("> CRASHOUT: Kohärenz unter 50%! Not-Crash erzwungen!");
+            if (currentLogs.length > 5) currentLogs.pop();
+            if (document.getElementById('log-display')) f_start();
+            // WICHTIG: startBlackoutMission() startet nur die Missions-LOGIK (Timer, Inhalte),
+            // macht aber #blackout-layer selbst nicht sichtbar - das übernimmt normalerweise
+            // showBlackoutMenu() im normalen EMP-Trap-Ablauf. Ohne diese Zeile lief die Mission
+            // bisher unsichtbar im Hintergrund und scheiterte am Ende lautlos per Timeout - das
+            // war der Fehler, der beim alten 70%-Trigger nie richtig funktioniert hat.
+            const blackoutLayer = document.getElementById('blackout-layer');
+            if (blackoutLayer) blackoutLayer.style.setProperty('display', 'flex', 'important');
+            if (typeof window.startBlackoutMission === 'function') window.startBlackoutMission();
+        }
+    }, 1000);
 
     function erzeugeWarnSequenz() {
         const navBtn = document.getElementById('status-nav-btn');
@@ -622,7 +640,7 @@ window.startGlobalNotification = function() {
     window.hs3000 = 0;
     window.hs4400 = 0;
     window.playerCredits = 0;
-    window.playerMaterialzellen = 0;
+    window.playerMateriezellen = 0;
     window.currentMissionType = 'normal';
 
     // Hinweis: 'flux_last_agent' wird NICHT mehr zur Verifizierung genutzt (das war eine
@@ -663,7 +681,7 @@ window.startGlobalNotification = function() {
             hs3000: window.hs3000, 
             hs4400: window.hs4400,
             credits: window.playerCredits,
-            materialzellen: window.playerMaterialzellen,
+            materiezellen: window.playerMateriezellen,
             music: localStorage.getItem('flux_music_' + window.agentName.toLowerCase()) === 'true',
             sound: window.klickTonAktiv,
             agentOrigin: `${locationData.country}, ${locationData.region} (${locationData.city})`,
@@ -702,7 +720,8 @@ window.startGlobalNotification = function() {
                 window.hs3000 = data.hs3000 || 0;
                 window.hs4400 = data.hs4400 || 0;
                 window.playerCredits = data.credits || 0;
-                window.playerMaterialzellen = data.materialzellen || 0;
+                // Abwärtskompatibel: alte Dokumente hatten das Feld "materialzellen" (Tippfehler).
+                window.playerMateriezellen = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
                 
                 window.klickTonAktiv = data.sound !== undefined ? data.sound : true;
                 localStorage.setItem('flux_music_' + window.agentName.toLowerCase(), data.music || false);
@@ -954,9 +973,18 @@ window.startGlobalNotification = function() {
         ['header', 'nav', '#xp-leiste-auto'].forEach(s => { const el = document.querySelector(s); if(el) el.style.display = 'none'; });
         document.getElementById('back-button-global').style.display = 'block';
 
-        if (cmd === '/flux-boost' || cmd === '/flux-test' || cmd === '/flux-override' || cmd === '/flux-loeschen') {
+        if (cmd === '/flux-boost' || cmd === '/flux-test' || cmd === '/flux-override' || cmd === '/flux-loeschen' || cmd === 'control') {
             if (!window.adminMerkerAktiv) {
                 anzeige.innerHTML = '<p style="color:#f44; padding:20px;">[ FEHLER ]<br>> Zugriff verweigert.<br>> Keine Administrator-Rechte detektiert.</p>';
+                return;
+            }
+
+            if (cmd === 'control') {
+                // Admin-Dashboard prüft die isAdmin===true-Berechtigung selbst noch einmal
+                // eigenständig über Firebase Auth/Firestore - dieser Befehl ist nur der Aufruf.
+                anzeige.innerHTML = '<div style="color:#0f8; font-family:monospace; text-align:center; margin-top:10vh;">[ CONTROL ]<br>> Admin-Terminal wird geöffnet...</div>';
+                window.open('admin.html', '_blank');
+                setTimeout(window.fullSystemRestore, 1000);
                 return;
             }
 
@@ -998,7 +1026,7 @@ window.startGlobalNotification = function() {
         } else if (cmd === 'help') {
             let helpText = '<div style="color:#0f8; padding:20px;">[ BEFEHLE ]<br>> help<br>> log<br>> flux-reset<br>> rekrutieren';
             if (window.adminMerkerAktiv) {
-                helpText += '<br><br>[ ADMIN BEFEHLE ]<br>> /flux-boost<br>> /flux-test<br>> /flux-override<br>> /flux-loeschen';
+                helpText += '<br><br>[ ADMIN BEFEHLE ]<br>> /flux-boost<br>> /flux-test<br>> /flux-override<br>> /flux-loeschen<br>> control';
             }
             helpText += '</div>';
             anzeige.innerHTML = helpText;
@@ -2339,10 +2367,10 @@ window.f_showDescription = function(withVoice) {
 
 
     window.missionLootTables = {
-        normal:       { level: 1,  xp: 50,    credits: 100,  materialzellen: 0 },
-        fortgeschritten: { level: 3, xp: 0,     credits: 200,  materialzellen: 2 },
-        weit:         { level: 6,  xp: 50,    credits: 500,  materialzellen: 8 },
-        galaktisch:   { level: 25, xp: 0,     credits: 2000, materialzellen: 15 }
+        normal:       { level: 1,  xp: 50,    credits: 100,  materiezellen: 0 },
+        fortgeschritten: { level: 3, xp: 0,     credits: 200,  materiezellen: 2 },
+        weit:         { level: 6,  xp: 50,    credits: 500,  materiezellen: 8 },
+        galaktisch:   { level: 25, xp: 0,     credits: 2000, materiezellen: 15 }
     };
 
     window.missionLabels = {
@@ -2395,7 +2423,7 @@ window.f_showDescription = function(withVoice) {
         if (loot.level > 0) items.push(`<div style="color:#0f8;">⬆ ${loot.level} Level</div>`);
         if (loot.xp > 0) items.push(`<div style="color:#00aaff;">⚡ ${loot.xp} XP</div>`);
         if (loot.credits > 0) items.push(`<div style="color:#ffcc00;">💰 ${loot.credits} Credits</div>`);
-        if (loot.materialzellen > 0) items.push(`<div style="color:#b0f;">🧬 ${loot.materialzellen} Materialzellen</div>`);
+        if (loot.materiezellen > 0) items.push(`<div style="color:#b0f;">🧬 ${loot.materiezellen} Materiezellen</div>`);
 
         const popup = document.getElementById('loot-popup');
         const popupContent = document.getElementById('loot-popup-content');
@@ -2422,7 +2450,7 @@ window.f_showDescription = function(withVoice) {
             window.saveProgress();
         }
         if (loot.credits > 0) window.playerCredits += loot.credits;
-        if (loot.materialzellen > 0) window.playerMaterialzellen += loot.materialzellen;
+        if (loot.materiezellen > 0) window.playerMateriezellen += loot.materiezellen;
         window.saveProgress();
     };
 

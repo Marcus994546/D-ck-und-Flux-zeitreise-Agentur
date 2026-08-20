@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dück & Flux | Admin-Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --neon: #00ffcc; --bg-dark: #0b0e14; --panel: #10141c; --warn: #ff8800; --crit: #ff4444;
+    --credits-color: #ffcc00; --mz-color: #b0f;
+    --glow: 0 0 10px rgba(0,255,204,0.45), 0 0 20px rgba(0,255,204,0.15);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: radial-gradient(circle at 50% 0%, #10182a 0%, #05070c 70%);
+    color: var(--neon); font-family: 'Orbitron', 'Courier New', monospace; letter-spacing: 0.5px;
+  }
+  header {
+    padding: 18px 24px; border-bottom: 2px solid var(--neon); box-shadow: var(--glow);
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  }
+  header h1 { margin: 0; font-size: 1.2em; text-shadow: var(--glow); }
+  header .sub { font-size: 0.7em; opacity: 0.6; }
+  #logout-btn, .btn {
+    background: transparent; color: var(--neon); border: 1px solid var(--neon); padding: 8px 14px;
+    font-family: 'Orbitron', sans-serif; font-size: 0.75em; font-weight: bold; text-transform: uppercase;
+    cursor: pointer; border-radius: 4px; transition: all .2s;
+  }
+  .btn:hover, #logout-btn:hover { background: rgba(0,255,204,0.15); box-shadow: var(--glow); }
+  .btn-warn { border-color: var(--warn); color: var(--warn); }
+  .btn-warn:hover { background: rgba(255,136,0,0.15); box-shadow: 0 0 10px rgba(255,136,0,.5); }
+  .btn-crit { border-color: var(--crit); color: var(--crit); }
+  .btn-crit:hover { background: rgba(255,68,68,0.15); box-shadow: 0 0 10px rgba(255,68,68,.5); }
+
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+  /* --- Login Gate --- */
+  #gate {
+    max-width: 380px; margin: 12vh auto; background: var(--panel); border: 1px solid var(--neon);
+    border-radius: 10px; padding: 28px; text-align: center; box-shadow: var(--glow);
+  }
+  #gate h2 { margin-top: 0; font-size: 1em; }
+  #gate p { font-size: 0.75em; color: #aaa; line-height: 1.5; }
+  #gate input {
+    width: 100%; padding: 10px; margin-top: 12px; background: #000; border: 1px solid var(--neon);
+    color: var(--neon); font-family: monospace; outline: none; border-radius: 4px;
+  }
+  #gate .btn { width: 100%; margin-top: 16px; padding: 12px; }
+  #gate-error { color: var(--crit); font-size: 0.75em; min-height: 16px; margin-top: 10px; }
+
+  /* --- Dashboard --- */
+  #dashboard { display: none; }
+  .panel {
+    background: var(--panel); border: 1px solid rgba(0,255,204,0.3); border-radius: 8px;
+    padding: 18px; margin-bottom: 24px; box-shadow: 0 0 15px rgba(0,255,204,0.08);
+  }
+  .panel h2 { margin: 0 0 14px 0; font-size: 0.9em; border-bottom: 1px solid rgba(0,255,204,0.2); padding-bottom: 8px; }
+  #status-line { font-size: 0.7em; opacity: 0.6; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.75em; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid rgba(0,255,204,0.12); white-space: nowrap; }
+  th { color: var(--neon); opacity: 0.8; font-weight: bold; text-transform: uppercase; font-size: 0.85em; }
+  td input {
+    width: 80px; background: #000; border: 1px solid rgba(0,255,204,0.4); color: var(--neon);
+    font-family: monospace; padding: 5px; border-radius: 3px; outline: none;
+  }
+  td input:focus { border-color: var(--neon); box-shadow: 0 0 6px rgba(0,255,204,0.5); }
+  th.col-credits { color: var(--credits-color); opacity: 1; }
+  th.col-mz { color: var(--mz-color); opacity: 1; }
+  td input.input-credits { color: var(--credits-color); border-color: rgba(255,204,0,0.4); }
+  td input.input-credits:focus { border-color: var(--credits-color); box-shadow: 0 0 6px rgba(255,204,0,0.5); }
+  td input.input-mz { color: var(--mz-color); border-color: rgba(187,0,255,0.4); }
+  td input.input-mz:focus { border-color: var(--mz-color); box-shadow: 0 0 6px rgba(187,0,255,0.5); }
+  tr.admin-row td { color: var(--warn); }
+  .row-btns { display: flex; gap: 6px; }
+  .row-btn {
+    background: transparent; border: 1px solid var(--neon); color: var(--neon); padding: 5px 8px;
+    font-size: 0.9em; cursor: pointer; border-radius: 3px;
+  }
+  .row-btn:hover { background: rgba(0,255,204,0.15); }
+  .save-flash { animation: flashOk 0.6s ease-out; }
+  @keyframes flashOk { 0% { background: rgba(0,255,102,0.35); } 100% { background: transparent; } }
+
+  #map { height: 420px; border-radius: 6px; border: 1px solid rgba(0,255,204,0.3); }
+  .leaflet-popup-content-wrapper { background: #0b0e14; color: var(--neon); border: 1px solid var(--neon); }
+  .leaflet-popup-tip { background: #0b0e14; }
+
+  #table-wrap { overflow-x: auto; }
+  .table-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+  #search-box {
+    background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 8px 10px;
+    font-family: monospace; border-radius: 4px; outline: none; min-width: 220px;
+  }
+
+  .note {
+    font-size: 0.7em; color: #aaa; background: rgba(255,136,0,0.06); border-left: 2px solid var(--warn);
+    padding: 8px 10px; margin-top: 10px; line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚙ ADMIN-TERMINAL</h1>
+    <div class="sub">Dück &amp; Flux Zeitreiseagentur — Lokales Verwaltungs-Werkzeug</div>
+  </div>
+  <button id="logout-btn" class="btn" style="display:none;" onclick="doLogout()">ABMELDEN</button>
+</header>
+
+<main>
+
+  <!-- ============ LOGIN GATE ============ -->
+  <div id="gate">
+    <h2>[ ADMIN-VERIFIZIERUNG ]</h2>
+    <p>
+      Dieses Werkzeug greift auf dieselbe Firebase-Datenbank wie das Terminal zu.
+      Aus Sicherheitsgründen (Firestore-Regeln) ist dafür zwingend eine echte, authentifizierte
+      Admin-Session nötig — melde dich mit deinem bestehenden Agenten-Account an, der in
+      Firestore das Feld <code>isAdmin: true</code> gesetzt hat.
+    </p>
+    <input type="text" id="gate-name" placeholder="AGENTEN-ID (Admin)" autocomplete="username">
+    <input type="password" id="gate-pass" placeholder="PASSWORT" autocomplete="current-password">
+    <button class="btn" onclick="doLogin()">VERIFIZIEREN</button>
+    <div id="gate-error"></div>
+  </div>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div id="dashboard">
+
+    <div class="panel">
+      <div id="status-line">Angemeldet als Administrator: <span id="whoami"></span></div>
+
+      <div class="table-actions">
+        <h2 style="border:none;margin:0;">RESSOURCEN-KONTROLLE</h2>
+        <input type="text" id="search-box" placeholder="Agent suchen..." oninput="renderTable()">
+        <button class="btn" onclick="loadAllAgents()">↻ NEU LADEN</button>
+      </div>
+
+      <div id="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Agent</th><th>Admin</th><th>XP</th><th>Level</th>
+              <th class="col-credits">💰 Credits</th><th class="col-mz">🧬 Materiezellen</th>
+              <th>Letzter Login</th><th>Aktion</th>
+            </tr>
+          </thead>
+          <tbody id="agent-table-body">
+            <tr><td colspan="8" style="opacity:.5;">Lade Agenten...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>STANDORT-TRACKING</h2>
+      <div id="map"></div>
+      <div class="note">
+        Positionen basieren auf ungefährer IP-Geolokalisierung beim letzten Speichern
+        (<code>lat</code>/<code>lon</code>/<code>agentOrigin</code> im Profil), keine präzise GPS-Ortung.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>PASSWORT-VERWALTUNG</h2>
+      <div class="table-actions">
+        <input type="text" id="pw-agent-name" placeholder="Agenten-ID" style="flex:1;padding:8px;background:#000;border:1px solid var(--neon);color:var(--neon);font-family:monospace;border-radius:4px;">
+        <input type="password" id="pw-new-value" placeholder="Neues Passwort (min. 6 Zeichen)" style="flex:1;padding:8px;background:#000;border:1px solid var(--neon);color:var(--neon);font-family:monospace;border-radius:4px;">
+        <button class="btn btn-warn" onclick="requestPasswordReset()">PASSWORT SETZEN</button>
+      </div>
+      <div id="pw-status" style="font-size:0.75em;margin-top:8px;"></div>
+      <div class="note">
+        Das Firebase-Client-SDK kann aus dem Browser heraus grundsätzlich nur das Passwort des
+        <b>gerade eingeloggten</b> Accounts ändern — nicht das fremder Nutzer. Dieser Button ruft
+        daher die Cloud Function <code>adminResetPassword</code> auf (siehe mitgelieferte
+        <code>functions/index.js</code>). Solange diese nicht deployed ist, erscheint hier ein
+        Fehler statt eines stillen Fehlschlags.
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, collection, getDocs
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import {
+    getFunctions, httpsCallable
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
+    authDomain: "zeitreise-agentur.firebaseapp.com",
+    projectId: "zeitreise-agentur",
+    storageBucket: "zeitreise-agentur.firebasestorage.app",
+    messagingSenderId: "516125325960",
+    appId: "1:516125325960:web:936883a5474820b10bfd3d",
+    measurementId: "G-8809YG4WHM"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  window.db = getFirestore(app);
+  window.auth = getAuth(app);
+  window.functions = getFunctions(app);
+
+  window.fbSignIn = signInWithEmailAndPassword;
+  window.fbSignOut = signOut;
+  window.fbOnAuthStateChanged = onAuthStateChanged;
+  window.fbHttpsCallable = httpsCallable;
+  window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc;
+  window.collection = collection; window.getDocs = getDocs;
+
+  // Gleiche Ableitung wie im Haupt-Terminal: Agentenname -> synthetische E-Mail.
+  window.agentSlug = (name) => (name || '').trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '_');
+  window.agentNameToEmail = (name) => window.agentSlug(name) + "@agenten.flux-terminal.local";
+
+  onAuthStateChanged(window.auth, (user) => {
+    window.onAuthResolved && window.onAuthResolved(user);
+  });
+</script>
+
+<script>
+  let agentsCache = [];
+  
+  let leafletMap = null;
+  let currentAdminName = "";
+
+  window.onAuthResolved = async function(user) {
+    if (!user) { showGate(); return; }
+    const name = user.displayName || (user.email || '').split('@')[0];
+    try {
+      const snap = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(name)));
+      if (snap.exists() && snap.data().isAdmin === true) {
+        currentAdminName = name;
+        showDashboard(name);
+      } else {
+        document.getElementById('gate-error').innerText = "ZUGRIFF VERWEIGERT: Kein Administrator-Konto.";
+        await window.fbSignOut(window.auth);
+        showGate();
+      }
+    } catch (e) {
+      document.getElementById('gate-error').innerText = "VERBINDUNGSFEHLER: " + e.message;
+      showGate();
+    }
+  };
+
+  function showGate() {
+    document.getElementById('gate').style.display = 'block';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('logout-btn').style.display = 'none';
+  }
+
+  function showDashboard(name) {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('logout-btn').style.display = 'inline-block';
+    document.getElementById('whoami').innerText = name.toUpperCase();
+    initMap();
+    loadAllAgents();
+  }
+
+  window.doLogin = async function() {
+    const name = document.getElementById('gate-name').value.trim();
+    const pass = document.getElementById('gate-pass').value;
+    const errEl = document.getElementById('gate-error');
+    errEl.innerText = "";
+    if (!name || !pass) { errEl.innerText = "Bitte Agenten-ID und Passwort eingeben."; return; }
+    try {
+      await window.fbSignIn(window.auth, window.agentNameToEmail(name), pass);
+      // onAuthStateChanged übernimmt den Rest (inkl. isAdmin-Prüfung).
+    } catch (e) {
+      errEl.innerText = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
+        ? "Passwort inkorrekt." : "Login fehlgeschlagen: " + e.code;
+    }
+  };
+
+  window.doLogout = async function() {
+    await window.fbSignOut(window.auth);
+    location.reload();
+  };
+
+  window.loadAllAgents = async function() {
+    const tbody = document.getElementById('agent-table-body');
+    tbody.innerHTML = '<tr><td colspan="8" style="opacity:.5;">Lade Agenten...</td></tr>';
+    try {
+      const agentSnap = await window.getDocs(window.collection(window.db, "agenten"));
+
+      agentsCache = [];
+      agentSnap.forEach(d => agentsCache.push({ id: d.id, ...d.data() }));
+      agentsCache.sort((a, b) => a.id.localeCompare(b.id));
+
+      renderTable();
+      plotMap();
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="8" style="color:var(--crit);">Fehler beim Laden: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  };
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderTable() {
+    const filter = (document.getElementById('search-box').value || '').toLowerCase();
+    const tbody = document.getElementById('agent-table-body');
+    tbody.innerHTML = '';
+
+    const rows = agentsCache.filter(a => a.id.toLowerCase().includes(filter));
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="opacity:.5;">Keine Treffer.</td></tr>';
+      return;
+    }
+
+    rows.forEach(a => {
+      const tr = document.createElement('tr');
+      if (a.isAdmin) tr.classList.add('admin-row');
+      tr.dataset.agentId = a.id;
+
+      const nameTd = document.createElement('td');
+      nameTd.textContent = a.id;
+      tr.appendChild(nameTd);
+
+      const adminTd = document.createElement('td');
+      adminTd.textContent = a.isAdmin ? '✓' : '—';
+      tr.appendChild(adminTd);
+
+      tr.appendChild(numberCell('xp', a.xp ?? 0));
+      tr.appendChild(numberCell('lvl', a.lvl ?? 1));
+      // Abwärtskompatibel: alte Dokumente hatten das Feld "materialzellen" (Tippfehler).
+      const mzValue = (a.materiezellen !== undefined) ? a.materiezellen : (a.materialzellen ?? 0);
+      tr.appendChild(numberCell('credits', a.credits ?? 0, 'input-credits'));
+      tr.appendChild(numberCell('materiezellen', mzValue, 'input-mz'));
+
+      const lastSeenTd = document.createElement('td');
+      lastSeenTd.textContent = a.lastSeen || '—';
+      lastSeenTd.style.fontSize = '0.85em';
+      lastSeenTd.style.opacity = '0.7';
+      tr.appendChild(lastSeenTd);
+
+      const actionTd = document.createElement('td');
+      const btnWrap = document.createElement('div');
+      btnWrap.className = 'row-btns';
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'row-btn';
+      saveBtn.textContent = '💾';
+      saveBtn.title = 'Speichern';
+      saveBtn.onclick = () => saveRow(a.id, tr);
+      btnWrap.appendChild(saveBtn);
+      actionTd.appendChild(btnWrap);
+      tr.appendChild(actionTd);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  function numberCell(field, value, extraClass) {
+    const td = document.createElement('td');
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = value;
+    input.dataset.field = field;
+    if (extraClass) input.classList.add(extraClass);
+    td.appendChild(input);
+    return td;
+  }
+
+  async function saveRow(agentId, tr) {
+    const getVal = (field) => Number(tr.querySelector(`input[data-field="${field}"]`).value) || 0;
+    const xp = getVal('xp'), lvl = getVal('lvl'), credits = getVal('credits'), materiezellen = getVal('materiezellen');
+
+    try {
+      // Credits/Materiezellen sind fusioniert: es gibt nur noch EINEN Wert pro Agent,
+      // gespeichert im kanonischen Profil-Dokument "agenten" (nicht mehr zusätzlich in
+      // "Agent - Base" - das enthält nur noch Raum-/Grid-Daten).
+      await window.setDoc(window.doc(window.db, "agenten", agentId), {
+        xp, lvl, credits, materiezellen
+      }, { merge: true });
+
+      tr.classList.remove('save-flash');
+      void tr.offsetWidth; // reflow, damit die Animation erneut abspielt
+      tr.classList.add('save-flash');
+    } catch (e) {
+      console.error('Speicherfehler (agenten/' + agentId + '):', e);
+      alert('Speichern fehlgeschlagen für ' + agentId + ': ' + e.message +
+        '\n\nHäufigste Ursache: Dein eigenes Admin-Profil-Dokument (agenten/' + (currentAdminName ? window.agentSlug(currentAdminName) : '<dein-name>') +
+        ') hat "isAdmin" nicht auf true gesetzt, oder die Firestore-Regeln wurden noch nicht (neu) veröffentlicht.');
+    }
+  }
+
+  // --- Karte ---
+  function initMap() {
+    if (leafletMap) return;
+    leafletMap = L.map('map', { worldCopyJump: true }).setView([20, 10], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap-Mitwirkende',
+      className: 'map-tiles-dark'
+    }).addTo(leafletMap);
+  }
+
+  let mapMarkers = [];
+  function plotMap() {
+    if (!leafletMap) return;
+    mapMarkers.forEach(m => leafletMap.removeLayer(m));
+    mapMarkers = [];
+
+    agentsCache.forEach(a => {
+      if (typeof a.lat === 'number' && typeof a.lon === 'number' && (a.lat !== 0 || a.lon !== 0)) {
+        const marker = L.circleMarker([a.lat, a.lon], {
+          radius: 7, color: a.isAdmin ? '#ff8800' : '#00ffcc',
+          fillColor: a.isAdmin ? '#ff8800' : '#00ffcc', fillOpacity: 0.6, weight: 2
+        }).addTo(leafletMap);
+        marker.bindPopup(
+          `<b>${escapeHtml(a.id)}</b><br>${escapeHtml(a.agentOrigin || 'Unbekannt')}<br>` +
+          `<span style="opacity:.7;font-size:.85em;">Letzter Login: ${escapeHtml(a.lastSeen || '—')}</span>`
+        );
+        mapMarkers.push(marker);
+      }
+    });
+  }
+
+  // --- Passwort-Verwaltung (Cloud Function, siehe functions/index.js) ---
+  window.requestPasswordReset = async function() {
+    const name = document.getElementById('pw-agent-name').value.trim();
+    const pass = document.getElementById('pw-new-value').value;
+    const statusEl = document.getElementById('pw-status');
+    statusEl.style.color = 'var(--neon)';
+    statusEl.innerText = 'Sende Anfrage...';
+
+    if (!name || !pass || pass.length < 6) {
+      statusEl.style.color = 'var(--crit)';
+      statusEl.innerText = 'Agenten-ID und ein Passwort mit min. 6 Zeichen erforderlich.';
+      return;
+    }
+
+    try {
+      const call = window.fbHttpsCallable(window.functions, 'adminResetPassword');
+      const result = await call({ targetAgentName: name, newPassword: pass });
+      statusEl.style.color = '#00ff66';
+      statusEl.innerText = 'Passwort erfolgreich gesetzt für ' + name + '.';
+      console.log(result.data);
+    } catch (e) {
+      statusEl.style.color = 'var(--crit)';
+      statusEl.innerText = 'Fehlgeschlagen: ' + (e.message || e.code || 'Cloud Function nicht erreichbar/nicht deployed.');
+    }
+  };
+</script>
+</body>
+</html>
