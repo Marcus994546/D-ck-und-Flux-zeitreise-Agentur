@@ -153,10 +153,13 @@ body > *:not(.top-level) {
     }
 
     #reboot-layer {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        position: fixed; top: -8%; left: -8%; width: 116%; height: 116%;
         background: #000 !important; z-index: 30000; display: none;
         flex-direction: column; justify-content: center; align-items: center;
         color: #f44; font-family: monospace; text-align: center;
+        /* Übergröße + negativer Rand, damit die skew/scale/translate-Transformation der
+           Flacker-Animation (.flicker-active) niemals einen Rand freigibt, hinter dem
+           der Seiten-Hintergrund (Startbild) sichtbar würde. */
     }
     #reboot-bar-container { width: 60%; height: 4px; background: rgba(255,255,255,0.1); border: 1px solid #fff; display: none; margin-top: 20px; position: relative; overflow: hidden; }
     #reboot-bar-fill { width: 0%; height: 100%; background: #fff; position: absolute; left: 0; transition: width 0.4s ease-out; }

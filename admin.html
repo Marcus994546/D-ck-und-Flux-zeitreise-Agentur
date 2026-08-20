@@ -108,7 +108,7 @@
     <h1>⚙ ADMIN-TERMINAL</h1>
     <div class="sub">Dück &amp; Flux Zeitreiseagentur — Lokales Verwaltungs-Werkzeug</div>
   </div>
-  <button id="logout-btn" class="btn" style="display:none;" onclick="doLogout()">ABMELDEN</button>
+  <button id="logout-btn" class="btn" style="display:none;" onclick="doLogout()">ZURÜCK</button>
 </header>
 
 <main>
@@ -283,9 +283,10 @@
     }
   };
 
-  window.doLogout = async function() {
-    await window.fbSignOut(window.auth);
-    // Zurück zur Spiel-Startseite statt nur die Admin-Login-Maske neu zu laden.
+  window.doLogout = function() {
+    // WICHTIG: Kein fbSignOut() mehr hier - die Firebase-Auth-Session ist dieselbe wie im
+    // Hauptspiel (gleicher Ursprung), ein Sign-Out hier hätte auch dort abgemeldet. Dieser
+    // Button navigiert nur zurück zur Spiel-Startseite, die Sitzung bleibt aktiv.
     window.location.href = 'index.html';
   };
 
