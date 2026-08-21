@@ -2477,6 +2477,75 @@ window.f_showDescription = function(withVoice) {
     let gpsTargetLng = 0;
     let gpsArmed = false;
     let gpsTargetReady = false;
+    let gpsHeading = null;
+    let gpsSmoothHeading = null;
+    let gpsOrientationHandler = null;
+
+    // Peilung (Bearing) vom aktuellen Standort zum Missionsziel, in Grad (0=Nord, im Uhrzeigersinn).
+    function calcBearing(lat1, lng1, lat2, lng2) {
+        const toRad = d => d * Math.PI / 180;
+        const y = Math.sin(toRad(lng2 - lng1)) * Math.cos(toRad(lat2));
+        const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                  Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lng2 - lng1));
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    function updateCompass() {
+        const dial = document.querySelector('#gps-compass .compass-dial');
+        const needle = document.querySelector('#gps-compass .compass-needle');
+        if (!dial || !needle) return;
+        const heading = gpsSmoothHeading || 0;
+        // Zifferblatt (N/O/S/W) dreht sich mit dem Gerät mit, damit "N" immer wirklich Richtung
+        // Norden zeigt. Die Nadel bekommt zusätzlich die Peilung zum Ziel aufaddiert - dadurch
+        // zeigt sie unabhängig von der eigenen Drehung immer korrekt zum Zielpunkt.
+        dial.style.transform = 'rotate(' + (-heading) + 'deg)';
+        if (gpsTargetReady) {
+            const bearing = calcBearing(gpsLastLat, gpsLastLng, gpsTargetLat, gpsTargetLng);
+            needle.style.transform = 'rotate(' + bearing + 'deg)';
+            needle.style.opacity = '1';
+        } else {
+            needle.style.opacity = '0.3';
+        }
+    }
+
+    function startGpsOrientation() {
+        gpsOrientationHandler = (e) => {
+            let heading = null;
+            if (typeof e.webkitCompassHeading === 'number') heading = e.webkitCompassHeading;
+            else if (e.alpha !== null && e.alpha !== undefined) heading = 360 - e.alpha;
+            if (heading !== null) {
+                if (gpsSmoothHeading === null) gpsSmoothHeading = heading;
+                else {
+                    // Kürzeste Drehrichtung interpolieren (sonst Sprung bei Nord-Übergang 359°->0°).
+                    let diff = ((heading - gpsSmoothHeading + 540) % 360) - 180;
+                    gpsSmoothHeading = (gpsSmoothHeading + diff * 0.2 + 360) % 360;
+                }
+                updateCompass();
+            }
+        };
+        if (typeof DeviceOrientationEvent !== 'undefined') {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                // Läuft innerhalb des echten Klicks auf den Missionsstart - erforderlich, damit
+                // iOS die Berechtigung überhaupt gewährt (siehe AR-Kamera-Fix weiter unten).
+                DeviceOrientationEvent.requestPermission().then((s) => {
+                    if (s === 'granted') window.addEventListener('deviceorientation', gpsOrientationHandler);
+                }).catch(() => { window.addEventListener('deviceorientationabsolute', gpsOrientationHandler); });
+            } else {
+                window.addEventListener('deviceorientation', gpsOrientationHandler);
+            }
+        }
+    }
+
+    function stopGpsOrientation() {
+        if (gpsOrientationHandler) {
+            window.removeEventListener('deviceorientation', gpsOrientationHandler);
+            window.removeEventListener('deviceorientationabsolute', gpsOrientationHandler);
+            gpsOrientationHandler = null;
+        }
+        gpsSmoothHeading = null;
+    }
+
+    let gpsLastLat = 0, gpsLastLng = 0;
 
     // --- Anomalie-Optik: Land -> Farbe, Postleitzahl -> Animations-Variante ---
     window.currentAnomalyCountryCode = 'xx';
@@ -2539,6 +2608,7 @@ window.f_showDescription = function(withVoice) {
 
         const overlay = document.getElementById('gps-mission-overlay');
         overlay.style.display = 'flex';
+        startGpsOrientation();
         document.getElementById('gps-distance').innerText = '--- m';
         document.getElementById('gps-status').innerText = 'Suche GPS-Signal...';
         gpsArmed = false;
@@ -2552,6 +2622,7 @@ window.f_showDescription = function(withVoice) {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
                 const acc = pos.coords.accuracy || 0;
+                gpsLastLat = lat; gpsLastLng = lng;
 
                 if (!gpsPlayerMarker) {
                     gpsPlayerMarker = L.marker([lat, lng], { icon: L.divIcon({ className: 'gps-player-marker', iconSize: [16,16], iconAnchor: [8,8] }) }).addTo(gpsMap);
@@ -2566,6 +2637,7 @@ window.f_showDescription = function(withVoice) {
                     const dist = haversine(lat, lng, gpsTargetLat, gpsTargetLng);
                     document.getElementById('gps-distance').innerText = dist < 1000 ? Math.round(dist) + ' m' : (dist/1000).toFixed(2) + ' km';
                     document.getElementById('gps-status').innerText = 'GPS-Genauigkeit: ±' + Math.round(acc) + ' m';
+                    updateCompass();
 
                     if (dist <= 10 && !gpsArmed) {
                         gpsArmed = true;
@@ -2580,6 +2652,7 @@ window.f_showDescription = function(withVoice) {
                             const gpsOverlay = document.getElementById('gps-mission-overlay');
                             if (gpsOverlay) gpsOverlay.style.display = 'none';
                             if (gpsMap) { gpsMap.remove(); gpsMap = null; gpsPlayerMarker = null; gpsTargetReady = false; }
+                            stopGpsOrientation();
 
                             const popup = document.getElementById('radar-arrival-popup');
                             if (popup) popup.style.display = 'flex';
@@ -2663,6 +2736,7 @@ window.f_showDescription = function(withVoice) {
     function closeGpsOverlay() {
         document.getElementById('gps-mission-overlay').style.display = 'none';
         stopGpsTracking();
+        stopGpsOrientation();
         if (gpsMap) { gpsMap.remove(); gpsMap = null; gpsPlayerMarker = null; gpsTargetReady = false; }
     }
 

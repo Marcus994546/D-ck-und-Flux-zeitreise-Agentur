@@ -1218,3 +1218,35 @@
 }
 .bunker-rider::before { width: 8px; height: 8px; left: 2px; }
 .bunker-rider::after { width: 6px; height: 12px; left: 3px; top: 9px; animation: none; }
+
+/* ============================================================
+   ZENTRALE: Epische Eingangs-Tür (immer da, kein Kauf nötig).
+   Steht an der linken Wand - konzeptionell der Ort, durch den
+   in der Aktive-Basis-Ansicht die Männchen die Basis betreten/
+   verlassen.
+   ============================================================ */
+@keyframes tor-portal-shimmer {
+    0%, 100% { background-position: 0% 50%; filter: brightness(1) hue-rotate(0deg); }
+    50% { background-position: 100% 50%; filter: brightness(1.3) hue-rotate(25deg); }
+}
+@keyframes tor-ring-pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+    50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.9; }
+}
+.item-zentrale-tor { width: 70px; height: 220px; position: absolute; z-index: 1; }
+.tor-rahmen {
+    width: 70px; height: 200px; border-radius: 35px 35px 8px 8px;
+    background: linear-gradient(180deg, #2a1a4a, #150a2a);
+    border: 3px solid #a0f; box-shadow: 0 0 30px rgba(160,0,255,0.5), inset 0 0 20px rgba(160,0,255,0.3);
+    display: flex; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box;
+}
+.tor-portal {
+    width: 44px; height: 170px; border-radius: 22px 22px 4px 4px; position: relative; overflow: hidden;
+    background: linear-gradient(120deg, #0ff, #a0f, #0ff, #f0f);
+    background-size: 300% 300%;
+    animation: tor-portal-shimmer 4s ease-in-out infinite;
+    box-shadow: inset 0 0 25px rgba(255,255,255,0.5);
+}
+.tor-ring { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; transform: translate(-50%,-50%); animation: tor-ring-pulse 2.5s ease-in-out infinite; }
+.tor-ring.tor-r2 { width: 18px; height: 18px; animation-delay: 1.2s; }
+.tor-schwelle { width: 80px; height: 10px; background: linear-gradient(180deg, #222, #000); border: 1px solid #444; border-radius: 3px; margin-top: -3px; box-shadow: 0 6px 12px rgba(0,0,0,0.8); }

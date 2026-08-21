@@ -375,6 +375,7 @@
         window._roomAreaTargetId = 'room-area';
 
         bunkerActive = true;
+        if (bunkerCycleTimeout) { clearTimeout(bunkerCycleTimeout); bunkerCycleTimeout = null; }
         bunkerCycleTimeout = setTimeout(bunkerCycleStep, 600);
     }
 
@@ -595,6 +596,7 @@
     window.reloadFurniture = (type) => {
         clearRoom();
         if (type === 'ZENTRALE') {
+            spawnFurniture('zentrale_tor', 1); // Immer da, von Anfang an - kein Kauf nötig.
             if (inventory.desk > 0) spawnFurniture('desk', 1);
             if (inventory.lampe > 0) spawnFurniture('lampe', 1);
             if (inventory.kartograph > 0) spawnFurniture('kartograph', 1);
@@ -642,7 +644,11 @@
         item.classList.add('fixed-item');
         
         // ZENTRALE
-        if (type === 'desk') {
+        if (type === 'zentrale_tor') {
+            item.classList.add('item-zentrale-tor');
+            item.innerHTML = '<div class="tor-rahmen"><div class="tor-portal"><div class="tor-ring"></div><div class="tor-ring tor-r2"></div></div></div><div class="tor-schwelle"></div>';
+            item.style.left = '2px'; item.style.bottom = '0'; item.style.zIndex = '1';
+        } else if (type === 'desk') {
             item.classList.add('item-desk');
             item.innerHTML = '<div class="desk-console"><div class="desk-led" style="background:#f44;box-shadow:0 0 5px #f44;"></div><div class="desk-led" style="background:#ffcc00;box-shadow:0 0 5px #ffcc00;"></div><div class="desk-led" style="background:#0f8;box-shadow:0 0 5px #0f8;"></div></div>';
             item.style.left = '40%'; item.style.transform = 'translateX(-50%)'; item.style.bottom = '70px';
