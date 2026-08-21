@@ -481,32 +481,15 @@
 
 
     /* --- Globale Raum-Glitches (Wird vom Pulsgenerator ausgelöst) --- */
-    @keyframes room-emp-glitch {
-        0%, 93%, 100% { filter: none; transform: translate(0,0) skewX(0); }
-        94% { filter: invert(1) contrast(2) hue-rotate(180deg); transform: translate(-5px, 5px) skewX(10deg); background-color: rgba(0, 255, 255, 0.2); }
-        96% { filter: brightness(4) contrast(1.5); transform: translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
-        98% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: translate(0px, 2px) skewX(2deg); }
-    }
+    /* @keyframes room-emp-glitch steht jetzt gebündelt weiter unten (Abschnitt "FIX 1"),
+       neu getaktet auf den Lade-/Impuls-Zyklus des Kondensators. */
     .emp-active {
         animation: room-emp-glitch 5s infinite linear;
     }
 
-    /* --- Omega-Speicherkern (Pulsgenerator) Redesign --- */
-    @keyframes kern-charge-pulse {
-        0% { filter: hue-rotate(0deg); box-shadow: 0 0 10px #0055ff, inset 0 0 10px #0055ff; transform: scale(1) translateY(0); }
-        80% { filter: hue-rotate(45deg); box-shadow: 0 0 60px #00aaff, inset 0 0 40px #00aaff; transform: scale(1.02) translateY(-2px); }
-        90% { filter: hue-rotate(90deg); box-shadow: 0 0 80px #0ff, inset 0 0 60px #0ff; transform: scale(1.05) translateY(-5px); }
-        95% { filter: brightness(5); box-shadow: 0 0 150px #fff, 0 0 200px #0ff, inset 0 0 150px #fff; transform: scale(1.15) translateY(-2px); background: #fff; }
-        98% { filter: none; box-shadow: 0 0 5px #0055ff; transform: scale(0.95) translateY(2px); }
-        100% { filter: none; box-shadow: 0 0 10px #0055ff; transform: scale(1) translateY(0); }
-    }
-    @keyframes ring-accel {
-        0% { transform: rotateX(75deg) rotateZ(0deg); opacity: 0.5; border-color: rgba(0, 255, 255, 0.5); }
-        85% { transform: rotateX(75deg) rotateZ(720deg); opacity: 1; border-color: #fff; box-shadow: 0 0 20px #fff; }
-        95% { transform: rotateX(75deg) rotateZ(1440deg) scale(1.8); opacity: 0; border-width: 10px; }
-        100% { transform: rotateX(75deg) rotateZ(0deg); opacity: 0; }
-    }
-
+    /* Keyframes für kern-charge-pulse/ring-accel/room-emp-glitch stehen jetzt gebündelt
+       weiter unten in der Datei (Abschnitt "FIX 1: IMPULS-KONDENSATOR") - hier nur noch
+       die Basis-Positionierung der Elemente selbst. */
     .item-impuls-kern { width: 140px; height: 140px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; justify-content: center; align-items: flex-end; }
     .kern-gehaeuse { width: 70px; height: 110px; background: rgba(0, 10, 30, 0.9); border: 2px solid #0055ff; border-radius: 10px 10px 40px 40px; position: relative; z-index: 2; animation: kern-charge-pulse 5s infinite ease-in-out; }
     .kern-base { width: 110px; height: 25px; background: linear-gradient(180deg, #111, #000); border: 2px solid #444; border-bottom: 4px solid #00aaff; border-radius: 8px 8px 3px 3px; position: absolute; bottom: 0; z-index: 3; box-shadow: 0 15px 25px rgba(0,0,0,0.9); }
