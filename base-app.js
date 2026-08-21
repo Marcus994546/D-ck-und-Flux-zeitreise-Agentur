@@ -1501,7 +1501,9 @@ window.spawnFurniture = (type, count) => {
         item.classList.add('item-impuls-kern');
         item.innerHTML = `
             <div class="kern-ring-accel"></div>
-            <div class="kern-gehaeuse"></div>
+            <div class="kern-gehaeuse">
+                <div class="kern-charge-core"><div class="kern-charge-fill-inner"></div></div>
+            </div>
             <div class="kern-base"></div>`;
         
         // Fügt dem gesamten Raum den Glitch-Effekt hinzu, sobald der Kern gebaut wird
@@ -1850,7 +1852,7 @@ window.spawnFurniture = (type, count) => {
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'materie_rekon') {
         item.classList.add('item-materie-rekon');
-        item.innerHTML = '<div class="mr-ring"></div><div class="mr-ring r2"></div><div class="mr-cylinder"></div><div class="mr-base"></div>';
+        item.innerHTML = '<div class="mr-cylinder"><div class="mr-ring"></div><div class="mr-ring r2"></div></div><div class="mr-base"></div>';
     } else if (type === 'singularitaet_komp') {
         item.classList.add('item-singularitaet-komp');
         item.innerHTML = '<div class="sk-anvil"><div class="sk-led"></div></div><div class="sk-base"></div>';
@@ -2545,6 +2547,314 @@ window.spawnFurniture = (type, count) => {
     } else if (type === 'lampe_dekont') {
         item.classList.add('item-lampe-dekont');
         item.innerHTML = '<div class="ld-array"></div>';
+    }
+    room.appendChild(item);
+};
+
+
+// === ANOMALIE-DETEKTOR ===
+const menuAnomalie = `
+<div id="menu-anomalie-detektor" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ TEMPORAL-WARNLEUCHTE ]</b><p style="font-size:0.7em; color:#aaa;">Rotierendes violettes Warnlicht bei Riss-Detektion.</p><button id="btn-buy-lampe-anomalie" onclick="window.buyFurniture('lampe_anomalie', 140)" class="btn-upgrade-exec">KAUFEN (140 C)</button></div>
+    <div class="upgrade-card"><b>[ HOLO-ZEITRISS-SCANNER ]</b><p style="font-size:0.7em; color:#aaa;">Rotierende Radarschale mit Hologramm-Sweep.</p><button id="btn-buy-risz-scanner" onclick="window.buyFurniture('risz_scanner', 950)" class="btn-upgrade-exec">KAUFEN (950 C)</button></div>
+    <div class="upgrade-card"><b>[ CHRONON-RESONANZKRISTALL ]</b><p style="font-size:0.7em; color:#aaa;">Schwebender Kristall mit umlaufenden Chronon-Partikeln.</p><button id="btn-buy-chronon-kristall" onclick="window.buyFurniture('chronon_kristall', 3000)" class="btn-upgrade-exec" style="background:#c0f; color:#000; border:1px solid #c0f;">KAUFEN (3000 C + 40 MZ)</button></div>
+</div>`;
+if (!document.getElementById('menu-anomalie-detektor')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuAnomalie);
+
+const itemsAnomalie = ['lampe_anomalie','risz_scanner','chronon_kristall'];
+itemsAnomalie.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_AD = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_AD === 'function') oldUpdateAusbau_AD();
+    if (typeof inventory === 'undefined') return;
+    const limitsAD = { lampe_anomalie:1, risz_scanner:1, chronon_kristall:1 };
+    for (let k in limitsAD) {
+        let max = limitsAD[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_AD = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_AD) oldOpenRoom_AD(type);
+    const m = document.getElementById('menu-anomalie-detektor');
+    if (m) m.style.display = (type === 'ANOMALIE-DETEKTOR') ? 'flex' : 'none';
+    if (type === 'ANOMALIE-DETEKTOR') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_AD = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsAnomalie.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'chronon_kristall'); let costC = cost; let costMZ = isMZ ? 40 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 3000 C + 40 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_AD) oldBuyFurniture_AD(type, cost);
+};
+
+const oldReload_AD = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_AD) oldReload_AD(type);
+    if (type === 'ANOMALIE-DETEKTOR') {
+        if (inventory.lampe_anomalie > 0) window.spawnFurniture('lampe_anomalie', 1);
+        if (inventory.risz_scanner > 0) window.spawnFurniture('risz_scanner', 1);
+        if (inventory.chronon_kristall > 0) window.spawnFurniture('chronon_kristall', 1);
+    }
+};
+
+const oldSpawn_AD = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_AD) oldSpawn_AD(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsAnomalie.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'lampe_anomalie') {
+        item.classList.add('item-lampe-anomalie');
+        item.innerHTML = '<div class="la-mount"></div><div class="la-beacon"></div><div class="la-sweep"></div>';
+    } else if (type === 'risz_scanner') {
+        item.classList.add('item-risz-scanner');
+        item.innerHTML = '<div class="rs-dish"><div class="rs-sweep-line"></div><div class="rs-blip"></div></div><div class="rs-stand"></div>';
+    } else if (type === 'chronon_kristall') {
+        item.classList.add('item-chronon-kristall');
+        item.innerHTML = '<div class="ck-crystal"></div><div class="ck-orbit"><div class="ck-particle"></div></div><div class="ck-orbit ck-o2"><div class="ck-particle"></div></div><div class="ck-glow-base"></div>';
+    }
+    room.appendChild(item);
+};
+
+
+// === KRYO-DEPOT ===
+const menuKryo = `
+<div id="menu-kryo-depot" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ FROSTLICHT-LEUCHTE ]</b><p style="font-size:0.7em; color:#aaa;">Eisblau flackernde Deckenlampe.</p><button id="btn-buy-lampe-kryo" onclick="window.buyFurniture('lampe_kryo', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button></div>
+    <div class="upgrade-card"><b>[ KRYO-STASIS-KAPSEL ]</b><p style="font-size:0.7em; color:#aaa;">Vertikale Kapsel, Nebel wallt am Glas.</p><button id="btn-buy-kryo-kapsel" onclick="window.buyFurniture('kryo_kapsel', 1100)" class="btn-upgrade-exec">KAUFEN (1100 C)</button></div>
+    <div class="upgrade-card"><b>[ PERMAFROST-PROBENREGAL ]</b><p style="font-size:0.7em; color:#aaa;">Regal mit gefrorenen, leuchtenden Proben.</p><button id="btn-buy-probenregal" onclick="window.buyFurniture('probenregal', 2900)" class="btn-upgrade-exec" style="background:#0ff; color:#000; border:1px solid #0ff;">KAUFEN (2900 C + 35 MZ)</button></div>
+</div>`;
+if (!document.getElementById('menu-kryo-depot')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuKryo);
+
+const itemsKryo = ['lampe_kryo','kryo_kapsel','probenregal'];
+itemsKryo.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_KD = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_KD === 'function') oldUpdateAusbau_KD();
+    if (typeof inventory === 'undefined') return;
+    const limitsKD = { lampe_kryo:1, kryo_kapsel:1, probenregal:1 };
+    for (let k in limitsKD) {
+        let max = limitsKD[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_KD = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_KD) oldOpenRoom_KD(type);
+    const m = document.getElementById('menu-kryo-depot');
+    if (m) m.style.display = (type === 'KRYO-DEPOT') ? 'flex' : 'none';
+    if (type === 'KRYO-DEPOT') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_KD = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsKryo.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'probenregal'); let costC = cost; let costMZ = isMZ ? 35 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 2900 C + 35 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_KD) oldBuyFurniture_KD(type, cost);
+};
+
+const oldReload_KD = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_KD) oldReload_KD(type);
+    if (type === 'KRYO-DEPOT') {
+        if (inventory.lampe_kryo > 0) window.spawnFurniture('lampe_kryo', 1);
+        if (inventory.kryo_kapsel > 0) window.spawnFurniture('kryo_kapsel', 1);
+        if (inventory.probenregal > 0) window.spawnFurniture('probenregal', 1);
+    }
+};
+
+const oldSpawn_KD = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_KD) oldSpawn_KD(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsKryo.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'lampe_kryo') {
+        item.classList.add('item-lampe-kryo');
+        item.innerHTML = '<div class="lk-mount"></div><div class="lk-bulb"></div><div class="lk-frost-mist"></div>';
+    } else if (type === 'kryo_kapsel') {
+        item.classList.add('item-kryo-kapsel');
+        item.innerHTML = '<div class="kk-pod"><div class="kk-silhouette"></div><div class="kk-mist"></div><div class="kk-mist m2"></div><div class="kk-frost-glass"></div></div><div class="kk-base"></div>';
+    } else if (type === 'probenregal') {
+        item.classList.add('item-probenregal');
+        item.innerHTML = '<div class="pr-shelf"><div class="pr-sample"></div><div class="pr-sample"></div><div class="pr-sample"></div></div><div class="pr-shelf pr-s2"><div class="pr-sample"></div><div class="pr-sample"></div></div><div class="pr-drip"></div>';
+    }
+    room.appendChild(item);
+};
+
+
+// === FUNK-RELAIS "HORIZONT" ===
+const menuFunkRelais = `
+<div id="menu-funk-relais-horizont" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ SIGNAL-BLINKLICHT ]</b><p style="font-size:0.7em; color:#aaa;">Rot-weiß blinkendes Antennenlicht.</p><button id="btn-buy-lampe-funk" onclick="window.buyFurniture('lampe_funk', 130)" class="btn-upgrade-exec">KAUFEN (130 C)</button></div>
+    <div class="upgrade-card"><b>[ PARABOL-ANTENNE 'HORIZONT' ]</b><p style="font-size:0.7em; color:#aaa;">Rotierende Schüssel, sendet Signalwellen aus.</p><button id="btn-buy-parabol-antenne" onclick="window.buyFurniture('parabol_antenne', 1000)" class="btn-upgrade-exec">KAUFEN (1000 C)</button></div>
+    <div class="upgrade-card"><b>[ SUBRAUM-FREQUENZMODULATOR ]</b><p style="font-size:0.7em; color:#aaa;">Konsole mit lebendiger Wellenform-Anzeige.</p><button id="btn-buy-subraum-modulator" onclick="window.buyFurniture('subraum_modulator', 3100)" class="btn-upgrade-exec" style="background:#08f; color:#000; border:1px solid #08f;">KAUFEN (3100 C + 45 MZ)</button></div>
+</div>`;
+if (!document.getElementById('menu-funk-relais-horizont')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuFunkRelais);
+
+const itemsFunkRelais = ['lampe_funk','parabol_antenne','subraum_modulator'];
+itemsFunkRelais.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_FR = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_FR === 'function') oldUpdateAusbau_FR();
+    if (typeof inventory === 'undefined') return;
+    const limitsFR = { lampe_funk:1, parabol_antenne:1, subraum_modulator:1 };
+    for (let k in limitsFR) {
+        let max = limitsFR[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_FR = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_FR) oldOpenRoom_FR(type);
+    const m = document.getElementById('menu-funk-relais-horizont');
+    if (m) m.style.display = (type === 'FUNK-RELAIS "HORIZONT"') ? 'flex' : 'none';
+    if (type === 'FUNK-RELAIS "HORIZONT"') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_FR = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsFunkRelais.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'subraum_modulator'); let costC = cost; let costMZ = isMZ ? 45 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 3100 C + 45 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_FR) oldBuyFurniture_FR(type, cost);
+};
+
+const oldReload_FR = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_FR) oldReload_FR(type);
+    if (type === 'FUNK-RELAIS "HORIZONT"') {
+        if (inventory.lampe_funk > 0) window.spawnFurniture('lampe_funk', 1);
+        if (inventory.parabol_antenne > 0) window.spawnFurniture('parabol_antenne', 1);
+        if (inventory.subraum_modulator > 0) window.spawnFurniture('subraum_modulator', 1);
+    }
+};
+
+const oldSpawn_FR = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_FR) oldSpawn_FR(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsFunkRelais.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'lampe_funk') {
+        item.classList.add('item-lampe-funk');
+        item.innerHTML = '<div class="lf-pole"></div><div class="lf-light"></div>';
+    } else if (type === 'parabol_antenne') {
+        item.classList.add('item-parabol-antenne');
+        item.innerHTML = '<div class="pa-dish"><div class="pa-emitter"></div></div><div class="pa-wave"></div><div class="pa-wave w2"></div><div class="pa-stand"></div>';
+    } else if (type === 'subraum_modulator') {
+        item.classList.add('item-subraum-modulator');
+        item.innerHTML = '<div class="sm-console"><div class="sm-wave-bar"></div><div class="sm-wave-bar"></div><div class="sm-wave-bar"></div><div class="sm-wave-bar"></div><div class="sm-wave-bar"></div><div class="sm-screen-glow"></div></div>';
+    }
+    room.appendChild(item);
+};
+
+
+// === KI-KERNMATRIX ===
+const menuKiKern = `
+<div id="menu-ki-kernmatrix" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card"><b>[ NEURONALE STATUSLAMPE ]</b><p style="font-size:0.7em; color:#aaa;">Farbwechselnde Lampe im Takt neuronaler Pulse.</p><button id="btn-buy-lampe-ki" onclick="window.buyFurniture('lampe_ki', 160)" class="btn-upgrade-exec">KAUFEN (160 C)</button></div>
+    <div class="upgrade-card"><b>[ HOLO-NEURONALES NETZ ]</b><p style="font-size:0.7em; color:#aaa;">Schwebende Drahtgitter-Kugel mit pulsierenden Knoten.</p><button id="btn-buy-holo-netz" onclick="window.buyFurniture('holo_netz', 1050)" class="btn-upgrade-exec">KAUFEN (1050 C)</button></div>
+    <div class="upgrade-card"><b>[ QUANTEN-DATENKERN ]</b><p style="font-size:0.7em; color:#aaa;">Rotierender Zylinder mit durchlaufenden Datenströmen.</p><button id="btn-buy-daten-kern" onclick="window.buyFurniture('daten_kern', 3300)" class="btn-upgrade-exec" style="background:#0fc; color:#000; border:1px solid #0fc;">KAUFEN (3300 C + 50 MZ)</button></div>
+</div>`;
+if (!document.getElementById('menu-ki-kernmatrix')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuKiKern);
+
+const itemsKiKern = ['lampe_ki','holo_netz','daten_kern'];
+itemsKiKern.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+
+const oldUpdateAusbau_KI = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_KI === 'function') oldUpdateAusbau_KI();
+    if (typeof inventory === 'undefined') return;
+    const limitsKI = { lampe_ki:1, holo_netz:1, daten_kern:1 };
+    for (let k in limitsKI) {
+        let max = limitsKI[k], current = parseInt(inventory[k])||0;
+        let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
+        if (btn) {
+            if (current >= max) { btn.innerText="[ INSTALLIERT ]"; btn.disabled=true; btn.style.setProperty('background','#333','important'); btn.style.setProperty('color','#555','important'); btn.style.setProperty('border','1px solid #333','important'); btn.style.setProperty('cursor','not-allowed','important'); }
+            else { btn.disabled=false; btn.style.background=""; btn.style.color=""; btn.style.border=""; btn.style.cursor="pointer"; }
+        }
+    }
+};
+
+const oldOpenRoom_KI = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_KI) oldOpenRoom_KI(type);
+    const m = document.getElementById('menu-ki-kernmatrix');
+    if (m) m.style.display = (type === 'KI-KERNMATRIX') ? 'flex' : 'none';
+    if (type === 'KI-KERNMATRIX') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+};
+
+const oldBuyFurniture_KI = window.buyFurniture;
+window.buyFurniture = async (type, cost) => {
+    if (itemsKiKern.includes(type)) {
+        let current = parseInt(inventory[type])||0; if (current >= 1) return;
+        let isMZ = (type === 'daten_kern'); let costC = cost; let costMZ = isMZ ? 50 : 0;
+        if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
+            gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
+            if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
+            inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
+        } else { let msg = isMZ ? "System: 3300 C + 50 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+    } else if (oldBuyFurniture_KI) oldBuyFurniture_KI(type, cost);
+};
+
+const oldReload_KI = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_KI) oldReload_KI(type);
+    if (type === 'KI-KERNMATRIX') {
+        if (inventory.lampe_ki > 0) window.spawnFurniture('lampe_ki', 1);
+        if (inventory.holo_netz > 0) window.spawnFurniture('holo_netz', 1);
+        if (inventory.daten_kern > 0) window.spawnFurniture('daten_kern', 1);
+    }
+};
+
+const oldSpawn_KI = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_KI) oldSpawn_KI(type, count);
+    const room = document.getElementById('room-area'); if (!room || !itemsKiKern.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'lampe_ki') {
+        item.classList.add('item-lampe-ki');
+        item.innerHTML = '<div class="lki-mount"></div><div class="lki-bulb"></div>';
+    } else if (type === 'holo_netz') {
+        item.classList.add('item-holo-netz');
+        item.innerHTML = '<div class="hn-sphere"><div class="hn-ring"></div><div class="hn-ring hn-r2"></div><div class="hn-ring hn-r3"></div><div class="hn-node"></div><div class="hn-node hn-n2"></div><div class="hn-node hn-n3"></div></div><div class="hn-stand"></div>';
+    } else if (type === 'daten_kern') {
+        item.classList.add('item-daten-kern');
+        item.innerHTML = '<div class="dk-cylinder"><div class="dk-stream"></div><div class="dk-stream ds2"></div><div class="dk-stream ds3"></div><div class="dk-core-glow"></div></div><div class="dk-base"></div>';
     }
     room.appendChild(item);
 };

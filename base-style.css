@@ -711,8 +711,6 @@
 
 .item-materie-rekon { width:80px; height:150px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
 .mr-cylinder { width:50px; height:100px; background:rgba(0,10,30,0.9); border:2px solid #0af; border-radius:25px 25px 5px 5px; position:relative; z-index:2; animation:quantum-glow 2s infinite; box-shadow:0 0 20px #0af; }
-.mr-ring { position:absolute; width:70px; height:70px; border:2px solid #0ff; border-radius:50%; left:50%; bottom:60px; transform:translateX(-50%); animation:ring-rotate-steady 4s linear infinite; z-index:1; }
-.mr-ring.r2 { width:55px; height:55px; border-style:dashed; border-color:#0af; animation-duration:3s; animation-direction:reverse; z-index:3; bottom:75px; }
 .mr-base { width:70px; height:20px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
 
 .item-singularitaet-komp { width:60px; height:80px; position:absolute; z-index:2; bottom:70px; left:50px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
@@ -955,3 +953,171 @@
 
 .item-lampe-dekont { width:50px; height:20px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
 .ld-array { width:100%; height:15px; background:radial-gradient(ellipse,#c0f,rgba(200,0,255,0.3)); border:1px solid #c0f; border-radius:4px; animation:uv-flicker-charge 4s infinite; box-shadow:0 0 20px #c0f; }
+
+/* ============================================================
+   FIX 1: IMPULS-KONDENSATOR - echte Lade-Sequenz vor dem Impuls
+   Ablauf innerhalb EINES 5s-Zyklus: 0-70% Aufladen (sichtbar,
+   stetig wachsend) -> 70-85% Impuls wird ausgelöst (Ring schießt
+   nach außen) -> 82-90% Raum blitzt auf -> Rest: Abklingen.
+   ============================================================ */
+@keyframes kern-charge-pulse {
+    0%   { filter: brightness(0.85) hue-rotate(0deg); box-shadow: 0 0 6px #0055ff, inset 0 0 6px #0033aa; transform: scale(1); }
+    40%  { filter: brightness(1.05) hue-rotate(10deg); box-shadow: 0 0 25px #0077ee, inset 0 0 18px #0066dd; transform: scale(1.01); }
+    68%  { filter: brightness(1.5) hue-rotate(35deg); box-shadow: 0 0 70px #00bbff, inset 0 0 55px #00ccff; transform: scale(1.05) translateY(-2px); }
+    76%  { filter: brightness(2.3) hue-rotate(60deg); box-shadow: 0 0 110px #0ff, inset 0 0 90px #0ff; transform: scale(1.1) translateY(-4px); }
+    82%  { filter: brightness(5); box-shadow: 0 0 180px #fff, 0 0 240px #0ff, inset 0 0 160px #fff; transform: scale(1.2) translateY(-2px); background: #fff; }
+    88%  { filter: brightness(0.9); box-shadow: 0 0 8px #0055ff; transform: scale(0.94) translateY(2px); }
+    100% { filter: brightness(0.85) hue-rotate(0deg); box-shadow: 0 0 6px #0055ff, inset 0 0 6px #0033aa; transform: scale(1); }
+}
+@keyframes kern-charge-fill {
+    0%   { height: 8%; opacity: 0.35; background: #0055ff; }
+    68%  { height: 92%; opacity: 0.9; background: #00ccff; }
+    82%  { height: 100%; opacity: 1; background: #fff; }
+    88%  { height: 12%; opacity: 0.4; background: #0055ff; }
+    100% { height: 8%; opacity: 0.35; background: #0055ff; }
+}
+@keyframes ring-accel {
+    0%, 55% { transform: rotateX(75deg) rotateZ(0deg) scale(1); opacity: 0.35; border-color: rgba(0,255,255,0.4); }
+    76%  { transform: rotateX(75deg) rotateZ(620deg) scale(1); opacity: 0.95; border-color: #fff; box-shadow: 0 0 25px #fff; }
+    88%  { transform: rotateX(75deg) rotateZ(1240deg) scale(2.1); opacity: 0; border-width: 10px; }
+    100% { transform: rotateX(75deg) rotateZ(0deg) scale(1); opacity: 0; }
+}
+/* Raum-Blitz jetzt exakt auf den Impuls-Moment (82-88%) statt 93-98% getaktet */
+@keyframes room-emp-glitch {
+    0%, 78%, 100% { filter: none; transform: translate(0,0) skewX(0); }
+    81% { filter: invert(1) contrast(2) hue-rotate(180deg); transform: translate(-5px, 5px) skewX(10deg); background-color: rgba(0, 255, 255, 0.2); }
+    85% { filter: brightness(4) contrast(1.5); transform: translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
+    90% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: translate(0px, 2px) skewX(2deg); }
+}
+.kern-charge-core { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 90%; border-radius: 20px; overflow: hidden; display: flex; align-items: flex-end; background: rgba(0,0,0,0.6); border: 1px solid rgba(0,150,255,0.4); }
+.kern-charge-fill-inner { width: 100%; animation: kern-charge-fill 5s infinite ease-in-out; box-shadow: 0 0 15px #00ccff; }
+
+/* ============================================================
+   FIX 2: RENAISSANCE-GENERATOR - Ringe direkt auf dem Zylinder
+   zentriert (Kinder von .mr-cylinder statt lose Geschwister),
+   damit die Zentrierung nie von der Außen-Layout abhängt.
+   ============================================================ */
+.mr-cylinder { position: relative; }
+.mr-ring { position: absolute; top: 50%; left: 50%; width: 90px; height: 90px; border: 2px solid #0ff; border-radius: 50%; transform: translate(-50%, -50%) rotateX(70deg); animation: ring-rotate-steady 4s linear infinite; pointer-events: none; }
+.mr-ring.r2 { width: 118px; height: 118px; border-style: dashed; border-color: #0af; animation-duration: 3s; animation-direction: reverse; }
+
+/* ============================================================
+   RAUM-AUSBAU: ANOMALIE-DETEKTOR (violett, Zeitriss-Thematik)
+   ============================================================ */
+@keyframes la-beacon-spin { 0% { transform: translateX(-50%) rotate(0deg); } 100% { transform: translateX(-50%) rotate(360deg); } }
+@keyframes la-beam-sweep { 0% { opacity: 0; transform: translateX(-50%) rotate(0deg); } 45% { opacity: 0.8; } 55% { opacity: 0; } 100% { opacity: 0; transform: translateX(-50%) rotate(360deg); } }
+.item-lampe-anomalie { width: 60px; height: 24px; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); }
+.la-mount { width: 30px; height: 6px; background: #222; border: 1px solid #444; border-radius: 2px; margin: 0 auto; }
+.la-beacon { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle, #e0aaff, #a020f0); box-shadow: 0 0 25px #c0f, 0 0 45px #a0f; margin: 2px auto 0; animation: la-beacon-spin 2.5s linear infinite; position: relative; }
+.la-sweep { position: absolute; top: 12px; left: 50%; width: 2px; height: 60px; background: linear-gradient(180deg, #c0f, transparent); transform-origin: top center; animation: la-beam-sweep 2.5s linear infinite; }
+
+@keyframes rs-dish-rotate { 0% { transform: rotateX(55deg) rotateZ(0deg); } 100% { transform: rotateX(55deg) rotateZ(360deg); } }
+@keyframes rs-sweep-spin { 0% { transform: rotate(0deg); opacity: 0.9; } 100% { transform: rotate(360deg); opacity: 0.9; } }
+@keyframes rs-blip-ping { 0%, 100% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 20px #c0f; } }
+.item-risz-scanner { width: 120px; height: 140px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.rs-dish { width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle, rgba(160,0,255,0.15), rgba(20,0,40,0.9) 70%); border: 2px solid #a0f; box-shadow: 0 0 30px rgba(160,0,255,0.5), inset 0 0 40px rgba(160,0,255,0.3); position: relative; animation: rs-dish-rotate 8s linear infinite; overflow: hidden; }
+.rs-sweep-line { position: absolute; top: 50%; left: 50%; width: 50%; height: 2px; background: linear-gradient(90deg, #e0aaff, transparent); transform-origin: left center; animation: rs-sweep-spin 2s linear infinite; }
+.rs-blip { position: absolute; top: 30%; left: 65%; width: 8px; height: 8px; border-radius: 50%; background: #f0f; animation: rs-blip-ping 2s infinite; }
+.rs-stand { width: 20px; height: 40px; background: linear-gradient(180deg, #222, #000); border: 1px solid #444; margin-top: -5px; }
+
+@keyframes ck-crystal-float { 0%, 100% { transform: translateX(-50%) translateY(0) rotate(-3deg); } 50% { transform: translateX(-50%) translateY(-12px) rotate(3deg); } }
+@keyframes ck-crystal-glow { 0%, 100% { filter: brightness(1) hue-rotate(0deg); } 50% { filter: brightness(1.6) hue-rotate(30deg); } }
+@keyframes ck-orbit-spin { 0% { transform: translateX(-50%) rotateX(70deg) rotateZ(0deg); } 100% { transform: translateX(-50%) rotateX(70deg) rotateZ(360deg); } }
+.item-chronon-kristall { width: 100px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); }
+.ck-crystal { position: absolute; left: 50%; bottom: 70px; width: 34px; height: 50px; background: linear-gradient(160deg, #e8c0ff, #8020c0 60%, #400a70); clip-path: polygon(50% 0%, 100% 30%, 80% 100%, 20% 100%, 0% 30%); transform: translateX(-50%); animation: ck-crystal-float 4s ease-in-out infinite, ck-crystal-glow 2.5s ease-in-out infinite; box-shadow: 0 0 40px #c0f; }
+.ck-orbit { position: absolute; left: 50%; bottom: 95px; width: 90px; height: 90px; animation: ck-orbit-spin 6s linear infinite; }
+.ck-orbit.ck-o2 { width: 65px; height: 65px; animation-duration: 4s; animation-direction: reverse; }
+.ck-particle { position: absolute; top: 0; left: 50%; width: 6px; height: 6px; border-radius: 50%; background: #f0f; box-shadow: 0 0 12px #f0f; transform: translateX(-50%); }
+.ck-glow-base { width: 90px; height: 20px; background: radial-gradient(ellipse, rgba(160,0,255,0.5), transparent); position: absolute; bottom: 60px; left: 5px; filter: blur(4px); }
+
+/* ============================================================
+   RAUM-AUSBAU: KRYO-DEPOT (Frost/Eisblau-Thematik)
+   ============================================================ */
+@keyframes lk-flicker { 0%, 89%, 100% { opacity: 1; } 90% { opacity: 0.3; } 91% { opacity: 1; } 92% { opacity: 0.5; } 93% { opacity: 1; } }
+@keyframes lk-mist-rise { 0% { opacity: 0; transform: translateX(-50%) translateY(0) scale(0.8); } 50% { opacity: 0.5; } 100% { opacity: 0; transform: translateX(-50%) translateY(-25px) scale(1.4); } }
+.item-lampe-kryo { width: 50px; height: 40px; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); }
+.lk-mount { width: 24px; height: 6px; background: #223; margin: 0 auto; border-radius: 2px; }
+.lk-bulb { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle, #eaffff, #6adfff); box-shadow: 0 0 30px #6adfff, 0 0 55px #3ac0ff; margin: 2px auto 0; animation: lk-flicker 4s infinite; }
+.lk-frost-mist { position: absolute; top: 20px; left: 50%; width: 30px; height: 20px; background: radial-gradient(ellipse, rgba(160,230,255,0.6), transparent); animation: lk-mist-rise 3s infinite; }
+
+@keyframes kk-mist-drift { 0% { opacity: 0.2; transform: translateY(0); } 50% { opacity: 0.7; } 100% { opacity: 0.2; transform: translateY(-15px); } }
+@keyframes kk-silhouette-pulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.35; } }
+@keyframes kk-glass-shimmer { 0%, 100% { background-position: -100% 0; } 100% { background-position: 200% 0; } }
+.item-kryo-kapsel { width: 80px; height: 170px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.kk-pod { width: 60px; height: 140px; border-radius: 30px 30px 15px 15px; background: linear-gradient(180deg, rgba(120,220,255,0.15), rgba(10,30,50,0.9)); border: 3px solid #6adfff; box-shadow: 0 0 35px rgba(106,223,255,0.5), inset 0 0 30px rgba(106,223,255,0.2); position: relative; overflow: hidden; }
+.kk-silhouette { position: absolute; bottom: 15px; left: 50%; width: 26px; height: 70px; background: #0a1a2a; border-radius: 13px 13px 8px 8px; transform: translateX(-50%); animation: kk-silhouette-pulse 5s ease-in-out infinite; }
+.kk-mist { position: absolute; bottom: 0; left: 10%; width: 80%; height: 30px; background: radial-gradient(ellipse, rgba(200,240,255,0.5), transparent); animation: kk-mist-drift 3s infinite; }
+.kk-mist.m2 { animation-delay: 1.5s; left: 30%; }
+.kk-frost-glass { position: absolute; inset: 0; background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%); background-size: 300% 100%; animation: kk-glass-shimmer 5s linear infinite; }
+.kk-base { width: 74px; height: 18px; background: linear-gradient(180deg, #222, #000); border: 2px solid #345; border-radius: 4px; box-shadow: 0 10px 20px rgba(0,0,0,0.8); }
+
+@keyframes pr-sample-glow { 0%, 100% { box-shadow: 0 0 10px #6adfff; } 50% { box-shadow: 0 0 22px #a0f0ff; } }
+@keyframes pr-drip-fall { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(30px); } }
+.item-probenregal { width: 130px; height: 110px; position: absolute; z-index: 2; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.pr-shelf { width: 130px; height: 14px; background: linear-gradient(180deg, #223, #001); border: 1px solid #345; border-radius: 3px; display: flex; align-items: center; justify-content: space-evenly; box-shadow: 0 8px 15px rgba(0,0,0,0.6); }
+.pr-sample { width: 16px; height: 22px; background: linear-gradient(180deg, rgba(160,240,255,0.5), rgba(60,180,255,0.3)); border: 1px solid #6adfff; border-radius: 3px; transform: translateY(-18px); animation: pr-sample-glow 3s ease-in-out infinite; }
+.pr-sample:nth-child(2) { animation-delay: 1s; }
+.pr-sample:nth-child(3) { animation-delay: 2s; }
+.pr-drip { position: absolute; top: 20px; left: 40%; width: 3px; height: 6px; background: #6adfff; border-radius: 50%; animation: pr-drip-fall 2.5s infinite; }
+
+/* ============================================================
+   RAUM-AUSBAU: FUNK-RELAIS "HORIZONT" (Navy/Signal-Thematik)
+   ============================================================ */
+@keyframes lf-blink-alt { 0%, 49% { background: #f44; box-shadow: 0 0 20px #f44; } 50%, 99% { background: #eee; box-shadow: 0 0 20px #eee; } 100% { background: #f44; } }
+.item-lampe-funk { width: 20px; height: 60px; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); }
+.lf-pole { width: 4px; height: 45px; background: #333; margin: 0 auto; }
+.lf-light { width: 12px; height: 12px; border-radius: 50%; margin: 0 auto; animation: lf-blink-alt 1s steps(1) infinite; }
+
+@keyframes pa-dish-scan { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+@keyframes pa-emitter-pulse { 0%, 100% { box-shadow: 0 0 10px #08f; } 50% { box-shadow: 0 0 30px #4af; } }
+@keyframes pa-wave-out { 0% { transform: translateX(-50%) scale(0.3); opacity: 0.9; border-color: #08f; } 100% { transform: translateX(-50%) scale(2.4); opacity: 0; border-color: #4af; } }
+.item-parabol-antenne { width: 110px; height: 150px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.pa-dish { width: 90px; height: 60px; border-radius: 50% 50% 45% 45% / 100% 100% 30% 30%; background: linear-gradient(180deg, #223 30%, #445); border: 2px solid #4af; box-shadow: 0 0 25px rgba(60,140,255,0.5); position: relative; animation: pa-dish-scan 7s linear infinite; transform-style: preserve-3d; }
+.pa-emitter { position: absolute; top: -10px; left: 50%; width: 8px; height: 8px; border-radius: 50%; background: #4af; transform: translateX(-50%); animation: pa-emitter-pulse 1.5s ease-in-out infinite; }
+.pa-wave { position: absolute; top: -5px; left: 50%; width: 40px; height: 40px; border: 2px solid #4af; border-radius: 50%; transform: translateX(-50%); animation: pa-wave-out 2.2s ease-out infinite; }
+.pa-wave.w2 { animation-delay: 1.1s; }
+.pa-stand { width: 16px; height: 45px; background: linear-gradient(180deg, #222, #000); border: 1px solid #345; margin-top: -8px; }
+
+@keyframes sm-bar-bounce { 0%, 100% { height: 15%; } 50% { height: 85%; } }
+@keyframes sm-screen-flicker { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+.item-subraum-modulator { width: 110px; height: 90px; position: absolute; z-index: 2; left: 50%; bottom: 70px; transform: translateX(-50%); }
+.sm-console { width: 110px; height: 70px; background: linear-gradient(180deg, #101830, #050810); border: 2px solid #08f; border-radius: 6px; box-shadow: 0 0 25px rgba(0,140,255,0.4), 0 15px 20px rgba(0,0,0,0.8); position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 5px; padding: 10px; box-sizing: border-box; }
+.sm-wave-bar { width: 8px; background: linear-gradient(180deg, #4af, #08f); border-radius: 2px 2px 0 0; animation: sm-bar-bounce 1.2s ease-in-out infinite; box-shadow: 0 0 8px #4af; }
+.sm-wave-bar:nth-child(1) { animation-delay: 0s; }
+.sm-wave-bar:nth-child(2) { animation-delay: 0.15s; }
+.sm-wave-bar:nth-child(3) { animation-delay: 0.3s; }
+.sm-wave-bar:nth-child(4) { animation-delay: 0.45s; }
+.sm-wave-bar:nth-child(5) { animation-delay: 0.6s; }
+.sm-screen-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(60,150,255,0.25), transparent 70%); animation: sm-screen-flicker 2s ease-in-out infinite; pointer-events: none; }
+
+/* ============================================================
+   RAUM-AUSBAU: KI-KERNMATRIX (Neural/Datenkern-Thematik)
+   ============================================================ */
+@keyframes lki-hue-cycle { 0% { background: #0ff; box-shadow: 0 0 25px #0ff; } 33% { background: #f0f; box-shadow: 0 0 25px #f0f; } 66% { background: #0f8; box-shadow: 0 0 25px #0f8; } 100% { background: #0ff; box-shadow: 0 0 25px #0ff; } }
+.item-lampe-ki { width: 50px; height: 30px; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); }
+.lki-mount { width: 22px; height: 6px; background: #222; margin: 0 auto; border-radius: 2px; }
+.lki-bulb { width: 18px; height: 18px; border-radius: 50%; margin: 2px auto 0; animation: lki-hue-cycle 4s linear infinite; }
+
+@keyframes hn-sphere-float { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-10px); } }
+@keyframes hn-ring-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes hn-node-pulse { 0%, 100% { opacity: 0.4; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.3); box-shadow: 0 0 18px #0ff; } }
+.item-holo-netz { width: 110px; height: 150px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); }
+.hn-sphere { position: absolute; left: 50%; bottom: 90px; width: 90px; height: 90px; transform: translateX(-50%); animation: hn-sphere-float 3.5s ease-in-out infinite; }
+.hn-ring { position: absolute; inset: 0; border: 1px solid rgba(0,255,255,0.5); border-radius: 50%; animation: hn-ring-spin 6s linear infinite; }
+.hn-ring.hn-r2 { transform: rotateX(65deg); animation-duration: 4s; animation-direction: reverse; border-color: rgba(255,0,255,0.4); }
+.hn-ring.hn-r3 { transform: rotateY(65deg); animation-duration: 5s; border-color: rgba(0,255,150,0.4); }
+.hn-node { position: absolute; top: 10%; left: 50%; width: 8px; height: 8px; border-radius: 50%; background: #0ff; transform: translateX(-50%); animation: hn-node-pulse 2s ease-in-out infinite; }
+.hn-node.hn-n2 { top: 70%; left: 20%; animation-delay: 0.6s; background: #f0f; }
+.hn-node.hn-n3 { top: 60%; left: 78%; animation-delay: 1.2s; background: #0f8; }
+.hn-stand { width: 18px; height: 60px; background: linear-gradient(180deg, #222, #000); border: 1px solid #345; margin: 0 auto; box-shadow: 0 10px 20px rgba(0,0,0,0.8); }
+
+@keyframes dk-cyl-rotate { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+@keyframes dk-stream-flow { 0% { background-position: 0 200%; } 100% { background-position: 0 -200%; } }
+@keyframes dk-core-pulse { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+.item-daten-kern { width: 90px; height: 150px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.dk-cylinder { width: 60px; height: 120px; border-radius: 30px; background: rgba(0,20,20,0.9); border: 2px solid #0fc; box-shadow: 0 0 35px rgba(0,255,200,0.4), inset 0 0 25px rgba(0,255,200,0.2); position: relative; overflow: hidden; animation: dk-cyl-rotate 10s linear infinite; transform-style: preserve-3d; }
+.dk-stream { position: absolute; left: 15%; top: 0; width: 2px; height: 100%; background: repeating-linear-gradient(180deg, #0fc 0px, #0fc 4px, transparent 4px, transparent 10px); animation: dk-stream-flow 1.5s linear infinite; opacity: 0.8; }
+.dk-stream.ds2 { left: 48%; animation-duration: 1.1s; }
+.dk-stream.ds3 { left: 80%; animation-duration: 1.8s; }
+.dk-core-glow { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle, #fff, #0fc, transparent); transform: translate(-50%, -50%); animation: dk-core-pulse 2s ease-in-out infinite; }
+.dk-base { width: 74px; height: 18px; background: linear-gradient(180deg, #222, #000); border: 2px solid #345; border-radius: 4px; box-shadow: 0 10px 20px rgba(0,0,0,0.8); margin-top: -3px; }
