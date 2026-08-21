@@ -2,8 +2,18 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Dück & Flux Zeitreiseagentur | Zentral-Terminal</title>
+
+    <!-- iOS: Element.requestFullscreen() wird von Safari auf dem iPhone NICHT unterstützt -
+         das ist eine Plattform-Einschränkung von Apple, kein Bug hier. Der einzige Weg zu
+         echtem, chrome-losem Vollbild auf iOS ist "Zum Home-Bildschirm hinzufügen" + Start
+         über das Icon dort - das aktivieren diese drei Tags. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Dück & Flux">
+    <meta name="theme-color" content="#000000">
 
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -163,7 +173,7 @@
     <div id="gps-map-container"><div id="gps-map"></div></div>
 </div>
 
-<div id="radar-arrival-popup" class="top-level" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:9998;display:none;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:20px;box-sizing:border-box;font-family:'Orbitron',monospace;">
+<div id="radar-arrival-popup" class="top-level" style="position:fixed;top:0;left:0;width:100vw;height: 100vh; height: 100dvh;background:rgba(0,0,0,0.9);z-index:9998;display:none;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:20px;box-sizing:border-box;font-family:'Orbitron',monospace;">
     <div style="font-size:2.5em;margin-bottom:10px;">📡</div>
     <h2 style="color:#0f8;text-shadow:0 0 15px #0f8;margin:0 0 10px 0;">ANOMALIE GEORTET</h2>
     <p id="radar-arrival-info" style="color:#aaa;font-size:0.85em;max-width:320px;margin-bottom:30px;">Du befindest dich am Zielort. Aktiviere den Radar-Scanner, um die Anomalie sichtbar zu machen.</p>
@@ -196,7 +206,7 @@
 
 
 
-<div id="loot-popup" class="top-level" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:50000;display:none;justify-content:center;align-items:center;">
+<div id="loot-popup" class="top-level" style="position:fixed;top:0;left:0;width:100vw;height: 100vh; height: 100dvh;background:rgba(0,0,0,0.85);z-index:50000;display:none;justify-content:center;align-items:center;">
     <div id="loot-popup-content" style="background:#0a0a0a;border:1px solid #0f8;border-radius:10px;padding:25px;max-width:320px;width:90%;font-family:'Orbitron',monospace;"></div>
 </div>
 

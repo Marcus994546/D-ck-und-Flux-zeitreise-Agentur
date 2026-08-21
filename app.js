@@ -1263,6 +1263,7 @@ window.startGlobalNotification = function() {
 
 window.activateFullscreen = function() {
     const elem = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) return; // schon aktiv
     if (elem.requestFullscreen) {
         elem.requestFullscreen().catch(err => console.log(err));
     } else if (elem.webkitRequestFullscreen) {
@@ -1271,6 +1272,17 @@ window.activateFullscreen = function() {
         elem.msRequestFullscreen();
     }
 };
+
+// Vollbild bei JEDER Nutzer-Interaktion erneut anfordern, nicht nur einmalig beim Login.
+// WICHTIG (bitte lesen): Safari auf dem iPhone unterstützt die Fullscreen-API für normale
+// Webseiten grundsätzlich NICHT - das ist eine Plattform-Einschränkung von Apple, kein Bug
+// in diesem Code. Dieser Re-Trigger hilft auf Android/Desktop zuverlässig. Für echtes,
+// dauerhaftes Vollbild auf dem iPhone: Seite über "Teilen -> Zum Home-Bildschirm" hinzufügen
+// und darüber starten - das öffnet die Seite chrome-los im eigenen Fenster (dank der
+// apple-mobile-web-app-capable-Meta-Tags im <head>).
+document.addEventListener('click', () => {
+    if (window.isAgentVerified) window.activateFullscreen();
+}, { capture: true });
 
 
 /* ==== next block ==== */
@@ -2698,6 +2710,10 @@ window.f_showDescription = function(withVoice) {
     let arAshCtx = null;
     let arAshParticles = [];
     let arAshRaf = null;
+    let arAshPanX = 0;
+    let arAshPanY = 0;
+    let arAshLastAlpha = null;
+    let arAshLastBeta = null;
     let arSmoothAlpha = null;
     let arSmoothBeta = null;
     let arAnomalyCanvas = null;
@@ -2712,15 +2728,21 @@ window.f_showDescription = function(withVoice) {
         arAshCtx = arAshCanvas.getContext('2d');
         resizeAshCanvas();
         arAshParticles = [];
-        for (let i = 0; i < 80; i++) {
+        arAshPanX = 0; arAshPanY = 0;
+        arAshLastAlpha = null; arAshLastBeta = null;
+        for (let i = 0; i < 90; i++) {
+            const isEmber = Math.random() < 0.08;
+            const tintBase = 160 + Math.floor(Math.random() * 40);
             arAshParticles.push({
                 x: Math.random() * arAshCanvas.width,
                 y: Math.random() * arAshCanvas.height,
                 vy: 0.5 + Math.random() * 1.5,
                 vx: (Math.random() - 0.5) * 0.3,
-                size: 1 + Math.random() * 2.5,
+                size: isEmber ? (0.8 + Math.random() * 1.3) : (1 + Math.random() * 2.5),
                 opacity: 0.3 + Math.random() * 0.4,
-                drift: Math.random() * Math.PI * 2
+                drift: Math.random() * Math.PI * 2,
+                isEmber: isEmber,
+                tint: 'rgba(' + tintBase + ',' + Math.floor(tintBase * 0.65) + ',' + Math.floor(tintBase * 0.4) + ',1)'
             });
         }
         animateAshRain();
@@ -2734,8 +2756,23 @@ window.f_showDescription = function(withVoice) {
 
     function animateAshRain() {
         if (!arAshCtx || !arAshCanvas) return;
+
+        // Parallaxe: Ascheregen schwenkt leicht mit, wenn sich die Kamera dreht/neigt - dadurch
+        // wirken die Partikel wie echte Objekte im Raum statt wie ein starres Bildschirm-Overlay.
+        if (arAshLastAlpha !== null) {
+            let dAlpha = arCurrentAlpha - arAshLastAlpha;
+            if (dAlpha > 180) dAlpha -= 360;
+            if (dAlpha < -180) dAlpha += 360;
+            arAshPanX -= dAlpha * 2.5;
+            arAshPanY += (arCurrentBeta - arAshLastBeta) * 2.5;
+        }
+        arAshLastAlpha = arCurrentAlpha;
+        arAshLastBeta = arCurrentBeta;
+
         arAshCtx.clearRect(0, 0, arAshCanvas.width, arAshCanvas.height);
-        arAshCtx.fillStyle = 'rgba(180, 120, 80, 1)';
+        arAshCtx.save();
+        arAshCtx.translate(arAshPanX % arAshCanvas.width, arAshPanY % arAshCanvas.height);
+
         arAshParticles.forEach(function(p) {
             p.drift += 0.02;
             p.y += p.vy;
@@ -2746,12 +2783,31 @@ window.f_showDescription = function(withVoice) {
             }
             if (p.x < -10) p.x = arAshCanvas.width + 10;
             if (p.x > arAshCanvas.width + 10) p.x = -10;
+
             arAshCtx.globalAlpha = p.opacity;
+            if (p.isEmber) {
+                arAshCtx.fillStyle = 'rgba(255, 130, 40, 1)';
+                arAshCtx.shadowColor = 'rgba(255, 110, 20, 0.85)';
+                arAshCtx.shadowBlur = 5;
+            } else {
+                arAshCtx.fillStyle = p.tint;
+                arAshCtx.shadowBlur = 0;
+            }
+            // Leicht elliptisch entlang der Fallrichtung gedreht - wirkt wie eine
+            // Bewegungsunschärfe einer fallenden Ascheflocke statt wie ein reiner Punkt.
+            const fallAngle = Math.atan2(p.vy, p.vx || 0.0001);
+            arAshCtx.save();
+            arAshCtx.translate(p.x, p.y);
+            arAshCtx.rotate(fallAngle);
             arAshCtx.beginPath();
-            arAshCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            arAshCtx.ellipse(0, 0, p.size, p.size * 2, 0, 0, Math.PI * 2);
             arAshCtx.fill();
+            arAshCtx.restore();
         });
+
+        arAshCtx.shadowBlur = 0;
         arAshCtx.globalAlpha = 1;
+        arAshCtx.restore();
         arAshRaf = requestAnimationFrame(animateAshRain);
     }
 
@@ -2814,45 +2870,55 @@ window.f_showDescription = function(withVoice) {
         // Variante steuert Drehrichtung (2 von 4 Varianten laufen rückwärts) + Armzahl (2 oder 3).
         const spinDir = (window.currentAnomalyVariant % 2 === 0) ? 1 : -1;
         const armCount = 2 + window.currentAnomalyArmJitter + (window.currentAnomalyVariant >= 2 ? 1 : 0);
+        // Länglich wie die Milchstraße statt kreisrund: die X-Achse wird deutlich stärker
+        // gestreckt als die Y-Achse gestaucht, das ergibt ein schmales, langes Band.
+        const stretchX = 2.1;
+        const stretchY = 0.42;
 
         ctx.clearRect(0, 0, w, h);
 
         ctx.save();
         ctx.translate(cx, cy);
-        ctx.rotate(arNebulaTime * 0.1 * spinDir);
+        ctx.rotate(arNebulaTime * 0.06 * spinDir);
+        ctx.scale(stretchX, stretchY);
         const bgGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 100);
-        bgGrad.addColorStop(0, 'hsla(' + baseHue + ', 70%, 45%, 0.5)');
-        bgGrad.addColorStop(0.3, 'hsla(' + baseHue + ', 65%, 30%, 0.3)');
-        bgGrad.addColorStop(0.6, 'hsla(' + baseHue + ', 60%, 18%, 0.15)');
+        bgGrad.addColorStop(0, 'hsla(' + baseHue + ', 95%, 60%, 0.65)');
+        bgGrad.addColorStop(0.3, 'hsla(' + baseHue + ', 90%, 45%, 0.4)');
+        bgGrad.addColorStop(0.6, 'hsla(' + baseHue + ', 85%, 30%, 0.2)');
         bgGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(-w/2, -h/2, w, h);
         ctx.restore();
 
-        const armGrad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 95);
-        armGrad.addColorStop(0, 'rgba(255, 240, 220, 0.4)');
-        armGrad.addColorStop(0.15, 'hsla(' + baseHue + ', 80%, 75%, 0.3)');
-        armGrad.addColorStop(0.4, 'hsla(' + baseHue + ', 70%, 55%, 0.15)');
-        armGrad.addColorStop(0.7, 'hsla(' + baseHue + ', 60%, 30%, 0.08)');
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(stretchX, stretchY);
+        const armGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, 95);
+        armGrad.addColorStop(0, 'rgba(255, 250, 235, 0.55)');
+        armGrad.addColorStop(0.15, 'hsla(' + baseHue + ', 95%, 80%, 0.4)');
+        armGrad.addColorStop(0.4, 'hsla(' + baseHue + ', 90%, 60%, 0.22)');
+        armGrad.addColorStop(0.7, 'hsla(' + baseHue + ', 80%, 35%, 0.1)');
         armGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = armGrad;
         ctx.beginPath();
-        ctx.arc(cx, cy, 95, 0, Math.PI * 2);
+        ctx.arc(0, 0, 95, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
 
         for (let arm = 0; arm < armCount; arm++) {
             ctx.save();
             ctx.translate(cx, cy);
+            ctx.scale(stretchX, stretchY);
             ctx.rotate(arNebulaTime * 0.15 * spinDir + arm * (2 * Math.PI / armCount));
             for (let t = 0; t < 1; t += 0.01) {
                 const r = t * 90;
                 const a = t * 4.5;
                 const x = Math.cos(a) * r;
                 const y = Math.sin(a) * r * 0.4;
-                const alpha = (1 - t) * 0.4;
-                const size = (1 - t) * 3 + 0.5;
+                const alpha = (1 - t) * 0.5;
+                const size = (1 - t) * 3.5 + 0.6;
                 const hue = (baseHue + t * 60) % 360;
-                ctx.fillStyle = 'hsla(' + hue + ', 80%, ' + (50 + t * 20) + '%, ' + alpha + ')';
+                ctx.fillStyle = 'hsla(' + hue + ', 95%, ' + (55 + t * 20) + '%, ' + alpha + ')';
                 ctx.beginPath();
                 ctx.arc(x, y, size, 0, Math.PI * 2);
                 ctx.fill();
@@ -2930,7 +2996,9 @@ window.f_showDescription = function(withVoice) {
         arHasOrientation = false;
 
         arAnomalyAzimuth = Math.random() * 360;
-        arAnomalyElevation = (Math.random() - 0.5) * 40;
+        // Elevation nach oben verschoben, damit die Anomalie eher "am Himmel" erscheint statt
+        // auf Augenhöhe (10°-45° über dem Horizont statt zufällig auch nach unten).
+        arAnomalyElevation = 10 + Math.random() * 35;
 
         const video = document.getElementById('ar-video');
         if (video) { video.srcObject = null; video.style.filter = 'sepia(0.6) hue-rotate(-30deg) saturate(2) contrast(1.5) brightness(0.7)'; }

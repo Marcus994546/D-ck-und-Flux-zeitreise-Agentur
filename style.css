@@ -174,7 +174,7 @@ body > *:not(.top-level) {
     }
     .flicker-active { animation: digital-energy-surge 0.1s infinite !important; }
 
-    #emp-flare { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #fff; z-index: 40000; display: none; pointer-events: none; }
+    #emp-flare { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: #fff; z-index: 40000; display: none; pointer-events: none; }
 
 
 /* ==== next block ==== */
@@ -231,7 +231,7 @@ body > *:not(.top-level) {
 
 
     #startup-layer {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
         background: #000; z-index: 50000; 
         display: flex; flex-direction: column; justify-content: center; align-items: center;
         color: #0f8; font-family: monospace; text-align: center;
@@ -327,19 +327,19 @@ body > *:not(.top-level) {
     }
 
     #emp-flash-overlay {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
         pointer-events: none; opacity: 0; display: none;
         background: #ffffff; z-index: 2147483646 !important;
     }
 
     #emp-solid-black {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
         opacity: 1; display: none;
         background: #000000; z-index: 2147483643 !important; pointer-events: auto;
     }
 
     #emp-boot-layer, #blackout-layer {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
         display: none; flex-direction: column; justify-content: center; align-items: center;
         color: #0f8; font-family: monospace; text-align: center;
     }
@@ -396,7 +396,7 @@ body > *:not(.top-level) {
 
 
     #gps-mission-overlay {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
         background: #000; z-index: 60000; display: none;
         flex-direction: column; overflow: hidden;
     }
@@ -426,7 +426,7 @@ body > *:not(.top-level) {
     .gps-player-marker { width: 16px; height: 16px; background: #0f8; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 15px #0f8; }
 
     #ar-mission-overlay {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
         background: #000; z-index: 9999 !important; display: none;
         flex-direction: column; overflow: hidden;
     }
@@ -573,7 +573,7 @@ body > *:not(.top-level) {
     #ar-cancel-btn:active { background: #f44; color: #000; }
 
     #mission-return-anim {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
         background: #000; z-index: 80000; display: none;
         flex-direction: column; justify-content: center; align-items: center;
         color: #0f8; font-family: 'Orbitron', monospace;
