@@ -231,6 +231,12 @@
     }
 
     function renderGrid() {
+        // Absicherung: eine komplett leere baseData würde ein leeres, nicht mehr bedienbares
+        // Gitter ergeben (kein Raum, kein "+"-Button zum Bauen). Zentrale wird notfalls wieder
+        // eingesetzt, statt den Spieler mit einer leeren Basis dastehen zu lassen.
+        if (!Array.isArray(gameState.baseData) || gameState.baseData.length === 0) {
+            gameState.baseData = [{x:2, y:2, type:'ZENTRALE', lvl:1}];
+        }
         const grid = document.getElementById('base-grid'); if(!grid) return;
         grid.innerHTML = '';
         for (let y = 0; y < 5; y++) {
@@ -456,6 +462,9 @@
     // === AUTOMATISCHER CLOUD-SYNCHRONISATOR FÜR BLOCK 2 & BLOCK 3 ===
     let _invCache = { desk: 0, server: 0, kartograph: 0, lampe: 0, regal: 0, lampe_archiv: 0, bett: 0, lampe_quartier: 0 };
     try {
+        // Läuft synchron beim Skript-Start, BEVOR die Auth-Session bestätigt ist - currentAgentName
+        // existiert hier noch nicht. Dient nur als kurzzeitiger Platzhalter, bis loadInventoryFromCloud()
+        // (das die zuverlässige Session nutzt) die echten Daten nachlädt und überschreibt.
         const ag = localStorage.getItem("flux_last_agent") || "";
         const lsData = localStorage.getItem('flux_base_inventory_' + ag);
         if (lsData) _invCache = { ..._invCache, ...JSON.parse(lsData) };
@@ -478,7 +487,7 @@
     });
 
     window.syncInventory = async function() {
-        const ag = localStorage.getItem("flux_last_agent") || "";
+        const ag = currentAgentName || ""; // zuverlässige Auth-Session statt evtl. fehlendem/veraltetem localStorage
         if (!ag) return;
         localStorage.setItem('flux_base_inventory_' + ag, JSON.stringify(inventory));
         const mainPKey = 'flux_agent_' + ag.toLowerCase();
@@ -496,7 +505,7 @@
     };
 
     window.loadInventoryFromCloud = async function() {
-        const ag = localStorage.getItem("flux_last_agent") || "";
+        const ag = currentAgentName || ""; // zuverlässige Auth-Session statt evtl. fehlendem/veraltetem localStorage
         if (!ag || !window.db || !window.getDoc) return;
         try {
             const bRef = window.doc(window.db, "Agent - Base", window.agentSlug(ag));
@@ -889,7 +898,7 @@ window.spawnFurniture = (type, count) => {
                     gameState.materieZellen -= costMZ;
                     document.getElementById('display-mz').innerText = gameState.materieZellen;
                     
-                    const ag = localStorage.getItem("flux_last_agent") || "";
+                    const ag = currentAgentName || ""; // zuverlässige Auth-Session statt evtl. fehlendem/veraltetem localStorage
                     if (ag) {
                         const mainPKey = 'flux_agent_' + ag.toLowerCase();
                         let d = {}; const mainP = localStorage.getItem(mainPKey);
@@ -1069,7 +1078,7 @@ window.spawnFurniture = (type, count) => {
                     gameState.materieZellen -= costMZ;
                     document.getElementById('display-mz').innerText = gameState.materieZellen;
                     
-                    const ag = localStorage.getItem("flux_last_agent") || "";
+                    const ag = currentAgentName || ""; // zuverlässige Auth-Session statt evtl. fehlendem/veraltetem localStorage
                     if (ag) {
                         const mainPKey = 'flux_agent_' + ag.toLowerCase();
                         let d = {}; const mainP = localStorage.getItem(mainPKey);
@@ -1429,7 +1438,7 @@ window.buyFurniture = async (type, cost) => {
                 gameState.materieZellen -= costMZ;
                 document.getElementById('display-mz').innerText = gameState.materieZellen;
                 // Speichern der MZ
-                const ag = localStorage.getItem("flux_last_agent") || "";
+                const ag = currentAgentName || ""; // zuverlässige Auth-Session statt evtl. fehlendem/veraltetem localStorage
                 if (ag) {
                     const mainPKey = 'flux_agent_' + ag.toLowerCase();
                     let d = {}; const mainP = localStorage.getItem(mainPKey);
@@ -1608,7 +1617,7 @@ window.buyFurniture = async (type, cost) => {
                 gameState.materieZellen -= costMZ;
                 document.getElementById('display-mz').innerText = gameState.materieZellen;
                 // Speichern der MZ
-                const ag = localStorage.getItem("flux_last_agent") || "";
+                const ag = currentAgentName || ""; // zuverlässige Auth-Session statt evtl. fehlendem/veraltetem localStorage
                 if (ag) {
                     const mainPKey = 'flux_agent_' + ag.toLowerCase();
                     let d = {}; const mainP = localStorage.getItem(mainPKey);
@@ -1836,7 +1845,7 @@ window.spawnFurniture = (type, count) => {
 
 // === HELPER: Materie-Zellen speichern (für alle neuen Räume) ===
 window._saveMZ = function() {
-    const ag = localStorage.getItem("flux_last_agent") || "";
+    const ag = currentAgentName || ""; // zuverlässige Auth-Session statt evtl. fehlendem/veraltetem localStorage
     if (!ag) return;
     const mainPKey = 'flux_agent_' + ag.toLowerCase();
     let d = {}; const mainP = localStorage.getItem(mainPKey);
