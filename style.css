@@ -595,7 +595,6 @@ body > *:not(.top-level) {
     position: relative; width: 90px; height: 90px; border-radius: 50%;
     background: rgba(0,10,10,0.75); border: 2px solid #0f8;
     box-shadow: 0 0 20px rgba(0,255,136,0.4), inset 0 0 15px rgba(0,255,136,0.15);
-    transition: transform 0.3s ease-out;
 }
 .compass-label {
     position: absolute; color: #0f8; font-family: monospace; font-size: 0.75em; font-weight: bold;

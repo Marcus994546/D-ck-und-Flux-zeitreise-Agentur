@@ -311,6 +311,7 @@
 
     let bunkerFloorsData = [];       // [{type, lvl}] in Anzeige-Reihenfolge
     let bunkerRiders = [];           // aktuell im Aufzug mitfahrende Männchen (DOM-Elemente)
+    let bunkerFloorOccupants = {};   // floorIdx -> [Männchen, die dort auf Abholung warten]
     let bunkerElevatorFloor = 0;     // Stockwerk, an dem der Aufzug gerade steht
     let bunkerLoopTimeout = null;
     let bunkerActive = false;
@@ -335,6 +336,7 @@
         if (!floorsEl) return;
         floorsEl.innerHTML = '';
         bunkerRiders = [];
+        bunkerFloorOccupants = {};
         bunkerElevatorFloor = 0;
 
         const zentrale = gameState.baseData.find(r => r.type === 'ZENTRALE');
@@ -405,49 +407,62 @@
         await bunkerWait(1400); // passend zur CSS-Transition (1.3s) des Aufzugs
     }
 
-    // Eine vollständige Fahrt: Männchen kommt durch die Tür in der Zentrale herein, läuft zum
-    // Aufzug -> Aufzug holt es ab (fährt bei Bedarf erst hoch zur Zentrale) -> bringt es zu
-    // einem zufälligen Raum -> setzt es dort ab -> bleibt dort stehen, bis die nächste Fahrt fällig ist.
+    // Jede Fahrt ist entweder eine Liefer-Fahrt (neues Männchen spawnt an der Zentrale, wird zu
+    // einem zufälligen Raum gebracht) oder - sobald irgendwo wer wartet - eine Abhol-Fahrt
+    // (Aufzug holt ein wartendes Männchen ab und bringt es zurück zur Zentrale, wo es die
+    // Basis wieder verlässt). So bleibt niemand für immer in einem Raum zurück.
     async function bunkerRiderTrip() {
         if (!bunkerActive) return;
         try {
-            const doorFloor = document.getElementById('bunker-room-0');
-            if (doorFloor) {
-                const walker = document.createElement('div');
-                walker.className = 'bunker-figure bunker-walker-to-shaft';
-                doorFloor.appendChild(walker);
-                await bunkerWait(1900); // Laufzeit von der Tür zum Aufzug
-                walker.remove();
-            }
-            if (!bunkerActive) return;
-
-            if (bunkerElevatorFloor !== 0) {
-                await bunkerMoveElevatorTo(0);
-                if (!bunkerActive) return;
-            }
-
+            const waitingFloors = Object.keys(bunkerFloorOccupants)
+                .map(Number)
+                .filter(idx => bunkerFloorOccupants[idx] && bunkerFloorOccupants[idx].length > 0);
+            const doPickup = waitingFloors.length > 0 && Math.random() < 0.5;
             const car = document.getElementById('bunker-elevator-car');
-            if (car) bunkerSpawnRiderInCar(car);
-            await bunkerWait(500);
-            if (!bunkerActive) return;
 
-            const destIdx = bunkerFloorsData.length > 1
-                ? 1 + Math.floor(Math.random() * (bunkerFloorsData.length - 1))
-                : 0;
-            await bunkerMoveElevatorTo(destIdx);
-            if (!bunkerActive) return;
+            if (doPickup) {
+                const srcIdx = waitingFloors[Math.floor(Math.random() * waitingFloors.length)];
+                if (bunkerElevatorFloor !== srcIdx) {
+                    await bunkerMoveElevatorTo(srcIdx);
+                    if (!bunkerActive) return;
+                }
+                const occupants = bunkerFloorOccupants[srcIdx];
+                const leaving = occupants.pop();
+                if (leaving) leaving.remove();
+                if (car) bunkerSpawnRiderInCar(car);
+                await bunkerWait(600);
+                if (!bunkerActive) return;
 
-            if (bunkerRiders.length > 0) {
-                const riderEl = bunkerRiders.pop();
-                riderEl.remove();
-            }
-            const destPreview = document.getElementById('bunker-room-' + destIdx);
-            if (destPreview) {
-                const walker = document.createElement('div');
-                walker.className = 'bunker-figure bunker-walker';
-                walker.style.animationDuration = (5 + Math.random() * 3).toFixed(1) + 's';
-                destPreview.appendChild(walker);
-                setTimeout(() => { try { walker.remove(); } catch(e) {} }, 9000);
+                if (bunkerElevatorFloor !== 0) {
+                    await bunkerMoveElevatorTo(0);
+                    if (!bunkerActive) return;
+                }
+                if (bunkerRiders.length > 0) { const r = bunkerRiders.pop(); r.remove(); } // verlässt die Basis
+            } else {
+                if (bunkerElevatorFloor !== 0) {
+                    await bunkerMoveElevatorTo(0);
+                    if (!bunkerActive) return;
+                }
+                if (car) bunkerSpawnRiderInCar(car); // Männchen spawnt direkt an der Zentrale
+                await bunkerWait(600);
+                if (!bunkerActive) return;
+
+                const destIdx = bunkerFloorsData.length > 1
+                    ? 1 + Math.floor(Math.random() * (bunkerFloorsData.length - 1))
+                    : 0;
+                await bunkerMoveElevatorTo(destIdx);
+                if (!bunkerActive) return;
+
+                if (bunkerRiders.length > 0) { const r = bunkerRiders.pop(); r.remove(); }
+                const destPreview = document.getElementById('bunker-room-' + destIdx);
+                if (destPreview) {
+                    const walker = document.createElement('div');
+                    walker.className = 'bunker-figure bunker-walker';
+                    walker.style.animationDuration = (5 + Math.random() * 3).toFixed(1) + 's';
+                    destPreview.appendChild(walker);
+                    if (!bunkerFloorOccupants[destIdx]) bunkerFloorOccupants[destIdx] = [];
+                    bunkerFloorOccupants[destIdx].push(walker);
+                }
             }
         } catch(e) { console.error('Bunker-Fahrt Fehler:', e); }
 
@@ -609,7 +624,6 @@
     window.reloadFurniture = (type) => {
         clearRoom();
         if (type === 'ZENTRALE') {
-            spawnFurniture('zentrale_tor', 1); // Immer da, von Anfang an - kein Kauf nötig.
             if (inventory.desk > 0) spawnFurniture('desk', 1);
             if (inventory.lampe > 0) spawnFurniture('lampe', 1);
             if (inventory.kartograph > 0) spawnFurniture('kartograph', 1);
@@ -657,12 +671,7 @@
         item.classList.add('fixed-item');
         
         // ZENTRALE
-        if (type === 'zentrale_tor') {
-            item.classList.add('item-zentrale-tor');
-            item.innerHTML = '<div class="tor-rahmen"><div class="tor-portal"><div class="tor-ring"></div><div class="tor-ring tor-r2"></div></div></div><div class="tor-schwelle"></div>';
-            item.style.right = '44px'; item.style.bottom = '70px'; item.style.zIndex = '2';
-            item.style.transform = 'rotate(-7deg)';
-        } else if (type === 'desk') {
+        if (type === 'desk') {
             item.classList.add('item-desk');
             item.innerHTML = '<div class="desk-console"><div class="desk-led" style="background:#f44;box-shadow:0 0 5px #f44;"></div><div class="desk-led" style="background:#ffcc00;box-shadow:0 0 5px #ffcc00;"></div><div class="desk-led" style="background:#0f8;box-shadow:0 0 5px #0f8;"></div></div>';
             item.style.left = '40%'; item.style.transform = 'translateX(-50%)'; item.style.bottom = '70px';
@@ -675,7 +684,7 @@
         } else if (type === 'server') {
             item.classList.add('item-server');
             item.innerHTML = '<div class="server-led"></div><div class="server-led" style="animation-delay:0.3s"></div><div class="server-led" style="animation-delay:0.6s"></div>';
-            let offsetR = 110 + ((count - 1) * 45); 
+            let offsetR = 50 + ((count - 1) * 45); 
             item.style.right = offsetR + 'px'; item.style.bottom = '70px';
         } 
         // ARCHIV
