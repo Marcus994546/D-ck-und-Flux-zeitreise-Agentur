@@ -972,6 +972,16 @@
     85% { filter: brightness(4) contrast(1.5); transform: translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
     90% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: translate(0px, 2px) skewX(2deg); }
 }
+/* Bunker-Miniaturansicht braucht dieselbe Glitch-Optik, aber die Verkleinerung
+   (scale(0.4)) muss dabei in JEDEM Schritt erhalten bleiben, sonst überschreiben sich
+   Glitch und Skalierung gegenseitig auf derselben "transform"-Eigenschaft. */
+@keyframes room-emp-glitch-scaled {
+    0%, 78%, 100% { filter: none; transform: scale(0.4) translate(0,0) skewX(0); }
+    81% { filter: invert(1) contrast(2) hue-rotate(180deg); transform: scale(0.4) translate(-5px, 5px) skewX(10deg); background-color: rgba(0, 255, 255, 0.2); }
+    85% { filter: brightness(4) contrast(1.5); transform: scale(0.4) translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
+    90% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: scale(0.4) translate(0px, 2px) skewX(2deg); }
+}
+.emp-active-scaled { animation: room-emp-glitch-scaled 5s infinite linear !important; transform-origin: top left !important; }
 .kern-charge-core { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 90%; border-radius: 20px; overflow: hidden; display: flex; align-items: flex-end; background: rgba(0,0,0,0.6); border: 1px solid rgba(0,150,255,0.4); }
 .kern-charge-fill-inner { width: 100%; animation: kern-charge-fill 5s infinite ease-in-out; box-shadow: 0 0 15px #00ccff; }
 

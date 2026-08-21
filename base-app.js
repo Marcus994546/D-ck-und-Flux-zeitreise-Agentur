@@ -1670,13 +1670,14 @@ window.spawnFurniture = (type, count) => {
             </div>
             <div class="kern-base"></div>`;
         
-        // Fügt dem gesamten Raum den Glitch-Effekt hinzu, sobald der Kern gebaut wird -
-        // aber NICHT in der Bunker-Miniaturansicht: die Glitch-Animation verändert "transform"
-        // auf demselben Element, das dort bereits "transform: scale(0.4)" für die Verkleinerung
-        // braucht - beide würden sich gegenseitig überschreiben und die Vorschau kurzzeitig auf
-        // volle Größe aufspringen lassen.
+        // Fügt dem gesamten Raum den Glitch-Effekt hinzu, sobald der Kern gebaut wird.
+        // In der Bunker-Miniaturansicht läuft eine Variante, die die Verkleinerung
+        // (scale(0.4)) in jedem Animationsschritt mit einbaut, damit sich Glitch und
+        // Skalierung nicht gegenseitig überschreiben.
         if ((window._roomAreaTargetId || 'room-area') === 'room-area') {
             room.classList.add('emp-active');
+        } else {
+            room.classList.add('emp-active-scaled');
         }
         
     } else if (type === 'supraleiter') {
