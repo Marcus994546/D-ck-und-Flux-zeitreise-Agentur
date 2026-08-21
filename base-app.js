@@ -395,46 +395,59 @@
         const car = document.getElementById('bunker-elevator-car');
         if (!car || bunkerFloorsData.length < 1) return;
 
-        car.style.top = (bunkerCurrentFloorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+        try {
+            car.style.top = (bunkerCurrentFloorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+        } catch(e) { console.error('Bunker-Aufzug Fehler (Position):', e); }
 
         bunkerCycleTimeout = setTimeout(() => {
             if (!bunkerActive) return;
             const idx = bunkerCurrentFloorIdx;
-            const preview = document.getElementById('bunker-room-' + idx);
-            if (!bunkerFloorOccupants[idx]) bunkerFloorOccupants[idx] = [];
 
-            // AUSSTEIGEN: jemand verlässt den Aufzug und läuft im Raum umher.
-            if (bunkerRiders.length > 0 && bunkerFloorOccupants[idx].length < BUNKER_MAX_PER_FLOOR && Math.random() < 0.65) {
-                const riderEl = bunkerRiders.pop();
-                riderEl.remove();
-                if (preview) {
-                    const walker = document.createElement('div');
-                    walker.className = 'bunker-figure bunker-walker';
-                    walker.style.animationDuration = (5 + Math.random() * 3).toFixed(1) + 's';
-                    preview.appendChild(walker);
-                    bunkerFloorOccupants[idx].push(walker);
+            try {
+                const preview = document.getElementById('bunker-room-' + idx);
+                if (!bunkerFloorOccupants[idx]) bunkerFloorOccupants[idx] = [];
+
+                // AUSSTEIGEN: jemand verlässt den Aufzug und läuft im Raum umher.
+                if (bunkerRiders.length > 0 && bunkerFloorOccupants[idx].length < BUNKER_MAX_PER_FLOOR && Math.random() < 0.65) {
+                    const riderEl = bunkerRiders.pop();
+                    riderEl.remove();
+                    if (preview) {
+                        const walker = document.createElement('div');
+                        walker.className = 'bunker-figure bunker-walker';
+                        walker.style.animationDuration = (5 + Math.random() * 3).toFixed(1) + 's';
+                        preview.appendChild(walker);
+                        bunkerFloorOccupants[idx].push(walker);
+                    }
                 }
-            }
+            } catch(e) { console.error('Bunker-Aufzug Fehler (Aussteigen, Etage ' + idx + '):', e); }
 
-            setTimeout(() => {
+            bunkerCycleTimeout = setTimeout(() => {
                 if (!bunkerActive) return;
 
-                // EINSTEIGEN: jemand, der schon im Raum unterwegs war, steigt zu.
-                const occupants = bunkerFloorOccupants[idx] || [];
-                if (occupants.length > 0 && bunkerRiders.length < BUNKER_MAX_RIDERS && Math.random() < 0.5) {
-                    const walker = occupants.pop();
-                    walker.remove();
-                    bunkerSpawnRiderInCar(car);
-                }
-                // An der Eingangsebene (ZENTRALE) betreten gelegentlich neue Männchen die Basis.
-                else if (idx === 0 && bunkerRiders.length < BUNKER_MAX_RIDERS && Math.random() < 0.4) {
-                    bunkerSpawnRiderInCar(car);
-                }
+                try {
+                    // EINSTEIGEN: jemand, der schon im Raum unterwegs war, steigt zu.
+                    const occupants = bunkerFloorOccupants[idx] || [];
+                    if (occupants.length > 0 && bunkerRiders.length < BUNKER_MAX_RIDERS && Math.random() < 0.5) {
+                        const walker = occupants.pop();
+                        walker.remove();
+                        bunkerSpawnRiderInCar(car);
+                    }
+                    // An der Eingangsebene (ZENTRALE) betreten gelegentlich neue Männchen die Basis.
+                    else if (idx === 0 && bunkerRiders.length < BUNKER_MAX_RIDERS && Math.random() < 0.4) {
+                        bunkerSpawnRiderInCar(car);
+                    }
+                } catch(e) { console.error('Bunker-Aufzug Fehler (Einsteigen, Etage ' + idx + '):', e); }
 
-                bunkerCurrentFloorIdx += bunkerDir;
-                if (bunkerCurrentFloorIdx >= bunkerFloorsData.length - 1) bunkerDir = -1;
-                if (bunkerCurrentFloorIdx <= 0) bunkerDir = 1;
-                if (bunkerFloorsData.length <= 1) bunkerCurrentFloorIdx = 0;
+                // WICHTIG: Die Weiterschaltung + der nächste Schleifendurchlauf stehen bewusst
+                // AUSSERHALB des try-Blocks oben, in einem eigenen finally-artigen Ablauf - selbst
+                // wenn im Ein-/Aussteigen irgendwas schiefgeht, bleibt der Aufzug dadurch garantiert
+                // in Bewegung, statt für immer an einem Stockwerk hängen zu bleiben.
+                try {
+                    bunkerCurrentFloorIdx += bunkerDir;
+                    if (bunkerCurrentFloorIdx >= bunkerFloorsData.length - 1) bunkerDir = -1;
+                    if (bunkerCurrentFloorIdx <= 0) bunkerDir = 1;
+                    if (bunkerFloorsData.length <= 1) bunkerCurrentFloorIdx = 0;
+                } catch(e) { console.error('Bunker-Aufzug Fehler (Weiterschaltung):', e); bunkerCurrentFloorIdx = 0; bunkerDir = 1; }
 
                 bunkerCycleTimeout = setTimeout(bunkerCycleStep, 500);
             }, 900);
@@ -647,7 +660,7 @@
         if (type === 'zentrale_tor') {
             item.classList.add('item-zentrale-tor');
             item.innerHTML = '<div class="tor-rahmen"><div class="tor-portal"><div class="tor-ring"></div><div class="tor-ring tor-r2"></div></div></div><div class="tor-schwelle"></div>';
-            item.style.left = '2px'; item.style.bottom = '0'; item.style.zIndex = '1';
+            item.style.left = '44px'; item.style.bottom = '70px'; item.style.zIndex = '2';
         } else if (type === 'desk') {
             item.classList.add('item-desk');
             item.innerHTML = '<div class="desk-console"><div class="desk-led" style="background:#f44;box-shadow:0 0 5px #f44;"></div><div class="desk-led" style="background:#ffcc00;box-shadow:0 0 5px #ffcc00;"></div><div class="desk-led" style="background:#0f8;box-shadow:0 0 5px #0f8;"></div></div>';

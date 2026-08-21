@@ -589,7 +589,7 @@ body > *:not(.top-level) {
    immer zum Missionsziel.
    ============================================================ */
 #gps-compass {
-    position: absolute; bottom: 20px; right: 20px; width: 90px; height: 90px; z-index: 50;
+    position: absolute; bottom: 20px; right: 20px; width: 90px; height: 90px; z-index: 99999;
 }
 .compass-dial {
     position: relative; width: 90px; height: 90px; border-radius: 50%;

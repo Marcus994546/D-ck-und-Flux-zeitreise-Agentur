@@ -1233,15 +1233,15 @@
     0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
     50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.9; }
 }
-.item-zentrale-tor { width: 70px; height: 220px; position: absolute; z-index: 1; }
+.item-zentrale-tor { width: 60px; height: 150px; position: absolute; z-index: 2; }
 .tor-rahmen {
-    width: 70px; height: 200px; border-radius: 35px 35px 8px 8px;
+    width: 60px; height: 150px; border-radius: 28px 28px 6px 6px;
     background: linear-gradient(180deg, #2a1a4a, #150a2a);
     border: 3px solid #a0f; box-shadow: 0 0 30px rgba(160,0,255,0.5), inset 0 0 20px rgba(160,0,255,0.3);
-    display: flex; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center; padding: 8px; box-sizing: border-box;
 }
 .tor-portal {
-    width: 44px; height: 170px; border-radius: 22px 22px 4px 4px; position: relative; overflow: hidden;
+    width: 38px; height: 122px; border-radius: 16px 16px 4px 4px; position: relative; overflow: hidden;
     background: linear-gradient(120deg, #0ff, #a0f, #0ff, #f0f);
     background-size: 300% 300%;
     animation: tor-portal-shimmer 4s ease-in-out infinite;
