@@ -283,6 +283,73 @@
         updateUI(); renderGrid(); await saveGameState();
     };
 
+    // --- AKTIVE BASIS: Bunker-Querschnitt mit Aufzug ---
+    // Reihenfolge der Stockwerke = Kaufreihenfolge. ZENTRALE ist immer das oberste Gebäude.
+    // gameState.baseData ist bereits implizit in Kaufreihenfolge, da neue Räume beim Kauf
+    // immer per push() ans Ende des Arrays angehängt werden (siehe confirmRoomSelection) -
+    // ein separates Kaufdatum-Feld ist dafür nicht nötig, die Array-Reihenfolge IST das Datum.
+    const BUNKER_FLOOR_HEIGHT = 92;
+    let bunkerElevatorInterval = null;
+
+    window.openAktiveBasis = function() {
+        playBeepBase(900, 0.05);
+        renderBunkerView();
+        document.getElementById('aktive-basis-overlay').style.display = 'flex';
+    };
+
+    window.closeAktiveBasis = function() {
+        playBeepBase(600, 0.05);
+        document.getElementById('aktive-basis-overlay').style.display = 'none';
+        if (bunkerElevatorInterval) { clearInterval(bunkerElevatorInterval); bunkerElevatorInterval = null; }
+    };
+
+    function renderBunkerView() {
+        const floorsEl = document.getElementById('bunker-floors');
+        if (!floorsEl) return;
+        floorsEl.innerHTML = '';
+
+        const zentrale = gameState.baseData.find(r => r.type === 'ZENTRALE');
+        const others = gameState.baseData.filter(r => r.type !== 'ZENTRALE');
+        const ordered = zentrale ? [zentrale, ...others] : others;
+
+        ordered.forEach((room, idx) => {
+            const floor = document.createElement('div');
+            floor.className = 'bunker-floor';
+            floor.style.backgroundColor = roomColors[room.type] || '#1a0a2a';
+            floor.onclick = () => { playBeepBase(1200, 0.05); window.closeAktiveBasis(); window.openRoom(room.type); };
+            floor.innerHTML =
+                '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
+                (room.type !== 'ZENTRALE' ? '<br><small>LVL ' + room.lvl + '</small>' : '<br><small>OBERSTE EBENE</small>') +
+                '</div>' +
+                '<div class="bunker-corridor"><div class="bunker-figure bunker-walker" style="animation-delay:' + (idx * 0.6) + 's"></div></div>';
+            floorsEl.appendChild(floor);
+        });
+
+        const track = document.getElementById('bunker-shaft-track');
+        if (track) track.style.height = (ordered.length * BUNKER_FLOOR_HEIGHT) + 'px';
+
+        animateBunkerElevator(ordered.length);
+    }
+
+    function animateBunkerElevator(floorCount) {
+        if (bunkerElevatorInterval) clearInterval(bunkerElevatorInterval);
+        const car = document.getElementById('bunker-elevator-car');
+        if (!car || floorCount < 1) return;
+
+        let floor = 0;
+        let dir = 1;
+        car.style.top = '6px';
+
+        if (floorCount === 1) return; // Nur ein Stockwerk - Aufzug bleibt oben stehen
+
+        bunkerElevatorInterval = setInterval(() => {
+            floor += dir;
+            if (floor >= floorCount - 1) dir = -1;
+            if (floor <= 0) dir = 1;
+            car.style.top = (floor * BUNKER_FLOOR_HEIGHT + 6) + 'px';
+        }, 2400);
+    }
+
     window.onload = async () => {
         const authPromise = await waitForBaseAuthReady();
         const user = await authPromise;

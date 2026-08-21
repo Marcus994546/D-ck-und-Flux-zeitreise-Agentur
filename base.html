@@ -29,6 +29,7 @@
             <button id="btn-cheat-boost" onclick="cheatCredits()" class="btn-cheat">[ + BOOST ]</button>
         </div>
         <div style="display: flex; gap: 15px; align-items: center;">
+            <button id="btn-open-aktive-basis" onclick="openAktiveBasis()" class="btn-back" style="border-color:#0af; color:#0af;">🏢 AKTIVE BASIS</button>
             <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
             <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
         </div>
@@ -58,6 +59,20 @@
         <button id="btn-toggle-sound" onclick="toggleBaseSound()" style="width: 100%; max-width: 300px; padding: 15px; font-size: 1em; font-family: 'Orbitron'; font-weight: bold; background: transparent; border: 1px solid #0f8; color: #0f8; cursor: pointer; margin-top: 15px;">KLICK-SOUND: LÄDT...</button>
     </div>
     <button class="btn-back" style="margin-top: 30px; width: 100%; max-width: 300px; padding: 15px;" onclick="closeSettings()">SCHLIESSEN</button>
+</div>
+
+<div id="aktive-basis-overlay">
+    <h3 style="color: var(--neon-color); margin-bottom: 5px;">[ AKTIVE BASIS ]</h3>
+    <div style="font-size:0.7em; color:#aaa; margin-bottom: 10px;">Querschnitt deiner unterirdischen Anlage</div>
+    <div class="neon-divider" style="margin-bottom: 15px;"></div>
+    <div id="bunker-view">
+        <div id="bunker-shaft">
+            <div id="bunker-shaft-track"></div>
+            <div id="bunker-elevator-car"><div class="bunker-figure"></div></div>
+        </div>
+        <div id="bunker-floors"></div>
+    </div>
+    <button class="btn-back" style="margin-top: 15px; width: 100%; max-width: 500px;" onclick="closeAktiveBasis()">SCHLIESSEN</button>
 </div>
 
 
