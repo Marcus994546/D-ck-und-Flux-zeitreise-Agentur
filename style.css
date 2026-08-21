@@ -589,7 +589,12 @@ body > *:not(.top-level) {
    immer zum Missionsziel.
    ============================================================ */
 #gps-compass {
-    position: absolute; bottom: 20px; right: 20px; width: 90px; height: 90px; z-index: 99999;
+    position: absolute; bottom: 20px; right: 20px; width: 90px; z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+#gps-compass-tip {
+    font-size: 0.55em; color: #0f8; text-align: center; text-shadow: 0 0 6px rgba(0,255,136,0.6);
+    background: rgba(0,10,10,0.6); border-radius: 4px; padding: 3px 5px; line-height: 1.3;
 }
 .compass-dial {
     position: relative; width: 90px; height: 90px; border-radius: 50%;
@@ -607,7 +612,7 @@ body > *:not(.top-level) {
 .compass-needle {
     position: absolute; top: 50%; left: 50%; width: 0; height: 0;
     transform-origin: center center;
-    transition: transform 0.25s ease-out, opacity 0.3s;
+    transition: opacity 0.3s;
 }
 .compass-needle::before {
     content: ''; position: absolute; left: -5px; top: -30px; width: 0; height: 0;

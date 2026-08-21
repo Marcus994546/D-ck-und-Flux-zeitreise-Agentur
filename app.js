@@ -2507,6 +2507,7 @@ window.f_showDescription = function(withVoice) {
     }
 
     function startGpsOrientation() {
+        stopGpsOrientation(); // Sicherheitshalber: keinen doppelten/verwaisten Listener anhäufen.
         gpsOrientationHandler = (e) => {
             let heading = null;
             if (typeof e.webkitCompassHeading === 'number') heading = e.webkitCompassHeading;
@@ -2516,7 +2517,7 @@ window.f_showDescription = function(withVoice) {
                 else {
                     // Kürzeste Drehrichtung interpolieren (sonst Sprung bei Nord-Übergang 359°->0°).
                     let diff = ((heading - gpsSmoothHeading + 540) % 360) - 180;
-                    gpsSmoothHeading = (gpsSmoothHeading + diff * 0.2 + 360) % 360;
+                    gpsSmoothHeading = (gpsSmoothHeading + diff * 0.35 + 360) % 360;
                 }
                 updateCompass();
             }
