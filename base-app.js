@@ -83,6 +83,10 @@
 
     // --- GAME STATE & RÄUME ---
     let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, userLevel: 1 };
+    // Alle spawnFurniture/reloadFurniture/clearRoom-Aufrufe im ganzen Code zielen normalerweise
+    // auf "#room-area" (der eine sichtbare Raum-Bildschirm). Für die Bunker-Ansicht (mehrere
+    // gleichzeitig sichtbare Raum-Vorschauen) wird dieses Ziel kurzzeitig umgebogen.
+    window._roomAreaTargetId = 'room-area';
     let pendingCoords = {x: 0, y: 0};
 
     const roomColors = {
@@ -288,8 +292,24 @@
     // gameState.baseData ist bereits implizit in Kaufreihenfolge, da neue Räume beim Kauf
     // immer per push() ans Ende des Arrays angehängt werden (siehe confirmRoomSelection) -
     // ein separates Kaufdatum-Feld ist dafür nicht nötig, die Array-Reihenfolge IST das Datum.
-    const BUNKER_FLOOR_HEIGHT = 92;
-    let bunkerElevatorInterval = null;
+    //
+    // Jedes Stockwerk zeigt den ECHTEN Raum (Wände + tatsächlich gekaufte, echt animierte
+    // Möbel), nicht nur einen Textnamen. Das funktioniert, indem spawnFurniture/reloadFurniture
+    // (die überall im Code auf "document.getElementById('room-area')" fest verdrahtet waren,
+    // s.o. die Umstellung auf window._roomAreaTargetId) kurzzeitig auf den jeweiligen
+    // Stockwerk-Container umgeleitet werden.
+    const BUNKER_FLOOR_HEIGHT = 116;
+    const BUNKER_PREVIEW_SCALE = 0.4;
+    const BUNKER_MAX_RIDERS = 3;
+    const BUNKER_MAX_PER_FLOOR = 2;
+
+    let bunkerFloorsData = [];       // [{type, lvl}] in Anzeige-Reihenfolge
+    let bunkerRiders = [];           // aktuell im Aufzug mitfahrende Männchen (DOM-Elemente)
+    let bunkerFloorOccupants = {};   // floorIdx -> [Männchen, die gerade in diesem Raum umherlaufen]
+    let bunkerCurrentFloorIdx = 0;
+    let bunkerDir = 1;
+    let bunkerCycleTimeout = null;
+    let bunkerActive = false;
 
     window.openAktiveBasis = function() {
         playBeepBase(900, 0.05);
@@ -300,54 +320,118 @@
     window.closeAktiveBasis = function() {
         playBeepBase(600, 0.05);
         document.getElementById('aktive-basis-overlay').style.display = 'none';
-        if (bunkerElevatorInterval) { clearInterval(bunkerElevatorInterval); bunkerElevatorInterval = null; }
+        bunkerActive = false;
+        if (bunkerCycleTimeout) { clearTimeout(bunkerCycleTimeout); bunkerCycleTimeout = null; }
+        // Ziel wieder auf den echten Raum-Bildschirm zurückstellen, falls er als nächstes geöffnet wird.
+        window._roomAreaTargetId = 'room-area';
     };
 
     function renderBunkerView() {
         const floorsEl = document.getElementById('bunker-floors');
         if (!floorsEl) return;
         floorsEl.innerHTML = '';
+        bunkerRiders = [];
+        bunkerFloorOccupants = {};
+        bunkerCurrentFloorIdx = 0;
+        bunkerDir = 1;
 
         const zentrale = gameState.baseData.find(r => r.type === 'ZENTRALE');
         const others = gameState.baseData.filter(r => r.type !== 'ZENTRALE');
-        const ordered = zentrale ? [zentrale, ...others] : others;
+        bunkerFloorsData = zentrale ? [zentrale, ...others] : others;
 
-        ordered.forEach((room, idx) => {
+        bunkerFloorsData.forEach((room, idx) => {
+            const previewId = 'bunker-room-' + idx;
             const floor = document.createElement('div');
             floor.className = 'bunker-floor';
-            floor.style.backgroundColor = roomColors[room.type] || '#1a0a2a';
             floor.onclick = () => { playBeepBase(1200, 0.05); window.closeAktiveBasis(); window.openRoom(room.type); };
             floor.innerHTML =
-                '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
-                (room.type !== 'ZENTRALE' ? '<br><small>LVL ' + room.lvl + '</small>' : '<br><small>OBERSTE EBENE</small>') +
-                '</div>' +
-                '<div class="bunker-corridor"><div class="bunker-figure bunker-walker" style="animation-delay:' + (idx * 0.6) + 's"></div></div>';
+                '<div class="bunker-room-preview-wrap" style="background:' + (roomColors[room.type] || '#1a0a2a') + ';">' +
+                    '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
+                    (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
+                    '</div>' +
+                    '<div class="bunker-room-preview" id="' + previewId + '">' +
+                        '<div class="r-ceiling"></div><div class="r-left"></div><div class="r-right"></div><div class="r-back"></div>' +
+                        '<div class="r-floor"><div class="r-floor-grid"></div></div>' +
+                    '</div>' +
+                '</div>';
             floorsEl.appendChild(floor);
         });
 
         const track = document.getElementById('bunker-shaft-track');
-        if (track) track.style.height = (ordered.length * BUNKER_FLOOR_HEIGHT) + 'px';
+        if (track) track.style.height = (bunkerFloorsData.length * BUNKER_FLOOR_HEIGHT) + 'px';
 
-        animateBunkerElevator(ordered.length);
+        // Echte Möbel jedes Raumes in seine jeweilige Vorschau rendern (nacheinander,
+        // damit clearRoom() - jetzt containerspezifisch - keinen falschen Raum trifft).
+        bunkerFloorsData.forEach((room, idx) => {
+            window._roomAreaTargetId = 'bunker-room-' + idx;
+            try { window.reloadFurniture(room.type); } catch(e) {}
+        });
+        window._roomAreaTargetId = 'room-area';
+
+        bunkerActive = true;
+        bunkerCycleTimeout = setTimeout(bunkerCycleStep, 600);
     }
 
-    function animateBunkerElevator(floorCount) {
-        if (bunkerElevatorInterval) clearInterval(bunkerElevatorInterval);
+    function bunkerSpawnRiderInCar(car) {
+        const riderEl = document.createElement('div');
+        riderEl.className = 'bunker-figure bunker-rider';
+        riderEl.style.left = (5 + bunkerRiders.length * 9) + 'px';
+        car.appendChild(riderEl);
+        bunkerRiders.push(riderEl);
+    }
+
+    // Ein Stopp des Aufzugs: ankommen -> ggf. jemanden aussteigen und im Raum umherlaufen
+    // lassen -> ggf. jemanden aus dem Raum abholen -> weiter zum nächsten Stockwerk.
+    // Es können mehrere Männchen gleichzeitig im Aufzug sitzen (bis BUNKER_MAX_RIDERS).
+    function bunkerCycleStep() {
+        if (!bunkerActive) return;
         const car = document.getElementById('bunker-elevator-car');
-        if (!car || floorCount < 1) return;
+        if (!car || bunkerFloorsData.length < 1) return;
 
-        let floor = 0;
-        let dir = 1;
-        car.style.top = '6px';
+        car.style.top = (bunkerCurrentFloorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
 
-        if (floorCount === 1) return; // Nur ein Stockwerk - Aufzug bleibt oben stehen
+        bunkerCycleTimeout = setTimeout(() => {
+            if (!bunkerActive) return;
+            const idx = bunkerCurrentFloorIdx;
+            const preview = document.getElementById('bunker-room-' + idx);
+            if (!bunkerFloorOccupants[idx]) bunkerFloorOccupants[idx] = [];
 
-        bunkerElevatorInterval = setInterval(() => {
-            floor += dir;
-            if (floor >= floorCount - 1) dir = -1;
-            if (floor <= 0) dir = 1;
-            car.style.top = (floor * BUNKER_FLOOR_HEIGHT + 6) + 'px';
-        }, 2400);
+            // AUSSTEIGEN: jemand verlässt den Aufzug und läuft im Raum umher.
+            if (bunkerRiders.length > 0 && bunkerFloorOccupants[idx].length < BUNKER_MAX_PER_FLOOR && Math.random() < 0.65) {
+                const riderEl = bunkerRiders.pop();
+                riderEl.remove();
+                if (preview) {
+                    const walker = document.createElement('div');
+                    walker.className = 'bunker-figure bunker-walker';
+                    walker.style.animationDuration = (5 + Math.random() * 3).toFixed(1) + 's';
+                    preview.appendChild(walker);
+                    bunkerFloorOccupants[idx].push(walker);
+                }
+            }
+
+            setTimeout(() => {
+                if (!bunkerActive) return;
+
+                // EINSTEIGEN: jemand, der schon im Raum unterwegs war, steigt zu.
+                const occupants = bunkerFloorOccupants[idx] || [];
+                if (occupants.length > 0 && bunkerRiders.length < BUNKER_MAX_RIDERS && Math.random() < 0.5) {
+                    const walker = occupants.pop();
+                    walker.remove();
+                    bunkerSpawnRiderInCar(car);
+                }
+                // An der Eingangsebene (ZENTRALE) betreten gelegentlich neue Männchen die Basis.
+                else if (idx === 0 && bunkerRiders.length < BUNKER_MAX_RIDERS && Math.random() < 0.4) {
+                    bunkerSpawnRiderInCar(car);
+                }
+
+                bunkerCurrentFloorIdx += bunkerDir;
+                if (bunkerCurrentFloorIdx >= bunkerFloorsData.length - 1) bunkerDir = -1;
+                if (bunkerCurrentFloorIdx <= 0) bunkerDir = 1;
+                if (bunkerFloorsData.length <= 1) bunkerCurrentFloorIdx = 0;
+
+                bunkerCycleTimeout = setTimeout(bunkerCycleStep, 500);
+            }, 900);
+        }, 1300);
     }
 
     window.onload = async () => {
@@ -435,7 +519,7 @@
         document.getElementById('grid-wrapper').style.display = 'none';
         document.getElementById('interior-screen').style.display = 'flex';
         
-        document.getElementById('room-area').style.display = 'block';
+        document.getElementById(window._roomAreaTargetId || 'room-area').style.display = 'block';
         document.getElementById('ausbau-menu').style.display = 'none';
         document.getElementById('toggle-ausbau-btn').innerText = "AGENTUR-AUSBAU ÖFFNEN";
         
@@ -478,7 +562,7 @@
     window.toggleAusbauMenu = () => {
         const menu = document.getElementById('ausbau-menu');
         const btn = document.getElementById('toggle-ausbau-btn');
-        const roomBox = document.getElementById('room-area');
+        const roomBox = document.getElementById(window._roomAreaTargetId || 'room-area');
         
         if (menu.style.display === 'none' || menu.style.display === '') {
             menu.style.display = 'flex'; 
@@ -492,7 +576,11 @@
     };
 
     window.clearRoom = () => {
-        document.querySelectorAll('.fixed-item').forEach(el => el.remove());
+        // Nur INNERHALB des aktuell anvisierten Raum-Containers leeren, nicht global -
+        // sonst würden sich mehrere gleichzeitig gerenderte Bunker-Raumvorschauen
+        // gegenseitig die Möbel wegräumen.
+        const scopeEl = document.getElementById(window._roomAreaTargetId || 'room-area');
+        (scopeEl || document).querySelectorAll('.fixed-item').forEach(el => el.remove());
     };
 
     window.reloadFurniture = (type) => {
@@ -540,7 +628,7 @@
     };
 
     window.spawnFurniture = (type, count) => {
-        const room = document.getElementById('room-area');
+        const room = document.getElementById(window._roomAreaTargetId || 'room-area');
         const item = document.createElement('div');
         item.classList.add('fixed-item');
         
@@ -675,7 +763,7 @@ window.reloadFurniture = (type) => {
 const originalSpawn = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     originalSpawn(type, count);
-    const room = document.getElementById('room-area');
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area');
     if (!room || !newItems.includes(type)) return;
     const item = document.createElement('div');
     item.classList.add('fixed-item');
@@ -843,7 +931,7 @@ window.spawnFurniture = (type, count) => {
     const oldSpawnB4 = window.spawnFurniture;
     window.spawnFurniture = (type, count) => {
         if (oldSpawnB4) oldSpawnB4(type, count);
-        const room = document.getElementById('room-area');
+        const room = document.getElementById(window._roomAreaTargetId || 'room-area');
         if (!room || !newItems4.includes(type)) return;
         
         const item = document.createElement('div');
@@ -1039,7 +1127,7 @@ window.spawnFurniture = (type, count) => {
     const oldSpawnB5 = window.spawnFurniture;
     window.spawnFurniture = (type, count) => {
         if (typeof oldSpawnB5 === 'function') oldSpawnB5(type, count);
-        const room = document.getElementById('room-area');
+        const room = document.getElementById(window._roomAreaTargetId || 'room-area');
         if (!room || !newItems5.includes(type)) return;
         
         const item = document.createElement('div');
@@ -1190,7 +1278,7 @@ window.spawnFurniture = (type, count) => {
     const oldSpawnB6 = window.spawnFurniture;
     window.spawnFurniture = (type, count) => {
         if (typeof oldSpawnB6 === 'function') oldSpawnB6(type, count);
-        const room = document.getElementById('room-area');
+        const room = document.getElementById(window._roomAreaTargetId || 'room-area');
         if (!room || !newItems6.includes(type)) return;
         
         const item = document.createElement('div');
@@ -1369,7 +1457,7 @@ const oldReloadParadox = window.reloadFurniture;
 window.reloadFurniture = (type) => {
     if (oldReloadParadox) oldReloadParadox(type);
     if (type === 'PARADOXON-FILTER') {
-        const room = document.getElementById('room-area');
+        const room = document.getElementById(window._roomAreaTargetId || 'room-area');
         if (room && !document.getElementById('dimension-glitch-layer')) {
             const glitch = document.createElement('div'); 
             glitch.id = 'dimension-glitch-layer';
@@ -1386,7 +1474,7 @@ window.reloadFurniture = (type) => {
 const oldSpawnParadox = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawnParadox) oldSpawnParadox(type, count);
-    const room = document.getElementById('room-area');
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area');
     if (!room || !itemsParadox.includes(type)) return;
     
     const item = document.createElement('div');
@@ -1495,7 +1583,7 @@ window.openRoom = (type) => {
         window.updateAusbauButtons(); 
     } else {
         // Raum-Glitch deaktivieren, wenn man den Raum verlässt
-        const roomArea = document.getElementById('room-area');
+        const roomArea = document.getElementById(window._roomAreaTargetId || 'room-area');
         if (roomArea) roomArea.classList.remove('emp-active');
     }
 };
@@ -1558,7 +1646,7 @@ window.reloadFurniture = (type) => {
 const oldSpawnImpuls = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawnImpuls) oldSpawnImpuls(type, count);
-    const room = document.getElementById('room-area');
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area');
     if (!room || !itemsImpuls.includes(type)) return;
     
     const item = document.createElement('div');
@@ -1702,7 +1790,7 @@ window.reloadFurniture = (type) => {
 const oldSpawnOszillation = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawnOszillation) oldSpawnOszillation(type, count);
-    const room = document.getElementById('room-area');
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area');
     if (!room || !itemsOszillation.includes(type)) return;
     
     const item = document.createElement('div');
@@ -1827,7 +1915,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_TS = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_TS) oldSpawn_TS(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsTransStation.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsTransStation.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'temp_inverter') {
         item.classList.add('item-temp-inverter');
@@ -1915,7 +2003,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_RG = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_RG) oldSpawn_RG(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsRenaissance.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsRenaissance.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'materie_rekon') {
         item.classList.add('item-materie-rekon');
@@ -2000,7 +2088,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_TK = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_TK) oldSpawn_TK(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsThermo.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsThermo.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'erdkern_res') {
         item.classList.add('item-erdkern-res');
@@ -2085,7 +2173,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_KL = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_KL) oldSpawn_KL(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsKinetik.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsKinetik.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'grav_zentrifuge') {
         item.classList.add('item-grav-zentrifuge');
@@ -2173,7 +2261,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_MD = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_MD) oldSpawn_MD(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsDekomp.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsDekomp.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'molekular_disruptor') {
         item.classList.add('item-molekular-disruptor');
@@ -2258,7 +2346,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_VS = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_VS) oldSpawn_VS(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsVakuum.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsVakuum.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'nullraum_synth') {
         item.classList.add('item-nullraum-synth');
@@ -2343,7 +2431,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_RK = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_RK) oldSpawn_RK(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsResonanz.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsResonanz.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'chrono_oszillator') {
         item.classList.add('item-chrono-oszillator');
@@ -2428,7 +2516,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_KS = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_KS) oldSpawn_KS(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsKybernetik.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsKybernetik.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'neural_sync') {
         item.classList.add('item-neural-sync');
@@ -2516,7 +2604,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_SP = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_SP) oldSpawn_SP(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsScanner.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsScanner.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'zeitstrom_kartograf') {
         item.classList.add('item-zeitstrom-kartograf');
@@ -2601,7 +2689,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_DS = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_DS) oldSpawn_DS(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsDekont.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsDekont.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'temp_partikel_filter') {
         item.classList.add('item-temp-partikel-filter');
@@ -2680,7 +2768,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_AD = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_AD) oldSpawn_AD(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsAnomalie.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsAnomalie.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'lampe_anomalie') {
         item.classList.add('item-lampe-anomalie');
@@ -2757,7 +2845,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_KD = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_KD) oldSpawn_KD(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsKryo.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsKryo.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'lampe_kryo') {
         item.classList.add('item-lampe-kryo');
@@ -2834,7 +2922,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_FR = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_FR) oldSpawn_FR(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsFunkRelais.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsFunkRelais.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'lampe_funk') {
         item.classList.add('item-lampe-funk');
@@ -2911,7 +2999,7 @@ window.reloadFurniture = (type) => {
 const oldSpawn_KI = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_KI) oldSpawn_KI(type, count);
-    const room = document.getElementById('room-area'); if (!room || !itemsKiKern.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsKiKern.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'lampe_ki') {
         item.classList.add('item-lampe-ki');

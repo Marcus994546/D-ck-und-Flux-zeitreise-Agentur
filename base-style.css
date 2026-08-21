@@ -1124,8 +1124,9 @@
 
 /* ============================================================
    AKTIVE BASIS - Bunker-Querschnitt mit Aufzug links, Stockwerken
-   rechts (ZENTRALE oben, danach in Kaufreihenfolge) und kleinen
-   laufenden Männchen als Ambiente-Animation.
+   rechts (ZENTRALE oben, danach in Kaufreihenfolge). Jedes Stockwerk
+   zeigt den ECHTEN, aktuell eingerichteten Raum (skaliert), nicht nur
+   einen Textnamen - siehe window._roomAreaTargetId in base-app.js.
    ============================================================ */
 #aktive-basis-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -1134,7 +1135,7 @@
     overflow-y: auto;
 }
 
-#bunker-view { display: flex; width: 100%; max-width: 520px; gap: 0; }
+#bunker-view { display: flex; width: 100%; max-width: 560px; gap: 0; }
 
 #bunker-shaft {
     position: relative; width: 46px; flex-shrink: 0;
@@ -1148,57 +1149,76 @@
     background: repeating-linear-gradient(180deg, #333 0px, #333 6px, #111 6px, #111 12px);
 }
 #bunker-elevator-car {
-    position: absolute; left: 50%; top: 6px; width: 34px; height: 80px;
+    position: absolute; left: 50%; top: 8px; width: 36px; height: 100px;
     transform: translateX(-50%);
     background: linear-gradient(180deg, #223, #001);
     border: 2px solid #0af; border-radius: 3px;
     box-shadow: 0 0 15px rgba(0,170,255,0.6), inset 0 0 10px rgba(0,170,255,0.3);
     transition: top 1.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex; align-items: flex-end; justify-content: center;
-    z-index: 5;
+    z-index: 5; overflow: hidden;
 }
 
 #bunker-floors { flex-grow: 1; display: flex; flex-direction: column; }
 
 .bunker-floor {
-    height: 92px; box-sizing: border-box; border-bottom: 2px solid rgba(0,170,255,0.25);
-    display: flex; align-items: center; gap: 12px; padding: 0 14px; cursor: pointer;
-    position: relative; transition: filter 0.2s;
+    height: 116px; box-sizing: border-box; border-bottom: 2px solid rgba(0,170,255,0.25);
+    cursor: pointer; position: relative; transition: filter 0.2s; padding: 3px 6px;
 }
-.bunker-floor:hover { filter: brightness(1.35); }
+.bunker-floor:hover { filter: brightness(1.3); }
 .bunker-floor:last-child { border-bottom: none; }
-.bunker-floor-label { flex-shrink: 0; font-size: 0.75em; color: #fff; text-shadow: 0 0 8px rgba(0,0,0,0.8); line-height: 1.4; max-width: 130px; }
-.bunker-floor-label small { color: #0af; opacity: 0.85; }
 
-.bunker-corridor {
-    flex-grow: 1; height: 40px; position: relative; overflow: hidden;
-    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 14px);
-    border-radius: 4px;
+.bunker-room-preview-wrap {
+    position: relative; width: 100%; height: 100%; overflow: hidden;
+    border-radius: 5px; border: 1px solid rgba(255,255,255,0.1);
+}
+.bunker-floor-label {
+    position: absolute; top: 3px; left: 5px; z-index: 20;
+    font-size: 0.62em; color: #fff; background: rgba(0,0,0,0.55);
+    padding: 2px 6px; border-radius: 3px; text-shadow: 0 0 6px rgba(0,0,0,0.9);
+    pointer-events: none; letter-spacing: 0.3px;
 }
 
-/* Kleines animiertes Männchen: läuft in seinem Stockwerk-Korridor hin und her */
+/* Der echte Raum (Wände + Möbel, per window._roomAreaTargetId hierher umgeleitet) wird
+   1:1 wie im normalen Raum-Bildschirm aufgebaut, dann als Ganzes herunterskaliert - dadurch
+   bleiben alle Größenverhältnisse (Möbel, Männchen) exakt wie im echten Raum erhalten. */
+.bunker-room-preview {
+    position: absolute; top: 0; left: 0; width: 250%; height: 250px;
+    transform: scale(0.4); transform-origin: top left;
+    background: #050505;
+}
+
+/* Kleines animiertes Männchen - lebt in derselben (unskalierten) Koordinatenwelt wie die
+   echten Möbelstücke und wird zusammen mit dem ganzen Raum herunterskaliert. Dadurch ist es
+   automatisch richtig groß im Verhältnis zu Lampen/Konsolen/Kristallen etc. */
 @keyframes bunker-walk-cycle {
-    0%   { left: 5%; transform: scaleX(1); }
-    45%  { left: 82%; transform: scaleX(1); }
-    50%  { left: 82%; transform: scaleX(-1); }
-    95%  { left: 5%; transform: scaleX(-1); }
-    100% { left: 5%; transform: scaleX(1); }
+    0%   { left: 4%;  transform: scaleX(1); }
+    38%  { left: 78%; transform: scaleX(1); }
+    42%  { left: 78%; transform: scaleX(1); }
+    50%  { left: 78%; transform: scaleX(1) scale(1.15); filter: drop-shadow(0 0 10px #0ff); }
+    58%  { left: 78%; transform: scaleX(-1); }
+    92%  { left: 4%;  transform: scaleX(-1); }
+    96%  { left: 4%;  transform: scaleX(-1); }
+    100% { left: 4%;  transform: scaleX(1); }
 }
-@keyframes bunker-leg-shuffle { 0%, 100% { height: 7px; } 50% { height: 4px; } }
-.bunker-figure {
-    position: absolute; bottom: 4px; width: 8px; height: 16px;
-}
+@keyframes bunker-leg-shuffle { 0%, 100% { height: 16px; } 50% { height: 10px; } }
+.bunker-figure { position: absolute; bottom: 70px; width: 20px; height: 46px; z-index: 6; }
 .bunker-figure::before {
-    content: ''; position: absolute; top: 0; left: 1px; width: 6px; height: 6px;
-    border-radius: 50%; background: #0ff; box-shadow: 0 0 6px #0ff;
+    content: ''; position: absolute; top: 0; left: 3px; width: 14px; height: 14px;
+    border-radius: 50%; background: #0ff; box-shadow: 0 0 10px #0ff;
 }
 .bunker-figure::after {
-    content: ''; position: absolute; top: 6px; left: 2px; width: 4px; height: 9px;
-    background: #0af; border-radius: 2px; animation: bunker-leg-shuffle 0.35s infinite;
+    content: ''; position: absolute; top: 15px; left: 5px; width: 10px; height: 22px;
+    background: #0af; border-radius: 3px; animation: bunker-leg-shuffle 0.4s infinite;
 }
+/* 42%-58%: das Männchen hält kurz mittig im Raum an und "interagiert" mit der Ausrüstung
+   (kurzes Aufleuchten, s.o. in der Keyframe-Regel bei 50%) statt einfach nur vorbeizulaufen. */
 .bunker-walker { animation: bunker-walk-cycle 7s ease-in-out infinite; }
 
-/* Männchen im Aufzug: nur ein sanftes Auf-und-Ab-Wippen (wartet auf Ankunft) */
+/* Männchen im Aufzug: sitzen/stehen nebeneinander, sanftes Warte-Wippen */
 @keyframes bunker-car-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-#bunker-elevator-car .bunker-figure { position: relative; bottom: 8px; animation: bunker-car-idle 1s ease-in-out infinite; }
-#bunker-elevator-car .bunker-figure::after { animation: none; height: 9px; }
+.bunker-rider {
+    position: absolute; bottom: 6px; width: 12px; height: 26px;
+    animation: bunker-car-idle 1s ease-in-out infinite;
+}
+.bunker-rider::before { width: 8px; height: 8px; left: 2px; }
+.bunker-rider::after { width: 6px; height: 12px; left: 3px; top: 9px; animation: none; }
