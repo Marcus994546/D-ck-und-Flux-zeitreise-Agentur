@@ -981,7 +981,7 @@
     85% { filter: brightness(4) contrast(1.5); transform: scale(0.4) translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
     90% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: scale(0.4) translate(0px, 2px) skewX(2deg); }
 }
-.emp-active-scaled { animation: room-emp-glitch-scaled 5s infinite linear !important; transform-origin: top left !important; }
+.emp-active-scaled { animation: room-emp-glitch-scaled 5s infinite linear !important; transform-origin: top center !important; }
 .kern-charge-core { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 90%; border-radius: 20px; overflow: hidden; display: flex; align-items: flex-end; background: rgba(0,0,0,0.6); border: 1px solid rgba(0,150,255,0.4); }
 .kern-charge-fill-inner { width: 100%; animation: kern-charge-fill 5s infinite ease-in-out; box-shadow: 0 0 15px #00ccff; }
 
@@ -991,8 +991,8 @@
    damit die Zentrierung nie von der Außen-Layout abhängt.
    ============================================================ */
 .mr-cylinder { position: relative; }
-.mr-ring { position: absolute; top: 50%; left: 50%; width: 66px; height: 66px; border: 2px solid #0ff; border-radius: 50%; transform: translate(-50%, -50%) rotateX(70deg); animation: ring-rotate-steady 4s linear infinite; pointer-events: none; }
-.mr-ring.r2 { width: 84px; height: 84px; border-style: dashed; border-color: #0af; animation-duration: 3s; animation-direction: reverse; }
+.mr-ring { position: absolute; top: 50%; left: 50%; width: 66px; height: 66px; margin-top: -33px; margin-left: -33px; border: 2px solid #0ff; border-radius: 50%; transform: rotateX(70deg); animation: ring-rotate-steady 4s linear infinite; pointer-events: none; }
+.mr-ring.r2 { width: 84px; height: 84px; margin-top: -42px; margin-left: -42px; border-style: dashed; border-color: #0af; animation-duration: 3s; animation-direction: reverse; }
 
 /* ============================================================
    RAUM-AUSBAU: ANOMALIE-DETEKTOR (violett, Zeitriss-Thematik)
@@ -1131,7 +1131,7 @@
 #bunker-view { display: flex; width: 100%; max-width: 560px; gap: 0; }
 
 #bunker-shaft {
-    position: relative; width: 46px; flex-shrink: 0;
+    position: relative; width: 70px; flex-shrink: 0;
     background: linear-gradient(90deg, #050505, #111 50%, #050505);
     border-right: 2px solid rgba(0,170,255,0.4);
     box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
@@ -1142,7 +1142,7 @@
     background: repeating-linear-gradient(180deg, #333 0px, #333 6px, #111 6px, #111 12px);
 }
 #bunker-elevator-car {
-    position: absolute; left: 50%; top: 8px; width: 36px; height: 100px;
+    position: absolute; left: 50%; top: 8px; width: 46px; height: 100px;
     transform: translateX(-50%);
     background: linear-gradient(180deg, #223, #001);
     border: 2px solid #0af; border-radius: 3px;
@@ -1151,7 +1151,9 @@
     z-index: 5; overflow: hidden;
 }
 
-#bunker-floors { flex-grow: 1; display: flex; flex-direction: column; }
+/* Nicht mehr flex-grow: die Raum-Vorschau hat jetzt eine feste, realistische Breite -
+   der Bereich soll sich nicht mehr auf die volle verfügbare Breite strecken. */
+#bunker-floors { width: 160px; flex-shrink: 0; display: flex; flex-direction: column; }
 
 .bunker-floor {
     height: 116px; box-sizing: border-box; border-bottom: 2px solid rgba(0,170,255,0.25);
@@ -1175,8 +1177,9 @@
    1:1 wie im normalen Raum-Bildschirm aufgebaut, dann als Ganzes herunterskaliert - dadurch
    bleiben alle Größenverhältnisse (Möbel, Männchen) exakt wie im echten Raum erhalten. */
 .bunker-room-preview {
-    position: absolute; top: 0; left: 0; width: 250%; height: 250px;
-    transform: scale(0.4) !important; transform-origin: top left !important;
+    position: absolute; top: 0; left: 50%; width: 340px; height: 250px;
+    margin-left: -170px;
+    transform: scale(0.4) !important; transform-origin: top center !important;
     background: #050505;
 }
 
