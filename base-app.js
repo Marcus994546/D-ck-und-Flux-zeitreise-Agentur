@@ -370,7 +370,7 @@
         // damit clearRoom() - jetzt containerspezifisch - keinen falschen Raum trifft).
         bunkerFloorsData.forEach((room, idx) => {
             window._roomAreaTargetId = 'bunker-room-' + idx;
-            try { window.reloadFurniture(room.type); } catch(e) {}
+            try { window.reloadFurniture(room.type); } catch(e) { console.error('Bunker-Vorschau Fehler bei Stockwerk "' + room.type + '":', e); }
         });
         window._roomAreaTargetId = 'room-area';
 
@@ -1670,8 +1670,14 @@ window.spawnFurniture = (type, count) => {
             </div>
             <div class="kern-base"></div>`;
         
-        // Fügt dem gesamten Raum den Glitch-Effekt hinzu, sobald der Kern gebaut wird
-        room.classList.add('emp-active');
+        // Fügt dem gesamten Raum den Glitch-Effekt hinzu, sobald der Kern gebaut wird -
+        // aber NICHT in der Bunker-Miniaturansicht: die Glitch-Animation verändert "transform"
+        // auf demselben Element, das dort bereits "transform: scale(0.4)" für die Verkleinerung
+        // braucht - beide würden sich gegenseitig überschreiben und die Vorschau kurzzeitig auf
+        // volle Größe aufspringen lassen.
+        if ((window._roomAreaTargetId || 'room-area') === 'room-area') {
+            room.classList.add('emp-active');
+        }
         
     } else if (type === 'supraleiter') {
         item.classList.add('item-supraleiter');

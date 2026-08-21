@@ -981,8 +981,8 @@
    damit die Zentrierung nie von der Außen-Layout abhängt.
    ============================================================ */
 .mr-cylinder { position: relative; }
-.mr-ring { position: absolute; top: 50%; left: 50%; width: 90px; height: 90px; border: 2px solid #0ff; border-radius: 50%; transform: translate(-50%, -50%) rotateX(70deg); animation: ring-rotate-steady 4s linear infinite; pointer-events: none; }
-.mr-ring.r2 { width: 118px; height: 118px; border-style: dashed; border-color: #0af; animation-duration: 3s; animation-direction: reverse; }
+.mr-ring { position: absolute; top: 50%; left: 50%; width: 66px; height: 66px; border: 2px solid #0ff; border-radius: 50%; transform: translate(-50%, -50%) rotateX(70deg); animation: ring-rotate-steady 4s linear infinite; pointer-events: none; }
+.mr-ring.r2 { width: 84px; height: 84px; border-style: dashed; border-color: #0af; animation-duration: 3s; animation-direction: reverse; }
 
 /* ============================================================
    RAUM-AUSBAU: ANOMALIE-DETEKTOR (violett, Zeitriss-Thematik)
@@ -1166,7 +1166,7 @@
    bleiben alle Größenverhältnisse (Möbel, Männchen) exakt wie im echten Raum erhalten. */
 .bunker-room-preview {
     position: absolute; top: 0; left: 0; width: 250%; height: 250px;
-    transform: scale(0.4); transform-origin: top left;
+    transform: scale(0.4) !important; transform-origin: top left !important;
     background: #050505;
 }
 
