@@ -976,10 +976,10 @@
    (scale(0.4)) muss dabei in JEDEM Schritt erhalten bleiben, sonst überschreiben sich
    Glitch und Skalierung gegenseitig auf derselben "transform"-Eigenschaft. */
 @keyframes room-emp-glitch-scaled {
-    0%, 78%, 100% { filter: none; transform: scale(0.4) translate(0,0) skewX(0); }
-    81% { filter: invert(1) contrast(2) hue-rotate(180deg); transform: scale(0.4) translate(-5px, 5px) skewX(10deg); background-color: rgba(0, 255, 255, 0.2); }
-    85% { filter: brightness(4) contrast(1.5); transform: scale(0.4) translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
-    90% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: scale(0.4) translate(0px, 2px) skewX(2deg); }
+    0%, 78%, 100% { filter: none; transform: scale(0.46) translate(0,0) skewX(0); }
+    81% { filter: invert(1) contrast(2) hue-rotate(180deg); transform: scale(0.46) translate(-5px, 5px) skewX(10deg); background-color: rgba(0, 255, 255, 0.2); }
+    85% { filter: brightness(4) contrast(1.5); transform: scale(0.46) translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
+    90% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: scale(0.46) translate(0px, 2px) skewX(2deg); }
 }
 .emp-active-scaled { animation: room-emp-glitch-scaled 5s infinite linear !important; transform-origin: top center !important; }
 .kern-charge-core { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 90%; border-radius: 20px; overflow: hidden; display: flex; align-items: flex-end; background: rgba(0,0,0,0.6); border: 1px solid rgba(0,150,255,0.4); }
@@ -1153,10 +1153,10 @@
 
 /* Nicht mehr flex-grow: die Raum-Vorschau hat jetzt eine feste, realistische Breite -
    der Bereich soll sich nicht mehr auf die volle verfügbare Breite strecken. */
-#bunker-floors { width: 160px; flex-shrink: 0; display: flex; flex-direction: column; }
+#bunker-floors { width: 178px; flex-shrink: 0; display: flex; flex-direction: column; }
 
 .bunker-floor {
-    height: 116px; box-sizing: border-box; border-bottom: 2px solid rgba(0,170,255,0.25);
+    height: 128px; box-sizing: border-box; border-bottom: 2px solid rgba(0,170,255,0.25);
     cursor: pointer; position: relative; transition: filter 0.2s; padding: 3px 6px;
 }
 .bunker-floor:hover { filter: brightness(1.3); }
@@ -1179,7 +1179,7 @@
 .bunker-room-preview {
     position: absolute; top: 0; left: 50%; width: 340px; height: 250px;
     margin-left: -170px;
-    transform: scale(0.4) !important; transform-origin: top center !important;
+    transform: scale(0.46) !important; transform-origin: top center !important;
     background: #050505;
 }
 
@@ -1209,6 +1209,15 @@
 /* 42%-58%: das Männchen hält kurz mittig im Raum an und "interagiert" mit der Ausrüstung
    (kurzes Aufleuchten, s.o. in der Keyframe-Regel bei 50%) statt einfach nur vorbeizulaufen. */
 .bunker-walker { animation: bunker-walk-cycle 7s ease-in-out infinite; }
+
+/* Einmaliger Weg von der Tür (rechts) zum Aufzug (links) - für die neue, bedarfsgesteuerte
+   Aufzug-Fahrt statt der alten Dauer-Patrouille. */
+@keyframes bunker-walk-to-shaft {
+    0% { left: 78%; transform: scaleX(-1); }
+    90% { left: 4%; transform: scaleX(-1); }
+    100% { left: 2%; opacity: 0; transform: scaleX(-1); }
+}
+.bunker-walker-to-shaft { animation: bunker-walk-to-shaft 1.9s ease-in-out forwards; }
 
 /* Männchen im Aufzug: sitzen/stehen nebeneinander, sanftes Warte-Wippen */
 @keyframes bunker-car-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }

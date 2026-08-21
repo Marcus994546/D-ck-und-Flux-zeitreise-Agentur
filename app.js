@@ -2491,17 +2491,15 @@ window.f_showDescription = function(withVoice) {
     }
 
     function updateCompass() {
-        const dial = document.querySelector('#gps-compass .compass-dial');
         const needle = document.querySelector('#gps-compass .compass-needle');
-        if (!dial || !needle) return;
+        if (!needle) return;
         const heading = gpsSmoothHeading || 0;
-        // Zifferblatt (N/O/S/W) dreht sich mit dem Gerät mit, damit "N" immer wirklich Richtung
-        // Norden zeigt. Die Nadel bekommt zusätzlich die Peilung zum Ziel aufaddiert - dadurch
-        // zeigt sie unabhängig von der eigenen Drehung immer korrekt zum Zielpunkt.
-        dial.style.transform = 'rotate(' + (-heading) + 'deg)';
+        // Zifferblatt (N/O/S/W) bleibt fest stehen - "N" zeigt immer nach oben, so wie auf einer
+        // Karte. NUR die Nadel bewegt sich: sie zeigt relativ zur eigenen Blickrichtung immer
+        // dorthin, wo das Ziel liegt (Peilung zum Ziel minus eigene Ausrichtung).
         if (gpsTargetReady) {
             const bearing = calcBearing(gpsLastLat, gpsLastLng, gpsTargetLat, gpsTargetLng);
-            needle.style.transform = 'rotate(' + bearing + 'deg)';
+            needle.style.transform = 'rotate(' + (bearing - heading) + 'deg)';
             needle.style.opacity = '1';
         } else {
             needle.style.opacity = '0.3';

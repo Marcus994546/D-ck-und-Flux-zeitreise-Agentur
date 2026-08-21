@@ -304,17 +304,15 @@
     // (die überall im Code auf "document.getElementById('room-area')" fest verdrahtet waren,
     // s.o. die Umstellung auf window._roomAreaTargetId) kurzzeitig auf den jeweiligen
     // Stockwerk-Container umgeleitet werden.
-    const BUNKER_FLOOR_HEIGHT = 116;
-    const BUNKER_PREVIEW_SCALE = 0.4;
+    const BUNKER_FLOOR_HEIGHT = 128;
+    const BUNKER_PREVIEW_SCALE = 0.46;
     const BUNKER_MAX_RIDERS = 3;
     const BUNKER_MAX_PER_FLOOR = 2;
 
     let bunkerFloorsData = [];       // [{type, lvl}] in Anzeige-Reihenfolge
     let bunkerRiders = [];           // aktuell im Aufzug mitfahrende Männchen (DOM-Elemente)
-    let bunkerFloorOccupants = {};   // floorIdx -> [Männchen, die gerade in diesem Raum umherlaufen]
-    let bunkerCurrentFloorIdx = 0;
-    let bunkerDir = 1;
-    let bunkerCycleTimeout = null;
+    let bunkerElevatorFloor = 0;     // Stockwerk, an dem der Aufzug gerade steht
+    let bunkerLoopTimeout = null;
     let bunkerActive = false;
 
     window.openAktiveBasis = function() {
@@ -327,7 +325,7 @@
         playBeepBase(600, 0.05);
         document.getElementById('aktive-basis-overlay').style.display = 'none';
         bunkerActive = false;
-        if (bunkerCycleTimeout) { clearTimeout(bunkerCycleTimeout); bunkerCycleTimeout = null; }
+        if (bunkerLoopTimeout) { clearTimeout(bunkerLoopTimeout); bunkerLoopTimeout = null; }
         // Ziel wieder auf den echten Raum-Bildschirm zurückstellen, falls er als nächstes geöffnet wird.
         window._roomAreaTargetId = 'room-area';
     };
@@ -337,9 +335,7 @@
         if (!floorsEl) return;
         floorsEl.innerHTML = '';
         bunkerRiders = [];
-        bunkerFloorOccupants = {};
-        bunkerCurrentFloorIdx = 0;
-        bunkerDir = 1;
+        bunkerElevatorFloor = 0;
 
         const zentrale = gameState.baseData.find(r => r.type === 'ZENTRALE');
         const others = gameState.baseData.filter(r => r.type !== 'ZENTRALE');
@@ -374,9 +370,12 @@
         });
         window._roomAreaTargetId = 'room-area';
 
+        const car = document.getElementById('bunker-elevator-car');
+        if (car) car.style.top = '8px'; // startet oben, an der Zentrale
+
         bunkerActive = true;
-        if (bunkerCycleTimeout) { clearTimeout(bunkerCycleTimeout); bunkerCycleTimeout = null; }
-        bunkerCycleTimeout = setTimeout(bunkerCycleStep, 600);
+        if (bunkerLoopTimeout) { clearTimeout(bunkerLoopTimeout); bunkerLoopTimeout = null; }
+        bunkerScheduleNextArrival(1500);
     }
 
     function bunkerSpawnRiderInCar(car) {
@@ -387,71 +386,72 @@
         bunkerRiders.push(riderEl);
     }
 
-    // Ein Stopp des Aufzugs: ankommen -> ggf. jemanden aussteigen und im Raum umherlaufen
-    // lassen -> ggf. jemanden aus dem Raum abholen -> weiter zum nächsten Stockwerk.
-    // Es können mehrere Männchen gleichzeitig im Aufzug sitzen (bis BUNKER_MAX_RIDERS).
-    function bunkerCycleStep() {
+    function bunkerScheduleNextArrival(fixedDelay) {
         if (!bunkerActive) return;
+        // Unregelmäßige Abstände: mal kommt schnell wieder wer, mal dauert es länger.
+        const delay = fixedDelay || (2500 + Math.random() * 9000);
+        bunkerLoopTimeout = setTimeout(bunkerRiderTrip, delay);
+    }
+
+    function bunkerWait(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function bunkerMoveElevatorTo(floorIdx) {
         const car = document.getElementById('bunker-elevator-car');
-        if (!car || bunkerFloorsData.length < 1) return;
+        if (!car) return;
+        bunkerElevatorFloor = floorIdx;
+        car.style.top = (floorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+        await bunkerWait(1400); // passend zur CSS-Transition (1.3s) des Aufzugs
+    }
 
+    // Eine vollständige Fahrt: Männchen kommt durch die Tür in der Zentrale herein, läuft zum
+    // Aufzug -> Aufzug holt es ab (fährt bei Bedarf erst hoch zur Zentrale) -> bringt es zu
+    // einem zufälligen Raum -> setzt es dort ab -> bleibt dort stehen, bis die nächste Fahrt fällig ist.
+    async function bunkerRiderTrip() {
+        if (!bunkerActive) return;
         try {
-            car.style.top = (bunkerCurrentFloorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-        } catch(e) { console.error('Bunker-Aufzug Fehler (Position):', e); }
-
-        bunkerCycleTimeout = setTimeout(() => {
+            const doorFloor = document.getElementById('bunker-room-0');
+            if (doorFloor) {
+                const walker = document.createElement('div');
+                walker.className = 'bunker-figure bunker-walker-to-shaft';
+                doorFloor.appendChild(walker);
+                await bunkerWait(1900); // Laufzeit von der Tür zum Aufzug
+                walker.remove();
+            }
             if (!bunkerActive) return;
-            const idx = bunkerCurrentFloorIdx;
 
-            try {
-                const preview = document.getElementById('bunker-room-' + idx);
-                if (!bunkerFloorOccupants[idx]) bunkerFloorOccupants[idx] = [];
-
-                // AUSSTEIGEN: jemand verlässt den Aufzug und läuft im Raum umher.
-                if (bunkerRiders.length > 0 && bunkerFloorOccupants[idx].length < BUNKER_MAX_PER_FLOOR && Math.random() < 0.65) {
-                    const riderEl = bunkerRiders.pop();
-                    riderEl.remove();
-                    if (preview) {
-                        const walker = document.createElement('div');
-                        walker.className = 'bunker-figure bunker-walker';
-                        walker.style.animationDuration = (5 + Math.random() * 3).toFixed(1) + 's';
-                        preview.appendChild(walker);
-                        bunkerFloorOccupants[idx].push(walker);
-                    }
-                }
-            } catch(e) { console.error('Bunker-Aufzug Fehler (Aussteigen, Etage ' + idx + '):', e); }
-
-            bunkerCycleTimeout = setTimeout(() => {
+            if (bunkerElevatorFloor !== 0) {
+                await bunkerMoveElevatorTo(0);
                 if (!bunkerActive) return;
+            }
 
-                try {
-                    // EINSTEIGEN: jemand, der schon im Raum unterwegs war, steigt zu.
-                    const occupants = bunkerFloorOccupants[idx] || [];
-                    if (occupants.length > 0 && bunkerRiders.length < BUNKER_MAX_RIDERS && Math.random() < 0.5) {
-                        const walker = occupants.pop();
-                        walker.remove();
-                        bunkerSpawnRiderInCar(car);
-                    }
-                    // An der Eingangsebene (ZENTRALE) betreten gelegentlich neue Männchen die Basis.
-                    else if (idx === 0 && bunkerRiders.length < BUNKER_MAX_RIDERS && Math.random() < 0.4) {
-                        bunkerSpawnRiderInCar(car);
-                    }
-                } catch(e) { console.error('Bunker-Aufzug Fehler (Einsteigen, Etage ' + idx + '):', e); }
+            const car = document.getElementById('bunker-elevator-car');
+            if (car) bunkerSpawnRiderInCar(car);
+            await bunkerWait(500);
+            if (!bunkerActive) return;
 
-                // WICHTIG: Die Weiterschaltung + der nächste Schleifendurchlauf stehen bewusst
-                // AUSSERHALB des try-Blocks oben, in einem eigenen finally-artigen Ablauf - selbst
-                // wenn im Ein-/Aussteigen irgendwas schiefgeht, bleibt der Aufzug dadurch garantiert
-                // in Bewegung, statt für immer an einem Stockwerk hängen zu bleiben.
-                try {
-                    bunkerCurrentFloorIdx += bunkerDir;
-                    if (bunkerCurrentFloorIdx >= bunkerFloorsData.length - 1) bunkerDir = -1;
-                    if (bunkerCurrentFloorIdx <= 0) bunkerDir = 1;
-                    if (bunkerFloorsData.length <= 1) bunkerCurrentFloorIdx = 0;
-                } catch(e) { console.error('Bunker-Aufzug Fehler (Weiterschaltung):', e); bunkerCurrentFloorIdx = 0; bunkerDir = 1; }
+            const destIdx = bunkerFloorsData.length > 1
+                ? 1 + Math.floor(Math.random() * (bunkerFloorsData.length - 1))
+                : 0;
+            await bunkerMoveElevatorTo(destIdx);
+            if (!bunkerActive) return;
 
-                bunkerCycleTimeout = setTimeout(bunkerCycleStep, 500);
-            }, 900);
-        }, 1300);
+            if (bunkerRiders.length > 0) {
+                const riderEl = bunkerRiders.pop();
+                riderEl.remove();
+            }
+            const destPreview = document.getElementById('bunker-room-' + destIdx);
+            if (destPreview) {
+                const walker = document.createElement('div');
+                walker.className = 'bunker-figure bunker-walker';
+                walker.style.animationDuration = (5 + Math.random() * 3).toFixed(1) + 's';
+                destPreview.appendChild(walker);
+                setTimeout(() => { try { walker.remove(); } catch(e) {} }, 9000);
+            }
+        } catch(e) { console.error('Bunker-Fahrt Fehler:', e); }
+
+        bunkerScheduleNextArrival();
     }
 
     window.onload = async () => {
@@ -660,7 +660,8 @@
         if (type === 'zentrale_tor') {
             item.classList.add('item-zentrale-tor');
             item.innerHTML = '<div class="tor-rahmen"><div class="tor-portal"><div class="tor-ring"></div><div class="tor-ring tor-r2"></div></div></div><div class="tor-schwelle"></div>';
-            item.style.left = '44px'; item.style.bottom = '70px'; item.style.zIndex = '2';
+            item.style.right = '44px'; item.style.bottom = '70px'; item.style.zIndex = '2';
+            item.style.transform = 'rotate(-7deg)';
         } else if (type === 'desk') {
             item.classList.add('item-desk');
             item.innerHTML = '<div class="desk-console"><div class="desk-led" style="background:#f44;box-shadow:0 0 5px #f44;"></div><div class="desk-led" style="background:#ffcc00;box-shadow:0 0 5px #ffcc00;"></div><div class="desk-led" style="background:#0f8;box-shadow:0 0 5px #0f8;"></div></div>';
@@ -674,7 +675,7 @@
         } else if (type === 'server') {
             item.classList.add('item-server');
             item.innerHTML = '<div class="server-led"></div><div class="server-led" style="animation-delay:0.3s"></div><div class="server-led" style="animation-delay:0.6s"></div>';
-            let offsetR = 50 + ((count - 1) * 45); 
+            let offsetR = 110 + ((count - 1) * 45); 
             item.style.right = offsetR + 'px'; item.style.bottom = '70px';
         } 
         // ARCHIV
