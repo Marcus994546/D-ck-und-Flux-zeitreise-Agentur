@@ -79,6 +79,16 @@
         }
     };
 
+    // Bei jedem Druck auf einen der vier Haupt-Buttons (Flux-Kopplung, Zeit-Stränge, Komm-Link,
+    // Status) besteht eine 5%-Chance, dass das System auf "WARNUNG" umspringt - ersetzt den
+    // alten, rein zeitbasierten Zufalls-Trigger. Der ursprüngliche Button-Klick läuft danach
+    // trotzdem ganz normal weiter, die Warnung nimmt nur zusätzlich ihren Lauf.
+    function checkSystemWarningChance() {
+        if (currentSystemStatus === "STABIL" && Math.random() < 0.05) {
+            erzeugeWarnSequenz();
+        }
+    }
+
     window.triggerSystemMalfunction = function() {
         if (currentSystemStatus === "STABIL") {
             clearTimeout(activeAlertTimeout);
@@ -202,12 +212,7 @@
 
         activeAlertTimeout = setTimeout(() => {
             activeAlertTimeout = null;
-            if (currentSystemStatus !== "STABIL") return;
-            if (Math.random() < 0.08) {
-                erzeugeWarnSequenz();
-            } else {
-                starteSynchronenZyklus();
-            }
+            starteSynchronenZyklus();
         }, 30000); 
     }
 
@@ -401,6 +406,7 @@
     }
 
 window.f_chat = function() {
+    checkSystemWarningChance();
     if (typeof triggerScan === 'function') triggerScan();
     const chatBtn = document.getElementById('komm-link-btn');
     if(chatBtn) chatBtn.classList.remove('status-warn-pulse');
@@ -1912,9 +1918,9 @@ window.f_showDescription = function(withVoice) {
         }
     }
 
-    window.f_buchen = function() { checkEMPTrigger(origBuchen); };
-    window.f_epochen = function() { checkEMPTrigger(origEpochen); };
-    window.f_status = function() { checkEMPTrigger(origStatus); };
+    window.f_buchen = function() { checkSystemWarningChance(); checkEMPTrigger(origBuchen); };
+    window.f_epochen = function() { checkSystemWarningChance(); checkEMPTrigger(origEpochen); };
+    window.f_status = function() { checkSystemWarningChance(); checkEMPTrigger(origStatus); };
 
     window.triggerTrap = function() {
         document.getElementById('emp-trap').style.setProperty('display', 'none', 'important');
