@@ -92,10 +92,11 @@
     const AGENT_QUARTIERE_HOURS = 1;
     const AGENT_MAX_LEVEL = 10;
     const AGENT_TASK_ROOMS = {
-        'SCANNER-PHALANX':      { hours: 5, effect: 'spawn_agent' },
+        'SCANNER-PHALANX':      { hours: 24, effect: 'spawn_agent' },
         'KI-KERNMATRIX':        { hours: 8, effect: 'level_up' },
         'FLUX-REAKTOR':         { hours: 1, effect: 'credits', amount: 5 },
-        'RENAISSANCE-GENERATOR':{ hours: 8, effect: 'materiezelle', amount: 1 }
+        'RENAISSANCE-GENERATOR':{ hours: 8, effect: 'materiezelle', amount: 1 },
+        'KINETIK-LABOR':        { hours: 1, effect: 'player_xp', amount: 5 }
     };
 
     // Formel lt. Vorgabe: Neue Dauer = Basis-Dauer * (1 - (Level - 1) * 0.05)
@@ -105,7 +106,7 @@
     }
 
     const AGENT_UNLOCK_COST_CREDITS = 13000;
-    const AGENT_UNLOCK_COST_MZ = 5;
+    const AGENT_UNLOCK_COST_MZ = 50;
     const AGENT_UNLOCK_REQUIRED_LEVEL = 50;
     const AGENT_UNLOCK_REQUIRED_ROOMS = ['AGENTEN-QUARTIERE', 'SCANNER-PHALANX', 'KI-KERNMATRIX', 'FLUX-REAKTOR', 'RENAISSANCE-GENERATOR'];
 
@@ -133,6 +134,8 @@
             gameState.materieZellen += task.amount;
         } else if (task.effect === 'level_up') {
             if (agent.level < AGENT_MAX_LEVEL) agent.level++;
+        } else if (task.effect === 'player_xp') {
+            grantPlayerXP(task.amount).catch(e => console.error('XP-Gutschrift Fehler:', e));
         } else if (task.effect === 'spawn_agent') {
             gameState.agents.push({
                 id: 'agent_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
@@ -144,6 +147,26 @@
                 taskDurationMs: null
             });
         }
+    }
+
+    // Schreibt ganz normale Spieler-XP direkt ins selbe Firestore-Profil ("agenten"), das auch
+    // das Haupt-Terminal (app.js/window.updateXP) verwendet - inklusive derselben
+    // Level-Aufstiegs-Logik (100 XP = 1 Level), damit beide Systeme konsistent bleiben.
+    async function grantPlayerXP(amount) {
+        if (!window.db || !window.getDoc || !window.setDoc) return;
+        const ref = window.doc(window.db, "agenten", window.agentSlug(currentAgentName));
+        const snap = await window.getDoc(ref);
+        let xp = 0, lvl = 1;
+        if (snap.exists()) {
+            const d = snap.data();
+            xp = d.xp || 0;
+            lvl = d.lvl || 1;
+        }
+        xp += amount;
+        while (xp >= 100) { xp -= 100; lvl++; }
+        await window.setDoc(ref, { xp, lvl }, { merge: true });
+        gameState.userLevel = Math.max(gameState.userLevel, lvl);
+        updateUI();
     }
 
     // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
@@ -660,7 +683,8 @@
             credits: task.amount + ' Credits pro Zyklus',
             materiezelle: task.amount + ' Materiezelle pro Zyklus',
             level_up: 'erhöht das Agenten-Level (max. ' + AGENT_MAX_LEVEL + ')',
-            spawn_agent: 'erzeugt einen neuen Agenten'
+            spawn_agent: 'erzeugt einen neuen Agenten',
+            player_xp: task.amount + ' Spieler-XP pro Zyklus'
         }[task.effect] || '';
         return 'Agent arbeitet hier ' + task.hours + 'h (je nach Level kürzer) · ' + effectText;
     }
