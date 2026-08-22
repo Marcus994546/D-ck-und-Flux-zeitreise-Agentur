@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260821i">
+    <link rel="stylesheet" href="base-style.css?v=20260821k">
 </head>
 <body>
 
@@ -36,6 +36,11 @@
     </div>
     <h2 id="main-title">AGENTUR-STRUKTUR</h2>
     <div class="neon-divider"></div>
+</div>
+
+<div id="agent-panel">
+    <div id="agent-panel-title">AGENTEN</div>
+    <div id="agent-panel-list"></div>
 </div>
 
 <div id="grid-wrapper">
@@ -64,6 +69,7 @@
 <div id="aktive-basis-overlay">
     <h3 style="color: var(--neon-color); margin-bottom: 5px;">[ AKTIVE BASIS ]</h3>
     <div style="font-size:0.7em; color:#aaa; margin-bottom: 10px;">Querschnitt deiner unterirdischen Anlage</div>
+    <button id="btn-agent-system-unlock" class="btn-back" style="border-color:#ff8800; color:#ff8800; margin-bottom: 12px;" onclick="openAgentUnlockPopup()">🔓 AGENTEN-SYSTEM FREISCHALTEN</button>
     <div class="neon-divider" style="margin-bottom: 15px;"></div>
     <div id="bunker-view">
         <div id="bunker-shaft">
@@ -73,6 +79,18 @@
         <div id="bunker-floors"></div>
     </div>
     <button class="btn-back" style="margin-top: 15px; width: 100%; max-width: 500px;" onclick="closeAktiveBasis()">SCHLIESSEN</button>
+</div>
+
+<div id="agent-unlock-overlay">
+    <h3 style="color:#ff8800; margin-bottom: 10px;">[ AGENTEN-SYSTEM ]</h3>
+    <div class="neon-divider" style="margin-bottom: 15px; border-color:#ff8800;"></div>
+    <p style="font-size:0.8em; color:#ccc; max-width: 420px;">
+        Aktiviert die autonome Agenten-Steuerung: Agenten lassen sich per Klick zwischen Räumen
+        bewegen, arbeiten dort selbstständig an zeitbasierten Aufgaben und generieren Belohnungen.
+    </p>
+    <div id="agent-unlock-requirements" style="font-size:0.75em; text-align:left; max-width: 380px; margin: 15px 0; line-height: 1.8;"></div>
+    <button id="btn-agent-unlock-confirm" class="modell-btn" style="border-color:#ff8800; color:#ff8800; font-size:1em; padding:14px 30px;" onclick="confirmAgentSystemUnlock()">JETZT KAUFEN (13.000 C + 5 MZ)</button>
+    <button class="btn-back" style="margin-top:12px;" onclick="closeAgentUnlockPopup()">SCHLIESSEN</button>
 </div>
 
 
@@ -199,7 +217,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260821i"></script>
-<script src="base-app.js?v=20260821i"></script>
+<script type="module" src="base-firebase-init.js?v=20260821k"></script>
+<script src="base-app.js?v=20260821k"></script>
 </body>
 </html>

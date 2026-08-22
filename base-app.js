@@ -82,7 +82,148 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, userLevel: 1 };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, userLevel: 1, agents: [], agentSystemUnlocked: false };
+
+    // ============================================================
+    // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
+    // Random-Spawning ist komplett entfernt - jeder Agent hat jetzt einen klaren,
+    // nachvollziehbaren Zustand (idle / wartet in den Quartieren / arbeitet).
+    // ============================================================
+    const AGENT_QUARTIERE_HOURS = 1;
+    const AGENT_MAX_LEVEL = 10;
+    const AGENT_TASK_ROOMS = {
+        'SCANNER-PHALANX':      { hours: 5, effect: 'spawn_agent' },
+        'KI-KERNMATRIX':        { hours: 8, effect: 'level_up' },
+        'FLUX-REAKTOR':         { hours: 1, effect: 'credits', amount: 5 },
+        'RENAISSANCE-GENERATOR':{ hours: 8, effect: 'materiezelle', amount: 1 }
+    };
+
+    // Formel lt. Vorgabe: Neue Dauer = Basis-Dauer * (1 - (Level - 1) * 0.05)
+    function agentScaledDurationMs(baseHours, level) {
+        const factor = Math.max(0.1, 1 - (level - 1) * 0.05); // Untergrenze, falls Level je höher als 19 würde
+        return Math.round(baseHours * 3600000 * factor);
+    }
+
+    const AGENT_UNLOCK_COST_CREDITS = 13000;
+    const AGENT_UNLOCK_COST_MZ = 5;
+    const AGENT_UNLOCK_REQUIRED_LEVEL = 50;
+    const AGENT_UNLOCK_REQUIRED_ROOMS = ['AGENTEN-QUARTIERE', 'SCANNER-PHALANX', 'KI-KERNMATRIX', 'FLUX-REAKTOR', 'RENAISSANCE-GENERATOR'];
+
+    function ensureAgentsInitialized() {
+        if (!Array.isArray(gameState.agents)) gameState.agents = [];
+        // Ohne Freischaltung existiert das gesamte Agenten-System nicht - kein automatisches Spawnen.
+        if (!gameState.agentSystemUnlocked) return;
+        if (gameState.agents.length === 0) {
+            gameState.agents.push({
+                id: 'agent_' + Date.now(),
+                level: 1,
+                location: 'ZENTRALE',
+                state: 'idle',        // 'idle' | 'waiting_in_quartiere' | 'working'
+                targetRoom: null,
+                taskStartTs: null,
+                taskDurationMs: null
+            });
+        }
+    }
+
+    function applyAgentReward(agent, task) {
+        if (task.effect === 'credits') {
+            gameState.credits += task.amount;
+        } else if (task.effect === 'materiezelle') {
+            gameState.materieZellen += task.amount;
+        } else if (task.effect === 'level_up') {
+            if (agent.level < AGENT_MAX_LEVEL) agent.level++;
+        } else if (task.effect === 'spawn_agent') {
+            gameState.agents.push({
+                id: 'agent_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                level: 1,
+                location: 'SCANNER-PHALANX',
+                state: 'idle',
+                targetRoom: null,
+                taskStartTs: null,
+                taskDurationMs: null
+            });
+        }
+    }
+
+    // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
+    // Timer im Browser) - dadurch funktioniert das System auch korrekt, wenn die Seite
+    // zwischenzeitlich geschlossen war und man erst Stunden später wieder reinschaut.
+    function tickAgents() {
+        ensureAgentsInitialized();
+        if (!gameState.agentSystemUnlocked) return false;
+        const now = Date.now();
+        let changed = false;
+
+        gameState.agents.forEach(agent => {
+            if (agent.state === 'waiting_in_quartiere') {
+                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                    agent.location = agent.targetRoom;
+                    agent.targetRoom = null;
+                    const task = AGENT_TASK_ROOMS[agent.location];
+                    if (task) {
+                        agent.state = 'working';
+                        agent.taskStartTs = now;
+                        agent.taskDurationMs = agentScaledDurationMs(task.hours, agent.level);
+                    } else {
+                        agent.state = 'idle';
+                        agent.taskStartTs = null;
+                        agent.taskDurationMs = null;
+                    }
+                    changed = true;
+                }
+            } else if (agent.state === 'working') {
+                const task = AGENT_TASK_ROOMS[agent.location];
+                if (!task) { agent.state = 'idle'; agent.taskStartTs = null; agent.taskDurationMs = null; return; }
+                let safety = 0;
+                while (now - agent.taskStartTs >= agent.taskDurationMs && safety < 500) {
+                    applyAgentReward(agent, task);
+                    agent.taskStartTs += agent.taskDurationMs;
+                    changed = true;
+                    safety++;
+                    if (task.effect === 'level_up' && agent.level >= AGENT_MAX_LEVEL) {
+                        agent.state = 'idle';
+                        agent.taskStartTs = null;
+                        agent.taskDurationMs = null;
+                        break;
+                    }
+                    agent.taskDurationMs = agentScaledDurationMs(task.hours, agent.level);
+                }
+            }
+        });
+
+        if (changed) { try { saveGameState(); } catch(e) {} }
+        if (typeof renderAgentPanel === 'function') renderAgentPanel();
+        return changed;
+    }
+
+    // Startet die Umleitung eines Agenten zu einem neuen Zielraum. Führt IMMER zwingend über
+    // die Agenten-Quartiere. Ein Agent in der Warte-Phase ("waiting_in_quartiere") kann NICHT
+    // umgeleitet werden. Ein arbeitender Agent KANN umgeleitet werden, verliert dabei aber den
+    // Fortschritt seines aktuellen, unvollständigen Zyklus (bereits gutgeschriebene Belohnungen
+    // aus früheren, abgeschlossenen Zyklen bleiben selbstverständlich erhalten).
+    window.moveAgentTo = function(agentId, targetType) {
+        const agent = gameState.agents.find(a => a.id === agentId);
+        if (!agent) return;
+
+        if (agent.state === 'waiting_in_quartiere') {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Agent befindet sich in den Quartieren und kann während der Wartezeit nicht umgeleitet werden.');
+            return;
+        }
+        if (agent.location === targetType && agent.state !== 'working') return;
+
+        agent.targetRoom = targetType;
+        agent.state = 'waiting_in_quartiere';
+        agent.location = 'AGENTEN-QUARTIERE';
+        agent.taskStartTs = Date.now();
+        agent.taskDurationMs = agentScaledDurationMs(AGENT_QUARTIERE_HOURS, agent.level);
+
+        window.selectedAgentId = null;
+        saveGameState();
+        renderGrid();
+        if (typeof renderAgentPanel === 'function') renderAgentPanel();
+        if (typeof showCustomAlert === 'function') showCustomAlert('Agent bewegt sich in die Agenten-Quartiere.');
+    };
     // Alle spawnFurniture/reloadFurniture/clearRoom-Aufrufe im ganzen Code zielen normalerweise
     // auf "#room-area" (der eine sichtbare Raum-Bildschirm). Für die Bunker-Ansicht (mehrere
     // gleichzeitig sichtbare Raum-Vorschauen) wird dieses Ziel kurzzeitig umgebogen.
@@ -125,9 +266,11 @@
                 if (parsed.credits !== undefined) gameState.credits = parsed.credits;
                 if (parsed.materieZellen !== undefined) gameState.materieZellen = parsed.materieZellen;
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
+                if (Array.isArray(parsed.agents)) gameState.agents = parsed.agents;
+                if (parsed.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
             } catch(e) {} 
         }
-        
+        ensureAgentsInitialized();
         updateUI(); renderGrid();
 
         if (window.db && window.getDoc) {
@@ -174,9 +317,15 @@
                     fusedCredits = Math.max(fusedCredits, data.credits || 0);
                     fusedMz = Math.max(fusedMz, data.mz || 0);
                     if (data.baseData) gameState.baseData = data.baseData;
+                    if (Array.isArray(data.agents)) gameState.agents = data.agents;
+                    if (data.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
                 }
                 gameState.credits = fusedCredits;
                 gameState.materieZellen = fusedMz;
+                ensureAgentsInitialized();
+                // Reale, seit dem letzten Speichern vergangene Zeit sofort nachholen (auch wenn
+                // die Seite zwischenzeitlich Stunden geschlossen war).
+                tickAgents();
 
                 // Fusionierten Stand sofort zurück in die kanonische Quelle ("agenten") schreiben.
                 try {
@@ -218,6 +367,8 @@
                 const baseRef = window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName));
                 await window.setDoc(baseRef, {
                     baseData: gameState.baseData,
+                    agents: gameState.agents,
+                    agentSystemUnlocked: gameState.agentSystemUnlocked,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -247,8 +398,38 @@
                 const isNeighbor = gameState.baseData.some(r => (Math.abs(r.x-x)===1 && r.y===y) || (Math.abs(r.y-y)===1 && r.x===x));
                 if (room) {
                     slot.classList.add('room-active'); slot.style.backgroundColor = roomColors[room.type] || '#1a0a2a';
-                    slot.onclick = () => { playBeepBase(1200, 0.05); openRoom(room.type); };
                     slot.innerHTML = `<b>${room.type}</b>${room.type !== 'ZENTRALE' ? '<br><small>LVL '+room.lvl+'</small>' : ''}`;
+
+                    const agentsHere = (gameState.agents || []).filter(a => a.location === room.type);
+                    agentsHere.forEach(a => {
+                        const badge = document.createElement('div');
+                        badge.className = 'agent-slot-badge';
+                        if (a.id === window.selectedAgentId) badge.classList.add('agent-slot-badge-selected');
+                        badge.innerText = 'A' + a.level;
+                        badge.onclick = (ev) => {
+                            ev.stopPropagation();
+                            if (a.state === 'waiting_in_quartiere') {
+                                playBeepBase(300, 0.1);
+                                if (typeof showCustomAlert === 'function') showCustomAlert('Agent wartet in den Quartieren und kann gerade nicht ausgewählt werden.');
+                                return;
+                            }
+                            playBeepBase(1200, 0.05);
+                            window.selectedAgentId = (window.selectedAgentId === a.id) ? null : a.id;
+                            renderGrid();
+                            if (typeof renderAgentPanel === 'function') renderAgentPanel();
+                            if (window.selectedAgentId && typeof showCustomAlert === 'function') showCustomAlert('Agent ausgewählt (Lvl ' + a.level + '). Ziel-Raum antippen.');
+                        };
+                        slot.appendChild(badge);
+                    });
+
+                    slot.onclick = () => {
+                        playBeepBase(1200, 0.05);
+                        if (window.selectedAgentId) {
+                            window.moveAgentTo(window.selectedAgentId, room.type);
+                            return;
+                        }
+                        openRoom(room.type);
+                    };
                     slot.style.display = 'flex';
                 } else if (isNeighbor) {
                     slot.classList.add('room-buildable'); slot.innerHTML = '<span>+</span>';
@@ -316,7 +497,79 @@
     let bunkerLoopTimeout = null;
     let bunkerActive = false;
 
+    function getAgentUnlockRequirementStatus() {
+        const roomsBuilt = AGENT_UNLOCK_REQUIRED_ROOMS.map(type => ({
+            type,
+            ok: gameState.baseData.some(r => r.type === type)
+        }));
+        return {
+            rooms: roomsBuilt,
+            allRoomsBuilt: roomsBuilt.every(r => r.ok),
+            levelOk: gameState.userLevel >= AGENT_UNLOCK_REQUIRED_LEVEL,
+            creditsOk: gameState.credits >= AGENT_UNLOCK_COST_CREDITS,
+            mzOk: gameState.materieZellen >= AGENT_UNLOCK_COST_MZ
+        };
+    }
+
+    function renderAgentUnlockPopup() {
+        const box = document.getElementById('agent-unlock-requirements');
+        const btn = document.getElementById('btn-agent-unlock-confirm');
+        if (!box || !btn) return;
+        const st = getAgentUnlockRequirementStatus();
+        const line = (ok, text) => '<div style="color:' + (ok ? '#0f8' : '#f44') + ';">' + (ok ? '✓' : '✗') + ' ' + text + '</div>';
+
+        let html = '<b style="color:#ff8800;">Voraussetzungen (müssen bereits gebaut sein):</b>';
+        st.rooms.forEach(r => { html += line(r.ok, r.type); });
+        html += '<br>' + line(st.levelOk, 'Agentur-Level ' + AGENT_UNLOCK_REQUIRED_LEVEL + ' (aktuell ' + gameState.userLevel + ')');
+        html += line(st.creditsOk, AGENT_UNLOCK_COST_CREDITS + ' Credits (aktuell ' + gameState.credits + ')');
+        html += line(st.mzOk, AGENT_UNLOCK_COST_MZ + ' Materiezellen (aktuell ' + gameState.materieZellen + ')');
+        box.innerHTML = html;
+
+        const allOk = st.allRoomsBuilt && st.levelOk && st.creditsOk && st.mzOk;
+        btn.disabled = !allOk;
+        btn.style.opacity = allOk ? '1' : '0.4';
+        btn.style.cursor = allOk ? 'pointer' : 'not-allowed';
+    }
+
+    window.openAgentUnlockPopup = function() {
+        if (gameState.agentSystemUnlocked) {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Agenten-System bereits freigeschaltet.');
+            return;
+        }
+        playBeepBase(900, 0.05);
+        renderAgentUnlockPopup();
+        document.getElementById('agent-unlock-overlay').style.display = 'flex';
+    };
+
+    window.closeAgentUnlockPopup = function() {
+        playBeepBase(600, 0.05);
+        document.getElementById('agent-unlock-overlay').style.display = 'none';
+    };
+
+    window.confirmAgentSystemUnlock = async function() {
+        const st = getAgentUnlockRequirementStatus();
+        if (!st.allRoomsBuilt) { if (typeof showCustomAlert === 'function') showCustomAlert('Nicht alle benötigten Räume sind gebaut.'); return; }
+        if (!st.levelOk) { if (typeof showCustomAlert === 'function') showCustomAlert('Agentur-Level zu niedrig.'); return; }
+        if (!st.creditsOk || !st.mzOk) { if (typeof showCustomAlert === 'function') showCustomAlert('Nicht genügend Credits/Materiezellen.'); return; }
+
+        gameState.credits -= AGENT_UNLOCK_COST_CREDITS;
+        gameState.materieZellen -= AGENT_UNLOCK_COST_MZ;
+        gameState.agentSystemUnlocked = true;
+        ensureAgentsInitialized(); // Jetzt erst darf der erste Agent in der Zentrale entstehen.
+
+        updateUI();
+        window.closeAgentUnlockPopup();
+        const unlockBtn = document.getElementById('btn-agent-system-unlock');
+        if (unlockBtn) unlockBtn.style.display = 'none';
+        renderBunkerView();
+        if (typeof renderAgentPanel === 'function') renderAgentPanel();
+        await saveGameState();
+        if (typeof showCustomAlert === 'function') showCustomAlert('Agenten-System freigeschaltet! Der erste Agent ist in der Zentrale einsatzbereit.');
+    };
+
     window.openAktiveBasis = function() {
+        const unlockBtn = document.getElementById('btn-agent-system-unlock');
+        if (unlockBtn) unlockBtn.style.display = gameState.agentSystemUnlocked ? 'none' : 'block';
         playBeepBase(900, 0.05);
         renderBunkerView();
         document.getElementById('aktive-basis-overlay').style.display = 'flex';
@@ -479,7 +732,63 @@
         await loadGameState();
         const wrap = document.getElementById('grid-wrapper');
         if(wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
+
+        if (typeof renderAgentPanel === 'function') renderAgentPanel();
+        // Läuft alle 15s: holt reale, vergangene Zeit nach und schreibt fällige Belohnungen gut,
+        // auch während die Seite offen im Hintergrund liegt.
+        setInterval(() => { tickAgents(); }, 15000);
     };
+
+    function formatAgentCountdown(agent) {
+        if (!agent.taskStartTs || !agent.taskDurationMs) return '';
+        const remainMs = Math.max(0, agent.taskDurationMs - (Date.now() - agent.taskStartTs));
+        const totalMin = Math.ceil(remainMs / 60000);
+        const h = Math.floor(totalMin / 60), m = totalMin % 60;
+        return h > 0 ? (h + 'h ' + m + 'min') : (m + 'min');
+    }
+
+    function renderAgentPanel() {
+        const panel = document.getElementById('agent-panel');
+        const list = document.getElementById('agent-panel-list');
+        if (!panel || !list) return;
+        if (!gameState.agentSystemUnlocked) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+        ensureAgentsInitialized();
+        list.innerHTML = '';
+
+        gameState.agents.forEach(agent => {
+            const row = document.createElement('div');
+            row.className = 'agent-panel-row';
+            if (agent.id === window.selectedAgentId) row.classList.add('agent-panel-row-selected');
+
+            let statusText;
+            if (agent.state === 'waiting_in_quartiere') {
+                statusText = 'Unterwegs zu ' + (agent.targetRoom || '?') + ' · noch ' + formatAgentCountdown(agent);
+            } else if (agent.state === 'working') {
+                statusText = 'Arbeitet in ' + agent.location + ' · nächster Zyklus in ' + formatAgentCountdown(agent);
+            } else {
+                statusText = 'Bereit in ' + agent.location;
+            }
+
+            row.innerHTML =
+                '<div class="agent-panel-icon">A' + agent.level + '</div>' +
+                '<div class="agent-panel-info"><b>Agent Lvl ' + agent.level + '</b><br><small>' + statusText + '</small></div>';
+
+            row.onclick = () => {
+                if (agent.state === 'waiting_in_quartiere') {
+                    playBeepBase(300, 0.1);
+                    if (typeof showCustomAlert === 'function') showCustomAlert('Agent wartet in den Quartieren und kann gerade nicht ausgewählt werden.');
+                    return;
+                }
+                playBeepBase(1200, 0.05);
+                window.selectedAgentId = (window.selectedAgentId === agent.id) ? null : agent.id;
+                renderGrid();
+                renderAgentPanel();
+                if (window.selectedAgentId && typeof showCustomAlert === 'function') showCustomAlert('Agent ausgewählt (Lvl ' + agent.level + '). Ziel-Raum antippen.');
+            };
+            list.appendChild(row);
+        });
+    }
 
 
 /* ==== next block ==== */
