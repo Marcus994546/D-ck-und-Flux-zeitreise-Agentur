@@ -426,14 +426,20 @@
             const cred = window.fbEmailAuthProvider.credential(user.email, passInput);
             await window.fbReauthenticate(user, cred); // wirft bei falschem Passwort
 
-            await window.fbUpdateEmail(user, newEmail);
+            // Firebase verlangt inzwischen aus Sicherheitsgründen eine Bestätigung der neuen
+            // Adresse per Link, bevor die E-Mail wirklich gewechselt wird (direktes updateEmail()
+            // wird sonst mit "auth/operation-not-allowed" abgelehnt).
+            await window.fbVerifyBeforeUpdateEmail(user, newEmail);
 
+            // login_lookup schon jetzt auf die neue Adresse setzen (nicht erst nach Bestätigung):
+            // Andernfalls würde ein künftiger Login-Versuch mit der dann bereits veralteten alten
+            // Adresse fehlschlagen, sobald die Bestätigung erfolgt ist - das Konto selbst kennt ab
+            // dem Klick auf den Link nur noch die neue Adresse.
             const slug = window.agentSlug(window.agentName);
             try { await window.setDoc(window.doc(window.db, "login_lookup", slug), { email: newEmail }, { merge: true }); } catch(e) {}
 
             errDiv.style.color = "#0f8";
-            errDiv.innerText = "E-Mail geändert!";
-            setTimeout(() => window.f_einstellungen(), 1200);
+            errDiv.innerText = "Bestätigungs-Mail an " + newEmail + " gesendet. Bitte den Link darin anklicken, um die Änderung abzuschließen.";
         } catch (e) {
             errDiv.style.color = "#f44";
             errDiv.innerText = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? "Passwort inkorrekt!" : (e.code === 'auth/email-already-in-use' ? "E-Mail bereits vergeben." : "Fehler: " + (e.code || e.message));
@@ -1506,6 +1512,14 @@ document.addEventListener('click', () => {
 
             if (window.auth.currentUser && window.auth.currentUser.displayName !== nameInput) {
                 try { await window.fbUpdateProfile(window.auth.currentUser, { displayName: nameInput }); } catch(e) {}
+            }
+
+            // Selbstheilung: Falls die E-Mail-Änderung inzwischen per Bestätigungslink wirksam
+            // wurde (verifyBeforeUpdateEmail), weicht die tatsächliche Konto-E-Mail jetzt vom
+            // alten login_lookup-Eintrag ab - hier automatisch nachziehen, ohne dass der Nutzer
+            // etwas tun muss.
+            if (window.auth.currentUser && window.auth.currentUser.email && window.auth.currentUser.email !== email) {
+                try { await window.setDoc(window.doc(window.db, "login_lookup", slug), { email: window.auth.currentUser.email }, { merge: true }); } catch(e) {}
             }
 
             const agentRef = window.doc(window.db, "agenten", window.agentSlug(nameInput));

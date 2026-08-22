@@ -1,7 +1,7 @@
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, getDocs, deleteDoc, deleteField, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendPasswordResetEmail, updateEmail, updatePassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendPasswordResetEmail, verifyBeforeUpdateEmail, updatePassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
@@ -27,7 +27,7 @@
   window.fbEmailAuthProvider = EmailAuthProvider;
   window.fbDeleteUser = deleteUser;
   window.fbSendPasswordResetEmail = sendPasswordResetEmail;
-  window.fbUpdateEmail = updateEmail;
+  window.fbVerifyBeforeUpdateEmail = verifyBeforeUpdateEmail;
   window.fbUpdatePassword = updatePassword;
 
   // Kanonische, ASCII-sichere Kurzform eines Agentennamens (Umlaute/Sonderzeichen -> "_").
