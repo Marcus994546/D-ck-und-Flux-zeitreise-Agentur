@@ -233,13 +233,17 @@
             const quartiereIdx = bunkerFloorIndexForType('AGENTEN-QUARTIERE');
             const oldIdx = bunkerFloorIndexForType(oldLocation);
             if (car && quartiereIdx >= 0) {
+                bunkerElevatorAnimating = true;
                 document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
                 car.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
                 car.style.top = ((oldIdx >= 0 ? oldIdx : 0) * BUNKER_FLOOR_HEIGHT + 8) + 'px';
                 requestAnimationFrame(() => {
                     car.style.top = (quartiereIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
                 });
-                setTimeout(() => { if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals(); }, 1400);
+                setTimeout(() => {
+                    bunkerElevatorAnimating = false;
+                    if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
+                }, 1400);
             } else if (typeof renderBunkerAgentVisuals === 'function') {
                 renderBunkerAgentVisuals();
             }
@@ -497,6 +501,8 @@
     // (gameState.agents) gerade ist - keine eigenständige Zufalls-Animation mehr. Der Aufzug
     // fährt nur, wenn ein Agent tatsächlich per Befehl unterwegs ist (state=waiting_in_quartiere),
     // ansonsten steht er dort, wo der zuletzt aktive Agent sich gerade befindet.
+    let bunkerElevatorAnimating = false;
+
     function renderBunkerAgentVisuals() {
         const car = document.getElementById('bunker-elevator-car');
         if (!car || !gameState.agentSystemUnlocked) { if (car) car.innerHTML = ''; return; }
@@ -505,9 +511,12 @@
 
         // Der Aufzug selbst dient nur noch der kurzen Fahrt-Animation (siehe moveAgentTo) und
         // parkt ansonsten leer an der Zentrale. Während der Wartezeit steht der Agent SICHTBAR
-        // in den Quartieren, nicht im Aufzug.
-        car.innerHTML = '';
-        car.style.top = '8px';
+        // in den Quartieren, nicht im Aufzug. Während einer laufenden Fahrt-Animation wird der
+        // Aufzug hier NICHT angefasst, sonst würde die kurze Fahrt mitten drin abgeschnitten.
+        if (!bunkerElevatorAnimating) {
+            car.innerHTML = '';
+            car.style.top = '8px';
+        }
 
         gameState.agents.forEach(agent => {
             const idx = bunkerFloorIndexForType(agent.location);
@@ -518,8 +527,14 @@
             const wrap = document.createElement('div');
             wrap.className = 'bunker-agent-figure';
             if (agent.id === window.selectedAgentId) wrap.classList.add('bunker-agent-figure-selected');
-            const waitLabel = (agent.state === 'waiting_in_quartiere') ? '<div class="bunker-agent-wait">wartet...</div>' : '';
-            wrap.innerHTML = '<div class="bunker-agent-level">Lvl ' + agent.level + '</div><div class="bunker-figure"></div>' + waitLabel;
+            const countdown = formatAgentCountdown(agent);
+            let statusLabel = '';
+            if (agent.state === 'waiting_in_quartiere') {
+                statusLabel = '<div class="bunker-agent-wait">wartet · ' + countdown + '</div>';
+            } else if (agent.state === 'working' && countdown) {
+                statusLabel = '<div class="bunker-agent-timer">⏱ ' + countdown + '</div>';
+            }
+            wrap.innerHTML = '<div class="bunker-agent-level">Lvl ' + agent.level + '</div><div class="bunker-figure"></div>' + statusLabel;
             wrap.onclick = (ev) => {
                 ev.stopPropagation();
                 if (agent.state === 'waiting_in_quartiere') {
@@ -715,6 +730,9 @@
         // Läuft alle 15s: holt reale, vergangene Zeit nach und schreibt fällige Belohnungen gut,
         // auch während die Seite offen im Hintergrund liegt.
         setInterval(() => { tickAgents(); }, 15000);
+        // Läuft jede Sekunde: aktualisiert nur die sichtbare Countdown-Anzeige am Männchen,
+        // damit man wirklich live mitzählen sieht, ohne die volle Zustandsprüfung zu wiederholen.
+        setInterval(() => { if (bunkerActive && typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals(); }, 1000);
     };
 
     function formatAgentCountdown(agent) {

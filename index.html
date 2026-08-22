@@ -29,7 +29,7 @@
     <meta property="og:description" content="Bereit für den Sprung? Werde Agent im GlobalerAgentur-Sektor und stabilisiere die Zeitlinie.">
     <meta property="og:image" content="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Milchstra%C3%9Fe.jpeg">
     
-    <link rel="stylesheet" href="style.css?v=20260821o">
+    <link rel="stylesheet" href="style.css?v=20260821p">
 </head>
 <body onload="initSystem()">
 
@@ -63,7 +63,9 @@
     </div>
 
     <footer>
-        &copy; 2026 Dück & Flux Zeitreiseagentur | Version 1.1
+        <!-- WICHTIG: Diese Versionsnummer muss bei JEDER Änderung an app.js/style.css exakt mit
+             dem Cache-Buster-Suffix "?v=..." unten bei den Script- und Link-Einbindungen übereinstimmen. -->
+        &copy; 2026 Dück & Flux Zeitreiseagentur | Version <span id="app-version">20260821p</span>
     </footer>
 </div>
 
@@ -222,7 +224,7 @@
 
 
 
-<script type="module" src="firebase-init.js?v=20260821o"></script>
-<script src="app.js?v=20260821o"></script>
+<script type="module" src="firebase-init.js?v=20260821p"></script>
+<script src="app.js?v=20260821p"></script>
 </body>
 </html>

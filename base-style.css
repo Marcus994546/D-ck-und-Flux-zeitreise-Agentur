@@ -1251,6 +1251,10 @@
     font-size: 0.5em; color: #ffaa00; background: rgba(30,15,0,0.85); border: 1px solid #ffaa00;
     border-radius: 3px; padding: 1px 4px; margin-top: 2px; white-space: nowrap;
 }
+.bunker-agent-timer {
+    font-size: 0.5em; color: #0f8; background: rgba(0,20,15,0.85); border: 1px solid #0f8;
+    border-radius: 3px; padding: 1px 4px; margin-top: 2px; white-space: nowrap;
+}
 
 /* Neutraler Info-Hinweis (kein "FEHLER"-Stil) für reine Status-Meldungen wie
    Agenten-Auswahl/-Bewegung - erscheint kurz unten und verschwindet von selbst. */
