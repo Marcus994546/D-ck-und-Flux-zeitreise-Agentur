@@ -213,6 +213,8 @@
         }
         if (agent.location === targetType && agent.state !== 'working') return;
 
+        const oldLocation = agent.location;
+
         agent.targetRoom = targetType;
         agent.state = 'waiting_in_quartiere';
         agent.location = 'AGENTEN-QUARTIERE';
@@ -222,9 +224,28 @@
         window.selectedAgentId = null;
         saveGameState();
         renderGrid();
-        if (typeof renderAgentPanel === 'function') renderAgentPanel();
-        if (typeof renderBunkerAgentVisuals === 'function' && bunkerActive) renderBunkerAgentVisuals();
-        if (typeof showCustomAlert === 'function') showCustomAlert('Agent bewegt sich in die Agenten-Quartiere.');
+
+        // Kurze, rein optische Aufzug-Fahrt vom alten Standort zu den Quartieren. Die eigentliche
+        // Wartezeit wird danach durch den Agenten sichtbar IN den Quartieren dargestellt, nicht im
+        // Aufzug selbst (siehe renderBunkerAgentVisuals).
+        if (bunkerActive && typeof bunkerFloorIndexForType === 'function') {
+            const car = document.getElementById('bunker-elevator-car');
+            const quartiereIdx = bunkerFloorIndexForType('AGENTEN-QUARTIERE');
+            const oldIdx = bunkerFloorIndexForType(oldLocation);
+            if (car && quartiereIdx >= 0) {
+                document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
+                car.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
+                car.style.top = ((oldIdx >= 0 ? oldIdx : 0) * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+                requestAnimationFrame(() => {
+                    car.style.top = (quartiereIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+                });
+                setTimeout(() => { if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals(); }, 1400);
+            } else if (typeof renderBunkerAgentVisuals === 'function') {
+                renderBunkerAgentVisuals();
+            }
+        }
+
+        if (typeof showInfoToast === 'function') showInfoToast('Agent bewegt sich in die Agenten-Quartiere.');
     };
     // Alle spawnFurniture/reloadFurniture/clearRoom-Aufrufe im ganzen Code zielen normalerweise
     // auf "#room-area" (der eine sichtbare Raum-Bildschirm). Für die Bunker-Ansicht (mehrere
@@ -482,25 +503,13 @@
 
         document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
 
-        const movingAgent = gameState.agents.find(a => a.state === 'waiting_in_quartiere');
-        let carFloorIdx = 0;
+        // Der Aufzug selbst dient nur noch der kurzen Fahrt-Animation (siehe moveAgentTo) und
+        // parkt ansonsten leer an der Zentrale. Während der Wartezeit steht der Agent SICHTBAR
+        // in den Quartieren, nicht im Aufzug.
         car.innerHTML = '';
+        car.style.top = '8px';
 
-        if (movingAgent) {
-            carFloorIdx = bunkerFloorIndexForType('AGENTEN-QUARTIERE');
-            if (carFloorIdx < 0) carFloorIdx = 0;
-            const rider = document.createElement('div');
-            rider.className = 'bunker-figure bunker-rider';
-            car.appendChild(rider);
-        } else {
-            carFloorIdx = 0;
-        }
-        car.style.top = (carFloorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-
-        // Ruhende/arbeitende Agenten als echtes, klickbares Männchen direkt in ihrem Stockwerk -
-        // DAS ist jetzt der einzige Weg, einen Agenten auszuwählen (kein Panel/Popup mehr).
         gameState.agents.forEach(agent => {
-            if (agent.state === 'waiting_in_quartiere') return; // wird bereits durch den Aufzug dargestellt
             const idx = bunkerFloorIndexForType(agent.location);
             if (idx < 0) return;
             const preview = document.getElementById('bunker-room-' + idx);
@@ -509,13 +518,19 @@
             const wrap = document.createElement('div');
             wrap.className = 'bunker-agent-figure';
             if (agent.id === window.selectedAgentId) wrap.classList.add('bunker-agent-figure-selected');
-            wrap.innerHTML = '<div class="bunker-agent-level">Lvl ' + agent.level + '</div><div class="bunker-figure"></div>';
+            const waitLabel = (agent.state === 'waiting_in_quartiere') ? '<div class="bunker-agent-wait">wartet...</div>' : '';
+            wrap.innerHTML = '<div class="bunker-agent-level">Lvl ' + agent.level + '</div><div class="bunker-figure"></div>' + waitLabel;
             wrap.onclick = (ev) => {
                 ev.stopPropagation();
+                if (agent.state === 'waiting_in_quartiere') {
+                    playBeepBase(300, 0.1);
+                    if (typeof showCustomAlert === 'function') showCustomAlert('Agent wartet in den Quartieren und kann gerade nicht ausgewählt werden.');
+                    return;
+                }
                 playBeepBase(1200, 0.05);
                 window.selectedAgentId = (window.selectedAgentId === agent.id) ? null : agent.id;
                 renderBunkerAgentVisuals();
-                if (window.selectedAgentId && typeof showCustomAlert === 'function') showCustomAlert('Agent ausgewählt (Lvl ' + agent.level + '). Ziel-Stockwerk antippen.');
+                if (window.selectedAgentId && typeof showInfoToast === 'function') showInfoToast('Agent ausgewählt (Lvl ' + agent.level + '). Ziel-Stockwerk antippen.');
             };
             preview.appendChild(wrap);
         });
@@ -588,7 +603,7 @@
         renderBunkerView();
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
         await saveGameState();
-        if (typeof showCustomAlert === 'function') showCustomAlert('Agenten-System freigeschaltet! Der erste Agent ist in der Zentrale einsatzbereit.');
+        if (typeof showInfoToast === 'function') showInfoToast('Agenten-System freigeschaltet! Der erste Agent ist in der Zentrale einsatzbereit.');
     };
 
     window.showAktiveBasis = function() {
@@ -620,6 +635,21 @@
         if (wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
     };
 
+    function agentRoomInfoText(roomType) {
+        if (roomType === 'AGENTEN-QUARTIERE') {
+            return 'Pflicht-Zwischenstopp bei jedem Raumwechsel · wartet hier 1h (je nach Level kürzer)';
+        }
+        const task = AGENT_TASK_ROOMS[roomType];
+        if (!task) return '';
+        const effectText = {
+            credits: task.amount + ' Credits pro Zyklus',
+            materiezelle: task.amount + ' Materiezelle pro Zyklus',
+            level_up: 'erhöht das Agenten-Level (max. ' + AGENT_MAX_LEVEL + ')',
+            spawn_agent: 'erzeugt einen neuen Agenten'
+        }[task.effect] || '';
+        return 'Agent arbeitet hier ' + task.hours + 'h (je nach Level kürzer) · ' + effectText;
+    }
+
     function renderBunkerView() {
         const floorsEl = document.getElementById('bunker-floors');
         if (!floorsEl) return;
@@ -646,6 +676,7 @@
                 '<div class="bunker-room-preview-wrap" style="background:' + (roomColors[room.type] || '#1a0a2a') + ';">' +
                     '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
                     (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
+                    (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info">' + agentRoomInfoText(room.type) + '</div>' : '') +
                     '</div>' +
                     '<div class="bunker-room-preview" id="' + previewId + '">' +
                         '<div class="r-ceiling"></div><div class="r-left"></div><div class="r-right"></div><div class="r-back"></div>' +
@@ -704,6 +735,20 @@
 
 
     window.showCustomAlert = (msg) => { document.getElementById('custom-alert-msg').innerText = msg; document.getElementById('custom-alert-box').style.display = 'flex'; };
+
+    let infoToastTimeout = null;
+    window.showInfoToast = (msg) => {
+        const box = document.getElementById('info-toast-box');
+        if (!box) return;
+        document.getElementById('info-toast-msg').innerText = msg;
+        box.style.display = 'block';
+        requestAnimationFrame(() => box.classList.add('info-toast-visible'));
+        if (infoToastTimeout) clearTimeout(infoToastTimeout);
+        infoToastTimeout = setTimeout(() => {
+            box.classList.remove('info-toast-visible');
+            setTimeout(() => { box.style.display = 'none'; }, 300);
+        }, 2600);
+    };
     window.closeCustomAlert = () => { document.getElementById('custom-alert-box').style.display = 'none'; };
 
     // === AUTOMATISCHER CLOUD-SYNCHRONISATOR FÜR BLOCK 2 & BLOCK 3 ===

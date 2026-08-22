@@ -1170,7 +1170,7 @@
     border-radius: 5px; border: 1px solid rgba(255,255,255,0.1);
 }
 .bunker-floor-label {
-    position: absolute; top: 3px; left: 5px; z-index: 20;
+    position: absolute; top: 3px; left: 5px; z-index: 20; max-width: calc(100% - 10px);
     font-size: 0.62em; color: #fff; background: rgba(0,0,0,0.55);
     padding: 2px 6px; border-radius: 3px; text-shadow: 0 0 6px rgba(0,0,0,0.9);
     pointer-events: none; letter-spacing: 0.3px;
@@ -1247,3 +1247,26 @@
 }
 .bunker-agent-figure-selected .bunker-figure::before { background: #ff8800; box-shadow: 0 0 10px #ff8800; }
 .bunker-agent-figure-selected .bunker-figure::after { background: #cc6600; }
+.bunker-agent-wait {
+    font-size: 0.5em; color: #ffaa00; background: rgba(30,15,0,0.85); border: 1px solid #ffaa00;
+    border-radius: 3px; padding: 1px 4px; margin-top: 2px; white-space: nowrap;
+}
+
+/* Neutraler Info-Hinweis (kein "FEHLER"-Stil) für reine Status-Meldungen wie
+   Agenten-Auswahl/-Bewegung - erscheint kurz unten und verschwindet von selbst. */
+#info-toast-box {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+    z-index: 900; display: none; opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+}
+#info-toast-box.info-toast-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.info-toast-content {
+    background: rgba(0,15,15,0.95); border: 1px solid var(--neon-color); border-radius: 6px;
+    padding: 12px 20px; box-shadow: 0 0 20px rgba(136,68,255,0.4); max-width: 90vw;
+}
+#info-toast-msg { color: var(--neon-color); font-size: 0.85em; margin: 0; text-align: center; }
+
+.bunker-floor-info {
+    font-size: 0.85em; color: #0f8; opacity: 0.85; margin-top: 2px; font-weight: normal;
+    white-space: normal; line-height: 1.3;
+}
