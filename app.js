@@ -374,11 +374,7 @@
                 SPIELBESCHREIBUNG
             </button>
 
-            <button class="modell-btn" style="border-color: #0af; color: #0af; margin-top: 15px;" onclick="window.f_changeEmailStep1()">
-                E-MAIL ÄNDERN
-            </button>
-
-            <button class="modell-btn" style="border-color: #0af; color: #0af;" onclick="window.f_changePasswordStep1()">
+            <button class="modell-btn" style="border-color: #0af; color: #0af; margin-top: 15px;" onclick="window.f_changePasswordStep1()">
                 PASSWORT ÄNDERN
             </button>
 
@@ -394,57 +390,6 @@
             
             <button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>
         `;
-    };
-
-    // --- E-Mail ändern (auch zum erstmaligen Hinterlegen, falls noch keine da ist) ---
-    window.f_changeEmailStep1 = function() {
-        if (typeof triggerScan === 'function') triggerScan();
-        const currentEmail = (window.auth && window.auth.currentUser) ? window.auth.currentUser.email : '';
-        const isSynthetic = currentEmail.endsWith('@agenten.flux-terminal.local');
-        document.getElementById('content-body').innerHTML = `
-            <h3 style="color:#0af;">[ E-MAIL ÄNDERN ]</h3>
-            <p style="color:#aaa; font-size:0.8em; margin-bottom:15px;">
-                ${isSynthetic ? 'Für dieses Konto ist noch keine echte E-Mail hinterlegt (nötig für "Passwort vergessen").' : 'Aktuell hinterlegt: ' + currentEmail}
-            </p>
-            <input type="email" id="new-email-input" placeholder="NEUE E-MAIL..." style="width:80%; padding:10px; background:#000; border:1px solid #0af; color:#0af; margin-bottom:15px; outline:none; font-family:monospace; text-align:center;">
-            <input type="password" id="new-email-pass-confirm" placeholder="AKTUELLES PASSWORT ZUR BESTÄTIGUNG..." style="width:80%; padding:10px; background:#000; border:1px solid #0af; color:#0af; margin-bottom:15px; outline:none; font-family:monospace; text-align:center;">
-            <div id="change-error" style="color:#f44; font-size:0.8em; margin-bottom:10px; height:15px;"></div>
-            <button class="modell-btn" style="border-color:#0af; color:#0af;" onclick="window.f_changeEmailConfirm()">ÄNDERN</button>
-            <button class="modell-btn" onclick="window.f_einstellungen()">ABBRECHEN</button>
-        `;
-    };
-
-    window.f_changeEmailConfirm = async function() {
-        const newEmail = document.getElementById('new-email-input').value.trim();
-        const passInput = document.getElementById('new-email-pass-confirm').value;
-        const errDiv = document.getElementById('change-error');
-        if (!newEmail || !passInput) { errDiv.innerText = "Bitte beide Felder ausfüllen."; return; }
-
-        try {
-            const user = window.auth.currentUser;
-            if (!user) { errDiv.innerText = "Keine aktive Sitzung."; return; }
-
-            const cred = window.fbEmailAuthProvider.credential(user.email, passInput);
-            await window.fbReauthenticate(user, cred); // wirft bei falschem Passwort
-
-            // Firebase verlangt inzwischen aus Sicherheitsgründen eine Bestätigung der neuen
-            // Adresse per Link, bevor die E-Mail wirklich gewechselt wird (direktes updateEmail()
-            // wird sonst mit "auth/operation-not-allowed" abgelehnt).
-            await window.fbVerifyBeforeUpdateEmail(user, newEmail);
-
-            // login_lookup schon jetzt auf die neue Adresse setzen (nicht erst nach Bestätigung):
-            // Andernfalls würde ein künftiger Login-Versuch mit der dann bereits veralteten alten
-            // Adresse fehlschlagen, sobald die Bestätigung erfolgt ist - das Konto selbst kennt ab
-            // dem Klick auf den Link nur noch die neue Adresse.
-            const slug = window.agentSlug(window.agentName);
-            try { await window.setDoc(window.doc(window.db, "login_lookup", slug), { email: newEmail }, { merge: true }); } catch(e) {}
-
-            errDiv.style.color = "#0f8";
-            errDiv.innerText = "Bestätigungs-Mail an " + newEmail + " gesendet. Bitte den Link darin anklicken, um die Änderung abzuschließen.";
-        } catch (e) {
-            errDiv.style.color = "#f44";
-            errDiv.innerText = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? "Passwort inkorrekt!" : (e.code === 'auth/email-already-in-use' ? "E-Mail bereits vergeben." : "Fehler: " + (e.code || e.message));
-        }
     };
 
     // --- Passwort ändern ---
@@ -1426,8 +1371,7 @@ document.addEventListener('click', () => {
         form.innerHTML = `
             <div style="font-size: 16px; font-weight: bold; color: #0f8; margin-bottom: 15px; text-align: center;">[ LOGIN ]</div>
             <input type="text" id="auth-name" placeholder="AGENTEN-ID..." style="padding: 10px; background: #000; border: 1px solid #0f8; color: #0f8; margin-bottom: 10px; text-transform: uppercase; outline: none; font-family: monospace;">
-            <input type="password" id="auth-pass" placeholder="PASSWORT..." style="padding: 10px; background: #000; border: 1px solid #0f8; color: #0f8; margin-bottom: 10px; outline: none; font-family: monospace;">
-            <button class="setup-btn" style="background: transparent; color: #0af; border: none; font-size: 0.7em; padding: 0; margin-bottom: 15px; text-align: right; align-self: flex-end;" onclick="window.f_forgotPassword()">Passwort vergessen?</button>
+            <input type="password" id="auth-pass" placeholder="PASSWORT..." style="padding: 10px; background: #000; border: 1px solid #0f8; color: #0f8; margin-bottom: 15px; outline: none; font-family: monospace;">
             <div id="auth-error" style="color: #f44; font-size: 0.8em; margin-bottom: 10px; text-align: center; height: 15px;"></div>
             <button class="setup-btn" onclick="window.f_executeLogin()">VERIFIZIEREN</button>
             <button class="setup-btn" style="background: transparent; color: #aaa; border: none; margin-top: 10px; font-size: 0.8em;" onclick="window.f_showAuthMain()"><< ZURÜCK</button>
@@ -1441,7 +1385,6 @@ document.addEventListener('click', () => {
         form.innerHTML = `
             <div style="font-size: 16px; font-weight: bold; color: #ffaa00; margin-bottom: 15px; text-align: center;">[ REKRUTIERUNG ]</div>
             <input type="text" id="auth-name" placeholder="NEUE AGENTEN-ID..." style="padding: 10px; background: #000; border: 1px solid #ffaa00; color: #ffaa00; margin-bottom: 10px; text-transform: uppercase; outline: none; font-family: monospace;">
-            <input type="email" id="auth-email" placeholder="E-MAIL (für Passwort-Wiederherstellung)..." style="padding: 10px; background: #000; border: 1px solid #ffaa00; color: #ffaa00; margin-bottom: 10px; outline: none; font-family: monospace;">
             <input type="password" id="auth-pass" placeholder="PASSWORT WÄHLEN..." style="padding: 10px; background: #000; border: 1px solid #ffaa00; color: #ffaa00; margin-bottom: 10px; outline: none; font-family: monospace;">
             
             <button class="setup-btn" style="background: rgba(0,255,204,0.1); border: 1px dashed #0f8; color: #0f8; font-size: 0.7em; padding: 5px; margin-bottom: 10px;" onclick="window.f_showAGB()">KODEX LESEN</button>
@@ -1462,32 +1405,6 @@ document.addEventListener('click', () => {
         document.getElementById('agb-modal').style.display = 'flex';
     };
 
-    window.f_forgotPassword = async function() {
-        const nameInput = (document.getElementById('auth-name').value || '').trim();
-        const errDiv = document.getElementById('auth-error');
-        if (!nameInput) { errDiv.style.color = "#f44"; errDiv.innerText = "Bitte zuerst Agenten-ID eingeben."; return; }
-        if (!window.db || !window.auth) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
-
-        errDiv.style.color = "#0f8"; errDiv.innerText = "Suche hinterlegte E-Mail...";
-        const slug = window.agentSlug(nameInput);
-
-        try {
-            const lookupSnap = await window.getDoc(window.doc(window.db, "login_lookup", slug));
-            if (!lookupSnap.exists() || !lookupSnap.data().email) {
-                errDiv.style.color = "#f44";
-                errDiv.innerText = "Für dieses Konto ist keine E-Mail hinterlegt (altes Konto von vor dem Update).";
-                return;
-            }
-            const email = lookupSnap.data().email;
-            await window.fbSendPasswordResetEmail(window.auth, email);
-            errDiv.style.color = "#0f8";
-            errDiv.innerText = "E-Mail verschickt! Bitte Posteingang (auch Spam) prüfen.";
-        } catch (e) {
-            errDiv.style.color = "#f44";
-            errDiv.innerText = "Fehler: " + (e.code || e.message || "unbekannt");
-        }
-    };
-
     window.f_executeLogin = async function() {
         const nameInput = document.getElementById('auth-name').value.trim();
         const passInput = document.getElementById('auth-pass').value;
@@ -1498,38 +1415,21 @@ document.addEventListener('click', () => {
 
         if (!window.db || !window.auth) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
 
-        const slug = window.agentSlug(nameInput);
-        let email = window.agentNameToEmail(nameInput); // Fallback für alte Konten ohne echte E-Mail
-        try {
-            const lookupSnap = await window.getDoc(window.doc(window.db, "login_lookup", slug));
-            if (lookupSnap.exists() && lookupSnap.data().email) email = lookupSnap.data().email;
-        } catch(e) {}
+        const email = window.agentNameToEmail(nameInput);
 
         try {
             await window.fbSignIn(window.auth, email, passInput);
-            // Hinweis: Sehr alte Accounts (von vor dem Sicherheits-Update) müssen sich einmalig
-            // neu registrieren - eine automatische Migration würde einen unauthentifizierten
-            // Lesezugriff auf "agenten" erfordern, den die Security Rules bewusst verbieten.
 
             if (window.auth.currentUser && window.auth.currentUser.displayName !== nameInput) {
                 try { await window.fbUpdateProfile(window.auth.currentUser, { displayName: nameInput }); } catch(e) {}
-            }
-
-            // Selbstheilung: Falls die E-Mail-Änderung inzwischen per Bestätigungslink wirksam
-            // wurde (verifyBeforeUpdateEmail), weicht die tatsächliche Konto-E-Mail jetzt vom
-            // alten login_lookup-Eintrag ab - hier automatisch nachziehen, ohne dass der Nutzer
-            // etwas tun muss.
-            if (window.auth.currentUser && window.auth.currentUser.email && window.auth.currentUser.email !== email) {
-                try { await window.setDoc(window.doc(window.db, "login_lookup", slug), { email: window.auth.currentUser.email }, { merge: true }); } catch(e) {}
             }
 
             const agentRef = window.doc(window.db, "agenten", window.agentSlug(nameInput));
             const docSnap = await window.getDoc(agentRef);
             const data = docSnap.exists() ? docSnap.data() : {};
 
-            // Selbstheilung: Alte Konten (von vor dem "ownerUid"-Feld) tragen es beim nächsten
-            // Login automatisch nach - danach funktionieren Löschen/Ändern für sie auch dann noch
-            // zuverlässig, wenn sich ihre E-Mail künftig mal ändert.
+            // Selbstheilung: Alte Konten ohne "ownerUid"-Feld tragen es beim nächsten Login
+            // automatisch nach - ein zusätzlicher, robuster Besitznachweis unabhängig vom Namen.
             if (window.auth.currentUser && !data.ownerUid) {
                 try { await window.setDoc(agentRef, { ownerUid: window.auth.currentUser.uid }, { merge: true }); } catch(e) {}
             }
@@ -1555,12 +1455,11 @@ document.addEventListener('click', () => {
 
     window.f_executeRegister = async function() {
         const nameInput = document.getElementById('auth-name').value.trim();
-        const emailInput = document.getElementById('auth-email').value.trim();
         const passInput = document.getElementById('auth-pass').value;
         const agbCheck = document.getElementById('auth-agb').checked;
         const errDiv = document.getElementById('auth-error');
         
-        if(nameInput === "" || emailInput === "" || passInput === "") { errDiv.innerText = "Daten unvollständig!"; return; }
+        if(nameInput === "" || passInput === "") { errDiv.innerText = "Daten unvollständig!"; return; }
         if(!agbCheck) { errDiv.innerText = "Kodex muss akzeptiert werden!"; return; }
         
         errDiv.style.color = "#0f8"; errDiv.innerText = "Prüfe Zentral-Server...";
@@ -1568,20 +1467,17 @@ document.addEventListener('click', () => {
         if (!window.db || !window.auth) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
 
         try {
-            // WICHTIG: Die echte E-Mail wird jetzt direkt als Konto-E-Mail verwendet (nicht mehr
-            // die erfundene "@agenten.flux-terminal.local"-Adresse) - nur so kann Firebase später
-            // den normalen "Passwort vergessen"-Link tatsächlich zustellen.
-            const cred = await window.fbCreateUser(window.auth, emailInput, passInput);
+            const email = window.agentNameToEmail(nameInput);
+            const cred = await window.fbCreateUser(window.auth, email, passInput);
             // Ab hier ist der Nutzer authentifiziert - Firestore-Zugriff ist jetzt erlaubt.
             try { await window.fbUpdateProfile(cred.user, { displayName: nameInput }); } catch(e) {}
 
             const slug = window.agentSlug(nameInput);
             const agentRef = window.doc(window.db, "agenten", slug);
 
-            // Erst jetzt (nach der Auth-Anmeldung) lässt sich überhaupt prüfen, ob die Agenten-ID
-            // schon vergeben ist - vorher würde der Lesezugriff an den Security Rules scheitern.
-            // Ist der Name schon belegt, wird der gerade erst angelegte Auth-Account wieder
-            // gelöscht, damit kein verwaister Zugang ohne Profil zurückbleibt.
+            // Prüfen, ob die Agenten-ID schon vergeben ist. Ist der Name schon belegt, wird der
+            // gerade erst angelegte Auth-Account wieder gelöscht, damit kein verwaister Zugang
+            // ohne Profil zurückbleibt.
             const existing = await window.getDoc(agentRef);
             if (existing.exists()) {
                 try { await window.fbDeleteUser(cred.user); } catch(e) {}
@@ -1602,18 +1498,12 @@ document.addEventListener('click', () => {
                 xp: window.playerXP,
                 lvl: window.playerLevel,
                 isAdmin: false,
-                ownerUid: cred.user.uid // robuster Besitznachweis, unabhängig von E-Mail/Name (siehe firestore.rules)
+                ownerUid: cred.user.uid // robuster Besitznachweis, unabhängig vom Namen (siehe firestore.rules)
             };
             // WICHTIG: Dieser Schreibvorgang wird NICHT mehr stillschweigend verschluckt.
             // Schlägt er fehl (z.B. durch die Firestore Security Rules), gilt die Registrierung
             // als fehlgeschlagen - sonst hätte man einen Auth-Account ohne Profil-Dokument.
             await window.setDoc(agentRef, newData, { merge: true });
-
-            // Login-Lookup: erlaubt künftigen Logins/Passwort-Resets, aus der Agenten-ID die
-            // tatsächliche Konto-E-Mail zu ermitteln (muss vor dem Einloggen lesbar sein).
-            try {
-                await window.setDoc(window.doc(window.db, "login_lookup", slug), { email: emailInput }, { merge: true });
-            } catch(e) { console.error("Login-Lookup Speicherfehler:", e); }
 
             if (typeof window.activateFullscreen === 'function') window.activateFullscreen();
             
@@ -1627,10 +1517,9 @@ document.addEventListener('click', () => {
         } catch (e) {
             console.error("Registrierungsfehler:", e);
             errDiv.style.color = "#f44";
-            // WICHTIG: "auth/email-already-in-use" bezieht sich auf die E-MAIL (seit der Umstellung
-            // auf echte Adressen der tatsächliche Konto-Schlüssel), NICHT auf die Agenten-ID - die
-            // Meldung hier war zuvor irreführend und hat fälschlich die Agenten-ID beschuldigt.
-            errDiv.innerText = (e.code === 'auth/email-already-in-use') ? "Diese E-Mail-Adresse ist bereits einem anderen Konto zugeordnet." : (e.code === 'auth/weak-password' ? "Passwort zu schwach (min. 6 Zeichen)!" : "Fehler: " + (e.code || e.message || "unbekannt"));
+            // Mit der erfundenen E-Mail (aus dem Agentennamen abgeleitet) bedeutet
+            // "email-already-in-use" wieder exakt "diese Agenten-ID ist schon vergeben".
+            errDiv.innerText = (e.code === 'auth/email-already-in-use') ? "Agenten-ID bereits vergeben!" : (e.code === 'auth/weak-password' ? "Passwort zu schwach (min. 6 Zeichen)!" : "Fehler: " + (e.code || e.message || "unbekannt"));
         }
     };
 

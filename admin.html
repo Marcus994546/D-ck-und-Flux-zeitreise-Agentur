@@ -358,7 +358,6 @@
     try {
       await window.deleteDoc(window.doc(window.db, "agenten", agentId));
       try { await window.deleteDoc(window.doc(window.db, "Agent - Base", agentId)); } catch(e) {}
-      try { await window.deleteDoc(window.doc(window.db, "login_lookup", agentId)); } catch(e) {}
       agentsCache = agentsCache.filter(a => a.id !== agentId);
       delete baseCache[agentId];
       renderTable();
