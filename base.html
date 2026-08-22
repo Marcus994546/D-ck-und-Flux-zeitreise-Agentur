@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260821l">
+    <link rel="stylesheet" href="base-style.css?v=20260821n">
 </head>
 <body>
 
@@ -18,33 +18,61 @@
     <source src="https://files.catbox.moe/zhkkab.mp3" type="audio/mpeg">
 </audio>
 
-<div class="top-bar">
-    <div class="ui-header">
-        <div style="display: flex; align-items: center;">
-            <div class="currency-container">
-                <div style="color:#ffcc00;">💰 CREDITS: <span id="display-credits">0</span></div>
-                <div class="currency-mz" style="color:#b0f;">🧬 MATERIE-ZELLEN: <span id="display-mz">0</span></div>
-                <div class="level-display">AGENTUR-LEVEL: <span id="display-level">1</span></div>
+<div id="view-aktive-basis" class="base-view">
+    <div class="top-bar">
+        <div class="ui-header">
+            <div style="display: flex; align-items: center;">
+                <div class="currency-container">
+                    <div style="color:#ffcc00;">💰 CREDITS: <span id="display-credits">0</span></div>
+                    <div class="currency-mz" style="color:#b0f;">🧬 MATERIE-ZELLEN: <span id="display-mz">0</span></div>
+                    <div class="level-display">AGENTUR-LEVEL: <span id="display-level">1</span></div>
+                </div>
             </div>
-            <button id="btn-cheat-boost" onclick="cheatCredits()" class="btn-cheat">[ + BOOST ]</button>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button onclick="showBasisausbaumenu()" class="btn-back" style="border-color:#0af; color:#0af;">🏗 BASISAUSBAUMENÜ</button>
+                <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
+                <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
+            </div>
         </div>
-        <div style="display: flex; gap: 15px; align-items: center;">
-            <button id="btn-open-aktive-basis" onclick="openAktiveBasis()" class="btn-back" style="border-color:#0af; color:#0af;">🏢 AKTIVE BASIS</button>
-            <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
-            <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
-        </div>
+        <h2 id="main-title">AKTIVE BASIS</h2>
+        <div class="neon-divider"></div>
     </div>
-    <h2 id="main-title">AGENTUR-STRUKTUR</h2>
-    <div class="neon-divider"></div>
+
+    <div style="font-size:0.7em; color:#aaa; text-align:center; margin: 10px 0;">Querschnitt deiner unterirdischen Anlage</div>
+    <button id="btn-agent-system-unlock" class="btn-back" style="border-color:#ff8800; color:#ff8800; margin: 0 auto 12px; display:block;" onclick="openAgentUnlockPopup()">🔓 AGENTEN-SYSTEM FREISCHALTEN</button>
+
+    <div id="bunker-view">
+        <div id="bunker-shaft">
+            <div id="bunker-shaft-track"></div>
+            <div id="bunker-elevator-car"><div class="bunker-figure"></div></div>
+        </div>
+        <div id="bunker-floors"></div>
+    </div>
 </div>
 
-<div id="agent-panel">
-    <div id="agent-panel-title">AGENTEN</div>
-    <div id="agent-panel-list"></div>
-</div>
+<div id="view-ausbaumenu" class="base-view" style="display:none;">
+    <div class="top-bar">
+        <div class="ui-header">
+            <div style="display: flex; align-items: center;">
+                <div class="currency-container">
+                    <div style="color:#ffcc00;">💰 CREDITS: <span id="display-credits-2">0</span></div>
+                    <div class="currency-mz" style="color:#b0f;">🧬 MATERIE-ZELLEN: <span id="display-mz-2">0</span></div>
+                    <div class="level-display">AGENTUR-LEVEL: <span id="display-level-2">1</span></div>
+                </div>
+                <button id="btn-cheat-boost" onclick="cheatCredits()" class="btn-cheat">[ + BOOST ]</button>
+            </div>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
+                <button onclick="showAktiveBasis()" class="btn-back" style="border-color:#0af; color:#0af;">ZUR AKTIVEN BASIS</button>
+            </div>
+        </div>
+        <h2>AGENTUR-STRUKTUR</h2>
+        <div class="neon-divider"></div>
+    </div>
 
-<div id="grid-wrapper">
-    <div id="base-grid"></div>
+    <div id="grid-wrapper">
+        <div id="base-grid"></div>
+    </div>
 </div>
 
 <div id="room-selection-overlay">
@@ -64,21 +92,6 @@
         <button id="btn-toggle-sound" onclick="toggleBaseSound()" style="width: 100%; max-width: 300px; padding: 15px; font-size: 1em; font-family: 'Orbitron'; font-weight: bold; background: transparent; border: 1px solid #0f8; color: #0f8; cursor: pointer; margin-top: 15px;">KLICK-SOUND: LÄDT...</button>
     </div>
     <button class="btn-back" style="margin-top: 30px; width: 100%; max-width: 300px; padding: 15px;" onclick="closeSettings()">SCHLIESSEN</button>
-</div>
-
-<div id="aktive-basis-overlay">
-    <h3 style="color: var(--neon-color); margin-bottom: 5px;">[ AKTIVE BASIS ]</h3>
-    <div style="font-size:0.7em; color:#aaa; margin-bottom: 10px;">Querschnitt deiner unterirdischen Anlage</div>
-    <button id="btn-agent-system-unlock" class="btn-back" style="border-color:#ff8800; color:#ff8800; margin-bottom: 12px;" onclick="openAgentUnlockPopup()">🔓 AGENTEN-SYSTEM FREISCHALTEN</button>
-    <div class="neon-divider" style="margin-bottom: 15px;"></div>
-    <div id="bunker-view">
-        <div id="bunker-shaft">
-            <div id="bunker-shaft-track"></div>
-            <div id="bunker-elevator-car"><div class="bunker-figure"></div></div>
-        </div>
-        <div id="bunker-floors"></div>
-    </div>
-    <button class="btn-back" style="margin-top: 15px; width: 100%; max-width: 500px;" onclick="closeAktiveBasis()">SCHLIESSEN</button>
 </div>
 
 <div id="agent-unlock-overlay">
@@ -217,7 +230,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260821l"></script>
-<script src="base-app.js?v=20260821l"></script>
+<script type="module" src="base-firebase-init.js?v=20260821n"></script>
+<script src="base-app.js?v=20260821n"></script>
 </body>
 </html>

@@ -381,6 +381,9 @@
         document.getElementById('display-credits').innerText = gameState.credits;
         document.getElementById('display-mz').innerText = gameState.materieZellen;
         document.getElementById('display-level').innerText = gameState.userLevel;
+        const c2 = document.getElementById('display-credits-2'); if (c2) c2.innerText = gameState.credits;
+        const m2 = document.getElementById('display-mz-2'); if (m2) m2.innerText = gameState.materieZellen;
+        const l2 = document.getElementById('display-level-2'); if (l2) l2.innerText = gameState.userLevel;
     }
 
     function renderGrid() {
@@ -401,37 +404,7 @@
                 if (room) {
                     slot.classList.add('room-active'); slot.style.backgroundColor = roomColors[room.type] || '#1a0a2a';
                     slot.innerHTML = `<b>${room.type}</b>${room.type !== 'ZENTRALE' ? '<br><small>LVL '+room.lvl+'</small>' : ''}`;
-
-                    const agentsHere = (gameState.agents || []).filter(a => a.location === room.type);
-                    agentsHere.forEach(a => {
-                        const badge = document.createElement('div');
-                        badge.className = 'agent-slot-badge';
-                        if (a.id === window.selectedAgentId) badge.classList.add('agent-slot-badge-selected');
-                        badge.innerText = 'A' + a.level;
-                        badge.onclick = (ev) => {
-                            ev.stopPropagation();
-                            if (a.state === 'waiting_in_quartiere') {
-                                playBeepBase(300, 0.1);
-                                if (typeof showCustomAlert === 'function') showCustomAlert('Agent wartet in den Quartieren und kann gerade nicht ausgewählt werden.');
-                                return;
-                            }
-                            playBeepBase(1200, 0.05);
-                            window.selectedAgentId = (window.selectedAgentId === a.id) ? null : a.id;
-                            renderGrid();
-                            if (typeof renderAgentPanel === 'function') renderAgentPanel();
-                            if (window.selectedAgentId && typeof showCustomAlert === 'function') showCustomAlert('Agent ausgewählt (Lvl ' + a.level + '). Ziel-Raum antippen.');
-                        };
-                        slot.appendChild(badge);
-                    });
-
-                    slot.onclick = () => {
-                        playBeepBase(1200, 0.05);
-                        if (window.selectedAgentId) {
-                            window.moveAgentTo(window.selectedAgentId, room.type);
-                            return;
-                        }
-                        openRoom(room.type);
-                    };
+                    slot.onclick = () => { playBeepBase(1200, 0.05); openRoom(room.type); };
                     slot.style.display = 'flex';
                 } else if (isNeighbor) {
                     slot.classList.add('room-buildable'); slot.innerHTML = '<span>+</span>';
@@ -507,7 +480,7 @@
         const car = document.getElementById('bunker-elevator-car');
         if (!car || !gameState.agentSystemUnlocked) { if (car) car.innerHTML = ''; return; }
 
-        document.querySelectorAll('.bunker-agent-badge').forEach(el => el.remove());
+        document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
 
         const movingAgent = gameState.agents.find(a => a.state === 'waiting_in_quartiere');
         let carFloorIdx = 0;
@@ -520,22 +493,31 @@
             rider.className = 'bunker-figure bunker-rider';
             car.appendChild(rider);
         } else {
-            // Niemand unterwegs: Aufzug parkt an der Zentrale.
             carFloorIdx = 0;
         }
         car.style.top = (carFloorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
 
-        // Ruhende/arbeitende Agenten als Abzeichen direkt in ihrem jeweiligen Stockwerk zeigen.
+        // Ruhende/arbeitende Agenten als echtes, klickbares Männchen direkt in ihrem Stockwerk -
+        // DAS ist jetzt der einzige Weg, einen Agenten auszuwählen (kein Panel/Popup mehr).
         gameState.agents.forEach(agent => {
             if (agent.state === 'waiting_in_quartiere') return; // wird bereits durch den Aufzug dargestellt
             const idx = bunkerFloorIndexForType(agent.location);
             if (idx < 0) return;
             const preview = document.getElementById('bunker-room-' + idx);
             if (!preview) return;
-            const badge = document.createElement('div');
-            badge.className = 'bunker-agent-badge';
-            badge.innerText = 'A' + agent.level;
-            preview.appendChild(badge);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'bunker-agent-figure';
+            if (agent.id === window.selectedAgentId) wrap.classList.add('bunker-agent-figure-selected');
+            wrap.innerHTML = '<div class="bunker-agent-level">Lvl ' + agent.level + '</div><div class="bunker-figure"></div>';
+            wrap.onclick = (ev) => {
+                ev.stopPropagation();
+                playBeepBase(1200, 0.05);
+                window.selectedAgentId = (window.selectedAgentId === agent.id) ? null : agent.id;
+                renderBunkerAgentVisuals();
+                if (window.selectedAgentId && typeof showCustomAlert === 'function') showCustomAlert('Agent ausgewählt (Lvl ' + agent.level + '). Ziel-Stockwerk antippen.');
+            };
+            preview.appendChild(wrap);
         });
     }
 
@@ -609,20 +591,33 @@
         if (typeof showCustomAlert === 'function') showCustomAlert('Agenten-System freigeschaltet! Der erste Agent ist in der Zentrale einsatzbereit.');
     };
 
-    window.openAktiveBasis = function() {
+    window.showAktiveBasis = function() {
         const unlockBtn = document.getElementById('btn-agent-system-unlock');
         if (unlockBtn) unlockBtn.style.display = gameState.agentSystemUnlocked ? 'none' : 'block';
         playBeepBase(900, 0.05);
+        document.getElementById('view-ausbaumenu').style.display = 'none';
+        document.getElementById('view-aktive-basis').style.display = 'flex';
+        updateUI();
         renderBunkerView();
-        document.getElementById('aktive-basis-overlay').style.display = 'flex';
     };
 
+    // Alte Namen als Alias beibehalten, falls irgendwo noch darauf verwiesen wird.
+    window.openAktiveBasis = window.showAktiveBasis;
     window.closeAktiveBasis = function() {
-        playBeepBase(600, 0.05);
-        document.getElementById('aktive-basis-overlay').style.display = 'none';
         bunkerActive = false;
-        // Ziel wieder auf den echten Raum-Bildschirm zurückstellen, falls er als nächstes geöffnet wird.
         window._roomAreaTargetId = 'room-area';
+    };
+
+    window.showBasisausbaumenu = function() {
+        playBeepBase(600, 0.05);
+        bunkerActive = false;
+        window._roomAreaTargetId = 'room-area';
+        document.getElementById('view-aktive-basis').style.display = 'none';
+        document.getElementById('view-ausbaumenu').style.display = 'flex';
+        updateUI();
+        renderGrid();
+        const wrap = document.getElementById('grid-wrapper');
+        if (wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
     };
 
     function renderBunkerView() {
@@ -638,7 +633,15 @@
             const previewId = 'bunker-room-' + idx;
             const floor = document.createElement('div');
             floor.className = 'bunker-floor';
-            floor.onclick = () => { playBeepBase(1200, 0.05); window.closeAktiveBasis(); window.openRoom(room.type); };
+            floor.onclick = () => {
+                playBeepBase(1200, 0.05);
+                if (window.selectedAgentId) {
+                    window.moveAgentTo(window.selectedAgentId, room.type);
+                    renderBunkerView();
+                    return;
+                }
+                window.closeAktiveBasis(); window.openRoom(room.type);
+            };
             floor.innerHTML =
                 '<div class="bunker-room-preview-wrap" style="background:' + (roomColors[room.type] || '#1a0a2a') + ';">' +
                     '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
@@ -675,8 +678,7 @@
         let isM = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
         if (isM) { document.addEventListener('click', () => { document.getElementById('bg-music-base').play().catch(e=>{}); }, {once: true}); }
         await loadGameState();
-        const wrap = document.getElementById('grid-wrapper');
-        if(wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
+        window.showAktiveBasis();
 
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
         // Läuft alle 15s: holt reale, vergangene Zeit nach und schreibt fällige Belohnungen gut,
@@ -693,46 +695,8 @@
     }
 
     function renderAgentPanel() {
-        const panel = document.getElementById('agent-panel');
-        const list = document.getElementById('agent-panel-list');
-        if (!panel || !list) return;
-        if (!gameState.agentSystemUnlocked) { panel.style.display = 'none'; return; }
-        panel.style.display = 'block';
-        ensureAgentsInitialized();
-        list.innerHTML = '';
-
-        gameState.agents.forEach(agent => {
-            const row = document.createElement('div');
-            row.className = 'agent-panel-row';
-            if (agent.id === window.selectedAgentId) row.classList.add('agent-panel-row-selected');
-
-            let statusText;
-            if (agent.state === 'waiting_in_quartiere') {
-                statusText = 'Unterwegs zu ' + (agent.targetRoom || '?') + ' · noch ' + formatAgentCountdown(agent);
-            } else if (agent.state === 'working') {
-                statusText = 'Arbeitet in ' + agent.location + ' · nächster Zyklus in ' + formatAgentCountdown(agent);
-            } else {
-                statusText = 'Bereit in ' + agent.location;
-            }
-
-            row.innerHTML =
-                '<div class="agent-panel-icon">A' + agent.level + '</div>' +
-                '<div class="agent-panel-info"><b>Agent Lvl ' + agent.level + '</b><br><small>' + statusText + '</small></div>';
-
-            row.onclick = () => {
-                if (agent.state === 'waiting_in_quartiere') {
-                    playBeepBase(300, 0.1);
-                    if (typeof showCustomAlert === 'function') showCustomAlert('Agent wartet in den Quartieren und kann gerade nicht ausgewählt werden.');
-                    return;
-                }
-                playBeepBase(1200, 0.05);
-                window.selectedAgentId = (window.selectedAgentId === agent.id) ? null : agent.id;
-                renderGrid();
-                renderAgentPanel();
-                if (window.selectedAgentId && typeof showCustomAlert === 'function') showCustomAlert('Agent ausgewählt (Lvl ' + agent.level + '). Ziel-Raum antippen.');
-            };
-            list.appendChild(row);
-        });
+        // Entfernt: Auswahl passiert jetzt ausschließlich über das sichtbare Männchen in der
+        // Aktive-Basis-Ansicht (siehe renderBunkerAgentVisuals), kein separates Panel mehr.
     }
 
 
@@ -808,14 +772,16 @@
     // festem setTimeout - das eliminiert den Wettlauf mit der Credits-Fusion.
 
     window.openRoom = (type) => {
-        document.getElementById('grid-wrapper').style.display = 'none';
+        window._roomOpenedFromView = (document.getElementById('view-ausbaumenu').style.display !== 'none') ? 'ausbaumenu' : 'aktive-basis';
+        document.getElementById('view-aktive-basis').style.display = 'none';
+        document.getElementById('view-ausbaumenu').style.display = 'none';
         document.getElementById('interior-screen').style.display = 'flex';
         
         document.getElementById(window._roomAreaTargetId || 'room-area').style.display = 'block';
         document.getElementById('ausbau-menu').style.display = 'none';
         document.getElementById('toggle-ausbau-btn').innerText = "AGENTUR-AUSBAU ÖFFNEN";
         
-        document.getElementById('main-title').innerText = "RAUM-ANSICHT";
+        const mt = document.getElementById('main-title'); if (mt) mt.innerText = "RAUM-ANSICHT";
         document.getElementById('room-title-detail').innerText = type;
 
         if (type === 'ZENTRALE') {
@@ -847,8 +813,11 @@
 
     window.closeRoom = () => {
         document.getElementById('interior-screen').style.display = 'none';
-        document.getElementById('grid-wrapper').style.display = 'flex';
-        document.getElementById('main-title').innerText = "AGENTUR-STRUKTUR";
+        if (window._roomOpenedFromView === 'ausbaumenu') {
+            window.showBasisausbaumenu();
+        } else {
+            window.showAktiveBasis();
+        }
     };
 
     window.toggleAusbauMenu = () => {
