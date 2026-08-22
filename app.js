@@ -1328,7 +1328,8 @@ document.addEventListener('click', () => {
         form.innerHTML = `
             <div style="font-size: 16px; font-weight: bold; color: #0f8; margin-bottom: 15px; text-align: center;">[ LOGIN ]</div>
             <input type="text" id="auth-name" placeholder="AGENTEN-ID..." style="padding: 10px; background: #000; border: 1px solid #0f8; color: #0f8; margin-bottom: 10px; text-transform: uppercase; outline: none; font-family: monospace;">
-            <input type="password" id="auth-pass" placeholder="PASSWORT..." style="padding: 10px; background: #000; border: 1px solid #0f8; color: #0f8; margin-bottom: 15px; outline: none; font-family: monospace;">
+            <input type="password" id="auth-pass" placeholder="PASSWORT..." style="padding: 10px; background: #000; border: 1px solid #0f8; color: #0f8; margin-bottom: 10px; outline: none; font-family: monospace;">
+            <button class="setup-btn" style="background: transparent; color: #0af; border: none; font-size: 0.7em; padding: 0; margin-bottom: 15px; text-align: right; align-self: flex-end;" onclick="window.f_forgotPassword()">Passwort vergessen?</button>
             <div id="auth-error" style="color: #f44; font-size: 0.8em; margin-bottom: 10px; text-align: center; height: 15px;"></div>
             <button class="setup-btn" onclick="window.f_executeLogin()">VERIFIZIEREN</button>
             <button class="setup-btn" style="background: transparent; color: #aaa; border: none; margin-top: 10px; font-size: 0.8em;" onclick="window.f_showAuthMain()"><< ZURÜCK</button>
@@ -1342,6 +1343,7 @@ document.addEventListener('click', () => {
         form.innerHTML = `
             <div style="font-size: 16px; font-weight: bold; color: #ffaa00; margin-bottom: 15px; text-align: center;">[ REKRUTIERUNG ]</div>
             <input type="text" id="auth-name" placeholder="NEUE AGENTEN-ID..." style="padding: 10px; background: #000; border: 1px solid #ffaa00; color: #ffaa00; margin-bottom: 10px; text-transform: uppercase; outline: none; font-family: monospace;">
+            <input type="email" id="auth-email" placeholder="E-MAIL (für Passwort-Wiederherstellung)..." style="padding: 10px; background: #000; border: 1px solid #ffaa00; color: #ffaa00; margin-bottom: 10px; outline: none; font-family: monospace;">
             <input type="password" id="auth-pass" placeholder="PASSWORT WÄHLEN..." style="padding: 10px; background: #000; border: 1px solid #ffaa00; color: #ffaa00; margin-bottom: 10px; outline: none; font-family: monospace;">
             
             <button class="setup-btn" style="background: rgba(0,255,204,0.1); border: 1px dashed #0f8; color: #0f8; font-size: 0.7em; padding: 5px; margin-bottom: 10px;" onclick="window.f_showAGB()">KODEX LESEN</button>
@@ -1362,6 +1364,32 @@ document.addEventListener('click', () => {
         document.getElementById('agb-modal').style.display = 'flex';
     };
 
+    window.f_forgotPassword = async function() {
+        const nameInput = (document.getElementById('auth-name').value || '').trim();
+        const errDiv = document.getElementById('auth-error');
+        if (!nameInput) { errDiv.style.color = "#f44"; errDiv.innerText = "Bitte zuerst Agenten-ID eingeben."; return; }
+        if (!window.db || !window.auth) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
+
+        errDiv.style.color = "#0f8"; errDiv.innerText = "Suche hinterlegte E-Mail...";
+        const slug = window.agentSlug(nameInput);
+
+        try {
+            const lookupSnap = await window.getDoc(window.doc(window.db, "login_lookup", slug));
+            if (!lookupSnap.exists() || !lookupSnap.data().email) {
+                errDiv.style.color = "#f44";
+                errDiv.innerText = "Für dieses Konto ist keine E-Mail hinterlegt (altes Konto von vor dem Update).";
+                return;
+            }
+            const email = lookupSnap.data().email;
+            await window.fbSendPasswordResetEmail(window.auth, email);
+            errDiv.style.color = "#0f8";
+            errDiv.innerText = "E-Mail verschickt! Bitte Posteingang (auch Spam) prüfen.";
+        } catch (e) {
+            errDiv.style.color = "#f44";
+            errDiv.innerText = "Fehler: " + (e.code || e.message || "unbekannt");
+        }
+    };
+
     window.f_executeLogin = async function() {
         const nameInput = document.getElementById('auth-name').value.trim();
         const passInput = document.getElementById('auth-pass').value;
@@ -1372,7 +1400,12 @@ document.addEventListener('click', () => {
 
         if (!window.db || !window.auth) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
 
-        const email = window.agentNameToEmail(nameInput);
+        const slug = window.agentSlug(nameInput);
+        let email = window.agentNameToEmail(nameInput); // Fallback für alte Konten ohne echte E-Mail
+        try {
+            const lookupSnap = await window.getDoc(window.doc(window.db, "login_lookup", slug));
+            if (lookupSnap.exists() && lookupSnap.data().email) email = lookupSnap.data().email;
+        } catch(e) {}
 
         try {
             await window.fbSignIn(window.auth, email, passInput);
@@ -1409,11 +1442,12 @@ document.addEventListener('click', () => {
 
     window.f_executeRegister = async function() {
         const nameInput = document.getElementById('auth-name').value.trim();
+        const emailInput = document.getElementById('auth-email').value.trim();
         const passInput = document.getElementById('auth-pass').value;
         const agbCheck = document.getElementById('auth-agb').checked;
         const errDiv = document.getElementById('auth-error');
         
-        if(nameInput === "" || passInput === "") { errDiv.innerText = "Daten unvollständig!"; return; }
+        if(nameInput === "" || emailInput === "" || passInput === "") { errDiv.innerText = "Daten unvollständig!"; return; }
         if(!agbCheck) { errDiv.innerText = "Kodex muss akzeptiert werden!"; return; }
         
         errDiv.style.color = "#0f8"; errDiv.innerText = "Prüfe Zentral-Server...";
@@ -1421,12 +1455,15 @@ document.addEventListener('click', () => {
         if (!window.db || !window.auth) { errDiv.style.color = "#f44"; errDiv.innerText = "Datenbank offline!"; return; }
 
         try {
-            const email = window.agentNameToEmail(nameInput);
-            const cred = await window.fbCreateUser(window.auth, email, passInput);
+            // WICHTIG: Die echte E-Mail wird jetzt direkt als Konto-E-Mail verwendet (nicht mehr
+            // die erfundene "@agenten.flux-terminal.local"-Adresse) - nur so kann Firebase später
+            // den normalen "Passwort vergessen"-Link tatsächlich zustellen.
+            const cred = await window.fbCreateUser(window.auth, emailInput, passInput);
             // Ab hier ist der Nutzer authentifiziert - Firestore-Zugriff ist jetzt erlaubt.
             try { await window.fbUpdateProfile(cred.user, { displayName: nameInput }); } catch(e) {}
 
-            const agentRef = window.doc(window.db, "agenten", window.agentSlug(nameInput));
+            const slug = window.agentSlug(nameInput);
+            const agentRef = window.doc(window.db, "agenten", slug);
             window.playerXP = 0;
             window.playerLevel = 1;
             window.agentName = nameInput;
@@ -1444,6 +1481,12 @@ document.addEventListener('click', () => {
             // Schlägt er fehl (z.B. durch die Firestore Security Rules), gilt die Registrierung
             // als fehlgeschlagen - sonst hätte man einen Auth-Account ohne Profil-Dokument.
             await window.setDoc(agentRef, newData, { merge: true });
+
+            // Login-Lookup: erlaubt künftigen Logins/Passwort-Resets, aus der Agenten-ID die
+            // tatsächliche Konto-E-Mail zu ermitteln (muss vor dem Einloggen lesbar sein).
+            try {
+                await window.setDoc(window.doc(window.db, "login_lookup", slug), { email: emailInput }, { merge: true });
+            } catch(e) { console.error("Login-Lookup Speicherfehler:", e); }
 
             if (typeof window.activateFullscreen === 'function') window.activateFullscreen();
             

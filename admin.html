@@ -165,23 +165,6 @@
       </div>
     </div>
 
-    <div class="panel">
-      <h2>PASSWORT-VERWALTUNG</h2>
-      <div class="table-actions">
-        <input type="text" id="pw-agent-name" placeholder="Agenten-ID" style="flex:1;padding:8px;background:#000;border:1px solid var(--neon);color:var(--neon);font-family:monospace;border-radius:4px;">
-        <input type="password" id="pw-new-value" placeholder="Neues Passwort (min. 6 Zeichen)" style="flex:1;padding:8px;background:#000;border:1px solid var(--neon);color:var(--neon);font-family:monospace;border-radius:4px;">
-        <button class="btn btn-warn" onclick="requestPasswordReset()">PASSWORT SETZEN</button>
-      </div>
-      <div id="pw-status" style="font-size:0.75em;margin-top:8px;"></div>
-      <div class="note">
-        Das Firebase-Client-SDK kann aus dem Browser heraus grundsätzlich nur das Passwort des
-        <b>gerade eingeloggten</b> Accounts ändern — nicht das fremder Nutzer. Dieser Button ruft
-        daher die Cloud Function <code>adminResetPassword</code> auf (siehe mitgelieferte
-        <code>functions/index.js</code>). Solange diese nicht deployed ist, erscheint hier ein
-        Fehler statt eines stillen Fehlschlags.
-      </div>
-    </div>
-
   </div>
 </main>
 
@@ -193,9 +176,6 @@
   import {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import {
-    getFunctions, httpsCallable
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
@@ -210,12 +190,10 @@
   const app = initializeApp(firebaseConfig);
   window.db = getFirestore(app);
   window.auth = getAuth(app);
-  window.functions = getFunctions(app);
 
   window.fbSignIn = signInWithEmailAndPassword;
   window.fbSignOut = signOut;
   window.fbOnAuthStateChanged = onAuthStateChanged;
-  window.fbHttpsCallable = httpsCallable;
   window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc;
   window.collection = collection; window.getDocs = getDocs; window.deleteDoc = deleteDoc;
 
@@ -373,10 +351,11 @@
   }
 
   window.deleteAgentRow = async function(agentId) {
-    if (!confirm('Profil "' + agentId + '" wirklich löschen? Credits, Level, Basis und alle Räume/Möbel gehen dabei unwiderruflich verloren.\n\nHinweis: Der Login-Zugang (Firebase-Auth-Account) bleibt bestehen - meldet sich die Person erneut an, startet sie mit einem leeren Profil neu, wie bei einer Erstregistrierung.')) return;
+    if (!confirm('Profil "' + agentId + '" wirklich löschen? Credits, Level, Basis und alle Räume/Möbel gehen dabei unwiderruflich verloren.\n\nHinweis: Der Login-Zugang (Firebase-Auth-Account) bleibt bestehen, das kann aus dem Browser heraus nicht entfernt werden - meldet sich die Person erneut an, startet sie mit einem leeren Profil neu, wie bei einer Erstregistrierung.')) return;
     try {
       await window.deleteDoc(window.doc(window.db, "agenten", agentId));
       try { await window.deleteDoc(window.doc(window.db, "Agent - Base", agentId)); } catch(e) {}
+      try { await window.deleteDoc(window.doc(window.db, "login_lookup", agentId)); } catch(e) {}
       agentsCache = agentsCache.filter(a => a.id !== agentId);
       delete baseCache[agentId];
       renderTable();
@@ -450,32 +429,6 @@
       }
     });
   }
-
-  // --- Passwort-Verwaltung (Cloud Function, siehe functions/index.js) ---
-  window.requestPasswordReset = async function() {
-    const name = document.getElementById('pw-agent-name').value.trim();
-    const pass = document.getElementById('pw-new-value').value;
-    const statusEl = document.getElementById('pw-status');
-    statusEl.style.color = 'var(--neon)';
-    statusEl.innerText = 'Sende Anfrage...';
-
-    if (!name || !pass || pass.length < 6) {
-      statusEl.style.color = 'var(--crit)';
-      statusEl.innerText = 'Agenten-ID und ein Passwort mit min. 6 Zeichen erforderlich.';
-      return;
-    }
-
-    try {
-      const call = window.fbHttpsCallable(window.functions, 'adminResetPassword');
-      const result = await call({ targetAgentName: name, newPassword: pass });
-      statusEl.style.color = '#00ff66';
-      statusEl.innerText = 'Passwort erfolgreich gesetzt für ' + name + '.';
-      console.log(result.data);
-    } catch (e) {
-      statusEl.style.color = 'var(--crit)';
-      statusEl.innerText = 'Fehlgeschlagen: ' + (e.message || e.code || 'Cloud Function nicht erreichbar/nicht deployed.');
-    }
-  };
 </script>
 </body>
 </html>
