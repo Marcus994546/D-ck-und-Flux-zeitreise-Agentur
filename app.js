@@ -1569,6 +1569,19 @@ document.addEventListener('click', () => {
 
             const slug = window.agentSlug(nameInput);
             const agentRef = window.doc(window.db, "agenten", slug);
+
+            // Erst jetzt (nach der Auth-Anmeldung) lässt sich überhaupt prüfen, ob die Agenten-ID
+            // schon vergeben ist - vorher würde der Lesezugriff an den Security Rules scheitern.
+            // Ist der Name schon belegt, wird der gerade erst angelegte Auth-Account wieder
+            // gelöscht, damit kein verwaister Zugang ohne Profil zurückbleibt.
+            const existing = await window.getDoc(agentRef);
+            if (existing.exists()) {
+                try { await window.fbDeleteUser(cred.user); } catch(e) {}
+                errDiv.style.color = "#f44";
+                errDiv.innerText = "Agenten-ID bereits vergeben! Bitte einen anderen Namen wählen.";
+                return;
+            }
+
             window.playerXP = 0;
             window.playerLevel = 1;
             window.agentName = nameInput;
@@ -1605,7 +1618,10 @@ document.addEventListener('click', () => {
         } catch (e) {
             console.error("Registrierungsfehler:", e);
             errDiv.style.color = "#f44";
-            errDiv.innerText = (e.code === 'auth/email-already-in-use') ? "Agenten-ID bereits vergeben!" : (e.code === 'auth/weak-password' ? "Passwort zu schwach (min. 6 Zeichen)!" : "Fehler: " + (e.code || e.message || "unbekannt"));
+            // WICHTIG: "auth/email-already-in-use" bezieht sich auf die E-MAIL (seit der Umstellung
+            // auf echte Adressen der tatsächliche Konto-Schlüssel), NICHT auf die Agenten-ID - die
+            // Meldung hier war zuvor irreführend und hat fälschlich die Agenten-ID beschuldigt.
+            errDiv.innerText = (e.code === 'auth/email-already-in-use') ? "Diese E-Mail-Adresse ist bereits einem anderen Konto zugeordnet." : (e.code === 'auth/weak-password' ? "Passwort zu schwach (min. 6 Zeichen)!" : "Fehler: " + (e.code || e.message || "unbekannt"));
         }
     };
 

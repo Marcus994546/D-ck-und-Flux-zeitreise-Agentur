@@ -85,6 +85,9 @@
   @keyframes flashOk { 0% { background: rgba(0,255,102,0.35); } 100% { background: transparent; } }
 
   #map { height: 420px; border-radius: 6px; border: 1px solid rgba(0,255,204,0.3); }
+  .map-tiles-dark {
+    filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(1.05) saturate(0.85);
+  }
   .leaflet-popup-content-wrapper { background: #0b0e14; color: var(--neon); border: 1px solid var(--neon); }
   .leaflet-popup-tip { background: #0b0e14; }
 
