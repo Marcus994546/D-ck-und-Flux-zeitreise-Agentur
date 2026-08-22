@@ -336,6 +336,7 @@
         triggerScan();
         document.getElementById('content-body').innerHTML = '<h3>System-Diagnose</h3>' +
             '<p id="status-werte" style="color:#0f0; text-align: left; font-size: 0.8em; font-family: monospace; min-height: 100px;"></p>' +
+            '<button class="modell-btn" style="border-color:#f44; color:#f44;" onclick="window.startResetSequence()">SYSTEM RESET</button>' +
             '<button onclick="f_start()">Zurück</button>';
         document.getElementById('status-werte').innerHTML = statusCache;
     }
@@ -2408,14 +2409,16 @@ window.f_showDescription = function(withVoice) {
 
             document.getElementById('emp-solid-black').style.setProperty('display', 'none', 'important');
             document.getElementById('blackout-layer').style.setProperty('display', 'none', 'important');
-            
-            crashSequenceActive = false;
-            currentSystemStatus = "STABIL";
-            currentCoherence = 98.4;
-            starteSynchronenZyklus();
-            
+
             if (typeof updateXP === 'function') updateXP(100);
-            if (typeof f_start === 'function') f_start();
+
+            // WICHTIG: Vorher wurde hier nur lautlos direkt auf STABIL zurückgesetzt, ohne die
+            // dramatische Shutdown-/Reboot-Sequenz zu zeigen, die es beim manuellen
+            // /flux-reset-Befehl gibt. Jetzt läuft nach einer erfolgreich überstandenen
+            // Krisensituation dieselbe volle Reset-Sequenz - crashSequenceActive wird darin
+            // selbst korrekt verwaltet, daher hier NICHT mehr manuell zurücksetzen.
+            crashSequenceActive = false; // kurz freigeben, damit startResetSequence sauber neu greifen kann
+            startResetSequence();
         }, 8600);
     };
 
