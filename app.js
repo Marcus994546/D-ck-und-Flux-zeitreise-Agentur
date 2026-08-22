@@ -3,6 +3,15 @@
 /* ==== next block ==== */
 
 
+    // Escaped Ausgabe des Agenten-Namens: der Name wird bei Registrierung frei vom
+    // Nutzer vergeben und ist daher wie jede Nutzereingabe zu behandeln, bevor er
+    // in innerHTML-Templates eingesetzt wird.
+    window.escHtml = function(str) {
+        const div = document.createElement('div');
+        div.textContent = String(str ?? '');
+        return div.innerHTML;
+    };
+
     let statusCache = "";
     let isInstabil = false;
     let audioCtx;
@@ -359,7 +368,7 @@
             
             <div style="border: 1px solid rgba(0, 255, 204, 0.3); background: rgba(0, 255, 204, 0.05); padding: 15px; margin-bottom: 20px; border-radius: 4px;">
                 <span style="color: #0f8; opacity: 0.8;">Aktiver Agent:</span> 
-                <b style="color: #fff; text-shadow: 0 0 5px #fff; letter-spacing: 1px;">${window.agentName || "UNBEKANNT"}</b>
+                <b style="color: #fff; text-shadow: 0 0 5px #fff; letter-spacing: 1px;">${window.escHtml(window.agentName) || "UNBEKANNT"}</b>
             </div>
 
             <button class="modell-btn" style="border-color: ${musikFarbe}; color: ${musikFarbe};" onclick="window.toggleMusik()">
@@ -1231,7 +1240,7 @@ window.startGlobalNotification = function() {
             localStorage.setItem('flux_last_agent', window.agentName);
         }
         
-        let begruessung = `<p style="font-size: 0.9em; margin-bottom: 15px;">Willkommen zurück, Agent ${window.agentName}.</p>`;
+        let begruessung = `<p style="font-size: 0.9em; margin-bottom: 15px;">Willkommen zurück, Agent ${window.escHtml(window.agentName)}.</p>`;
         
         if (window.adminMerkerAktiv) {
             begruessung = `<div style="color: #ff8800; font-weight: bold; font-size: 1.1em; margin-bottom: 15px; text-shadow: 0 0 10px #ff8800; border: 1px dashed #ff8800; padding: 10px;">[ ADMINISTRATOR EINGELOGGT ]<br><span style="font-size: 0.8em; color: #0f8; text-shadow: none; font-weight: normal;">Systemzugriff gewährt.</span></div>`;
