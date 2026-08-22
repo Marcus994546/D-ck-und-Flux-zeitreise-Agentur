@@ -1140,18 +1140,58 @@
     box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
 }
 #bunker-shaft-track {
-    position: absolute; top: 0; left: 50%; width: 4px; height: 100%;
+    position: absolute; top: 0; left: 50%; width: 10px; height: 100%;
     transform: translateX(-50%);
-    background: repeating-linear-gradient(180deg, #333 0px, #333 6px, #111 6px, #111 12px);
+    background:
+        repeating-linear-gradient(180deg, #444 0px, #444 3px, transparent 3px, transparent 14px),
+        linear-gradient(90deg, #0a0a0a, #1c1c1c 50%, #0a0a0a);
+    border-left: 1px solid #333; border-right: 1px solid #333;
+    box-shadow: 0 0 8px rgba(0,170,255,0.15);
 }
+
 #bunker-elevator-car {
-    position: absolute; left: 50%; top: 8px; width: 46px; height: 100px;
+    position: absolute; left: 50%; top: 8px; width: 50px; height: 104px;
     transform: translateX(-50%);
-    background: linear-gradient(180deg, #223, #001);
-    border: 2px solid #0af; border-radius: 3px;
+    background: linear-gradient(180deg, #2a3550 0%, #14192a 55%, #0a0d16 100%);
+    border: 2px solid #0af; border-radius: 4px 4px 3px 3px;
     box-shadow: 0 0 15px rgba(0,170,255,0.6), inset 0 0 10px rgba(0,170,255,0.3);
     transition: top 1.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 5; overflow: hidden;
+}
+/* Kopfblende mit Warnleuchte + horizontale Verstrebung */
+#bunker-elevator-car::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 14px;
+    background: linear-gradient(180deg, #3a4560, #223);
+    border-bottom: 1px solid rgba(0,170,255,0.5);
+    box-shadow: 0 0 6px rgba(0,170,255,0.4) inset;
+}
+#bunker-elevator-car::after {
+    content: ''; position: absolute; top: 4px; left: 50%; width: 6px; height: 6px;
+    transform: translateX(-50%); border-radius: 50%;
+    background: #ff3333; box-shadow: 0 0 6px #ff3333, 0 0 10px #ff3333;
+    animation: elevator-warnlight 1.4s ease-in-out infinite;
+}
+@keyframes elevator-warnlight { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+/* Fenster/Sichtfeld + seitliche Streben als Innenstruktur */
+.bunker-elevator-window {
+    position: absolute; top: 20px; left: 6px; right: 6px; height: 46px;
+    background: linear-gradient(180deg, rgba(0,200,255,0.18), rgba(0,40,60,0.5));
+    border: 1px solid rgba(0,200,255,0.4); border-radius: 2px;
+    box-shadow: inset 0 0 10px rgba(0,200,255,0.25);
+}
+.bunker-elevator-window::before {
+    content: ''; position: absolute; top: 0; left: 40%; width: 1px; height: 100%;
+    background: rgba(0,200,255,0.3);
+}
+.bunker-elevator-strut {
+    position: absolute; left: 3px; width: 2px; height: 30px; background: rgba(0,170,255,0.35);
+}
+.bunker-elevator-strut.right { left: auto; right: 3px; }
+.bunker-elevator-panel {
+    position: absolute; bottom: 4px; left: 8px; right: 8px; height: 14px;
+    background: repeating-linear-gradient(90deg, rgba(0,170,255,0.25) 0px, rgba(0,170,255,0.25) 2px, transparent 2px, transparent 6px);
+    border-top: 1px solid rgba(0,170,255,0.3);
 }
 
 /* Breiter als vorher: neben der Raum-Vorschau ist jetzt Platz für eine Info-Seitenleiste,

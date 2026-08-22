@@ -253,12 +253,13 @@
         // Aufzug selbst (siehe renderBunkerAgentVisuals).
         if (bunkerActive && typeof bunkerFloorIndexForType === 'function') {
             const car = document.getElementById('bunker-elevator-car');
+            const riderSlot = document.getElementById('bunker-elevator-rider-slot');
             const quartiereIdx = bunkerFloorIndexForType('AGENTEN-QUARTIERE');
             const oldIdx = bunkerFloorIndexForType(oldLocation);
             if (car && quartiereIdx >= 0) {
                 bunkerElevatorAnimating = true;
                 document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
-                car.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
+                if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
                 car.style.top = ((oldIdx >= 0 ? oldIdx : 0) * BUNKER_FLOOR_HEIGHT + 8) + 'px';
                 requestAnimationFrame(() => {
                     car.style.top = (quartiereIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
@@ -528,7 +529,8 @@
 
     function renderBunkerAgentVisuals() {
         const car = document.getElementById('bunker-elevator-car');
-        if (!car || !gameState.agentSystemUnlocked) { if (car) car.innerHTML = ''; return; }
+        const riderSlot = document.getElementById('bunker-elevator-rider-slot');
+        if (!car || !gameState.agentSystemUnlocked) { if (riderSlot) riderSlot.innerHTML = ''; return; }
 
         document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
 
@@ -537,7 +539,7 @@
         // in den Quartieren, nicht im Aufzug. Während einer laufenden Fahrt-Animation wird der
         // Aufzug hier NICHT angefasst, sonst würde die kurze Fahrt mitten drin abgeschnitten.
         if (!bunkerElevatorAnimating) {
-            car.innerHTML = '';
+            if (riderSlot) riderSlot.innerHTML = '';
             car.style.top = '8px';
         }
 
