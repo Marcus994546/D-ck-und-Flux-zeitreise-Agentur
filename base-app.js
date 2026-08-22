@@ -688,14 +688,18 @@
                 window.closeAktiveBasis(); window.openRoom(room.type);
             };
             floor.innerHTML =
-                '<div class="bunker-room-preview-wrap" style="background:' + (roomColors[room.type] || '#1a0a2a') + ';">' +
-                    '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
-                    (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
-                    (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info">' + agentRoomInfoText(room.type) + '</div>' : '') +
+                '<div class="bunker-floor-inner">' +
+                    '<div class="bunker-room-preview-wrap" style="background:' + (roomColors[room.type] || '#1a0a2a') + ';">' +
+                        '<div class="bunker-room-preview" id="' + previewId + '">' +
+                            '<div class="r-ceiling"></div><div class="r-left"></div><div class="r-right"></div><div class="r-back"></div>' +
+                            '<div class="r-floor"><div class="r-floor-grid"></div></div>' +
+                        '</div>' +
                     '</div>' +
-                    '<div class="bunker-room-preview" id="' + previewId + '">' +
-                        '<div class="r-ceiling"></div><div class="r-left"></div><div class="r-right"></div><div class="r-back"></div>' +
-                        '<div class="r-floor"><div class="r-floor-grid"></div></div>' +
+                    '<div class="bunker-floor-sidebar">' +
+                        '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
+                        (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
+                        '</div>' +
+                        (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info">' + agentRoomInfoText(room.type) + '</div>' : '') +
                     '</div>' +
                 '</div>';
             floorsEl.appendChild(floor);
