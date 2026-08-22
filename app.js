@@ -373,6 +373,14 @@
                 SPIELBESCHREIBUNG
             </button>
 
+            <button class="modell-btn" style="border-color: #0af; color: #0af; margin-top: 15px;" onclick="window.f_changeEmailStep1()">
+                E-MAIL ÄNDERN
+            </button>
+
+            <button class="modell-btn" style="border-color: #0af; color: #0af;" onclick="window.f_changePasswordStep1()">
+                PASSWORT ÄNDERN
+            </button>
+
             <button class="modell-btn" style="border-color: #ff8800; color: #ff8800; margin-top: 15px;" onclick="window.f_logout_confirm()">
                 AGENTEN ABMELDEN
             </button>
@@ -385,6 +393,89 @@
             
             <button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>
         `;
+    };
+
+    // --- E-Mail ändern (auch zum erstmaligen Hinterlegen, falls noch keine da ist) ---
+    window.f_changeEmailStep1 = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        const currentEmail = (window.auth && window.auth.currentUser) ? window.auth.currentUser.email : '';
+        const isSynthetic = currentEmail.endsWith('@agenten.flux-terminal.local');
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color:#0af;">[ E-MAIL ÄNDERN ]</h3>
+            <p style="color:#aaa; font-size:0.8em; margin-bottom:15px;">
+                ${isSynthetic ? 'Für dieses Konto ist noch keine echte E-Mail hinterlegt (nötig für "Passwort vergessen").' : 'Aktuell hinterlegt: ' + currentEmail}
+            </p>
+            <input type="email" id="new-email-input" placeholder="NEUE E-MAIL..." style="width:80%; padding:10px; background:#000; border:1px solid #0af; color:#0af; margin-bottom:15px; outline:none; font-family:monospace; text-align:center;">
+            <input type="password" id="new-email-pass-confirm" placeholder="AKTUELLES PASSWORT ZUR BESTÄTIGUNG..." style="width:80%; padding:10px; background:#000; border:1px solid #0af; color:#0af; margin-bottom:15px; outline:none; font-family:monospace; text-align:center;">
+            <div id="change-error" style="color:#f44; font-size:0.8em; margin-bottom:10px; height:15px;"></div>
+            <button class="modell-btn" style="border-color:#0af; color:#0af;" onclick="window.f_changeEmailConfirm()">ÄNDERN</button>
+            <button class="modell-btn" onclick="window.f_einstellungen()">ABBRECHEN</button>
+        `;
+    };
+
+    window.f_changeEmailConfirm = async function() {
+        const newEmail = document.getElementById('new-email-input').value.trim();
+        const passInput = document.getElementById('new-email-pass-confirm').value;
+        const errDiv = document.getElementById('change-error');
+        if (!newEmail || !passInput) { errDiv.innerText = "Bitte beide Felder ausfüllen."; return; }
+
+        try {
+            const user = window.auth.currentUser;
+            if (!user) { errDiv.innerText = "Keine aktive Sitzung."; return; }
+
+            const cred = window.fbEmailAuthProvider.credential(user.email, passInput);
+            await window.fbReauthenticate(user, cred); // wirft bei falschem Passwort
+
+            await window.fbUpdateEmail(user, newEmail);
+
+            const slug = window.agentSlug(window.agentName);
+            try { await window.setDoc(window.doc(window.db, "login_lookup", slug), { email: newEmail }, { merge: true }); } catch(e) {}
+
+            errDiv.style.color = "#0f8";
+            errDiv.innerText = "E-Mail geändert!";
+            setTimeout(() => window.f_einstellungen(), 1200);
+        } catch (e) {
+            errDiv.style.color = "#f44";
+            errDiv.innerText = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? "Passwort inkorrekt!" : (e.code === 'auth/email-already-in-use' ? "E-Mail bereits vergeben." : "Fehler: " + (e.code || e.message));
+        }
+    };
+
+    // --- Passwort ändern ---
+    window.f_changePasswordStep1 = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color:#0af;">[ PASSWORT ÄNDERN ]</h3>
+            <input type="password" id="old-pass-confirm" placeholder="AKTUELLES PASSWORT..." style="width:80%; padding:10px; background:#000; border:1px solid #0af; color:#0af; margin-bottom:15px; outline:none; font-family:monospace; text-align:center;">
+            <input type="password" id="new-pass-input" placeholder="NEUES PASSWORT (min. 6 Zeichen)..." style="width:80%; padding:10px; background:#000; border:1px solid #0af; color:#0af; margin-bottom:15px; outline:none; font-family:monospace; text-align:center;">
+            <div id="change-error" style="color:#f44; font-size:0.8em; margin-bottom:10px; height:15px;"></div>
+            <button class="modell-btn" style="border-color:#0af; color:#0af;" onclick="window.f_changePasswordConfirm()">ÄNDERN</button>
+            <button class="modell-btn" onclick="window.f_einstellungen()">ABBRECHEN</button>
+        `;
+    };
+
+    window.f_changePasswordConfirm = async function() {
+        const oldPass = document.getElementById('old-pass-confirm').value;
+        const newPass = document.getElementById('new-pass-input').value;
+        const errDiv = document.getElementById('change-error');
+        if (!oldPass || !newPass) { errDiv.innerText = "Bitte beide Felder ausfüllen."; return; }
+        if (newPass.length < 6) { errDiv.innerText = "Neues Passwort zu kurz (min. 6 Zeichen)."; return; }
+
+        try {
+            const user = window.auth.currentUser;
+            if (!user) { errDiv.innerText = "Keine aktive Sitzung."; return; }
+
+            const cred = window.fbEmailAuthProvider.credential(user.email, oldPass);
+            await window.fbReauthenticate(user, cred); // wirft bei falschem Passwort
+
+            await window.fbUpdatePassword(user, newPass);
+
+            errDiv.style.color = "#0f8";
+            errDiv.innerText = "Passwort geändert!";
+            setTimeout(() => window.f_einstellungen(), 1200);
+        } catch (e) {
+            errDiv.style.color = "#f44";
+            errDiv.innerText = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? "Aktuelles Passwort inkorrekt!" : "Fehler: " + (e.code || e.message);
+        }
     };
 
 
