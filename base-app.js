@@ -95,7 +95,7 @@
         'SCANNER-PHALANX':      { hours: 24, effect: 'spawn_agent' },
         'KI-KERNMATRIX':        { hours: 8, effect: 'level_up' },
         'FLUX-REAKTOR':         { hours: 1, effect: 'credits', amount: 5 },
-        'RENAISSANCE-GENERATOR':{ hours: 8, effect: 'materiezelle', amount: 1 },
+        'MATERIE-DEKOMPRESSOR':{ hours: 8, effect: 'materiezelle', amount: 1 },
         'KINETIK-LABOR':        { hours: 1, effect: 'player_xp', amount: 5 }
     };
 
@@ -108,7 +108,7 @@
     const AGENT_UNLOCK_COST_CREDITS = 13000;
     const AGENT_UNLOCK_COST_MZ = 50;
     const AGENT_UNLOCK_REQUIRED_LEVEL = 50;
-    const AGENT_UNLOCK_REQUIRED_ROOMS = ['AGENTEN-QUARTIERE', 'SCANNER-PHALANX', 'KI-KERNMATRIX', 'FLUX-REAKTOR', 'RENAISSANCE-GENERATOR'];
+    const AGENT_UNLOCK_REQUIRED_ROOMS = ['AGENTEN-QUARTIERE', 'SCANNER-PHALANX', 'KI-KERNMATRIX', 'FLUX-REAKTOR', 'MATERIE-DEKOMPRESSOR'];
 
     function ensureAgentsInitialized() {
         if (!Array.isArray(gameState.agents)) gameState.agents = [];
