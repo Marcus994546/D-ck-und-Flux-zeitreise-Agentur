@@ -479,20 +479,19 @@
         pointer-events: none;
     }
 
-    /* Realitäts-Riss - ein kurzer, horizontaler Verzerrungs-Blitz, der selten und
-       unvorhersehbar über den Raum läuft. */
-    @keyframes paradox-tear-flash {
-        0% { opacity: 0; transform: scaleX(0.3) translateY(0); }
-        20% { opacity: 1; transform: scaleX(1) translateY(-2px); }
-        40% { opacity: 0.8; transform: scaleX(1) translateY(2px); }
-        60% { opacity: 1; transform: scaleX(0.9) translateY(-1px); }
-        100% { opacity: 0; transform: scaleX(1.05) translateY(0); }
+    /* Realitäts-Visionen - kurze Bild-Einblendungen aus anderen Zeitlinien, unregelmäßig
+       gespawnt (siehe scheduleParadoxVision in base-app.js). Größerer Bild-Pool als vorher. */
+    @keyframes paradox-vision-flash {
+        0% { opacity: 0; transform: scale(1.15); filter: blur(4px); }
+        15% { opacity: 0.85; transform: scale(1.02); filter: blur(0px); }
+        70% { opacity: 0.75; }
+        85% { opacity: 0.4; }
+        100% { opacity: 0; transform: scale(1.05); filter: blur(2px); }
     }
-    .paradox-tear {
-        position: absolute; left: 0; width: 100%; height: 3px; z-index: 9;
-        background: linear-gradient(90deg, transparent, #fff 20%, #0ff 50%, #f0f 80%, transparent);
-        box-shadow: 0 0 12px 2px rgba(255,255,255,0.8);
-        animation: paradox-tear-flash 0.7s ease-out forwards;
+    .paradox-vision {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 9;
+        background-size: cover; background-position: center;
+        animation: paradox-vision-flash 1.6s ease-in-out forwards;
         pointer-events: none;
     }
 

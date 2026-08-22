@@ -1895,14 +1895,33 @@ function scheduleParadoxTear() {
     paradoxTearTimeout = setTimeout(() => {
         const room = document.getElementById(window._roomAreaTargetId || 'room-area');
         if (room && document.getElementById('dimension-glitch-layer')) {
-            const tear = document.createElement('div');
-            tear.className = 'paradox-tear';
-            tear.style.top = (15 + Math.random() * 60) + '%';
-            room.appendChild(tear);
-            setTimeout(() => { try { tear.remove(); } catch(e) {} }, 700);
+            const scenes = [
+                'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80', // Steinzeit/Natur
+                'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=600&q=80', // Cyber-City
+                'https://images.unsplash.com/photo-1605722243979-fc087912411e?auto=format&fit=crop&w=600&q=80', // Sturm/Blitze
+                'https://images.unsplash.com/photo-1614728263952-84ea256f9679?auto=format&fit=crop&w=600&q=80', // Mars
+                'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=600&q=80', // Milchstraße
+                'https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=600&q=80', // Unterwasser
+                'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=600&q=80', // Wüste
+                'https://images.unsplash.com/photo-1491002052546-bf38f186af56?auto=format&fit=crop&w=600&q=80', // Schneegebirge
+                'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=600&q=80', // Antike Ruinen
+                'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=600&q=80', // Neon-Regenstadt
+                'https://images.unsplash.com/photo-1554147090-e1221a04a025?auto=format&fit=crop&w=600&q=80', // Vulkan
+                'https://images.unsplash.com/photo-1516339901601-2e1b62dc0c45?auto=format&fit=crop&w=600&q=80'  // Nordlichter
+            ];
+            const blends = ['screen', 'hard-light', 'color-dodge', 'difference', 'overlay'];
+            const filters = ['sepia(0.7)', 'hue-rotate(90deg)', 'contrast(1.4)', 'invert(0.15)', 'hue-rotate(-40deg) saturate(1.4)', 'none'];
+
+            const vision = document.createElement('div');
+            vision.className = 'paradox-vision';
+            vision.style.backgroundImage = "url('" + scenes[Math.floor(Math.random() * scenes.length)] + "')";
+            vision.style.mixBlendMode = blends[Math.floor(Math.random() * blends.length)];
+            vision.style.filter = filters[Math.floor(Math.random() * filters.length)];
+            room.appendChild(vision);
+            setTimeout(() => { try { vision.remove(); } catch(e) {} }, 1700);
         }
         scheduleParadoxTear();
-    }, 4000 + Math.random() * 7000); // seltener und unvorhersehbarer als die Fragmente
+    }, 3500 + Math.random() * 6000); // unregelmäßig, seltener als die Fragmente
 }
 
 window.startParadoxAmbientEffects = function() {
