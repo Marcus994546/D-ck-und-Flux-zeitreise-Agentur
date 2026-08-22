@@ -1359,7 +1359,7 @@ document.addEventListener('click', () => {
         Jeder Agent behält die Kontrolle über seine Daten:<br>
         - Kanal-Reinigung: Kommunikationsverläufe können manuell im Komm-Link-Menü aus dem Zentral-Server gelöscht werden.<br>
         - Zugangsdaten-Verwaltung: Passwort und Wiederherstellungsdaten können jederzeit selbst über das Einstellungs-Menü geändert werden.<br>
-        - Profil-Terminierung: Über das Einstellungs-Menü kann das gesamte Agenten-Profil inklusive aller Einträge auf dem Zentral-Server jederzeit unwiderruflich und ohne Rücksprache gelöscht werden. Der reine Zugangs-Account bleibt davon technisch bedingt unberührt und kann nur durch die Administration entfernt werden.
+        - Profil-Terminierung: Über das Einstellungs-Menü kann das gesamte Agenten-Profil inklusive aller Daten (Fortschritt, Basis, Zugangsdaten) sowie der Login-Zugang selbst jederzeit unwiderruflich und ohne Rücksprache vollständig gelöscht werden.
     `;
 
     window.f_showAuthMain = function() {
