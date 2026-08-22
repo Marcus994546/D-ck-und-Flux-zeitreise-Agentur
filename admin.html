@@ -188,7 +188,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import {
-    getFirestore, doc, getDoc, setDoc, collection, getDocs
+    getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -217,7 +217,7 @@
   window.fbOnAuthStateChanged = onAuthStateChanged;
   window.fbHttpsCallable = httpsCallable;
   window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc;
-  window.collection = collection; window.getDocs = getDocs;
+  window.collection = collection; window.getDocs = getDocs; window.deleteDoc = deleteDoc;
 
   // Gleiche Ableitung wie im Haupt-Terminal: Agentenname -> synthetische E-Mail.
   window.agentSlug = (name) => (name || '').trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '_');
@@ -357,12 +357,34 @@
       saveBtn.title = 'Speichern';
       saveBtn.onclick = () => saveRow(a.id, tr);
       btnWrap.appendChild(saveBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'row-btn btn-crit';
+      delBtn.textContent = '🗑';
+      delBtn.title = 'Profil löschen';
+      delBtn.onclick = () => deleteAgentRow(a.id);
+      btnWrap.appendChild(delBtn);
+
       actionTd.appendChild(btnWrap);
       tr.appendChild(actionTd);
 
       tbody.appendChild(tr);
     });
   }
+
+  window.deleteAgentRow = async function(agentId) {
+    if (!confirm('Profil "' + agentId + '" wirklich löschen? Credits, Level, Basis und alle Räume/Möbel gehen dabei unwiderruflich verloren.\n\nHinweis: Der Login-Zugang (Firebase-Auth-Account) bleibt bestehen - meldet sich die Person erneut an, startet sie mit einem leeren Profil neu, wie bei einer Erstregistrierung.')) return;
+    try {
+      await window.deleteDoc(window.doc(window.db, "agenten", agentId));
+      try { await window.deleteDoc(window.doc(window.db, "Agent - Base", agentId)); } catch(e) {}
+      agentsCache = agentsCache.filter(a => a.id !== agentId);
+      delete baseCache[agentId];
+      renderTable();
+      plotMap();
+    } catch (e) {
+      alert('Löschen fehlgeschlagen für ' + agentId + ': ' + e.message);
+    }
+  };
 
   function numberCell(field, value, extraClass) {
     const td = document.createElement('td');

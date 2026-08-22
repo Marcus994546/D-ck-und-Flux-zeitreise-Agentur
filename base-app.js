@@ -675,7 +675,7 @@
 
     function agentRoomInfoText(roomType) {
         if (roomType === 'AGENTEN-QUARTIERE') {
-            return 'Pflicht-Zwischenstopp bei jedem Raumwechsel · wartet hier 1h (je nach Level kürzer)';
+            return 'Pflicht-Zwischenstopp bei jedem Raumwechsel · wartet hier 1h';
         }
         const task = AGENT_TASK_ROOMS[roomType];
         if (!task) return '';
@@ -686,7 +686,7 @@
             spawn_agent: 'erzeugt einen neuen Agenten',
             player_xp: task.amount + ' Spieler-XP pro Zyklus'
         }[task.effect] || '';
-        return 'Agent arbeitet hier ' + task.hours + 'h (je nach Level kürzer) · ' + effectText;
+        return 'Agent arbeitet hier ' + task.hours + 'h · ' + effectText;
     }
 
     function renderBunkerView() {
