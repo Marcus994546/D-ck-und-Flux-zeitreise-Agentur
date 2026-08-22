@@ -1761,6 +1761,11 @@ window.openRoom = (type) => {
         if (type === 'PARADOXON-FILTER') glitchLayer.classList.add('active');
         else glitchLayer.classList.remove('active');
     }
+
+    // Zusätzliche, unregelmäßig getimte Effekte - sorgen für Abwechslung, statt dass immer
+    // exakt dieselbe Dauerschleife läuft.
+    if (type === 'PARADOXON-FILTER') startParadoxAmbientEffects();
+    else stopParadoxAmbientEffects();
 };
 
 // 5. Shop-Kauf Logik (Credits + MZ)
@@ -1837,6 +1842,13 @@ window.spawnFurniture = (type, count) => {
     if (type === 'chrono_kern') {
         item.classList.add('item-chrono-kern');
         item.innerHTML = '<div class="chrono-ring-1"></div><div class="chrono-ring-2"></div><div class="chrono-sphere"></div><div class="chrono-base"></div>';
+        // Leichte Zufalls-Varianz pro Besuch, damit es nicht immer exakt gleich wirkt.
+        const jitter1 = (5.2 + Math.random() * 1.6).toFixed(1) + 's';
+        const jitter2 = (3.4 + Math.random() * 1.4).toFixed(1) + 's';
+        const sphereJitter = (4.3 + Math.random() * 1.6).toFixed(1) + 's';
+        item.querySelector('.chrono-ring-1').style.animationDuration = jitter1;
+        item.querySelector('.chrono-ring-2').style.animationDuration = jitter2;
+        item.querySelector('.chrono-sphere').style.animationDuration = sphereJitter + ', 2.2s';
     } else if (type === 'anomalie_daempfer') {
         item.classList.add('item-anomalie-daempfer');
         item.innerHTML = '<div class="daempfer-pillar"><div class="daempfer-core"></div></div>';
@@ -1858,11 +1870,50 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 
+// 8. Zusätzliche, unregelmäßig getimte Ambiente-Effekte für mehr Abwechslung
+let paradoxFragmentTimeout = null;
+let paradoxTearTimeout = null;
 
-/* ==== next block ==== */
+function scheduleParadoxFragment() {
+    paradoxFragmentTimeout = setTimeout(() => {
+        const room = document.getElementById(window._roomAreaTargetId || 'room-area');
+        if (room && document.getElementById('dimension-glitch-layer')) {
+            const frag = document.createElement('div');
+            frag.className = 'paradox-fragment';
+            frag.style.left = (10 + Math.random() * 80) + '%';
+            frag.style.setProperty('--drift', (Math.random() * 40 - 20) + 'px');
+            frag.style.setProperty('--hue', Math.floor(Math.random() * 360) + 'deg');
+            frag.style.animationDuration = (3 + Math.random() * 2.5).toFixed(1) + 's';
+            room.appendChild(frag);
+            setTimeout(() => { try { frag.remove(); } catch(e) {} }, 6000);
+        }
+        scheduleParadoxFragment();
+    }, 1200 + Math.random() * 2800); // unregelmäßig: mal schnell hintereinander, mal Pause
+}
 
+function scheduleParadoxTear() {
+    paradoxTearTimeout = setTimeout(() => {
+        const room = document.getElementById(window._roomAreaTargetId || 'room-area');
+        if (room && document.getElementById('dimension-glitch-layer')) {
+            const tear = document.createElement('div');
+            tear.className = 'paradox-tear';
+            tear.style.top = (15 + Math.random() * 60) + '%';
+            room.appendChild(tear);
+            setTimeout(() => { try { tear.remove(); } catch(e) {} }, 700);
+        }
+        scheduleParadoxTear();
+    }, 4000 + Math.random() * 7000); // seltener und unvorhersehbarer als die Fragmente
+}
 
-// 1. Menü für Impuls-Kondensator injizieren
+window.startParadoxAmbientEffects = function() {
+    stopParadoxAmbientEffects();
+    scheduleParadoxFragment();
+    scheduleParadoxTear();
+};
+window.stopParadoxAmbientEffects = function() {
+    if (paradoxFragmentTimeout) { clearTimeout(paradoxFragmentTimeout); paradoxFragmentTimeout = null; }
+    if (paradoxTearTimeout) { clearTimeout(paradoxTearTimeout); paradoxTearTimeout = null; }
+};
 const menuImpuls = `
 <div id="menu-impuls-kondensator" style="display:none; flex-direction:column; gap:15px;">
     <div class="upgrade-card">

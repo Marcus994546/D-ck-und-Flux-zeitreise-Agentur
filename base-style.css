@@ -462,6 +462,40 @@
         animation: epic-dim-glitch 25s infinite linear;
     }
 
+    /* Treibende Zeitfragmente - unregelmäßig gespawnt, jedes mit eigenem Farbton und leichter
+       Seitwärtsdrift, damit keine zwei gleich aussehen. */
+    @keyframes paradox-fragment-rise {
+        0% { transform: translate(0, 0) rotate(0deg) scale(0.4); opacity: 0; }
+        15% { opacity: 0.9; }
+        85% { opacity: 0.7; }
+        100% { transform: translate(var(--drift), -220px) rotate(140deg) scale(1); opacity: 0; }
+    }
+    .paradox-fragment {
+        position: absolute; bottom: 20px; width: 10px; height: 10px; z-index: 8;
+        background: conic-gradient(from var(--hue), #fff, #c0f, #0ff, #fff);
+        clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+        filter: hue-rotate(var(--hue)) drop-shadow(0 0 8px currentColor);
+        animation: paradox-fragment-rise linear forwards;
+        pointer-events: none;
+    }
+
+    /* Realitäts-Riss - ein kurzer, horizontaler Verzerrungs-Blitz, der selten und
+       unvorhersehbar über den Raum läuft. */
+    @keyframes paradox-tear-flash {
+        0% { opacity: 0; transform: scaleX(0.3) translateY(0); }
+        20% { opacity: 1; transform: scaleX(1) translateY(-2px); }
+        40% { opacity: 0.8; transform: scaleX(1) translateY(2px); }
+        60% { opacity: 1; transform: scaleX(0.9) translateY(-1px); }
+        100% { opacity: 0; transform: scaleX(1.05) translateY(0); }
+    }
+    .paradox-tear {
+        position: absolute; left: 0; width: 100%; height: 3px; z-index: 9;
+        background: linear-gradient(90deg, transparent, #fff 20%, #0ff 50%, #f0f 80%, transparent);
+        box-shadow: 0 0 12px 2px rgba(255,255,255,0.8);
+        animation: paradox-tear-flash 0.7s ease-out forwards;
+        pointer-events: none;
+    }
+
     /* --- Möbel Designs --- */
     .item-chrono-kern { width: 120px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
     .chrono-base { width: 80px; height: 25px; background: linear-gradient(180deg, #1a052a, #000); border: 2px solid #555; border-top: 4px solid #c0f; border-radius: 8px 8px 3px 3px; z-index: 2; box-shadow: 0 15px 25px rgba(0,0,0,0.9); }
