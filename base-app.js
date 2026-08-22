@@ -194,6 +194,7 @@
 
         if (changed) { try { saveGameState(); } catch(e) {} }
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
+        if (typeof renderBunkerAgentVisuals === 'function' && bunkerActive) renderBunkerAgentVisuals();
         return changed;
     }
 
@@ -222,6 +223,7 @@
         saveGameState();
         renderGrid();
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
+        if (typeof renderBunkerAgentVisuals === 'function' && bunkerActive) renderBunkerAgentVisuals();
         if (typeof showCustomAlert === 'function') showCustomAlert('Agent bewegt sich in die Agenten-Quartiere.');
     };
     // Alle spawnFurniture/reloadFurniture/clearRoom-Aufrufe im ganzen Code zielen normalerweise
@@ -491,11 +493,51 @@
     const BUNKER_MAX_PER_FLOOR = 2;
 
     let bunkerFloorsData = [];       // [{type, lvl}] in Anzeige-Reihenfolge
-    let bunkerRiders = [];           // aktuell im Aufzug mitfahrende Männchen (DOM-Elemente)
-    let bunkerFloorOccupants = {};   // floorIdx -> [Männchen, die dort auf Abholung warten]
-    let bunkerElevatorFloor = 0;     // Stockwerk, an dem der Aufzug gerade steht
-    let bunkerLoopTimeout = null;
     let bunkerActive = false;
+
+    function bunkerFloorIndexForType(type) {
+        return bunkerFloorsData.findIndex(r => r.type === type);
+    }
+
+    // Zeigt den Aufzug/die Agenten-Abzeichen exakt so, wie der ECHTE Agenten-Zustand
+    // (gameState.agents) gerade ist - keine eigenständige Zufalls-Animation mehr. Der Aufzug
+    // fährt nur, wenn ein Agent tatsächlich per Befehl unterwegs ist (state=waiting_in_quartiere),
+    // ansonsten steht er dort, wo der zuletzt aktive Agent sich gerade befindet.
+    function renderBunkerAgentVisuals() {
+        const car = document.getElementById('bunker-elevator-car');
+        if (!car || !gameState.agentSystemUnlocked) { if (car) car.innerHTML = ''; return; }
+
+        document.querySelectorAll('.bunker-agent-badge').forEach(el => el.remove());
+
+        const movingAgent = gameState.agents.find(a => a.state === 'waiting_in_quartiere');
+        let carFloorIdx = 0;
+        car.innerHTML = '';
+
+        if (movingAgent) {
+            carFloorIdx = bunkerFloorIndexForType('AGENTEN-QUARTIERE');
+            if (carFloorIdx < 0) carFloorIdx = 0;
+            const rider = document.createElement('div');
+            rider.className = 'bunker-figure bunker-rider';
+            car.appendChild(rider);
+        } else {
+            // Niemand unterwegs: Aufzug parkt an der Zentrale.
+            carFloorIdx = 0;
+        }
+        car.style.top = (carFloorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+
+        // Ruhende/arbeitende Agenten als Abzeichen direkt in ihrem jeweiligen Stockwerk zeigen.
+        gameState.agents.forEach(agent => {
+            if (agent.state === 'waiting_in_quartiere') return; // wird bereits durch den Aufzug dargestellt
+            const idx = bunkerFloorIndexForType(agent.location);
+            if (idx < 0) return;
+            const preview = document.getElementById('bunker-room-' + idx);
+            if (!preview) return;
+            const badge = document.createElement('div');
+            badge.className = 'bunker-agent-badge';
+            badge.innerText = 'A' + agent.level;
+            preview.appendChild(badge);
+        });
+    }
 
     function getAgentUnlockRequirementStatus() {
         const roomsBuilt = AGENT_UNLOCK_REQUIRED_ROOMS.map(type => ({
@@ -579,7 +621,6 @@
         playBeepBase(600, 0.05);
         document.getElementById('aktive-basis-overlay').style.display = 'none';
         bunkerActive = false;
-        if (bunkerLoopTimeout) { clearTimeout(bunkerLoopTimeout); bunkerLoopTimeout = null; }
         // Ziel wieder auf den echten Raum-Bildschirm zurückstellen, falls er als nächstes geöffnet wird.
         window._roomAreaTargetId = 'room-area';
     };
@@ -588,9 +629,6 @@
         const floorsEl = document.getElementById('bunker-floors');
         if (!floorsEl) return;
         floorsEl.innerHTML = '';
-        bunkerRiders = [];
-        bunkerFloorOccupants = {};
-        bunkerElevatorFloor = 0;
 
         const zentrale = gameState.baseData.find(r => r.type === 'ZENTRALE');
         const others = gameState.baseData.filter(r => r.type !== 'ZENTRALE');
@@ -625,101 +663,8 @@
         });
         window._roomAreaTargetId = 'room-area';
 
-        const car = document.getElementById('bunker-elevator-car');
-        if (car) car.style.top = '8px'; // startet oben, an der Zentrale
-
         bunkerActive = true;
-        if (bunkerLoopTimeout) { clearTimeout(bunkerLoopTimeout); bunkerLoopTimeout = null; }
-        bunkerScheduleNextArrival(1500);
-    }
-
-    function bunkerSpawnRiderInCar(car) {
-        const riderEl = document.createElement('div');
-        riderEl.className = 'bunker-figure bunker-rider';
-        riderEl.style.left = (5 + bunkerRiders.length * 9) + 'px';
-        car.appendChild(riderEl);
-        bunkerRiders.push(riderEl);
-    }
-
-    function bunkerScheduleNextArrival(fixedDelay) {
-        if (!bunkerActive) return;
-        // Unregelmäßige Abstände: mal kommt schnell wieder wer, mal dauert es länger.
-        const delay = fixedDelay || (2500 + Math.random() * 9000);
-        bunkerLoopTimeout = setTimeout(bunkerRiderTrip, delay);
-    }
-
-    function bunkerWait(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    async function bunkerMoveElevatorTo(floorIdx) {
-        const car = document.getElementById('bunker-elevator-car');
-        if (!car) return;
-        bunkerElevatorFloor = floorIdx;
-        car.style.top = (floorIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-        await bunkerWait(1400); // passend zur CSS-Transition (1.3s) des Aufzugs
-    }
-
-    // Jede Fahrt ist entweder eine Liefer-Fahrt (neues Männchen spawnt an der Zentrale, wird zu
-    // einem zufälligen Raum gebracht) oder - sobald irgendwo wer wartet - eine Abhol-Fahrt
-    // (Aufzug holt ein wartendes Männchen ab und bringt es zurück zur Zentrale, wo es die
-    // Basis wieder verlässt). So bleibt niemand für immer in einem Raum zurück.
-    async function bunkerRiderTrip() {
-        if (!bunkerActive) return;
-        try {
-            const waitingFloors = Object.keys(bunkerFloorOccupants)
-                .map(Number)
-                .filter(idx => bunkerFloorOccupants[idx] && bunkerFloorOccupants[idx].length > 0);
-            const doPickup = waitingFloors.length > 0 && Math.random() < 0.5;
-            const car = document.getElementById('bunker-elevator-car');
-
-            if (doPickup) {
-                const srcIdx = waitingFloors[Math.floor(Math.random() * waitingFloors.length)];
-                if (bunkerElevatorFloor !== srcIdx) {
-                    await bunkerMoveElevatorTo(srcIdx);
-                    if (!bunkerActive) return;
-                }
-                const occupants = bunkerFloorOccupants[srcIdx];
-                const leaving = occupants.pop();
-                if (leaving) leaving.remove();
-                if (car) bunkerSpawnRiderInCar(car);
-                await bunkerWait(600);
-                if (!bunkerActive) return;
-
-                if (bunkerElevatorFloor !== 0) {
-                    await bunkerMoveElevatorTo(0);
-                    if (!bunkerActive) return;
-                }
-                if (bunkerRiders.length > 0) { const r = bunkerRiders.pop(); r.remove(); } // verlässt die Basis
-            } else {
-                if (bunkerElevatorFloor !== 0) {
-                    await bunkerMoveElevatorTo(0);
-                    if (!bunkerActive) return;
-                }
-                if (car) bunkerSpawnRiderInCar(car); // Männchen spawnt direkt an der Zentrale
-                await bunkerWait(600);
-                if (!bunkerActive) return;
-
-                const destIdx = bunkerFloorsData.length > 1
-                    ? 1 + Math.floor(Math.random() * (bunkerFloorsData.length - 1))
-                    : 0;
-                await bunkerMoveElevatorTo(destIdx);
-                if (!bunkerActive) return;
-
-                if (bunkerRiders.length > 0) { const r = bunkerRiders.pop(); r.remove(); }
-                const destPreview = document.getElementById('bunker-room-' + destIdx);
-                if (destPreview) {
-                    const walker = document.createElement('div');
-                    walker.className = 'bunker-figure bunker-walker';
-                    walker.style.animationDuration = (5 + Math.random() * 3).toFixed(1) + 's';
-                    destPreview.appendChild(walker);
-                    if (!bunkerFloorOccupants[destIdx]) bunkerFloorOccupants[destIdx] = [];
-                    bunkerFloorOccupants[destIdx].push(walker);
-                }
-            }
-        } catch(e) { console.error('Bunker-Fahrt Fehler:', e); }
-
-        bunkerScheduleNextArrival();
+        renderBunkerAgentVisuals();
     }
 
     window.onload = async () => {
