@@ -1339,24 +1339,27 @@ document.addEventListener('click', () => {
 
     const agbText = `
         <b>§1 Geltungsbereich</b><br>
-        Mit der Registrierung und der Verifizierung der Agenten-ID tritt dieser Kodex in Kraft. Das Terminal dient der Simulation von Zeitreise-Szenarien sowie der verschlüsselten Kommunikation zwischen autorisierten Agenten.<br><br>
-        
+        Mit der Registrierung und der Verifizierung der Agenten-ID tritt dieser Kodex in Kraft. Das Terminal dient der Simulation von Zeitreise-Szenarien, der verschlüsselten Kommunikation zwischen autorisierten Agenten sowie dem Aufbau und Betrieb einer eigenen Agentur-Basis.<br><br>
+
         <b>§2 Datenerhebung und technische Speicherung</b><br>
         Zur Gewährleistung der Synchronisation innerhalb der Zeitlinie werden folgende Daten auf dem Zentral-Server (Cloud-Datenbank) sowie lokal auf dem Endgerät verarbeitet:<br>
-        1. Profil-Daten: Agenten-Name, verschlüsseltes Passwort sowie der aktuelle Fortschritt (XP und Level).<br>
+        1. Profil-Daten: Agenten-Name, Zugangsdaten (verwaltet über einen externen Authentifizierungs-Dienst) sowie der aktuelle Fortschritt (XP und Level).<br>
         2. Einsatz-Statistiken: Erreichte Rekordwerte (Highscores) in den spezifischen Flux-Modulen.<br>
         3. Technische Metadaten: Der Zeitpunkt der letzten Aktivität (lastSeen) sowie regelmäßige Radar-Pings zur Anzeige der Online-Präsenz.<br>
-        4. Standort-Uplink: Zur Sektor-Zuweisung und administrativen Übersicht wird der ungefähre Standort (Land, Region, Stadt) basierend auf der IP-Adresse erfasst.<br>
-        5. Präferenz-Daten: Individuelle Systemeinstellungen wie Hintergrundmusik und akustische Signale.<br>
-        6. Kommunikations-Logbuch: Alle im „Komm-Link" gesendeten Nachrichten inklusive Absenderkennung und Zeitstempel.<br><br>
-        
-        <b>§3 Haftungsausschluss (Totalausschluss)</b><br>
-        Die Administration übernimmt keinerlei Haftung für Schäden, die aus der Nutzung des Terminals resultieren. Dies schließt den Verlust von Daten (XP, Level, Fortschritt) ebenso ein wie technische Defekte oder temporale Paradoxa. Jegliche rechtliche Inanspruchnahme oder Anklage gegen die Administration ist ausdrücklich und vollumfänglich ausgeschlossen. Die Nutzung erfolgt auf eigenes Risiko und unter Verzicht auf jegliche Regressansprüche.<br><br>
-        
+        4. Standort-Uplink: Zur Missions-Navigation wird bei aktiven GPS-Missionen dein <b>präziser Gerätestandort</b> in Echtzeit abgefragt und für die Dauer der Mission verarbeitet, um Distanz und Peilung zum Zieleinsatzort zu berechnen. Ohne erteilte Standortfreigabe können GPS-Missionen nicht gestartet werden.<br>
+        5. Kamera-Zugriff: Zur Erfassung von Anomalien am Zielort wird bei Erreichen des Missionsziels kurzzeitig auf die Gerätekamera zugegriffen. Aufnahmen werden ausschließlich lokal auf dem Endgerät verarbeitet und nicht an den Zentral-Server übertragen.<br>
+        6. Agentur-Basis-Daten: Guthaben (Credits, Materiezellen), ausgebaute Räume, sowie - sofern freigeschaltet - Status, Level und Standort deiner Agenten innerhalb der Basis.<br>
+        7. Präferenz-Daten: Individuelle Systemeinstellungen wie Hintergrundmusik und akustische Signale.<br>
+        8. Kommunikations-Logbuch: Alle im „Komm-Link" gesendeten Nachrichten inklusive Absenderkennung und Zeitstempel.<br><br>
+
+        <b>§3 Haftungsbeschränkung</b><br>
+        Die Administration haftet nicht für gewöhnliche Fahrlässigkeit, insbesondere nicht für Datenverlust (XP, Level, Fortschritt, Basis-Stand), technische Defekte, Ausfallzeiten oder temporale Paradoxa. Unberührt bleibt die Haftung für Vorsatz, grobe Fahrlässigkeit sowie für Schäden aus der Verletzung von Leben, Körper oder Gesundheit - diese lässt sich nach geltendem Recht ohnehin nicht wirksam ausschließen. Die Nutzung des Terminals erfolgt im Übrigen auf eigenes Risiko.<br><br>
+
         <b>§4 Selbstbestimmung und Profillöschung</b><br>
         Jeder Agent behält die Kontrolle über seine Daten:<br>
         - Kanal-Reinigung: Kommunikationsverläufe können manuell im Komm-Link-Menü aus dem Zentral-Server gelöscht werden.<br>
-        - Profil-Terminierung: Über das Einstellungs-Menü kann das gesamte Agenten-Profil inklusive aller Einträge auf dem Zentral-Server jederzeit unwiderruflich und ohne Rücksprache gelöscht werden.
+        - Zugangsdaten-Verwaltung: Passwort und Wiederherstellungsdaten können jederzeit selbst über das Einstellungs-Menü geändert werden.<br>
+        - Profil-Terminierung: Über das Einstellungs-Menü kann das gesamte Agenten-Profil inklusive aller Einträge auf dem Zentral-Server jederzeit unwiderruflich und ohne Rücksprache gelöscht werden. Der reine Zugangs-Account bleibt davon technisch bedingt unberührt und kann nur durch die Administration entfernt werden.
     `;
 
     window.f_showAuthMain = function() {
