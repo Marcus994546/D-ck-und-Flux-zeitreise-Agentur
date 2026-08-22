@@ -1527,6 +1527,13 @@ document.addEventListener('click', () => {
             const docSnap = await window.getDoc(agentRef);
             const data = docSnap.exists() ? docSnap.data() : {};
 
+            // Selbstheilung: Alte Konten (von vor dem "ownerUid"-Feld) tragen es beim nächsten
+            // Login automatisch nach - danach funktionieren Löschen/Ändern für sie auch dann noch
+            // zuverlässig, wenn sich ihre E-Mail künftig mal ändert.
+            if (window.auth.currentUser && !data.ownerUid) {
+                try { await window.setDoc(agentRef, { ownerUid: window.auth.currentUser.uid }, { merge: true }); } catch(e) {}
+            }
+
             window.agentName = nameInput;
             window.isAgentVerified = true;
             window.adminMerkerAktiv = !!data.isAdmin;
@@ -1594,7 +1601,8 @@ document.addEventListener('click', () => {
                 agb_bestaetigt: true,
                 xp: window.playerXP,
                 lvl: window.playerLevel,
-                isAdmin: false
+                isAdmin: false,
+                ownerUid: cred.user.uid // robuster Besitznachweis, unabhängig von E-Mail/Name (siehe firestore.rules)
             };
             // WICHTIG: Dieser Schreibvorgang wird NICHT mehr stillschweigend verschluckt.
             // Schlägt er fehl (z.B. durch die Firestore Security Rules), gilt die Registrierung
