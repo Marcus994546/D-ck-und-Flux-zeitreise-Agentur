@@ -925,7 +925,7 @@
             return 'Zwischenstation im Zeitreise-Kreislauf · Agent verbleibt hier genau 1h zur temporalen Reinigung';
         }
         if (roomType === 'ARTEFAKT-ARCHIV') {
-            return 'Abschluss des Zeitreise-Kreislaufs · Agent verbleibt hier 30min · Belohnung: 1-5 Chronos-Zellen, 60% Chance auf ein Artefakt';
+            return 'Abschluss des Zeitreise-Kreislaufs · 30min · Belohnung: 1-5 Chronos-Zellen, zu 60% ein Artefakt';
         }
         if (roomType === 'TRANSFORMATOREN-STATION') {
             return PASSIVE_ROOMS[roomType].text +
