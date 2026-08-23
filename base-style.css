@@ -1352,3 +1352,6 @@
     font-size: 0.85em; color: #0f8; opacity: 0.85; margin-top: 2px; font-weight: normal;
     white-space: normal; line-height: 1.3;
 }
+/* Passive Räume (laufen automatisch, kein Agent nötig) - hellblau statt grün, damit auf
+   einen Blick klar ist, ob ein Raum einen Agenten braucht oder nicht. */
+.bunker-floor-info.passive-room-info { color: #4dd0ff; }

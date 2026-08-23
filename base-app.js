@@ -99,6 +99,21 @@
         'KINETIK-LABOR':        { hours: 1, effect: 'player_xp', amount: 5 }
     };
 
+    // Passive Räume: laufen automatisch im Hintergrund, sobald gebaut - kein Agent nötig.
+    // "text" ist die Kurzbeschreibung in der Raum-Sidebar (siehe agentRoomInfoText).
+    const PASSIVE_ROOMS = {
+        'THERMO-KOPPLER':          { text: 'Erzeugt automatisch 1 Credit alle 2 Stunden' },
+        'TRANSFORMATOREN-STATION': { text: 'Tauschfunktion: 5000 Credits → 1 Materiezelle' },
+        'ANOMALIE-DETEKTOR':       { text: 'Verlangsamt den Kohärenz-Abfall bei Warnung/Instabil um 5%' },
+        'QUANTEN-LABOR':           { text: '+2% Bonus auf alle XP-Belohnungen' },
+        'KYBERNETIK-STATION':      { text: '+2 m GPS-Ankunftsradius, dauerhaft' },
+        'RESONANZ-KAMMER':         { text: '5% Chance auf doppelten Missions-Loot' },
+        'TECHNIK-DECK':            { text: '5% Rabatt auf alle Raum-Ausbaukosten' },
+        'SERVER-HUB':              { text: '10% Chance, eine Warnung sofort abzufangen' }
+    };
+    const THERMO_KOPPLER_INTERVAL_MS = 2 * 3600000; // alle 2 Stunden 1 Credit
+    const ROOM_BUILD_COST_MZ = 10;
+
     // Formel lt. Vorgabe: Neue Dauer = Basis-Dauer * (1 - (Level - 1) * 0.05)
     function agentScaledDurationMs(baseHours, level) {
         const factor = Math.max(0.1, 1 - (level - 1) * 0.05); // Untergrenze, falls Level je höher als 19 würde
@@ -218,6 +233,28 @@
         if (changed) { try { saveGameState(); } catch(e) {} }
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
         if (typeof renderBunkerAgentVisuals === 'function' && bunkerActive) renderBunkerAgentVisuals();
+        return changed;
+    }
+
+    // Analog zu tickAgents(): holt reale, seit dem letzten Tick vergangene Zeit nach (auch nach
+    // längerer Abwesenheit), aktuell nur für den Thermo-Koppler (1 Credit alle 2h, passiv).
+    function tickPassiveRooms() {
+        if (!Array.isArray(gameState.baseData)) return false;
+        let changed = false;
+        const now = Date.now();
+        gameState.baseData.forEach(room => {
+            if (room.type === 'THERMO-KOPPLER') {
+                if (!room.lastTick) { room.lastTick = now; changed = true; return; }
+                let safety = 0;
+                while (now - room.lastTick >= THERMO_KOPPLER_INTERVAL_MS && safety < 1000) {
+                    gameState.credits += 1;
+                    room.lastTick += THERMO_KOPPLER_INTERVAL_MS;
+                    changed = true;
+                    safety++;
+                }
+            }
+        });
+        if (changed) { updateUI(); try { saveGameState(); } catch(e) {} }
         return changed;
     }
 
@@ -377,6 +414,7 @@
                 // Reale, seit dem letzten Speichern vergangene Zeit sofort nachholen (auch wenn
                 // die Seite zwischenzeitlich Stunden geschlossen war).
                 tickAgents();
+                tickPassiveRooms();
 
                 // Fusionierten Stand sofort zurück in die kanonische Quelle ("agenten") schreiben.
                 try {
@@ -464,17 +502,25 @@
         }
     }
 
+    // Technik-Deck: 5% Rabatt auf die Ausbaukosten für Räume, immer zugunsten des Spielers
+    // abgerundet. Aktuell kostet ein neuer Raum pauschal ROOM_BUILD_COST_MZ Materiezellen.
+    function getRoomBuildCostMZ() {
+        const isTechnikDeck = gameState.baseData.some(r => r.type === 'TECHNIK-DECK');
+        return isTechnikDeck ? Math.max(1, Math.floor(ROOM_BUILD_COST_MZ * 0.95)) : ROOM_BUILD_COST_MZ;
+    }
+
     window.buyRoom = (x, y) => {
         pendingCoords = {x, y}; const list = document.getElementById('selection-list-container');
         list.innerHTML = ''; const reqLvl = gameState.baseData.length * 3;
         const levelI = document.getElementById('next-room-level-info');
         levelI.innerText = gameState.userLevel < reqLvl ? `Sperre: Level ${reqLvl} benötigt!` : `Bereit für Ausbau (Level ${reqLvl})`;
+        const buildCost = getRoomBuildCostMZ();
         roomTypes.forEach(room => {
             const built = gameState.baseData.some(r => r.type === room.n);
             const item = document.createElement('div'); item.className = 'selection-item';
             if (built || gameState.userLevel < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
             else { item.onclick = () => confirmRoomSelection(room.n); }
-            item.innerHTML = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">10 MZ</span><br><small>${room.d}</small>${(gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
+            item.innerHTML = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">${buildCost} MZ</span><br><small>${room.d}</small>${(gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
             list.appendChild(item);
         });
         document.getElementById('room-selection-overlay').style.display = 'flex';
@@ -483,9 +529,10 @@
     window.hideRoomMenu = () => { playBeepBase(600, 0.05); document.getElementById('room-selection-overlay').style.display = 'none'; };
 
     window.confirmRoomSelection = async (type) => {
-        if (gameState.materieZellen >= 10) {
-            gameState.materieZellen -= 10;
-            gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1});
+        const buildCost = getRoomBuildCostMZ();
+        if (gameState.materieZellen >= buildCost) {
+            gameState.materieZellen -= buildCost;
+            gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1, lastTick: Date.now()});
             updateUI(); renderGrid(); hideRoomMenu(); await saveGameState();
         } else { hideRoomMenu(); if (typeof showCustomAlert === 'function') showCustomAlert("System: Nicht genügend Materie-Zellen."); }
     };
@@ -675,9 +722,20 @@
         if (wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
     };
 
+    // Liefert 'active' (Agent nötig -> grün), 'passive' (läuft automatisch -> hellblau) oder
+    // null (reine Deko, keine Funktion) für einen Raumtyp.
+    function roomEffectCategory(roomType) {
+        if (roomType === 'AGENTEN-QUARTIERE' || AGENT_TASK_ROOMS[roomType]) return 'active';
+        if (PASSIVE_ROOMS[roomType]) return 'passive';
+        return null;
+    }
+
     function agentRoomInfoText(roomType) {
         if (roomType === 'AGENTEN-QUARTIERE') {
             return 'Pflicht-Zwischenstopp bei jedem Raumwechsel · wartet hier 1h';
+        }
+        if (PASSIVE_ROOMS[roomType]) {
+            return PASSIVE_ROOMS[roomType].text;
         }
         const task = AGENT_TASK_ROOMS[roomType];
         if (!task) return '';
@@ -725,7 +783,7 @@
                         '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
                         (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
                         '</div>' +
-                        (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info">' + agentRoomInfoText(room.type) + '</div>' : '') +
+                        (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info' + (roomEffectCategory(room.type) === 'passive' ? ' passive-room-info' : '') + '">' + agentRoomInfoText(room.type) + '</div>' : '') +
                     '</div>' +
                 '</div>';
             floorsEl.appendChild(floor);
@@ -759,7 +817,7 @@
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
         // Läuft alle 15s: holt reale, vergangene Zeit nach und schreibt fällige Belohnungen gut,
         // auch während die Seite offen im Hintergrund liegt.
-        setInterval(() => { tickAgents(); }, 15000);
+        setInterval(() => { tickAgents(); tickPassiveRooms(); }, 15000);
         // Läuft jede Sekunde: aktualisiert nur die sichtbare Countdown-Anzeige am Männchen,
         // damit man wirklich live mitzählen sieht, ohne die volle Zustandsprüfung zu wiederholen.
         setInterval(() => { if (bunkerActive && typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals(); }, 1000);
@@ -3443,4 +3501,43 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="dk-cylinder"><div class="dk-stream"></div><div class="dk-stream ds2"></div><div class="dk-stream ds3"></div><div class="dk-core-glow"></div></div><div class="dk-base"></div>';
     }
     room.appendChild(item);
+};
+
+
+/* ==== next block ==== */
+
+
+// === TRANSFORMATOREN-STATION (passiver Raum: direkte Tauschfunktion, kein Agent nötig) ===
+const menuTransformatoren = `
+<div id="menu-transformatoren-station" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card">
+        <b>[ ENERGIE-TAUSCH ]</b>
+        <p style="font-size:0.7em; color:#aaa;">Wandelt überschüssige Credits direkt in seltene Materiezellen um.</p>
+        <button id="btn-transformator-exchange" onclick="window.exchangeCreditsForMZ()" class="btn-upgrade-exec" style="background:#4dd0ff; color:#000; border:1px solid #4dd0ff;">TAUSCHEN (5000 C → 1 MZ)</button>
+    </div>
+</div>`;
+if (!document.getElementById('menu-transformatoren-station')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuTransformatoren);
+
+window.exchangeCreditsForMZ = async function() {
+    const cost = 5000;
+    if (gameState.credits >= cost) {
+        gameState.credits -= cost;
+        gameState.materieZellen += 1;
+        updateUI();
+        await saveGameState();
+        if (typeof showCustomAlert === 'function') showCustomAlert('Tausch erfolgreich: 5000 Credits → 1 Materiezelle.');
+    } else {
+        if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Credits für den Tausch (5000 C benötigt).');
+    }
+};
+
+const oldOpenRoom_TRANS = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_TRANS) oldOpenRoom_TRANS(type);
+    const m = document.getElementById('menu-transformatoren-station');
+    if (m) m.style.display = (type === 'TRANSFORMATOREN-STATION') ? 'flex' : 'none';
+    if (type === 'TRANSFORMATOREN-STATION') {
+        const ph = document.getElementById('menu-platzhalter');
+        if (ph) ph.style.setProperty('display', 'none', 'important');
+    }
 };
