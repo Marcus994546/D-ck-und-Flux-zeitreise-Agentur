@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260823b">
+    <link rel="stylesheet" href="base-style.css?v=20260823c">
 </head>
 <body>
 
@@ -154,11 +154,10 @@
 </div>
 
 <div id="horizon-briefing-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
-    <div style="background:#0a0514; border:1px solid #c060ff; box-shadow:0 0 30px rgba(192,96,255,0.5); border-radius:6px; padding:20px; width:min(380px, 90vw); font-family:'Orbitron', monospace;">
-        <h3 style="color:#c060ff; text-shadow:0 0 10px #c060ff; margin-top:0;">[ MISSIONS-BRIEFING ]</h3>
-        <p id="horizon-briefing-text" style="font-size:0.9em; color:#e0c0ff; margin-bottom:10px;">-</p>
-        <p style="font-size:0.75em; color:#aaa;">Zieljahr: <b id="horizon-briefing-year" style="color:#c060ff;">-</b></p>
-        <p style="font-size:0.7em; color:#888; margin-bottom:16px;">Gib dieses Jahr exakt im Zeitreise-Terminal der TEMPORAL TIME FORGE ein, um ein Artefakt zu sichern.</p>
+    <div style="background:#0a0514; border:1px solid #c060ff; box-shadow:0 0 30px rgba(192,96,255,0.5); border-radius:6px; padding:20px; width:min(380px, 90vw); max-height:80vh; display:flex; flex-direction:column; font-family:'Orbitron', monospace;">
+        <h3 style="color:#c060ff; text-shadow:0 0 10px #c060ff; margin-top:0;">[ AKTIVE ZEITREISE-AUFTRÄGE ]</h3>
+        <div id="horizon-briefing-list" style="overflow-y:auto; margin-bottom:12px;"></div>
+        <p style="font-size:0.7em; color:#888; margin-bottom:16px;">Gib eines dieser Jahre exakt im Zeitreise-Terminal der TEMPORAL TIME FORGE ein, um bei dieser Reise ein Artefakt zu sichern.</p>
         <button class="btn-back" style="width:100%;" onclick="window.closeHorizonBriefing()">SCHLIESSEN</button>
     </div>
 </div>
@@ -290,7 +289,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260823b"></script>
-<script src="base-app.js?v=20260823b"></script>
+<script type="module" src="base-firebase-init.js?v=20260823c"></script>
+<script src="base-app.js?v=20260823c"></script>
 </body>
 </html>

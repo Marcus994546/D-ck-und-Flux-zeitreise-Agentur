@@ -1407,7 +1407,7 @@
 #info-toast-msg { color: var(--neon-color); font-size: 0.85em; margin: 0; text-align: center; }
 
 .bunker-floor-info {
-    font-size: 0.85em; color: #0f8; opacity: 0.85; margin-top: 2px; font-weight: normal;
+    font-size: 0.7em; color: #0f8; opacity: 0.85; margin-top: 2px; font-weight: normal;
     white-space: normal; line-height: 1.3;
 }
 /* Passive Räume (laufen automatisch, kein Agent nötig) - hellblau statt grün, damit auf

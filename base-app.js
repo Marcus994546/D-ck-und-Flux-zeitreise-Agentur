@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMission: null, overdriveStartTs: null, overdriveEndTs: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -150,7 +150,7 @@
         const direction = Math.random() < 0.5 ? -1 : 1;
         const offset = 30 + Math.floor(Math.random() * 200); // mind. 30, bis zu 230 Jahre
         const year = currentYear + direction * offset;
-        return { briefing: briefing, year: String(year) };
+        return { id: 'horizon_' + Date.now() + '_' + Math.floor(Math.random() * 1000), briefing: briefing, year: String(year) };
     }
 
 
@@ -264,8 +264,10 @@
                 taskDurationMs: null
             });
         } else if (task.effect === 'horizon_mission') {
-            gameState.horizonMission = generateHorizonMission();
-            if (typeof showInfoToast === 'function') showInfoToast('Funk-Relais "Horizont": Neuer Zeitreise-Auftrag empfangen - Ziel: Jahr ' + gameState.horizonMission.year + '.');
+            if (!Array.isArray(gameState.horizonMissions)) gameState.horizonMissions = [];
+            const mission = generateHorizonMission();
+            gameState.horizonMissions.push(mission);
+            if (typeof showInfoToast === 'function') showInfoToast('Funk-Relais "Horizont": Neuer Zeitreise-Auftrag empfangen - Ziel: Jahr ' + mission.year + '.');
         }
     }
 
@@ -390,11 +392,14 @@
                             gameState.overdriveEndTs = now + agent.taskDurationMs;
                             if (typeof showInfoToast === 'function') showInfoToast('System-Overdrive aktiviert: Alle anderen Timer laufen 1h lang doppelt so schnell!');
                         } else if (agent.location === 'PARADOXON-FILTER') {
-                            // Der Horizont-Auftrag wird sofort beim Start verbraucht, unabhängig
-                            // vom späteren Erfolg des Quanten-Warps.
-                            gameState.horizonMission = null;
+                            // Der älteste aktive Horizont-Auftrag wird sofort beim Start verbraucht
+                            // (FIFO), unabhängig vom späteren Erfolg des Quanten-Warps. Mehrere
+                            // Aufträge können gleichzeitig bestehen - nur einer wird verbraucht.
+                            if (Array.isArray(gameState.horizonMissions) && gameState.horizonMissions.length > 0) {
+                                gameState.horizonMissions.shift();
+                            }
                             if (typeof renderHorizonStatus === 'function') renderHorizonStatus();
-                            if (typeof showInfoToast === 'function') showInfoToast('Paradoxon-Filter: Quanten-Warp initiiert - Horizont-Auftrag verbraucht.');
+                            if (typeof showInfoToast === 'function') showInfoToast('Paradoxon-Filter: Quanten-Warp initiiert - ein Horizont-Auftrag verbraucht.');
                         }
                     } else {
                         agent.state = 'idle';
@@ -571,7 +576,7 @@
             if (typeof showCustomAlert === 'function') showCustomAlert('Der Starter-Agent darf den Hochspannungs-Verteiler nicht betreten - Schutz vor Löschung.');
             return;
         }
-        if (targetType === 'PARADOXON-FILTER' && !gameState.horizonMission) {
+        if (targetType === 'PARADOXON-FILTER' && (!Array.isArray(gameState.horizonMissions) || gameState.horizonMissions.length === 0)) {
             if (typeof showCustomAlert === 'function') showCustomAlert('Paradoxon-Filter benötigt einen aktiven Zeitreise-Auftrag aus dem Funk-Relais "Horizont".');
             return;
         }
@@ -596,27 +601,7 @@
         // Kurze, rein optische Aufzug-Fahrt vom alten Standort zu den Quartieren. Die eigentliche
         // Wartezeit wird danach durch den Agenten sichtbar IN den Quartieren dargestellt, nicht im
         // Aufzug selbst (siehe renderBunkerAgentVisuals).
-        if (bunkerActive && typeof bunkerFloorIndexForType === 'function') {
-            const car = document.getElementById('bunker-elevator-car');
-            const riderSlot = document.getElementById('bunker-elevator-rider-slot');
-            const quartiereIdx = bunkerFloorIndexForType('AGENTEN-QUARTIERE');
-            const oldIdx = bunkerFloorIndexForType(oldLocation);
-            if (car && quartiereIdx >= 0) {
-                bunkerElevatorAnimating = true;
-                document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
-                if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
-                car.style.top = ((oldIdx >= 0 ? oldIdx : 0) * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-                requestAnimationFrame(() => {
-                    car.style.top = (quartiereIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-                });
-                setTimeout(() => {
-                    bunkerElevatorAnimating = false;
-                    if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
-                }, 1400);
-            } else if (typeof renderBunkerAgentVisuals === 'function') {
-                renderBunkerAgentVisuals();
-            }
-        }
+        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE');
 
         if (typeof showInfoToast === 'function') showInfoToast('Agent bewegt sich in die Agenten-Quartiere.');
     };
@@ -663,7 +648,7 @@
                 if (parsed.materieZellen !== undefined) gameState.materieZellen = parsed.materieZellen;
                 if (parsed.chronosZellen !== undefined) gameState.chronosZellen = parsed.chronosZellen;
                 if (Array.isArray(parsed.collectedArtifacts)) gameState.collectedArtifacts = parsed.collectedArtifacts;
-                if (parsed.horizonMission !== undefined) gameState.horizonMission = parsed.horizonMission;
+                if (Array.isArray(parsed.horizonMissions)) gameState.horizonMissions = parsed.horizonMissions;
                 if (parsed.overdriveStartTs !== undefined) gameState.overdriveStartTs = parsed.overdriveStartTs;
                 if (parsed.overdriveEndTs !== undefined) gameState.overdriveEndTs = parsed.overdriveEndTs;
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
@@ -722,7 +707,7 @@
                     if (Array.isArray(data.agents)) gameState.agents = data.agents;
                     if (data.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
                     if (Array.isArray(data.collectedArtifacts)) gameState.collectedArtifacts = data.collectedArtifacts;
-                    if (data.horizonMission !== undefined) gameState.horizonMission = data.horizonMission;
+                    if (Array.isArray(data.horizonMissions)) gameState.horizonMissions = data.horizonMissions;
                     if (data.overdriveStartTs !== undefined) gameState.overdriveStartTs = data.overdriveStartTs;
                     if (data.overdriveEndTs !== undefined) gameState.overdriveEndTs = data.overdriveEndTs;
                 }
@@ -762,7 +747,7 @@
         d.credits = gameState.credits; 
         d.mz = gameState.materieZellen; 
         d.chronosZellen = gameState.chronosZellen;
-        d.horizonMission = gameState.horizonMission;
+        d.horizonMissions = gameState.horizonMissions;
         d.overdriveStartTs = gameState.overdriveStartTs;
         d.overdriveEndTs = gameState.overdriveEndTs;
         d.lvl = gameState.userLevel; 
@@ -783,7 +768,7 @@
                     agents: gameState.agents,
                     agentSystemUnlocked: gameState.agentSystemUnlocked,
                     collectedArtifacts: gameState.collectedArtifacts,
-                    horizonMission: gameState.horizonMission,
+                    horizonMissions: gameState.horizonMissions,
                     overdriveStartTs: gameState.overdriveStartTs,
                     overdriveEndTs: gameState.overdriveEndTs,
                     letztesUpdate: new Date().toISOString()
@@ -918,7 +903,13 @@
         bunkerElevatorAnimating = true;
         document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
         if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
-        car.style.top = ((oldIdx >= 0 ? oldIdx : 0) * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+        // WICHTIG: Wurde die alte Raum-Position nicht gefunden (oldIdx < 0), NICHT auf Etage 0
+        // (= Zentrale) zurückfallen - das hat den Aufzug bisher immer fälschlich so aussehen
+        // lassen, als würde jede Fahrt an der Zentrale starten. Stattdessen bleibt der Aufzug
+        // einfach dort stehen, wo er sich gerade visuell befindet, und fährt nur zum Ziel.
+        if (oldIdx >= 0) {
+            car.style.top = (oldIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+        }
         requestAnimationFrame(() => {
             car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
         });
@@ -1156,7 +1147,8 @@
             return 'Nur Agent #1 (Starter) · 15h · Belohnung: 1 Materiezelle';
         }
         if (roomType === 'FUNK-RELAIS "HORIZONT"') {
-            return 'Agent 30min zugewiesen · erzeugt einen Zeitreise-Auftrag (Ziel-Jahr) für die TEMPORAL TIME FORGE';
+            return 'Agent 30min zugewiesen · erzeugt einen Zeitreise-Auftrag (Ziel-Jahr) für die TEMPORAL TIME FORGE' +
+                ' <button onclick="event.stopPropagation(); window.showHorizonBriefing();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#c060ff; color:#000; border:1px solid #c060ff; border-radius:3px; cursor:pointer; font-family:inherit;">📡 BERICHTE</button>';
         }
         if (roomType === 'HOCHSPANNUNGS-VERTEILER') {
             return '⚠ Regulärer Agent (nicht #1) · 1h · Alle Timer laufen währenddessen 2x schneller · 50% Todesrisiko danach';
@@ -3437,10 +3429,16 @@ window.startForgeJourney = function() {
             // Artefakt-Berechtigung: nur wenn das eingegebene Jahr EXAKT dem aktuellen
             // Funk-Relais-"Horizont"-Auftrag entspricht. Bei Treffer wird der Auftrag verbraucht
             // (Button im Relais verschwindet dann beim nächsten Öffnen des Raums).
-            const horizonMatch = gameState.horizonMission && String(gameState.horizonMission.year) === year;
-            agent.artifactEligible = !!horizonMatch;
+            // Artefakt-Berechtigung: nur wenn das eingegebene Jahr EXAKT einem der aktuell
+            // aktiven Funk-Relais-"Horizont"-Aufträge entspricht (mehrere können gleichzeitig
+            // bestehen). Bei Treffer wird NUR dieser eine Auftrag verbraucht, alle anderen
+            // bleiben unangetastet bestehen.
+            const missions = Array.isArray(gameState.horizonMissions) ? gameState.horizonMissions : [];
+            const matchIdx = missions.findIndex(m => String(m.year) === year);
+            const horizonMatch = matchIdx >= 0;
+            agent.artifactEligible = horizonMatch;
             if (horizonMatch) {
-                gameState.horizonMission = null;
+                gameState.horizonMissions.splice(matchIdx, 1);
                 if (typeof renderHorizonStatus === 'function') renderHorizonStatus();
             }
             agent.state = 'journey_mission';
@@ -3999,21 +3997,28 @@ window.openRoom = (type) => {
 function renderHorizonStatus() {
     const box = document.getElementById('horizon-mission-status');
     if (!box) return;
-    if (gameState.horizonMission) {
-        box.innerHTML = 'Auftrag aktiv - Zieljahr: <b style="color:#c060ff;">' + gameState.horizonMission.year + '</b><br>' +
-            '<button class="btn-upgrade-exec" style="margin-top:8px; background:#c060ff; color:#000; border:1px solid #c060ff;" onclick="window.showHorizonBriefing()">📡 BRIEFING ANZEIGEN</button>';
+    const missions = Array.isArray(gameState.horizonMissions) ? gameState.horizonMissions : [];
+    if (missions.length > 0) {
+        box.innerHTML = missions.length + ' aktive' + (missions.length === 1 ? 'r Auftrag' : ' Aufträge') + '<br>' +
+            '<button class="btn-upgrade-exec" style="margin-top:8px; background:#c060ff; color:#000; border:1px solid #c060ff;" onclick="window.showHorizonBriefing()">📡 BRIEFINGS ANZEIGEN</button>';
     } else {
         box.innerHTML = 'Kein aktiver Auftrag. Weise einen Agenten für 30min zu, um einen neuen Zeitreise-Auftrag zu empfangen.';
     }
 }
 
 window.showHorizonBriefing = function() {
-    if (!gameState.horizonMission) { if (typeof showCustomAlert === 'function') showCustomAlert('Kein aktiver Auftrag.'); return; }
+    const missions = Array.isArray(gameState.horizonMissions) ? gameState.horizonMissions : [];
+    if (missions.length === 0) { if (typeof showCustomAlert === 'function') showCustomAlert('Kein aktiver Auftrag.'); return; }
     const overlay = document.getElementById('horizon-briefing-overlay');
-    const text = document.getElementById('horizon-briefing-text');
-    const year = document.getElementById('horizon-briefing-year');
-    if (text) text.innerText = gameState.horizonMission.briefing;
-    if (year) year.innerText = gameState.horizonMission.year;
+    const list = document.getElementById('horizon-briefing-list');
+    if (list) {
+        list.innerHTML = missions.map(m =>
+            '<div style="border:1px solid rgba(192,96,255,0.4); border-radius:4px; padding:8px 10px; margin-bottom:8px; text-align:left;">' +
+                '<div style="font-size:0.9em; color:#e0c0ff;">' + m.briefing + '</div>' +
+                '<div style="font-size:0.75em; color:#aaa; margin-top:4px;">Zieljahr: <b style="color:#c060ff;">' + m.year + '</b></div>' +
+            '</div>'
+        ).join('');
+    }
     if (overlay) overlay.style.display = 'flex';
 };
 window.closeHorizonBriefing = function() {
