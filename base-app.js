@@ -889,34 +889,60 @@
     // ansonsten steht er dort, wo der zuletzt aktive Agent sich gerade befindet.
     let bunkerElevatorAnimating = false;
 
-    // Wiederverwendbare Aufzug-Fahrt-Animation - bisher nur in moveAgentTo() (manuelle
-    // Spieler-Umleitung) verfügbar, dadurch "teleportierten" Agenten bei jeder AUTOMATISCHEN
-    // Standortänderung (Rückkehr zur Zentrale, Zeitreise-Stationswechsel) einfach unsichtbar an
-    // ihren neuen Platz. Wird jetzt auch von sendAgentHome() und den Zeitreise-Übergängen genutzt.
-    function playElevatorAnimation(oldLocation, newLocation, durationMs) {
+    // Wiederverwendbare Aufzug-Fahrt-Animation - läuft jetzt in drei klaren Etappen statt einer
+    // einzigen durchgehenden Gleitbewegung: (1) Aufzug fährt zur AKTUELLEN Position des Agenten
+    // und hält dort an, (2) das Männchen steigt sichtbar ein (kurze Pause), (3) erst DANACH
+    // fährt der Aufzug zum eigentlichen Ziel weiter.
+    function playElevatorAnimation(oldLocation, newLocation) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
         const car = document.getElementById('bunker-elevator-car');
         const riderSlot = document.getElementById('bunker-elevator-rider-slot');
         const newIdx = bunkerFloorIndexForType(newLocation);
         const oldIdx = bunkerFloorIndexForType(oldLocation);
         if (!car || newIdx < 0) return;
+
+        const PICKUP_MS = 1800;   // Anfahrt zur Abholung
+        const BOARD_MS = 900;     // Pause, während das Männchen einsteigt
+        const DEPART_MS = 2600;   // Fahrt zum Ziel
+        const ARRIVE_MS = 500;    // kurze Pause nach Ankunft, bevor neu gerendert wird
+
         bunkerElevatorAnimating = true;
         document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
-        if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
-        // WICHTIG: Wurde die alte Raum-Position nicht gefunden (oldIdx < 0), NICHT auf Etage 0
-        // (= Zentrale) zurückfallen - das hat den Aufzug bisher immer fälschlich so aussehen
-        // lassen, als würde jede Fahrt an der Zentrale starten. Stattdessen bleibt der Aufzug
-        // einfach dort stehen, wo er sich gerade visuell befindet, und fährt nur zum Ziel.
-        if (oldIdx >= 0) {
-            car.style.top = (oldIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-        }
-        requestAnimationFrame(() => {
-            car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-        });
-        setTimeout(() => {
+        if (riderSlot) riderSlot.innerHTML = '';
+
+        function setDuration(ms) { car.style.transitionDuration = (ms / 1000) + 's'; }
+
+        function finish() {
             bunkerElevatorAnimating = false;
             if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
-        }, durationMs || 2800);
+        }
+
+        function depart() {
+            setDuration(DEPART_MS);
+            requestAnimationFrame(() => {
+                car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+            });
+            setTimeout(() => setTimeout(finish, ARRIVE_MS), DEPART_MS);
+        }
+
+        function board() {
+            if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
+            setTimeout(depart, BOARD_MS);
+        }
+
+        if (oldIdx >= 0) {
+            // Alte Position bekannt - erst dorthin fahren und sichtbar anhalten, bevor
+            // eingestiegen wird.
+            setDuration(PICKUP_MS);
+            requestAnimationFrame(() => {
+                car.style.top = (oldIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+            });
+            setTimeout(board, PICKUP_MS);
+        } else {
+            // Alte Position unbekannt - Aufzug bleibt einfach stehen, wo er gerade ist
+            // (keine falsche Rückkehr zur Zentrale), Männchen steigt direkt dort ein.
+            board();
+        }
     }
 
     function renderBunkerAgentVisuals() {
