@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMission: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMission: null, overdriveStartTs: null, overdriveEndTs: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -104,8 +104,35 @@
         'OSZILLATIONS-KAMMER':  { hours: 15, effect: 'materiezelle', amount: 1 },
         // Erzeugt kein direktes Ressourcen-Reward, sondern den aktuellen Zeitreise-Auftrag
         // (Ziel-Jahr + Briefing) - Sonderbehandlung in applyAgentReward().
-        'FUNK-RELAIS "HORIZONT"': { hours: 0.5, effect: 'horizon_mission' }
+        'FUNK-RELAIS "HORIZONT"': { hours: 0.5, effect: 'horizon_mission' },
+        // Globaler Speed-Boost für 1h (siehe overdriveBonusMs) - eigene Sonderbehandlung, da
+        // der Effekt sich NICHT auf den eigenen Zyklus, sondern auf alle ANDEREN Timer bezieht.
+        'HOCHSPANNUNGS-VERTEILER': { hours: 1, effect: 'overdrive' },
+        // Nur nutzbar bei aktivem Horizont-Auftrag - Sonderbehandlung in moveAgentTo() und
+        // applyAgentReward().
+        'PARADOXON-FILTER':       { hours: 5 / 60, effect: 'quantum_warp' }
     };
+
+    // Globales Agenten-Limit: Basis 8 (Agent #1 + 7 reguläre), +3 durch das Kryo-Depot.
+    const AGENT_BASE_LIMIT = 8;
+    const KRYO_DEPOT_BONUS_LIMIT = 3;
+    function getAgentLimit() {
+        const hasKryoDepot = gameState.baseData.some(r => r.type === 'KRYO-DEPOT');
+        return AGENT_BASE_LIMIT + (hasKryoDepot ? KRYO_DEPOT_BONUS_LIMIT : 0);
+    }
+
+    // System-Overdrive (Hochspannungs-Verteiler): während des Fensters [overdriveStartTs,
+    // overdriveEndTs] läuft für ALLE ANDEREN Agenten-Timer die Zeit doppelt so schnell - siehe
+    // overdriveBonusMs(), das die reale Overlap-Dauer als Bonus-Zeit addiert.
+    function overdriveBonusMs(taskStartTs, now) {
+        if (!gameState.overdriveStartTs || !gameState.overdriveEndTs) return 0;
+        const overlapStart = Math.max(taskStartTs, gameState.overdriveStartTs);
+        const overlapEnd = Math.min(now, gameState.overdriveEndTs);
+        return Math.max(0, overlapEnd - overlapStart);
+    }
+    function effectiveElapsed(taskStartTs, now) {
+        return (now - taskStartTs) + overdriveBonusMs(taskStartTs, now);
+    }
 
     // Kreative Sci-Fi-Aufträge für das Funk-Relais "Horizont" - kombiniert mit einem Zieljahr,
     // das immer mindestens 30 Jahre in der Zukunft oder Vergangenheit liegt.
@@ -161,7 +188,9 @@
         'KYBERNETIK-STATION':      { text: '+2 m GPS-Ankunftsradius, dauerhaft' },
         'RESONANZ-KAMMER':         { text: '5% Chance auf doppelten Missions-Loot' },
         'TECHNIK-DECK':            { text: '5% Rabatt auf alle Raum-Ausbaukosten' },
-        'SERVER-HUB':              { text: '10% Chance, eine Warnung sofort abzufangen' }
+        'SERVER-HUB':              { text: '10% Chance, eine Warnung sofort abzufangen' },
+        'KRYO-DEPOT':              { text: '+3 maximale Agenten-Plätze, dauerhaft (insgesamt 11)' },
+        'RENAISSANCE-GENERATOR':   { text: 'Tauschfunktion: 15.000 Credits → 1 Chronos-Zelle · 1 Chronos-Zelle → 10.000 Credits' }
     };
     const THERMO_KOPPLER_INTERVAL_MS = 2 * 3600000; // alle 2 Stunden 1 Credit
     const ROOM_BUILD_COST_MZ = 10;
@@ -317,7 +346,7 @@
 
         gameState.agents.forEach(agent => {
             if (agent.state === 'waiting_in_quartiere') {
-                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
                     agent.location = agent.targetRoom;
                     agent.targetRoom = null;
                     const task = AGENT_TASK_ROOMS[agent.location];
@@ -331,6 +360,18 @@
                         agent.state = 'working';
                         agent.taskStartTs = now;
                         agent.taskDurationMs = agentScaledDurationMs(task.hours, agent.level, agent.isStarter);
+                        if (agent.location === 'HOCHSPANNUNGS-VERTEILER') {
+                            // Overdrive-Fenster beginnt SOFORT beim Start, nicht erst am Ende.
+                            gameState.overdriveStartTs = now;
+                            gameState.overdriveEndTs = now + agent.taskDurationMs;
+                            if (typeof showInfoToast === 'function') showInfoToast('System-Overdrive aktiviert: Alle anderen Timer laufen 1h lang doppelt so schnell!');
+                        } else if (agent.location === 'PARADOXON-FILTER') {
+                            // Der Horizont-Auftrag wird sofort beim Start verbraucht, unabhängig
+                            // vom späteren Erfolg des Quanten-Warps.
+                            gameState.horizonMission = null;
+                            if (typeof renderHorizonStatus === 'function') renderHorizonStatus();
+                            if (typeof showInfoToast === 'function') showInfoToast('Paradoxon-Filter: Quanten-Warp initiiert - Horizont-Auftrag verbraucht.');
+                        }
                     } else {
                         agent.state = 'idle';
                         agent.taskStartTs = null;
@@ -341,14 +382,14 @@
             } else if (agent.state === 'journey_mission') {
                 // 8h Zeitreise-Mission - Agent gilt als "unterwegs" (siehe renderAgentPanel/
                 // renderBunkerAgentVisuals), physisch nicht in der Forge sichtbar.
-                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
                     agent.state = 'journey_forge_return';
                     agent.taskStartTs = now;
                     agent.taskDurationMs = Math.round(FORGE_RETURN_MS * adminTimeFactor()); // genau 1 Minute, bewusst NICHT level-skaliert
                     changed = true;
                 }
             } else if (agent.state === 'journey_forge_return') {
-                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
                     agent.location = 'DEKONTAMINATIONS-SCHLEUSE';
                     agent.state = 'journey_dekontam';
                     agent.taskStartTs = now;
@@ -356,7 +397,7 @@
                     changed = true;
                 }
             } else if (agent.state === 'journey_dekontam') {
-                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
                     agent.location = 'ARTEFAKT-ARCHIV';
                     agent.state = 'journey_archiv';
                     agent.taskStartTs = now;
@@ -364,7 +405,7 @@
                     changed = true;
                 }
             } else if (agent.state === 'journey_archiv') {
-                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
                     resolveArchivReward(agent);
                     // Erst NACH dem kompletten Kreislauf (Forge -> Dekontam -> Archiv) geht's
                     // zurück zur Zentrale - die Zwischenschritte selbst bleiben unverändert
@@ -375,7 +416,11 @@
             } else if (agent.state === 'working') {
                 const task = AGENT_TASK_ROOMS[agent.location];
                 if (!task) { agent.state = 'idle'; agent.taskStartTs = null; agent.taskDurationMs = null; return; }
-                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                // WICHTIG: Der Hochspannungs-Verteiler bekommt bewusst KEINEN eigenen
+                // Overdrive-Bonus (sonst würde er sich selbst beschleunigen) - alle anderen
+                // Timer (inkl. anderer Agenten hier) nutzen effectiveElapsed().
+                const elapsed = (task.effect === 'overdrive') ? (now - agent.taskStartTs) : effectiveElapsed(agent.taskStartTs, now);
+                if (elapsed >= agent.taskDurationMs) {
                     if (task.effect === 'life_risk') {
                         const survived = Math.random() < 0.5;
                         if (survived) {
@@ -389,13 +434,43 @@
                             if (typeof showCustomAlert === 'function') showCustomAlert('Impuls-Kondensator: Agent wurde von der Entladung getötet und dauerhaft gelöscht.');
                         }
                         changed = true;
+                    } else if (task.effect === 'overdrive') {
+                        gameState.overdriveStartTs = null;
+                        gameState.overdriveEndTs = null;
+                        const survived = Math.random() < 0.5;
+                        if (survived) {
+                            if (typeof showInfoToast === 'function') showInfoToast('Hochspannungs-Verteiler: Agent hat den System-Overdrive überstanden.');
+                            sendAgentHome(agent);
+                        } else {
+                            gameState.agents = gameState.agents.filter(a => a.id !== agent.id);
+                            if (typeof showCustomAlert === 'function') showCustomAlert('Hochspannungs-Verteiler: Agent wurde vom Overdrive getötet und dauerhaft gelöscht.');
+                        }
+                        changed = true;
+                    } else if (task.effect === 'quantum_warp') {
+                        const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a));
+                        const success = uncollected.length > 0 && Math.random() < 0.5;
+                        if (success) {
+                            const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
+                            gameState.collectedArtifacts.push(picked);
+                            if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
+                        }
+                        if (typeof triggerParadoxWarpEffect === 'function') triggerParadoxWarpEffect(success);
+                        sendAgentHome(agent);
+                        changed = true;
                     } else if (task.effect === 'spawn_agent') {
                         // Nach Abschluss eines Scanner-Phalanx-Zyklus fahren BEIDE - der
                         // arbeitende Agent UND der frisch rekrutierte - zurück zur Zentrale.
-                        applyAgentReward(agent, task);
-                        const newAgent = gameState.agents[gameState.agents.length - 1];
-                        sendAgentHome(agent);
-                        if (newAgent) sendAgentHome(newAgent);
+                        // Limit-Check als Sicherheitsnetz (normalerweise schon in moveAgentTo
+                        // blockiert, bevor der Zyklus überhaupt startet).
+                        if (gameState.agents.length >= getAgentLimit()) {
+                            if (typeof showInfoToast === 'function') showInfoToast('Scanner-Phalanx: Agenten-Limit erreicht, kein neuer Agent rekrutiert.');
+                            sendAgentHome(agent);
+                        } else {
+                            applyAgentReward(agent, task);
+                            const newAgent = gameState.agents[gameState.agents.length - 1];
+                            sendAgentHome(agent);
+                            if (newAgent) sendAgentHome(newAgent);
+                        }
                         changed = true;
                     } else {
                         // Ein Zyklus, dann automatisch zurück zur Zentrale - kein automatisches
@@ -427,7 +502,7 @@
             if (room.type === 'THERMO-KOPPLER') {
                 if (!room.lastTick) { room.lastTick = now; changed = true; return; }
                 let safety = 0;
-                while (now - room.lastTick >= THERMO_KOPPLER_INTERVAL_MS && safety < 1000) {
+                while (effectiveElapsed(room.lastTick, now) >= THERMO_KOPPLER_INTERVAL_MS && safety < 1000) {
                     gameState.credits += 1;
                     room.lastTick += THERMO_KOPPLER_INTERVAL_MS;
                     changed = true;
@@ -462,6 +537,18 @@
         }
         if (!agent.isStarter && targetType === 'OSZILLATIONS-KAMMER') {
             if (typeof showCustomAlert === 'function') showCustomAlert('Zugang verweigert. Nur für Agent #1.');
+            return;
+        }
+        if (agent.isStarter && targetType === 'HOCHSPANNUNGS-VERTEILER') {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Der Starter-Agent darf den Hochspannungs-Verteiler nicht betreten - Schutz vor Löschung.');
+            return;
+        }
+        if (targetType === 'PARADOXON-FILTER' && !gameState.horizonMission) {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Paradoxon-Filter benötigt einen aktiven Zeitreise-Auftrag aus dem Funk-Relais "Horizont".');
+            return;
+        }
+        if (targetType === 'SCANNER-PHALANX' && gameState.agents.length >= getAgentLimit()) {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Agenten-Limit erreicht (' + getAgentLimit() + '). Kein neuer Agent kann rekrutiert werden.');
             return;
         }
         if (agent.location === targetType && agent.state !== 'working') return;
@@ -549,6 +636,8 @@
                 if (parsed.chronosZellen !== undefined) gameState.chronosZellen = parsed.chronosZellen;
                 if (Array.isArray(parsed.collectedArtifacts)) gameState.collectedArtifacts = parsed.collectedArtifacts;
                 if (parsed.horizonMission !== undefined) gameState.horizonMission = parsed.horizonMission;
+                if (parsed.overdriveStartTs !== undefined) gameState.overdriveStartTs = parsed.overdriveStartTs;
+                if (parsed.overdriveEndTs !== undefined) gameState.overdriveEndTs = parsed.overdriveEndTs;
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
                 if (Array.isArray(parsed.agents)) gameState.agents = parsed.agents;
                 if (parsed.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
@@ -606,6 +695,8 @@
                     if (data.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
                     if (Array.isArray(data.collectedArtifacts)) gameState.collectedArtifacts = data.collectedArtifacts;
                     if (data.horizonMission !== undefined) gameState.horizonMission = data.horizonMission;
+                    if (data.overdriveStartTs !== undefined) gameState.overdriveStartTs = data.overdriveStartTs;
+                    if (data.overdriveEndTs !== undefined) gameState.overdriveEndTs = data.overdriveEndTs;
                 }
                 gameState.credits = fusedCredits;
                 gameState.materieZellen = fusedMz;
@@ -644,6 +735,8 @@
         d.mz = gameState.materieZellen; 
         d.chronosZellen = gameState.chronosZellen;
         d.horizonMission = gameState.horizonMission;
+        d.overdriveStartTs = gameState.overdriveStartTs;
+        d.overdriveEndTs = gameState.overdriveEndTs;
         d.lvl = gameState.userLevel; 
         localStorage.setItem(mainProfileKey, JSON.stringify(d));
 
@@ -663,6 +756,8 @@
                     agentSystemUnlocked: gameState.agentSystemUnlocked,
                     collectedArtifacts: gameState.collectedArtifacts,
                     horizonMission: gameState.horizonMission,
+                    overdriveStartTs: gameState.overdriveStartTs,
+                    overdriveEndTs: gameState.overdriveEndTs,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -959,14 +1054,16 @@
         if (cat === 'passive') return ' passive-room-info';
         if (cat === 'danger') return ' danger-room-info';
         if (cat === 'journey') return ' journey-room-info';
+        if (cat === 'quantum') return ' quantum-room-info';
         return '';
     }
 
     // Liefert 'active' (Agent nötig -> grün), 'passive' (läuft automatisch -> hellblau),
     // 'danger' (Agent nötig, aber mit Lebensrisiko -> orange), 'journey' (Zeitreise-Kreislauf ->
-    // lila) oder null (reine Deko).
+    // lila), 'quantum' (instabile Quanten-Alternative -> Neon-Türkis) oder null (reine Deko).
     function roomEffectCategory(roomType) {
-        if (roomType === 'IMPULS-KONDENSATOR') return 'danger';
+        if (roomType === 'IMPULS-KONDENSATOR' || roomType === 'HOCHSPANNUNGS-VERTEILER') return 'danger';
+        if (roomType === 'PARADOXON-FILTER') return 'quantum';
         if (isForgeRoom(roomType) || roomType === 'DEKONTAMINATIONS-SCHLEUSE' || roomType === 'ARTEFAKT-ARCHIV' || roomType === 'FUNK-RELAIS "HORIZONT"') return 'journey';
         if (roomType === 'AGENTEN-QUARTIERE' || AGENT_TASK_ROOMS[roomType]) return 'active';
         if (PASSIVE_ROOMS[roomType]) return 'passive';
@@ -995,9 +1092,20 @@
         if (roomType === 'FUNK-RELAIS "HORIZONT"') {
             return 'Agent 30min zugewiesen · erzeugt einen Zeitreise-Auftrag (Ziel-Jahr) für die TEMPORAL TIME FORGE';
         }
+        if (roomType === 'HOCHSPANNUNGS-VERTEILER') {
+            return '⚠ Regulärer Agent (nicht #1) · 1h · Alle Timer laufen währenddessen 2x schneller · 50% Todesrisiko danach';
+        }
+        if (roomType === 'PARADOXON-FILTER') {
+            return (gameState.horizonMission ? '' : '(kein aktiver Horizont-Auftrag) ') +
+                'Agent 5min · versucht per Quanten-Warp ein Artefakt direkt ins Archiv zu teleportieren · 50/50 · nie Chronos-Zellen';
+        }
         if (roomType === 'TRANSFORMATOREN-STATION') {
             return PASSIVE_ROOMS[roomType].text +
                 ' <button onclick="event.stopPropagation(); window.openTransformatorPopup();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#4dd0ff; color:#000; border:1px solid #4dd0ff; border-radius:3px; cursor:pointer; font-family:inherit;">⇄ TAUSCHEN</button>';
+        }
+        if (roomType === 'RENAISSANCE-GENERATOR') {
+            return PASSIVE_ROOMS[roomType].text +
+                ' <button onclick="event.stopPropagation(); window.openRenaissancePopup();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#4dd0ff; color:#000; border:1px solid #4dd0ff; border-radius:3px; cursor:pointer; font-family:inherit;">⇄ TAUSCHEN</button>';
         }
         if (PASSIVE_ROOMS[roomType]) {
             return PASSIVE_ROOMS[roomType].text;
@@ -3990,4 +4098,53 @@ window.exchangeCreditsForMZ = async function() {
     } else {
         if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Credits für den Tausch (5000 C benötigt).');
     }
+};
+
+// === RENAISSANCE-GENERATOR: bidirektionale Tauschfunktion (Credits <-> Chronos-Zellen) ===
+window.openRenaissancePopup = function() {
+    const overlay = document.getElementById('renaissance-popup-overlay');
+    if (overlay) overlay.style.display = 'flex';
+};
+window.closeRenaissancePopup = function() {
+    const overlay = document.getElementById('renaissance-popup-overlay');
+    if (overlay) overlay.style.display = 'none';
+};
+window.buyChronosZelle = async function() {
+    const cost = 15000;
+    if (gameState.credits >= cost) {
+        gameState.credits -= cost;
+        gameState.chronosZellen += 1;
+        updateUI();
+        await saveGameState();
+        if (typeof showInfoToast === 'function') showInfoToast('Tausch erfolgreich: 15.000 Credits → 1 Chronos-Zelle.');
+    } else {
+        if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Credits (15.000 C benötigt).');
+    }
+};
+window.sellChronosZelle = async function() {
+    if (gameState.chronosZellen >= 1) {
+        gameState.chronosZellen -= 1;
+        gameState.credits += 10000;
+        updateUI();
+        await saveGameState();
+        if (typeof showInfoToast === 'function') showInfoToast('Tausch erfolgreich: 1 Chronos-Zelle → 10.000 Credits.');
+    } else {
+        if (typeof showCustomAlert === 'function') showCustomAlert('System: Keine Chronos-Zelle zum Verkaufen vorhanden.');
+    }
+};
+
+// === PARADOXON-FILTER: visueller Quanten-Warp-Effekt (Strahl ins Archiv / Verpuffung) ===
+// Läuft als eigenständiges Vollbild-Overlay, unabhängig davon, welcher Raum gerade geöffnet ist -
+// so wird der Effekt garantiert sichtbar, auch wenn der Zyklus im Hintergrund abgeschlossen wird.
+window.triggerParadoxWarpEffect = function(success) {
+    const overlay = document.getElementById('paradox-warp-overlay');
+    if (!overlay) return;
+    overlay.innerHTML = success
+        ? '<div class="warp-beam"></div><div class="warp-result warp-success">⚡ ARTEFAKT ERFOLGREICH TELEPORTIERT ⚡</div>'
+        : '<div class="warp-fizzle"></div><div class="warp-result warp-fail">✕ QUANTEN-WARP FEHLGESCHLAGEN ✕</div>';
+    overlay.style.display = 'flex';
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        overlay.innerHTML = '';
+    }, success ? 2600 : 1800);
 };
