@@ -1096,7 +1096,7 @@
             return '⚠ Regulärer Agent (nicht #1) · 1h · Alle Timer laufen währenddessen 2x schneller · 50% Todesrisiko danach';
         }
         if (roomType === 'PARADOXON-FILTER') {
-            return 'Agent 5min · versucht per Quanten-Warp ein Artefakt direkt ins Archiv zu teleportieren · 50/50 · nie Chronos-Zellen';
+            return 'Agent 5min · versucht per Quanten-Warp ein Artefakt direkt ins Archiv zu holen · 50/50';
         }
         if (roomType === 'TRANSFORMATOREN-STATION') {
             return PASSIVE_ROOMS[roomType].text +
