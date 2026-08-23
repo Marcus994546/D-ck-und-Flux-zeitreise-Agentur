@@ -827,33 +827,72 @@
 .item-lampe-dekomp { width:30px; height:30px; position:absolute; z-index:5!important; top:5px; left:50%; transform:translateX(-50%); }
 .ld-strobe { width:20px; height:20px; background:conic-gradient(#ffcc00, transparent, #ffcc00, transparent, #ffcc00); border-radius:50%; animation:strobe-rotate 1s linear infinite; box-shadow:0 0 20px #ffcc00; }
 
-/* === VAKUUM-SCHMIEDE === */
-@keyframes robot-arm-adjust { 0%,70%,100% { transform:rotate(0deg); } 75% { transform:rotate(10deg); } 85% { transform:rotate(-5deg); } }
-@keyframes pressure-display { 0%,70%,100% { opacity:0.3; } 75%,90% { opacity:1; box-shadow:0 0 10px #f44; } }
-@keyframes valve-led-const { 0%,100% { opacity:1; box-shadow:0 0 8px #0f8; } }
-@keyframes door-status { 0%,40% { background:#f44; box-shadow:0 0 10px #f44; } 50%,100% { background:#0f8; box-shadow:0 0 10px #0f8; } }
+/* === TEMPORAL TIME FORGE (ehem. VAKUUM-SCHMIEDE) === */
+@keyframes ttf-ring-spin { from { transform:translate(-50%,-50%) rotate(0deg); } to { transform:translate(-50%,-50%) rotate(360deg); } }
+@keyframes ttf-ring-spin-rev { from { transform:translate(-50%,-50%) rotate(360deg); } to { transform:translate(-50%,-50%) rotate(0deg); } }
+@keyframes ttf-core-pulse {
+    0%,100% { box-shadow:0 0 20px #0ff, 0 0 40px #08f; transform:translate(-50%,-50%) scale(1); }
+    50% { box-shadow:0 0 40px #fff, 0 0 80px #0ff, 0 0 120px #08f; transform:translate(-50%,-50%) scale(1.2); }
+}
+@keyframes ttf-spark-orbit { from { transform:rotate(0deg) translateX(50px) rotate(0deg); } to { transform:rotate(360deg) translateX(50px) rotate(-360deg); } }
+@keyframes ttf-holo-rotate { from { transform:rotateY(0deg); } to { transform:rotateY(360deg); } }
+@keyframes ttf-holo-flicker {
+    0%,41%,100% { opacity:0.9; }
+    42% { opacity:0.15; } 44% { opacity:0.85; }
+    55% { opacity:0.25; } 57% { opacity:0.9; }
+    80% { opacity:0.9; } 81% { opacity:0.35; } 83% { opacity:0.9; }
+}
+@keyframes ttf-arc-flicker-a {
+    0%,2%,7%,45%,52%,90%,96%,100% { opacity:0; }
+    3%,5% { opacity:1; } 48%,50% { opacity:1; } 92%,94% { opacity:1; }
+}
+@keyframes ttf-arc-flicker-b {
+    0%,20%,27%,66%,73%,100% { opacity:0; }
+    23%,25% { opacity:1; } 68%,70% { opacity:1; }
+}
 
-.item-nullraum-synth { width:100px; height:110px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
-.ns-field { width:90px; height:60px; border:1px solid rgba(0,255,255,0.4); border-radius:4px; background:rgba(0,255,255,0.05); position:relative; z-index:2; overflow:hidden; box-shadow:0 0 20px rgba(0,255,255,0.2); }
-.ns-table { width:70px; height:10px; background:#222; border:1px solid #555; position:absolute; bottom:10px; left:50%; transform:translateX(-50%); }
-.ns-arm { position:absolute; bottom:20px; width:3px; height:25px; background:#555; border-radius:2px; transform-origin:bottom; }
-.ns-arm.l { left:20px; animation:robot-arm-adjust 3s infinite; }
-.ns-arm.r { right:20px; animation:robot-arm-adjust 3s infinite 1.5s; }
-.ns-pressure { position:absolute; top:5px; right:5px; width:20px; height:8px; background:#200; border:1px solid #f44; border-radius:2px; font-family:'Orbitron'; font-size:5px; color:#f44; display:flex; align-items:center; justify-content:center; animation:pressure-display 3s infinite; }
-.ns-base { width:100px; height:18px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; }
+/* Zeitmaschinen-Kern: drei gegenläufig rotierende Ringe unterschiedlicher Geschwindigkeit um
+   einen pulsierenden Energiekern, mit umkreisenden Funken - das optische Highlight des Raums. */
+.item-zeitmaschinen-kern { width:130px; height:130px; position:absolute; z-index:3; left:50%; bottom:78px; transform:translateX(-50%); }
+.ttf-ring { position:absolute; top:50%; left:50%; border-radius:50%; border-style:solid; }
+.ttf-ring-1 { width:120px; height:120px; border-width:3px; border-color:#0ff transparent #0ff transparent; margin:-60px 0 0 -60px; animation:ttf-ring-spin 4s linear infinite; box-shadow:0 0 15px #0ff; }
+.ttf-ring-2 { width:88px; height:88px; border-width:2px; border-color:transparent #08f transparent #08f; margin:-44px 0 0 -44px; animation:ttf-ring-spin-rev 2.6s linear infinite; box-shadow:0 0 12px #08f; }
+.ttf-ring-3 { width:58px; height:58px; border-width:2px; border-color:#c0f #c0f transparent transparent; margin:-29px 0 0 -29px; animation:ttf-ring-spin 1.6s linear infinite; box-shadow:0 0 10px #c0f; }
+.ttf-core { width:24px; height:24px; position:absolute; top:50%; left:50%; margin:-12px 0 0 -12px; border-radius:50%; background:radial-gradient(circle,#fff,#0ff 40%,#08f 80%); animation:ttf-core-pulse 1.5s ease-in-out infinite; }
+.ttf-spark { width:4px; height:4px; border-radius:50%; background:#fff; position:absolute; top:50%; left:50%; box-shadow:0 0 8px #fff, 0 0 15px #0ff; animation:ttf-spark-orbit 2.2s linear infinite; }
+.ttf-spark.s2 { animation-duration:3.2s; animation-direction:reverse; background:#c0f; box-shadow:0 0 8px #c0f; }
+.ttf-spark.s3 { animation-duration:4.4s; background:#0f8; box-shadow:0 0 8px #0f8; }
+.ttf-base { position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); width:100px; height:14px; background:linear-gradient(180deg,#222,#000); border:2px solid #0ff; border-radius:4px; box-shadow:0 0 20px rgba(0,255,255,0.4); }
 
-.item-dunkle-materie-tanks { width:50px; height:90px; position:absolute; z-index:2; bottom:70px; left:45px; display:flex; flex-direction:column; gap:5px; }
-.dm-tank { width:100%; height:40px; background:rgba(20,0,30,0.8); border:2px solid #555; border-radius:4px; position:relative; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
-.dm-core { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:15px; height:15px; background:radial-gradient(circle,#c0f,#400); border-radius:50%; box-shadow:0 0 15px #c0f; }
-.dm-valve-led { position:absolute; bottom:3px; right:3px; width:4px; height:4px; border-radius:50%; background:#0f8; animation:valve-led-const 2s infinite; }
+/* Holo-Projektor: flackernde, rotierende Zeitstrom-Sphäre über einer Emitter-Basis. */
+.item-holo-projektor { width:70px; height:110px; position:absolute; z-index:2; bottom:70px; left:38px; }
+.hp-base { width:100%; height:16px; background:linear-gradient(180deg,#222,#000); border:2px solid #555; border-radius:4px; position:absolute; bottom:0; }
+.hp-emitter { width:14px; height:6px; background:#0ff; border-radius:2px; position:absolute; bottom:16px; left:50%; transform:translateX(-50%); box-shadow:0 0 15px #0ff; }
+.hp-hologram { position:absolute; bottom:24px; left:50%; transform:translateX(-50%); width:55px; height:62px; perspective:200px; }
+.hp-globe {
+    width:100%; height:100%; border-radius:50%; border:1px solid rgba(0,255,255,0.5);
+    background:
+        repeating-linear-gradient(0deg, rgba(0,255,255,0.18) 0px, transparent 2px, transparent 7px),
+        repeating-linear-gradient(90deg, rgba(0,255,255,0.12) 0px, transparent 2px, transparent 9px);
+    box-shadow:0 0 25px rgba(0,255,255,0.45), inset 0 0 20px rgba(0,255,255,0.2);
+    animation:ttf-holo-rotate 4s linear infinite, ttf-holo-flicker 3.2s steps(1) infinite;
+    transform-style:preserve-3d;
+}
 
-.item-ionen-schott { width:60px; height:120px; position:absolute; z-index:4; bottom:70px; right:45px; }
-.is-door { width:100%; height:100%; background:linear-gradient(180deg,#1a1a1a,#0a0a0a); border:3px solid #555; border-radius:6px 6px 2px 2px; box-shadow:5px 10px 20px rgba(0,0,0,0.9); position:relative; }
-.is-status { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:8px; height:8px; border-radius:50%; animation:door-status 4s infinite; }
-.is-seal { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:80%; height:2px; background:#333; }
+/* Energie-Bogen-Generator: zwei Ladeknoten mit unregelmäßig, asynchron aufflackernden
+   Energiebögen dazwischen - wirkt durch die versetzten Keyframes wie echtes Überspringen. */
+.item-energie-bogen { width:90px; height:70px; position:absolute; z-index:2; bottom:80px; right:35px; }
+.eb-node { width:14px; height:14px; border-radius:50%; background:radial-gradient(circle,#fff,#c0f); position:absolute; bottom:5px; box-shadow:0 0 15px #c0f, 0 0 25px #c0f; }
+.eb-node.left { left:0; } .eb-node.right { right:0; }
+.eb-bolt { position:absolute; left:12px; right:12px; top:22px; height:3px; background:linear-gradient(90deg, transparent, #fff, #c0f, #fff, transparent); box-shadow:0 0 8px #fff, 0 0 16px #c0f; border-radius:2px; }
+.eb-bolt.b1 { transform:translateY(-9px) rotate(-7deg); animation:ttf-arc-flicker-a 3s infinite; }
+.eb-bolt.b2 { transform:translateY(2px) rotate(5deg); animation:ttf-arc-flicker-b 3.4s infinite; }
+.eb-bolt.b3 { transform:translateY(10px) rotate(-4deg); animation:ttf-arc-flicker-a 2.3s infinite 0.6s; }
 
-.item-lampe-vakuum { width:50px; height:15px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
-.lv-ring { width:40px; height:8px; border:2px solid #fff; border-radius:50%; background:rgba(255,255,255,0.3); box-shadow:0 0 25px #fff, 0 0 40px #aaf; }
+/* Chrono-Leuchte: Deckenring mit rotierendem Lichtband. */
+.item-chrono-leuchte { width:55px; height:16px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
+.cl-ring { width:44px; height:10px; border:2px solid #0ff; border-radius:50%; background:rgba(0,255,255,0.25); box-shadow:0 0 25px #0ff, 0 0 45px #08f; position:relative; overflow:hidden; }
+.cl-ring::before { content:''; position:absolute; inset:0; background:conic-gradient(from 0deg, transparent, #fff, transparent 40%); animation:ttf-ring-spin 2s linear infinite; }
 
 /* === RESONANZ-KAMMER === */
 @keyframes ring-vibrate { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(1.15); } }
@@ -1355,3 +1394,5 @@
 /* Passive Räume (laufen automatisch, kein Agent nötig) - hellblau statt grün, damit auf
    einen Blick klar ist, ob ein Raum einen Agenten braucht oder nicht. */
 .bunker-floor-info.passive-room-info { color: #4dd0ff; }
+/* Räume mit echtem Lebensrisiko für den Agenten - orange signalisiert die höchste Gefahrenstufe. */
+.bunker-floor-info.danger-room-info { color: #ff8800; font-weight: bold; }

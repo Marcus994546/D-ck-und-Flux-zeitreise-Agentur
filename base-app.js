@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, userLevel: 1, agents: [], agentSystemUnlocked: false };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -96,7 +96,10 @@
         'KI-KERNMATRIX':        { hours: 8, effect: 'level_up' },
         'FLUX-REAKTOR':         { hours: 1, effect: 'credits', amount: 5 },
         'MATERIE-DEKOMPRESSOR':{ hours: 8, effect: 'materiezelle', amount: 1 },
-        'KINETIK-LABOR':        { hours: 1, effect: 'player_xp', amount: 5 }
+        'KINETIK-LABOR':        { hours: 1, effect: 'player_xp', amount: 5 },
+        // Höchstes Risiko: 20min Zyklus, 50% Chance den Agenten dauerhaft zu verlieren -
+        // Sonderbehandlung direkt in tickAgents(), da applyAgentReward() kein Löschen kennt.
+        'IMPULS-KONDENSATOR':   { hours: 20 / 60, effect: 'life_risk' }
     };
 
     // Passive Räume: laufen automatisch im Hintergrund, sobald gebaut - kein Agent nötig.
@@ -215,6 +218,26 @@
                 if (!task) { agent.state = 'idle'; agent.taskStartTs = null; agent.taskDurationMs = null; return; }
                 let safety = 0;
                 while (now - agent.taskStartTs >= agent.taskDurationMs && safety < 500) {
+                    if (task.effect === 'life_risk') {
+                        // Nur EIN Zyklus wird ausgewertet, dann geht der Agent (falls er
+                        // überlebt) zurück auf 'idle' - er wiederholt das Risiko nicht
+                        // automatisch, das muss der Spieler jedes Mal bewusst neu entscheiden.
+                        const survived = Math.random() < 0.5;
+                        if (survived) {
+                            if (agent.level < AGENT_MAX_LEVEL) agent.level++;
+                            gameState.materieZellen += 2;
+                            gameState.credits += 1000;
+                            if (typeof showCustomAlert === 'function') showCustomAlert('Impuls-Kondensator: Agent hat die Entladung überlebt und ist aufgestiegen! (+1 Level, +2 MZ, +1000 Credits)');
+                        } else {
+                            gameState.agents = gameState.agents.filter(a => a.id !== agent.id);
+                            if (typeof showCustomAlert === 'function') showCustomAlert('Impuls-Kondensator: Agent wurde von der Entladung getötet und dauerhaft gelöscht.');
+                        }
+                        agent.state = 'idle';
+                        agent.taskStartTs = null;
+                        agent.taskDurationMs = null;
+                        changed = true;
+                        break;
+                    }
                     applyAgentReward(agent, task);
                     agent.taskStartTs += agent.taskDurationMs;
                     changed = true;
@@ -230,7 +253,7 @@
             }
         });
 
-        if (changed) { try { saveGameState(); } catch(e) {} }
+        if (changed) { updateUI(); try { saveGameState(); } catch(e) {} }
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
         if (typeof renderBunkerAgentVisuals === 'function' && bunkerActive) renderBunkerAgentVisuals();
         return changed;
@@ -323,7 +346,7 @@
         'PARADOXON-FILTER': '#1d0d26', 'ARTEFAKT-ARCHIV': '#170a22', 'TECHNIK-DECK': '#261033', 'AGENTEN-QUARTIERE': '#120822', 
         'SERVER-HUB': '#1f132a', 'IMPULS-KONDENSATOR': '#1c152a', 'OSZILLATIONS-KAMMER': '#251230', 'TRANSFORMATOREN-STATION': '#151025',
         'RENAISSANCE-GENERATOR': '#201515', 'THERMO-KOPPLER': '#2a1a15', 'KINETIK-LABOR': '#152530', 'MATERIE-DEKOMPRESSOR': '#2a1520',
-        'VAKUUM-SCHMIEDE': '#101a25', 'RESONANZ-KAMMER': '#201025', 'KYBERNETIK-STATION': '#15202a', 'SCANNER-PHALANX': '#1a251a',
+        'VAKUUM-SCHMIEDE': '#0a1420', 'TEMPORAL TIME FORGE': '#0a1420', 'RESONANZ-KAMMER': '#201025', 'KYBERNETIK-STATION': '#15202a', 'SCANNER-PHALANX': '#1a251a',
         'DEKONTAMINATIONS-SCHLEUSE': '#1a2a1a', 'ANOMALIE-DETEKTOR': '#25152a', 'KRYO-DEPOT': '#10202a', 'FUNK-RELAIS "HORIZONT"': '#151530',
         'KI-KERNMATRIX': '#121822'
     };
@@ -336,7 +359,7 @@
         { n: 'IMPULS-KONDENSATOR', d: 'Speichert massive Energiemengen.' }, { n: 'OSZILLATIONS-KAMMER', d: 'Frequenz-Feinabstimmung.' },
         { n: 'TRANSFORMATOREN-STATION', d: 'Wandelt rohe Energie um.' }, { n: 'RENAISSANCE-GENERATOR', d: 'Strom aus Schrott.' },
         { n: 'THERMO-KOPPLER', d: 'Nutzt Erdwärme der Ödnis.' }, { n: 'KINETIK-LABOR', d: 'Erforschung von Bewegungsenergie.' },
-        { n: 'MATERIE-DEKOMPRESSOR', d: 'Zerlegt Fundstücke in Rohstoffe.' }, { n: 'VAKUUM-SCHMIEDE', d: 'Löten unter Extrembedingungen.' },
+        { n: 'MATERIE-DEKOMPRESSOR', d: 'Zerlegt Fundstücke in Rohstoffe.' }, { n: 'TEMPORAL TIME FORGE', d: 'Schmiedet die Zeit selbst - Basis für kommende Zeitmaschinen-Missionen.' },
         { n: 'RESONANZ-KAMMER', d: 'Testet übernatürliche Fähigkeiten.' }, { n: 'KYBERNETIK-STATION', d: 'Einbau von Verstärkern.' },
         { n: 'SCANNER-PHALANX', d: 'Überwacht das Gelände.' }, { n: 'DEKONTAMINATIONS-SCHLEUSE', d: 'Reinigt von Strahlung.' },
         { n: 'ANOMALIE-DETEKTOR', d: 'Warnt vor Zeitrissen.' }, { n: 'KRYO-DEPOT', d: 'Lagert seltene Proben.' },
@@ -353,6 +376,7 @@
                 const parsed = JSON.parse(saved);
                 if (parsed.credits !== undefined) gameState.credits = parsed.credits;
                 if (parsed.materieZellen !== undefined) gameState.materieZellen = parsed.materieZellen;
+                if (parsed.chronosZellen !== undefined) gameState.chronosZellen = parsed.chronosZellen;
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
                 if (Array.isArray(parsed.agents)) gameState.agents = parsed.agents;
                 if (parsed.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
@@ -386,13 +410,14 @@
                 // "agenten" ist ab jetzt die EINZIGE Quelle der Wahrheit für Credits/Materiezellen.
                 // Einmalig wird der jeweils höhere Wert übernommen, damit beim Umstieg nichts
                 // verloren geht; danach schreibt/liest nur noch "agenten".
-                let fusedCredits = 0, fusedMz = 0;
+                let fusedCredits = 0, fusedMz = 0, fusedChronos = 0;
                 try {
                     const agentSnap = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)));
                     if (agentSnap.exists()) {
                         const ad = agentSnap.data();
                         fusedCredits = Math.max(fusedCredits, ad.credits || 0);
                         fusedMz = Math.max(fusedMz, (ad.materiezellen !== undefined ? ad.materiezellen : (ad.materialzellen || 0)));
+                        fusedChronos = Math.max(fusedChronos, ad.chronoszellen || 0);
                     }
                 } catch(e) {}
 
@@ -410,6 +435,7 @@
                 }
                 gameState.credits = fusedCredits;
                 gameState.materieZellen = fusedMz;
+                gameState.chronosZellen = fusedChronos;
                 ensureAgentsInitialized();
                 // Reale, seit dem letzten Speichern vergangene Zeit sofort nachholen (auch wenn
                 // die Seite zwischenzeitlich Stunden geschlossen war).
@@ -419,7 +445,7 @@
                 // Fusionierten Stand sofort zurück in die kanonische Quelle ("agenten") schreiben.
                 try {
                     await window.setDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)), {
-                        credits: fusedCredits, materiezellen: fusedMz
+                        credits: fusedCredits, materiezellen: fusedMz, chronoszellen: fusedChronos
                     }, { merge: true });
                 } catch(e) { console.error("Fusions-Speicherfehler:", e); }
                 
@@ -442,15 +468,17 @@
         if (mainP) { try { d = JSON.parse(mainP); } catch(e) {} }
         d.credits = gameState.credits; 
         d.mz = gameState.materieZellen; 
+        d.chronosZellen = gameState.chronosZellen;
         d.lvl = gameState.userLevel; 
         localStorage.setItem(mainProfileKey, JSON.stringify(d));
 
-        // Credits/Materiezellen gehen jetzt in die kanonische Quelle "agenten" (fusioniert, s.o.).
-        // "Agent - Base" speichert nur noch die Raum-/Grid-Daten (keine Währungen mehr).
+        // Credits/Materiezellen/Chronos-Zellen gehen jetzt in die kanonische Quelle "agenten"
+        // (fusioniert, s.o.). "Agent - Base" speichert nur noch die Raum-/Grid-Daten (keine
+        // Währungen mehr).
         if (window.db && window.setDoc) {
             try {
                 await window.setDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)), {
-                    credits: gameState.credits, materiezellen: gameState.materieZellen
+                    credits: gameState.credits, materiezellen: gameState.materieZellen, chronoszellen: gameState.chronosZellen
                 }, { merge: true });
 
                 const baseRef = window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName));
@@ -467,9 +495,11 @@
     function updateUI() {
         document.getElementById('display-credits').innerText = gameState.credits;
         document.getElementById('display-mz').innerText = gameState.materieZellen;
+        const chz = document.getElementById('display-chronos'); if (chz) chz.innerText = gameState.chronosZellen;
         document.getElementById('display-level').innerText = gameState.userLevel;
         const c2 = document.getElementById('display-credits-2'); if (c2) c2.innerText = gameState.credits;
         const m2 = document.getElementById('display-mz-2'); if (m2) m2.innerText = gameState.materieZellen;
+        const chz2 = document.getElementById('display-chronos-2'); if (chz2) chz2.innerText = gameState.chronosZellen;
         const l2 = document.getElementById('display-level-2'); if (l2) l2.innerText = gameState.userLevel;
     }
 
@@ -490,7 +520,7 @@
                 const isNeighbor = gameState.baseData.some(r => (Math.abs(r.x-x)===1 && r.y===y) || (Math.abs(r.y-y)===1 && r.x===x));
                 if (room) {
                     slot.classList.add('room-active'); slot.style.backgroundColor = roomColors[room.type] || '#1a0a2a';
-                    slot.innerHTML = `<b>${room.type}</b>${room.type !== 'ZENTRALE' ? '<br><small>LVL '+room.lvl+'</small>' : ''}`;
+                    slot.innerHTML = `<b>${roomDisplayName(room.type)}</b>${room.type !== 'ZENTRALE' ? '<br><small>LVL '+room.lvl+'</small>' : ''}`;
                     slot.onclick = () => { playBeepBase(1200, 0.05); openRoom(room.type); };
                     slot.style.display = 'flex';
                 } else if (isNeighbor) {
@@ -722,9 +752,18 @@
         if (wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
     };
 
-    // Liefert 'active' (Agent nötig -> grün), 'passive' (läuft automatisch -> hellblau) oder
-    // null (reine Deko, keine Funktion) für einen Raumtyp.
+    // Zeigt den aktuellen Anzeigenamen eines Raums - fängt den Fall ab, dass ein bereits vor
+    // der Umbenennung gebauter Raum in den gespeicherten Daten noch unter dem alten internen
+    // Namen "VAKUUM-SCHMIEDE" geführt wird.
+    function roomDisplayName(type) {
+        if (type === 'VAKUUM-SCHMIEDE') return 'TEMPORAL TIME FORGE';
+        return type;
+    }
+
+    // Liefert 'active' (Agent nötig -> grün), 'passive' (läuft automatisch -> hellblau),
+    // 'danger' (Agent nötig, aber mit Lebensrisiko -> orange) oder null (reine Deko).
     function roomEffectCategory(roomType) {
+        if (roomType === 'IMPULS-KONDENSATOR') return 'danger';
         if (roomType === 'AGENTEN-QUARTIERE' || AGENT_TASK_ROOMS[roomType]) return 'active';
         if (PASSIVE_ROOMS[roomType]) return 'passive';
         return null;
@@ -733,6 +772,9 @@
     function agentRoomInfoText(roomType) {
         if (roomType === 'AGENTEN-QUARTIERE') {
             return 'Pflicht-Zwischenstopp bei jedem Raumwechsel · wartet hier 1h';
+        }
+        if (roomType === 'IMPULS-KONDENSATOR') {
+            return '⚠ Agent arbeitet hier 20min · 50% Todesrisiko (permanenter Verlust) · bei Erfolg: +1 Level, 2 MZ, 1000 Credits';
         }
         if (PASSIVE_ROOMS[roomType]) {
             return PASSIVE_ROOMS[roomType].text;
@@ -780,10 +822,10 @@
                         '</div>' +
                     '</div>' +
                     '<div class="bunker-floor-sidebar">' +
-                        '<div class="bunker-floor-label"><b>' + room.type + '</b>' +
+                        '<div class="bunker-floor-label"><b>' + roomDisplayName(room.type) + '</b>' +
                         (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
                         '</div>' +
-                        (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info' + (roomEffectCategory(room.type) === 'passive' ? ' passive-room-info' : '') + '">' + agentRoomInfoText(room.type) + '</div>' : '') +
+                        (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info' + (roomEffectCategory(room.type) === 'passive' ? ' passive-room-info' : (roomEffectCategory(room.type) === 'danger' ? ' danger-room-info' : '')) + '">' + agentRoomInfoText(room.type) + '</div>' : '') +
                     '</div>' +
                 '</div>';
             floorsEl.appendChild(floor);
@@ -933,7 +975,7 @@
         document.getElementById('toggle-ausbau-btn').innerText = "AGENTUR-AUSBAU ÖFFNEN";
         
         const mt = document.getElementById('main-title'); if (mt) mt.innerText = "RAUM-ANSICHT";
-        document.getElementById('room-title-detail').innerText = type;
+        document.getElementById('room-title-detail').innerText = roomDisplayName(type);
 
         if (type === 'ZENTRALE') {
             document.getElementById('menu-zentrale').style.display = 'flex';
@@ -2777,24 +2819,26 @@ window.spawnFurniture = (type, count) => {
 /* ==== next block ==== */
 
 
-// === VAKUUM-SCHMIEDE ===
-const menuVakuum = `
+// === TEMPORAL TIME FORGE (ehem. VAKUUM-SCHMIEDE) ===
+const menuForge = `
 <div id="menu-vakuum-schmiede" style="display:none; flex-direction:column; gap:15px;">
-    <div class="upgrade-card"><b>[ NULLRAUM-SYNTHESIZER ]</b><p style="font-size:0.7em; color:#aaa;">Tisch hinter Kraftfeld, Roboterarme.</p><button id="btn-buy-nullraum-synth" onclick="window.buyFurniture('nullraum_synth', 3300)" class="btn-upgrade-exec" style="background:#0ff; color:#000; border:1px solid #0ff;">KAUFEN (3300 C + 48 MZ)</button></div>
-    <div class="upgrade-card"><b>[ DUNKLE-MATERIE-TANKS ]</b><p style="font-size:0.7em; color:#aaa;">Wandtanks mit leuchtendem Kern.</p><button id="btn-buy-dunkle-materie-tanks" onclick="window.buyFurniture('dunkle_materie_tanks', 1100)" class="btn-upgrade-exec">KAUFEN (1100 C)</button></div>
-    <div class="upgrade-card"><b>[ IONEN-SCHOTT ]</b><p style="font-size:0.7em; color:#aaa;">Massive Raumtür.</p><button id="btn-buy-ionen-schott" onclick="window.buyFurniture('ionen_schott', 900)" class="btn-upgrade-exec">KAUFEN (900 C)</button></div>
-    <div class="upgrade-card"><b>[ KALTPLASMA-RING ]</b><p style="font-size:0.7em; color:#aaa;">Sehr helles kaltweißes Licht.</p><button id="btn-buy-lampe-vakuum" onclick="window.buyFurniture('lampe_vakuum', 250)" class="btn-upgrade-exec">KAUFEN (250 C)</button></div>
+    <div class="upgrade-card" style="border-color:#0ff;"><b style="color:#0ff;">[ ZEITMASCHINEN-KERN ]</b><p style="font-size:0.7em; color:#aaa;">Rotierender Ringkern mit pulsierendem Energiezentrum - das Herzstück der Schmiede.</p><button id="btn-buy-zeitmaschinen-kern" onclick="window.buyFurniture('zeitmaschinen_kern', 3500)" class="btn-upgrade-exec" style="background:#0ff; color:#000; border:1px solid #0ff;">KAUFEN (3500 C + 50 MZ)</button></div>
+    <div class="upgrade-card"><b>[ HOLO-PROJEKTOR ]</b><p style="font-size:0.7em; color:#aaa;">Projiziert eine flackernde, rotierende Zeitstrom-Sphäre.</p><button id="btn-buy-holo-projektor" onclick="window.buyFurniture('holo_projektor', 1300)" class="btn-upgrade-exec">KAUFEN (1300 C)</button></div>
+    <div class="upgrade-card"><b>[ ENERGIE-BOGEN-GENERATOR ]</b><p style="font-size:0.7em; color:#aaa;">Zwei Ladeknoten mit ständig überspringenden Energiebögen.</p><button id="btn-buy-energie-bogen" onclick="window.buyFurniture('energie_bogen', 950)" class="btn-upgrade-exec">KAUFEN (950 C)</button></div>
+    <div class="upgrade-card"><b>[ CHRONO-LEUCHTE ]</b><p style="font-size:0.7em; color:#aaa;">Deckenring mit rotierendem Lichtband.</p><button id="btn-buy-chrono-leuchte" onclick="window.buyFurniture('chrono_leuchte', 280)" class="btn-upgrade-exec">KAUFEN (280 C)</button></div>
 </div>`;
-if (!document.getElementById('menu-vakuum-schmiede')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuVakuum);
+if (!document.getElementById('menu-vakuum-schmiede')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuForge);
 
-const itemsVakuum = ['nullraum_synth','dunkle_materie_tanks','ionen_schott','lampe_vakuum'];
-itemsVakuum.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+const itemsForge = ['zeitmaschinen_kern','holo_projektor','energie_bogen','chrono_leuchte'];
+itemsForge.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
+// Ist der Raum bereits unter dem alten Namen gebaut (VAKUUM-SCHMIEDE), gilt er als derselbe Raum.
+function isForgeRoom(type) { return type === 'VAKUUM-SCHMIEDE' || type === 'TEMPORAL TIME FORGE'; }
 
 const oldUpdateAusbau_VS = window.updateAusbauButtons;
 window.updateAusbauButtons = function() {
     if (typeof oldUpdateAusbau_VS === 'function') oldUpdateAusbau_VS();
     if (typeof inventory === 'undefined') return;
-    const limits = { nullraum_synth:1, dunkle_materie_tanks:1, ionen_schott:1, lampe_vakuum:1 };
+    const limits = { zeitmaschinen_kern:1, holo_projektor:1, energie_bogen:1, chrono_leuchte:1 };
     for (let k in limits) {
         let max = limits[k], current = parseInt(inventory[k])||0;
         let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
@@ -2809,51 +2853,59 @@ const oldOpenRoom_VS = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoom_VS) oldOpenRoom_VS(type);
     const m = document.getElementById('menu-vakuum-schmiede');
-    if (m) m.style.display = (type === 'VAKUUM-SCHMIEDE') ? 'flex' : 'none';
-    if (type === 'VAKUUM-SCHMIEDE') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+    if (m) m.style.display = isForgeRoom(type) ? 'flex' : 'none';
+    if (isForgeRoom(type)) { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
 };
 
 const oldBuyFurniture_VS = window.buyFurniture;
 window.buyFurniture = async (type, cost) => {
-    if (itemsVakuum.includes(type)) {
+    if (itemsForge.includes(type)) {
         let current = parseInt(inventory[type])||0; if (current >= 1) return;
-        let isMZ = (type === 'nullraum_synth'); let costC = cost; let costMZ = isMZ ? 48 : 0;
+        let isMZ = (type === 'zeitmaschinen_kern'); let costC = cost; let costMZ = isMZ ? 50 : 0;
         if (gameState.credits >= costC && gameState.materieZellen >= costMZ) {
             gameState.credits -= costC; document.getElementById('display-credits').innerText = gameState.credits;
             if (isMZ) { gameState.materieZellen -= costMZ; document.getElementById('display-mz').innerText = gameState.materieZellen; window._saveMZ(); }
             inventory[type] = current + 1; window.updateAusbauButtons(); window.spawnFurniture(type, inventory[type]);
-        } else { let msg = isMZ ? "System: 3300 C + 48 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
+        } else { let msg = isMZ ? "System: 3500 C + 50 MZ benötigt." : "System: Credits unzureichend."; if(typeof showCustomAlert === 'function') showCustomAlert(msg); }
     } else if (oldBuyFurniture_VS) oldBuyFurniture_VS(type, cost);
 };
 
 const oldReload_VS = window.reloadFurniture;
 window.reloadFurniture = (type) => {
     if (oldReload_VS) oldReload_VS(type);
-    if (type === 'VAKUUM-SCHMIEDE') {
-        if (inventory.lampe_vakuum > 0) window.spawnFurniture('lampe_vakuum', 1);
-        if (inventory.nullraum_synth > 0) window.spawnFurniture('nullraum_synth', 1);
-        if (inventory.dunkle_materie_tanks > 0) window.spawnFurniture('dunkle_materie_tanks', 1);
-        if (inventory.ionen_schott > 0) window.spawnFurniture('ionen_schott', 1);
+    if (isForgeRoom(type)) {
+        if (inventory.chrono_leuchte > 0) window.spawnFurniture('chrono_leuchte', 1);
+        if (inventory.zeitmaschinen_kern > 0) window.spawnFurniture('zeitmaschinen_kern', 1);
+        if (inventory.holo_projektor > 0) window.spawnFurniture('holo_projektor', 1);
+        if (inventory.energie_bogen > 0) window.spawnFurniture('energie_bogen', 1);
     }
 };
 
 const oldSpawn_VS = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_VS) oldSpawn_VS(type, count);
-    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsVakuum.includes(type)) return;
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area'); if (!room || !itemsForge.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
-    if (type === 'nullraum_synth') {
-        item.classList.add('item-nullraum-synth');
-        item.innerHTML = '<div class="ns-field"><div class="ns-pressure">P:99</div><div class="ns-table"></div><div class="ns-arm l"></div><div class="ns-arm r"></div></div><div class="ns-base"></div>';
-    } else if (type === 'dunkle_materie_tanks') {
-        item.classList.add('item-dunkle-materie-tanks');
-        item.innerHTML = '<div class="dm-tank"><div class="dm-core"></div><div class="dm-valve-led"></div></div><div class="dm-tank"><div class="dm-core"></div><div class="dm-valve-led"></div></div>';
-    } else if (type === 'ionen_schott') {
-        item.classList.add('item-ionen-schott');
-        item.innerHTML = '<div class="is-door"><div class="is-status"></div><div class="is-seal"></div></div>';
-    } else if (type === 'lampe_vakuum') {
-        item.classList.add('item-lampe-vakuum');
-        item.innerHTML = '<div class="lv-ring"></div>';
+    if (type === 'zeitmaschinen_kern') {
+        item.classList.add('item-zeitmaschinen-kern');
+        item.innerHTML =
+            '<div class="ttf-ring ttf-ring-1"></div><div class="ttf-ring ttf-ring-2"></div><div class="ttf-ring ttf-ring-3"></div>' +
+            '<div class="ttf-core"></div>' +
+            '<div class="ttf-spark s1"></div><div class="ttf-spark s2"></div><div class="ttf-spark s3"></div>' +
+            '<div class="ttf-base"></div>';
+    } else if (type === 'holo_projektor') {
+        item.classList.add('item-holo-projektor');
+        item.innerHTML =
+            '<div class="hp-hologram"><div class="hp-globe"></div></div>' +
+            '<div class="hp-emitter"></div><div class="hp-base"></div>';
+    } else if (type === 'energie_bogen') {
+        item.classList.add('item-energie-bogen');
+        item.innerHTML =
+            '<div class="eb-node left"></div><div class="eb-node right"></div>' +
+            '<div class="eb-bolt b1"></div><div class="eb-bolt b2"></div><div class="eb-bolt b3"></div>';
+    } else if (type === 'chrono_leuchte') {
+        item.classList.add('item-chrono-leuchte');
+        item.innerHTML = '<div class="cl-ring"></div>';
     }
     room.appendChild(item);
 };
