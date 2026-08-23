@@ -302,10 +302,17 @@
         // Kein Zufall mehr: nur wenn beim Missionsstart in der Forge exakt das aktuelle
         // Horizont-Zieljahr eingegeben wurde (agent.artifactEligible, siehe startForgeJourney),
         // gibt es überhaupt eine Chance auf ein Artefakt aus dem noch nicht gesammelten Pool.
-        if (agent.artifactEligible && uncollected.length > 0) {
-            const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
-            gameState.collectedArtifacts.push(picked);
-            artifactMsg = ' + Artefakt geborgen: ' + picked;
+        if (agent.artifactEligible) {
+            if (uncollected.length > 0) {
+                const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
+                gameState.collectedArtifacts.push(picked);
+                artifactMsg = ' + Artefakt geborgen: ' + picked;
+            } else {
+                // Berechtigt, aber die Sammlung ist bereits vollständig (alle 40) - das war
+                // vorher unsichtbar, jetzt wird es explizit gemeldet statt stillschweigend
+                // nichts zu vergeben.
+                artifactMsg = ' (Artefakt-Sammlung bereits vollständig - keins mehr übrig)';
+            }
         }
         agent.artifactEligible = false;
 
@@ -341,11 +348,13 @@
     // Abschluss eines Arbeits-Zyklus, nach dem Impuls-Kondensator/Hochspannungs-Verteiler und am
     // Ende des Zeitreise-Kreislaufs.
     function sendAgentHome(agent) {
+        const oldLocation = agent.location;
         agent.targetRoom = null;
         agent.state = 'idle';
         agent.location = 'ZENTRALE';
         agent.taskStartTs = null;
         agent.taskDurationMs = null;
+        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'ZENTRALE');
     }
 
     // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
@@ -360,8 +369,10 @@
         gameState.agents.forEach(agent => {
             if (agent.state === 'waiting_in_quartiere') {
                 if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
+                    const oldLocation = agent.location;
                     agent.location = agent.targetRoom;
                     agent.targetRoom = null;
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location);
                     const task = AGENT_TASK_ROOMS[agent.location];
                     if (isForgeRoom(agent.location)) {
                         // Kein Timer - der Agent wartet hier, bis der Spieler das
@@ -403,18 +414,22 @@
                 }
             } else if (agent.state === 'journey_forge_return') {
                 if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
+                    const oldLocation = agent.location;
                     agent.location = 'DEKONTAMINATIONS-SCHLEUSE';
                     agent.state = 'journey_dekontam';
                     agent.taskStartTs = now;
                     agent.taskDurationMs = Math.round(DEKONTAM_JOURNEY_MS * adminTimeFactor()); // genau 1 Stunde
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location);
                     changed = true;
                 }
             } else if (agent.state === 'journey_dekontam') {
                 if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
+                    const oldLocation = agent.location;
                     agent.location = 'ARTEFAKT-ARCHIV';
                     agent.state = 'journey_archiv';
                     agent.taskStartTs = now;
                     agent.taskDurationMs = Math.round(ARCHIV_JOURNEY_MS * adminTimeFactor()); // genau 30 Minuten
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location);
                     changed = true;
                 }
             } else if (agent.state === 'journey_archiv') {
@@ -888,6 +903,30 @@
     // fährt nur, wenn ein Agent tatsächlich per Befehl unterwegs ist (state=waiting_in_quartiere),
     // ansonsten steht er dort, wo der zuletzt aktive Agent sich gerade befindet.
     let bunkerElevatorAnimating = false;
+
+    // Wiederverwendbare Aufzug-Fahrt-Animation - bisher nur in moveAgentTo() (manuelle
+    // Spieler-Umleitung) verfügbar, dadurch "teleportierten" Agenten bei jeder AUTOMATISCHEN
+    // Standortänderung (Rückkehr zur Zentrale, Zeitreise-Stationswechsel) einfach unsichtbar an
+    // ihren neuen Platz. Wird jetzt auch von sendAgentHome() und den Zeitreise-Übergängen genutzt.
+    function playElevatorAnimation(oldLocation, newLocation, durationMs) {
+        if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
+        const car = document.getElementById('bunker-elevator-car');
+        const riderSlot = document.getElementById('bunker-elevator-rider-slot');
+        const newIdx = bunkerFloorIndexForType(newLocation);
+        const oldIdx = bunkerFloorIndexForType(oldLocation);
+        if (!car || newIdx < 0) return;
+        bunkerElevatorAnimating = true;
+        document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
+        if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
+        car.style.top = ((oldIdx >= 0 ? oldIdx : 0) * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+        requestAnimationFrame(() => {
+            car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+        });
+        setTimeout(() => {
+            bunkerElevatorAnimating = false;
+            if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
+        }, durationMs || 1400);
+    }
 
     function renderBunkerAgentVisuals() {
         const car = document.getElementById('bunker-elevator-car');
