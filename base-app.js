@@ -916,10 +916,14 @@
             return 'Pflicht-Zwischenstopp bei jedem Raumwechsel · wartet hier 1h';
         }
         if (roomType === 'IMPULS-KONDENSATOR') {
-            return '⚠ Agent arbeitet hier 20min · 50% Todesrisiko (permanenter Verlust) · bei Erfolg: +1 Level, 2 MZ, 1000 Credits';
+            return '⚠ Agent arbeitet hier 20min · 50% Todesrisiko · bei Erfolg: +1 Level, 2 MZ, 1000 Credits';
         }
         if (isForgeRoom(roomType)) {
             return 'Agent wartet ohne Zeitlimit · Terminal starten für 8h-Zeitreise → Dekontamination (1h) → Archiv (30min)';
+        }
+        if (roomType === 'TRANSFORMATOREN-STATION') {
+            return PASSIVE_ROOMS[roomType].text +
+                ' <button onclick="event.stopPropagation(); window.openTransformatorPopup();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#4dd0ff; color:#000; border:1px solid #4dd0ff; border-radius:3px; cursor:pointer; font-family:inherit;">⇄ TAUSCHEN</button>';
         }
         if (PASSIVE_ROOMS[roomType]) {
             return PASSIVE_ROOMS[roomType].text;
@@ -3808,6 +3812,14 @@ window.spawnFurniture = (type, count) => {
 
 
 // === TRANSFORMATOREN-STATION: Tauschfunktion (Credits -> Materiezellen) ===
+window.openTransformatorPopup = function() {
+    const overlay = document.getElementById('transformator-popup-overlay');
+    if (overlay) overlay.style.display = 'flex';
+};
+window.closeTransformatorPopup = function() {
+    const overlay = document.getElementById('transformator-popup-overlay');
+    if (overlay) overlay.style.display = 'none';
+};
 window.exchangeCreditsForMZ = async function() {
     const cost = 5000;
     if (gameState.credits >= cost) {
