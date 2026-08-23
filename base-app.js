@@ -182,7 +182,7 @@
 
     const PASSIVE_ROOMS = {
         'THERMO-KOPPLER':          { text: 'Erzeugt automatisch 1 Credit alle 2 Stunden' },
-        'TRANSFORMATOREN-STATION': { text: 'Tauschfunktion: 5000 Credits → 1 Materiezelle' },
+        'TRANSFORMATOREN-STATION': { text: 'Tauschfunktion: Credits gegen Materiezelle' },
         'ANOMALIE-DETEKTOR':       { text: 'Verlangsamt den Kohärenz-Abfall bei Warnung/Instabil um 5%' },
         'QUANTEN-LABOR':           { text: '+2% Bonus auf alle XP-Belohnungen' },
         'KYBERNETIK-STATION':      { text: '+2 m GPS-Ankunftsradius, dauerhaft' },
@@ -190,7 +190,7 @@
         'TECHNIK-DECK':            { text: '5% Rabatt auf alle Raum-Ausbaukosten' },
         'SERVER-HUB':              { text: '10% Chance, eine Warnung sofort abzufangen' },
         'KRYO-DEPOT':              { text: '+3 maximale Agenten-Plätze, dauerhaft (insgesamt 11)' },
-        'RENAISSANCE-GENERATOR':   { text: 'Tauschfunktion: 15.000 Credits → 1 Chronos-Zelle · 1 Chronos-Zelle → 10.000 Credits' }
+        'RENAISSANCE-GENERATOR':   { text: 'Tauschfunktion: Credits gegen Chronos-Zelle' }
     };
     const THERMO_KOPPLER_INTERVAL_MS = 2 * 3600000; // alle 2 Stunden 1 Credit
     const ROOM_BUILD_COST_MZ = 10;
@@ -1084,7 +1084,7 @@
             return 'Zwischenstation im Zeitreise-Kreislauf · Agent verbleibt hier genau 1h zur temporalen Reinigung';
         }
         if (roomType === 'ARTEFAKT-ARCHIV') {
-            return 'Abschluss des Zeitreise-Kreislaufs · 30min · Belohnung: 1-5 Chronos-Zellen, Artefakt nur bei korrektem Horizont-Zieljahr';
+            return 'Abschluss des Zeitreise-Kreislaufs · 30min · 1-5 Chronos-Zellen, Artefakt nur bei korrektem Horizont-Zieljahr';
         }
         if (roomType === 'OSZILLATIONS-KAMMER') {
             return 'Nur Agent #1 (Starter) · 15h · Belohnung: 1 Materiezelle';
@@ -1096,8 +1096,7 @@
             return '⚠ Regulärer Agent (nicht #1) · 1h · Alle Timer laufen währenddessen 2x schneller · 50% Todesrisiko danach';
         }
         if (roomType === 'PARADOXON-FILTER') {
-            return (gameState.horizonMission ? '' : '(kein aktiver Horizont-Auftrag) ') +
-                'Agent 5min · versucht per Quanten-Warp ein Artefakt direkt ins Archiv zu teleportieren · 50/50 · nie Chronos-Zellen';
+            return 'Agent 5min · versucht per Quanten-Warp ein Artefakt direkt ins Archiv zu teleportieren · 50/50 · nie Chronos-Zellen';
         }
         if (roomType === 'TRANSFORMATOREN-STATION') {
             return PASSIVE_ROOMS[roomType].text +
