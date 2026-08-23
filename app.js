@@ -2492,6 +2492,17 @@ window.f_showDescription = function(withVoice) {
         galaktisch: [50000, 60000]
     };
 
+    // Wie nah man dem Zielpunkt kommen muss, damit die Mission als "erreicht" gilt. Bei
+    // "galaktisch" wird bewusst kein straßenbezogener Zielpunkt gesucht (siehe
+    // generateRoadBasedTarget) - ein großzügigerer Ankunftsradius von 100m verhindert, dass
+    // man exakt auf eine private Einfahrt o.ä. treten müsste, ein "ungefähr" in der Nähe reicht.
+    window.missionArrivalRadius = {
+        normal: 10,
+        fortgeschritten: 10,
+        weit: 10,
+        galaktisch: 100
+    };
+
     window.showMissionMenu = function() {
         if (typeof triggerScan === 'function') triggerScan();
         const types = ['normal', 'fortgeschritten', 'weit', 'galaktisch'];
@@ -2724,7 +2735,8 @@ window.f_showDescription = function(withVoice) {
                     document.getElementById('gps-status').innerText = 'GPS-Genauigkeit: ±' + Math.round(acc) + ' m';
                     updateCompass();
 
-                    if (dist <= 10 && !gpsArmed) {
+                    const arrivalRadius = window.missionArrivalRadius[window.currentMissionType] || 10;
+                    if (dist <= arrivalRadius && !gpsArmed) {
                         gpsArmed = true;
                         stopGpsTracking();
                         if (typeof playBeep === 'function') playBeep(1500, 0.2);
@@ -2759,9 +2771,25 @@ window.f_showDescription = function(withVoice) {
         const distRange = window.missionDistances[window.currentMissionType] || [50, 100];
         const targetDist = distRange[0] + Math.random() * (distRange[1] - distRange[0]);
 
-        if (window.currentMissionType === 'normal') {
-            const radius = 150;
-            const query = '[out:json][timeout:10];(way["highway"](around:' + radius + ',' + lat + ',' + lng + '););out geom;';
+        // Nur für "normal"/"fortgeschritten"/"weit" wird per Overpass nach echten, öffentlich
+        // begehbaren Straßen gesucht. Bei "galaktisch" (50-60 km) wäre eine Straßensuche über
+        // diesen Radius für die Overpass-API viel zu schwer/langsam - dort bleibt es beim
+        // groben, richtungslosen Zielpunkt weiter unten.
+        if (window.currentMissionType === 'normal' || window.currentMissionType === 'fortgeschritten' || window.currentMissionType === 'weit') {
+            // Suchradius deckt die tatsächliche Zieldistanz ab (plus etwas Puffer), statt eines
+            // fixen 150m-Radius - bei größeren Missionsdistanzen (z.B. "weit": 1-5 km) lag ein
+            // fixer 150m-Radius um den Spieler fast nie im Zielbereich, wodurch praktisch immer
+            // der richtungslose Fallback ohne jeden Straßenbezug griff.
+            const radius = Math.min(distRange[1] + 100, 5500);
+            // Nur echte, öffentlich begehbare Straßen/Wege - explizit KEINE Feld-/Wirtschaftswege
+            // (track), Trampelpfade (path/footway/bridleway) oder Zufahrten mit Zugangsbeschränkung
+            // (access=private/no). Ziel: Spieler sollen nie über Wiesen, Felder oder fremde
+            // Grundstücke laufen müssen, sondern immer auf echten Straßen bleiben können.
+            // "track" (Land-/Forstwirtschaftswege) bewusst mit aufgenommen: Diese Wege sind zu
+            // Fuß i.d.R. frei begehbar (kein privates Grundstück, kein Betreten einer offenen
+            // Wiese/eines Feldes selbst) und in ländlichen Gegenden oft die einzige reale
+            // Wegverbindung überhaupt - ohne sie griff der Missions-Abbruch viel zu oft.
+            const query = '[out:json][timeout:15];(way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|pedestrian|service|track)$"]["access"!~"^(private|no)$"](around:' + radius + ',' + lat + ',' + lng + '););out geom;';
 
             try {
                 const response = await fetch('https://overpass-api.de/api/interpreter', {
@@ -2793,6 +2821,14 @@ window.f_showDescription = function(withVoice) {
                     }
                 }
             } catch(e) {}
+
+            // Kein echter Straßenpunkt im passenden Abstand gefunden (z.B. sehr ländliche
+            // Gegend ohne Treffer im Suchradius, oder Overpass-Anfrage fehlgeschlagen). Statt
+            // auf den richtungslosen Wiesen-Fallback zurückzufallen, wird die Mission hier
+            // sauber abgebrochen - lieber ein neuer Versuch als ein Ziel auf privatem Grund.
+            document.getElementById('gps-status').innerText = 'Keine geeignete Route in erreichbarer Nähe gefunden. Bitte erneut versuchen.';
+            setTimeout(closeGpsOverlay, 2500);
+            return;
         }
 
         const bearing = Math.random() * 2 * Math.PI;
