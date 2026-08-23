@@ -174,6 +174,38 @@
         if (coherenceTickerId) { clearInterval(coherenceTickerId); coherenceTickerId = null; }
     }
 
+    // --- Gemeinsame Crash-Übergangssequenz ---
+    // Sound (Crash-Sound + Blackout-Hum), Flash/Solid-Black und der 7s-Reboot-Bildschirm - exakt
+    // dieselbe Sequenz, die bisher NUR beim EMP-Trap-Klick (triggerTrap) lief. Als globale
+    // Funktion ausgelagert, damit die unabhängige Crashout-Automatik unten (Kohärenz < 50%)
+    // dieselbe Sequenz nutzen kann, statt lautlos direkt in die Mission zu springen.
+    window.runCrashTransition = function(afterBoot) {
+        const bgMusic = document.getElementById('bg-music');
+        if (bgMusic) { window._wasBgMusicPlayingBeforeCrash = !bgMusic.paused; bgMusic.pause(); }
+        const sndCrash = document.getElementById('snd-emp-crash');
+        if (sndCrash) { sndCrash.currentTime = 0; sndCrash.play().catch(e => {}); }
+        const sndHum = document.getElementById('snd-blackout-hum');
+        if (sndHum) { sndHum.volume = 0.0; sndHum.currentTime = 0; sndHum.play().catch(e => {}); }
+        const solidBlack = document.getElementById('emp-solid-black');
+        if (solidBlack) solidBlack.style.setProperty('display', 'block', 'important');
+        const flash = document.getElementById('emp-flash-overlay');
+        if (flash) {
+            flash.style.transition = 'none'; flash.style.opacity = '1';
+            flash.style.setProperty('display', 'block', 'important');
+            setTimeout(() => {
+                flash.style.transition = 'opacity 1.5s ease-out'; flash.style.opacity = '0';
+                setTimeout(() => { flash.style.setProperty('display', 'none', 'important'); }, 1500);
+            }, 50);
+        }
+        const bootLayer = document.getElementById('emp-boot-layer');
+        if (bootLayer) bootLayer.style.setProperty('display', 'flex', 'important');
+        setTimeout(() => {
+            if (bootLayer) bootLayer.style.setProperty('display', 'none', 'important');
+            if (sndHum) sndHum.volume = 0.6;
+            if (typeof afterBoot === 'function') afterBoot();
+        }, 7000);
+    };
+
     // --- CRASHOUT-AUTOMATIK ---
     // Permanente, vom normalen Kohärenz-Ticker UNABHÄNGIGE Überwachung. Läuft dauerhaft im
     // Hintergrund (nicht nur während startCoherenceTicker aktiv ist) und erzwingt den
@@ -186,14 +218,18 @@
             currentLogs.unshift("> CRASHOUT: Kohärenz unter 50%! Not-Crash erzwungen!");
             if (currentLogs.length > 5) currentLogs.pop();
             if (document.getElementById('log-display')) f_start();
+            // Vorher fehlte hier komplett die Sound-/Bildeffekt-Sequenz (Crash-Sound, Hum,
+            // Flash, Reboot-Bildschirm) - der Crash kam bisher lautlos und ohne Übergang.
             // WICHTIG: startBlackoutMission() startet nur die Missions-LOGIK (Timer, Inhalte),
             // macht aber #blackout-layer selbst nicht sichtbar - das übernimmt normalerweise
             // showBlackoutMenu() im normalen EMP-Trap-Ablauf. Ohne diese Zeile lief die Mission
             // bisher unsichtbar im Hintergrund und scheiterte am Ende lautlos per Timeout - das
             // war der Fehler, der beim alten 70%-Trigger nie richtig funktioniert hat.
-            const blackoutLayer = document.getElementById('blackout-layer');
-            if (blackoutLayer) blackoutLayer.style.setProperty('display', 'flex', 'important');
-            if (typeof window.startBlackoutMission === 'function') window.startBlackoutMission();
+            window.runCrashTransition(() => {
+                const blackoutLayer = document.getElementById('blackout-layer');
+                if (blackoutLayer) blackoutLayer.style.setProperty('display', 'flex', 'important');
+                if (typeof window.startBlackoutMission === 'function') window.startBlackoutMission();
+            });
         }
     }, 1000);
 
@@ -1973,7 +2009,6 @@ window.f_showDescription = function(withVoice) {
     let timeRemaining = 30;
     let isPaused = false;
     let currentMission = -1;
-    let wasBgMusicPlaying = false; 
 
     const origBuchen = window.f_buchen;
     const origEpochen = window.f_epochen;
@@ -2002,29 +2037,7 @@ window.f_showDescription = function(withVoice) {
 
     window.triggerTrap = function() {
         document.getElementById('emp-trap').style.setProperty('display', 'none', 'important');
-        const bgMusic = document.getElementById('bg-music');
-        if (bgMusic) { wasBgMusicPlaying = !bgMusic.paused; bgMusic.pause(); }
-        const sndCrash = document.getElementById('snd-emp-crash');
-        if (sndCrash) { sndCrash.currentTime = 0; sndCrash.play().catch(e => {}); }
-        const sndHum = document.getElementById('snd-blackout-hum');
-        if (sndHum) { sndHum.volume = 0.0; sndHum.currentTime = 0; sndHum.play().catch(e => {}); }
-        document.getElementById('emp-solid-black').style.setProperty('display', 'block', 'important');
-        const flash = document.getElementById('emp-flash-overlay');
-        if (flash) {
-            flash.style.transition = 'none'; flash.style.opacity = '1';
-            flash.style.setProperty('display', 'block', 'important');
-            setTimeout(() => {
-                flash.style.transition = 'opacity 1.5s ease-out'; flash.style.opacity = '0';
-                setTimeout(() => { flash.style.setProperty('display', 'none', 'important'); }, 1500);
-            }, 50);
-        }
-        const bootLayer = document.getElementById('emp-boot-layer');
-        bootLayer.style.setProperty('display', 'flex', 'important');
-        setTimeout(() => {
-            bootLayer.style.setProperty('display', 'none', 'important');
-            if (sndHum) sndHum.volume = 0.6;
-            window.showBlackoutMenu();
-        }, 7000);
+        window.runCrashTransition(() => { window.showBlackoutMenu(); });
     };
 
     window.showBlackoutMenu = function() {
@@ -2315,7 +2328,7 @@ window.f_showDescription = function(withVoice) {
             const sndHum = document.getElementById('snd-blackout-hum');
             if (sndHum) { sndHum.pause(); sndHum.currentTime = 0; }
             
-            if (wasBgMusicPlaying) {
+            if (window._wasBgMusicPlayingBeforeCrash) {
                 const bgMusic = document.getElementById('bg-music');
                 if (bgMusic) bgMusic.play().catch(e => {});
             }
