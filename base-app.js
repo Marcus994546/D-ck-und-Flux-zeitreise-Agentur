@@ -916,7 +916,7 @@
         setTimeout(() => {
             bunkerElevatorAnimating = false;
             if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
-        }, durationMs || 1400);
+        }, durationMs || 2800);
     }
 
     function renderBunkerAgentVisuals() {
