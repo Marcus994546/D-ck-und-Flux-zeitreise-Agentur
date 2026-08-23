@@ -145,8 +145,11 @@
     // Für Admin-Accounts gilt zusätzlich ein permanenter 95%-Speed-Bonus (nur 5% der Zeit) -
     // rein zum schnelleren Testen des kompletten Agenten-/Zeitreise-Systems.
     function adminTimeFactor() { return isAdminSession ? 0.05 : 1; }
-    function agentScaledDurationMs(baseHours, level) {
-        const factor = Math.max(0.1, 1 - (level - 1) * 0.05); // Untergrenze, falls Level je höher als 19 würde
+    // Der Starter-Agent bekommt permanent einen flachen 5%-Bonus ZUSÄTZLICH zur normalen
+    // Level-Formel (nicht anstelle davon) - auf Level 1 also schon 5%, auf Level 2 bereits 10%.
+    function agentScaledDurationMs(baseHours, level, isStarter) {
+        const starterBonus = isStarter ? 0.05 : 0;
+        const factor = Math.max(0.1, 1 - (level - 1) * 0.05 - starterBonus); // Untergrenze, falls Level je höher als 19 würde
         return Math.round(baseHours * 3600000 * factor * adminTimeFactor());
     }
 
@@ -167,7 +170,11 @@
                 state: 'idle',        // 'idle' | 'waiting_in_quartiere' | 'working'
                 targetRoom: null,
                 taskStartTs: null,
-                taskDurationMs: null
+                taskDurationMs: null,
+                // Der allererste Agent überhaupt - farblich hervorgehoben, permanenter
+                // Extra-Speedbonus, und darf nie in den Impuls-Kondensator (siehe moveAgentTo)
+                // damit dem Spieler nie versehentlich ALLE Agenten ausgehen können.
+                isStarter: true
             });
         }
     }
@@ -256,6 +263,17 @@
     }
 
 
+    // Schickt einen Agenten automatisch zurück zur Zentrale (immer über die Agenten-Quartiere,
+    // wie jeder reguläre Raumwechsel) - genutzt nach Abschluss eines Arbeits-Zyklus, nach dem
+    // Impuls-Kondensator und am Ende des Zeitreise-Kreislaufs.
+    function sendAgentHome(agent) {
+        agent.targetRoom = 'ZENTRALE';
+        agent.state = 'waiting_in_quartiere';
+        agent.location = 'AGENTEN-QUARTIERE';
+        agent.taskStartTs = Date.now();
+        agent.taskDurationMs = agentScaledDurationMs(AGENT_QUARTIERE_HOURS, agent.level, agent.isStarter);
+    }
+
     // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
     // Timer im Browser) - dadurch funktioniert das System auch korrekt, wenn die Seite
     // zwischenzeitlich geschlossen war und man erst Stunden später wieder reinschaut.
@@ -280,7 +298,7 @@
                     } else if (task) {
                         agent.state = 'working';
                         agent.taskStartTs = now;
-                        agent.taskDurationMs = agentScaledDurationMs(task.hours, agent.level);
+                        agent.taskDurationMs = agentScaledDurationMs(task.hours, agent.level, agent.isStarter);
                     } else {
                         agent.state = 'idle';
                         agent.taskStartTs = null;
@@ -316,47 +334,45 @@
             } else if (agent.state === 'journey_archiv') {
                 if (now - agent.taskStartTs >= agent.taskDurationMs) {
                     resolveArchivReward(agent);
-                    agent.state = 'idle';
-                    agent.taskStartTs = null;
-                    agent.taskDurationMs = null;
+                    // Erst NACH dem kompletten Kreislauf (Forge -> Dekontam -> Archiv) geht's
+                    // zurück zur Zentrale - die Zwischenschritte selbst bleiben unverändert
+                    // (kein Umweg über die Zentrale zwischen den einzelnen Stationen).
+                    sendAgentHome(agent);
                     changed = true;
                 }
             } else if (agent.state === 'working') {
                 const task = AGENT_TASK_ROOMS[agent.location];
                 if (!task) { agent.state = 'idle'; agent.taskStartTs = null; agent.taskDurationMs = null; return; }
-                let safety = 0;
-                while (now - agent.taskStartTs >= agent.taskDurationMs && safety < 500) {
+                if (now - agent.taskStartTs >= agent.taskDurationMs) {
                     if (task.effect === 'life_risk') {
-                        // Nur EIN Zyklus wird ausgewertet, dann geht der Agent (falls er
-                        // überlebt) zurück auf 'idle' - er wiederholt das Risiko nicht
-                        // automatisch, das muss der Spieler jedes Mal bewusst neu entscheiden.
                         const survived = Math.random() < 0.5;
                         if (survived) {
                             if (agent.level < AGENT_MAX_LEVEL) agent.level++;
                             gameState.materieZellen += 2;
                             gameState.credits += 1000;
                             if (typeof showInfoToast === 'function') showInfoToast('Impuls-Kondensator: Agent hat die Entladung überlebt und ist aufgestiegen! (+1 Agentenlevel, +2 MZ, +1000 Credits)');
+                            sendAgentHome(agent);
                         } else {
                             gameState.agents = gameState.agents.filter(a => a.id !== agent.id);
                             if (typeof showCustomAlert === 'function') showCustomAlert('Impuls-Kondensator: Agent wurde von der Entladung getötet und dauerhaft gelöscht.');
                         }
-                        agent.state = 'idle';
-                        agent.taskStartTs = null;
-                        agent.taskDurationMs = null;
                         changed = true;
-                        break;
+                    } else if (task.effect === 'spawn_agent') {
+                        // Nach Abschluss eines Scanner-Phalanx-Zyklus fahren BEIDE - der
+                        // arbeitende Agent UND der frisch rekrutierte - zurück zur Zentrale.
+                        applyAgentReward(agent, task);
+                        const newAgent = gameState.agents[gameState.agents.length - 1];
+                        sendAgentHome(agent);
+                        if (newAgent) sendAgentHome(newAgent);
+                        changed = true;
+                    } else {
+                        // Ein Zyklus, dann automatisch zurück zur Zentrale - kein automatisches
+                        // Wiederholen mehr. Ein neuer Zyklus muss vom Spieler jedes Mal bewusst
+                        // durch erneutes Zuweisen gestartet werden.
+                        applyAgentReward(agent, task);
+                        sendAgentHome(agent);
+                        changed = true;
                     }
-                    applyAgentReward(agent, task);
-                    agent.taskStartTs += agent.taskDurationMs;
-                    changed = true;
-                    safety++;
-                    if (task.effect === 'level_up' && agent.level >= AGENT_MAX_LEVEL) {
-                        agent.state = 'idle';
-                        agent.taskStartTs = null;
-                        agent.taskDurationMs = null;
-                        break;
-                    }
-                    agent.taskDurationMs = agentScaledDurationMs(task.hours, agent.level);
                 }
             }
         });
@@ -407,6 +423,10 @@
             if (typeof showCustomAlert === 'function') showCustomAlert('Agent befindet sich im Zeitreise-Kreislauf und kann währenddessen nicht umgeleitet werden.');
             return;
         }
+        if (agent.isStarter && targetType === 'IMPULS-KONDENSATOR') {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Der Starter-Agent darf den Impuls-Kondensator nicht betreten - so bleibt immer mindestens ein Agent garantiert am Leben.');
+            return;
+        }
         if (agent.location === targetType && agent.state !== 'working') return;
 
         const oldLocation = agent.location;
@@ -415,7 +435,7 @@
         agent.state = 'waiting_in_quartiere';
         agent.location = 'AGENTEN-QUARTIERE';
         agent.taskStartTs = Date.now();
-        agent.taskDurationMs = agentScaledDurationMs(AGENT_QUARTIERE_HOURS, agent.level);
+        agent.taskDurationMs = agentScaledDurationMs(AGENT_QUARTIERE_HOURS, agent.level, agent.isStarter);
 
         window.selectedAgentId = null;
         saveGameState();
@@ -744,6 +764,7 @@
 
             const wrap = document.createElement('div');
             wrap.className = 'bunker-agent-figure';
+            if (agent.isStarter) wrap.classList.add('bunker-agent-starter');
             if (agent.id === window.selectedAgentId) wrap.classList.add('bunker-agent-figure-selected');
             const countdown = formatAgentCountdown(agent);
             let statusLabel = '';
@@ -762,7 +783,7 @@
             } else if (agent.state === 'journey_archiv') {
                 statusLabel = '<div class="bunker-agent-timer">📦 Archivierung · ' + countdown + '</div>';
             }
-            wrap.innerHTML = '<div class="bunker-agent-level">Lvl ' + agent.level + '</div><div class="bunker-figure"></div>' + statusLabel;
+            wrap.innerHTML = '<div class="bunker-agent-level">' + (agent.isStarter ? '★ ' : '') + 'Lvl ' + agent.level + '</div><div class="bunker-figure"></div>' + statusLabel;
             wrap.onclick = (ev) => {
                 ev.stopPropagation();
                 if (agent.state === 'waiting_in_quartiere') {
@@ -3195,7 +3216,7 @@ window.startForgeJourney = function() {
             // scharf geschaltet - passt zum "Start"-Gefühl des Terminals.
             agent.state = 'journey_mission';
             agent.taskStartTs = Date.now();
-            agent.taskDurationMs = agentScaledDurationMs(FORGE_MISSION_HOURS, agent.level);
+            agent.taskDurationMs = agentScaledDurationMs(FORGE_MISSION_HOURS, agent.level, agent.isStarter);
             saveGameState();
             renderBunkerAgentVisuals();
             renderForgeStatus();

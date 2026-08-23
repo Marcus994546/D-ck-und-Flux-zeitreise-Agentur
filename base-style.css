@@ -1376,6 +1376,13 @@
 }
 .bunker-agent-figure-selected .bunker-figure::before { background: #ff8800; box-shadow: 0 0 10px #ff8800; }
 .bunker-agent-figure-selected .bunker-figure::after { background: #cc6600; }
+/* Starter-Agent (der allererste überhaupt) - golden statt cyan, damit er sich dauerhaft von
+   allen anderen Agenten abhebt, egal ob gerade ausgewählt oder nicht. */
+.bunker-agent-starter .bunker-agent-level {
+    color: #ffd700; border-color: #ffd700; box-shadow: 0 0 8px rgba(255,215,0,0.6);
+}
+.bunker-agent-starter .bunker-figure::before { background: #ffd700; box-shadow: 0 0 12px #ffd700; }
+.bunker-agent-starter .bunker-figure::after { background: #c9a600; }
 .bunker-agent-wait {
     font-size: 0.5em; color: #ffaa00; background: rgba(30,15,0,0.85); border: 1px solid #ffaa00;
     border-radius: 3px; padding: 1px 4px; margin-top: 2px; white-space: nowrap;
