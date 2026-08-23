@@ -230,6 +230,17 @@
                 // damit dem Spieler nie versehentlich ALLE Agenten ausgehen können.
                 isStarter: true
             });
+        } else if (!gameState.agents.some(a => a.isStarter)) {
+            // Migration für Speicherstände von VOR diesem Feature: keiner der bereits
+            // existierenden Agenten trägt das Flag - der älteste (per id-Zeitstempel sortiert,
+            // sonst schlicht der erste im Array) wird nachträglich zum Starter erklärt.
+            const sorted = gameState.agents.slice().sort((a, b) => {
+                const ta = parseInt((a.id || '').replace('agent_', '')) || 0;
+                const tb = parseInt((b.id || '').replace('agent_', '')) || 0;
+                return ta - tb;
+            });
+            const oldest = gameState.agents.find(a => a.id === sorted[0].id);
+            if (oldest) oldest.isStarter = true;
         }
     }
 
@@ -324,15 +335,17 @@
     }
 
 
-    // Schickt einen Agenten automatisch zurück zur Zentrale (immer über die Agenten-Quartiere,
-    // wie jeder reguläre Raumwechsel) - genutzt nach Abschluss eines Arbeits-Zyklus, nach dem
-    // Impuls-Kondensator und am Ende des Zeitreise-Kreislaufs.
+    // Schickt einen Agenten automatisch zurück zur Zentrale - OHNE Umweg über die Agenten-
+    // Quartiere (Ausnahme von der sonst geltenden Regel, dass jeder Raumwechsel zwingend über
+    // die Quartiere läuft; das gilt nur für manuelle Umleitungen durch den Spieler). Genutzt nach
+    // Abschluss eines Arbeits-Zyklus, nach dem Impuls-Kondensator/Hochspannungs-Verteiler und am
+    // Ende des Zeitreise-Kreislaufs.
     function sendAgentHome(agent) {
-        agent.targetRoom = 'ZENTRALE';
-        agent.state = 'waiting_in_quartiere';
-        agent.location = 'AGENTEN-QUARTIERE';
-        agent.taskStartTs = Date.now();
-        agent.taskDurationMs = agentScaledDurationMs(AGENT_QUARTIERE_HOURS, agent.level, agent.isStarter);
+        agent.targetRoom = null;
+        agent.state = 'idle';
+        agent.location = 'ZENTRALE';
+        agent.taskStartTs = null;
+        agent.taskDurationMs = null;
     }
 
     // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
@@ -892,6 +905,7 @@
             car.style.top = '8px';
         }
 
+        const agentsPerRoomCount = {};
         gameState.agents.forEach(agent => {
             const idx = bunkerFloorIndexForType(agent.location);
             if (idx < 0) return;
@@ -900,6 +914,19 @@
 
             const wrap = document.createElement('div');
             wrap.className = 'bunker-agent-figure';
+            // Mehrere Agenten im selben Raum lagen bisher exakt übereinander (identische
+            // bottom/left-Position) - dadurch konnte ein frisch rekrutierter Agent komplett
+            // unsichtbar hinter einem bereits dort stehenden verschwinden. Jetzt werden sie
+            // nebeneinander versetzt aufgereiht.
+            const slot = agentsPerRoomCount[idx] || 0;
+            agentsPerRoomCount[idx] = slot + 1;
+            let offsetPx = 0;
+            if (slot > 0) {
+                const direction = (slot % 2 === 1) ? -1 : 1;
+                const magnitude = Math.ceil(slot / 2) * 30;
+                offsetPx = direction * magnitude;
+            }
+            wrap.style.left = 'calc(50% + ' + offsetPx + 'px)';
             if (agent.isStarter) wrap.classList.add('bunker-agent-starter');
             if (agent.id === window.selectedAgentId) wrap.classList.add('bunker-agent-figure-selected');
             const countdown = formatAgentCountdown(agent);
