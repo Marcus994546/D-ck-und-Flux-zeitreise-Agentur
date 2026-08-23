@@ -479,21 +479,28 @@ body > *:not(.top-level) {
     #ar-anomaly::before {
         content: ''; position: absolute; top: -20px; left: -20px;
         width: calc(100% + 40px); height: calc(100% + 40px);
-        border-radius: 50%;
+        border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
         background: conic-gradient(from 0deg, transparent, rgba(255,255,255,0.15), transparent, rgba(255,255,255,0.15), transparent);
-        animation: riftSpin 4s linear infinite;
+        animation: riftSpin 4s linear infinite, riftWobble 5.5s ease-in-out infinite;
         pointer-events: none;
     }
     #ar-anomaly::after {
         content: ''; position: absolute; top: 50%; left: 50%;
         transform: translate(-50%, -50%);
         width: 100%; height: 100%;
-        border-radius: 50%;
+        border-radius: 58% 42% 39% 61% / 55% 48% 52% 45%;
         box-shadow: inset 0 0 40px rgba(255,255,255,0.2), inset 0 0 80px rgba(100,50,255,0.15);
-        animation: riftPulse 2s ease-in-out infinite alternate;
+        animation: riftPulse 2s ease-in-out infinite alternate, riftWobble 7s ease-in-out infinite reverse;
         pointer-events: none;
     }
     @keyframes riftSpin { to { transform: rotate(360deg); } }
+    @keyframes riftWobble {
+        0%   { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+        25%  { border-radius: 58% 42% 39% 61% / 55% 48% 52% 45%; }
+        50%  { border-radius: 47% 53% 55% 45% / 60% 38% 62% 40%; }
+        75%  { border-radius: 63% 37% 44% 56% / 42% 60% 40% 58%; }
+        100% { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+    }
     @keyframes riftPulse {
         0% { box-shadow: inset 0 0 30px rgba(255,255,255,0.15), inset 0 0 60px rgba(100,50,255,0.1); }
         100% { box-shadow: inset 0 0 50px rgba(255,255,255,0.3), inset 0 0 100px rgba(100,50,255,0.25); }

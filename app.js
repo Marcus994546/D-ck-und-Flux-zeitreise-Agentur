@@ -3159,7 +3159,21 @@ window.f_showDescription = function(withVoice) {
         ctx.strokeStyle = 'rgba(255, 255, 255, ' + (0.15 + Math.sin(arNebulaTime * 3) * 0.1) + ')';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(cx, cy, 95 + Math.sin(arNebulaTime * 2) * 5, 0, Math.PI * 2);
+        // Statt eines exakten Kreises: Radius pro Winkel mit mehreren überlagerten,
+        // unregelmäßig schnellen Sinus-Frequenzen verzerrt - ein spontaner Riss im
+        // Zeitstrom soll ausgefranst wirken, nicht wie ein sauberer geometrischer Kreis.
+        const ringSegments = 48;
+        for (let i = 0; i <= ringSegments; i++) {
+            const a = (i / ringSegments) * Math.PI * 2;
+            const noise = Math.sin(a * 5 + arNebulaTime * 1.7) * 7
+                        + Math.sin(a * 3 - arNebulaTime * 2.3) * 5
+                        + Math.sin(a * 8 + arNebulaTime * 0.9) * 3;
+            const r = 95 + Math.sin(arNebulaTime * 2) * 5 + noise;
+            const rx = cx + Math.cos(a) * r;
+            const ry = cy + Math.sin(a) * r * 0.75;
+            if (i === 0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
+        }
+        ctx.closePath();
         ctx.stroke();
 
         if (Math.random() < 0.05) {
