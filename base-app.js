@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], userLevel: 1, agents: [], agentSystemUnlocked: false };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -104,6 +104,30 @@
 
     // Passive Räume: laufen automatisch im Hintergrund, sobald gebaut - kein Agent nötig.
     // "text" ist die Kurzbeschreibung in der Raum-Sidebar (siehe agentRoomInfoText).
+    // 40 sammelbare Artefakte für den Zeitreise-Kreislauf (Forge -> Dekontaminationsschleuse ->
+    // Artefakt-Archiv). Jedes wird höchstens einmal vergeben; ist die Liste komplett, entfällt
+    // die Artefakt-Chance und es gibt nur noch Chronos-Zellen (siehe resolveArchivReward()).
+    const ARTEFAKTE = [
+        '⏱ Verrostete Taschenuhr, 19. Jhd.', '🧭 Quantenverschränkter Kompass', '🗺 Holo-Sternenkarten-Fragment',
+        '📜 Pergament mit unlesbarer Zukunftsschrift', '🪙 Antigravitations-Münze', '💾 Fossilierter Datenkristall',
+        '🎖 Römische Legionärs-Plakette', '🧬 Nano-Schwarm-Kokon (inaktiv)', '📿 Flüssigmetall-Amulett',
+        '⚱ Ägyptisches Kanopen-Fragment', '🎴 Photonen-Fächer', '📓 Verkohltes Logbuch eines Zeitschiffs',
+        '💎 Kristallisierte Sternennebel-Probe', '⚙ Viktorianische Zahnradbrosche', '🖋 Selbstschreibende Feder',
+        '🕳 Miniatur-Wurmloch-Generator (deaktiviert)', '⚔ Samurai-Klingenscherbe', '🐛 Bio-lumineszentes Insekt in Bernstein',
+        '📡 Verzerrtes Echo-Modul', '🪨 Steinzeitliches Feuerstein-Werkzeug', '🔭 Gravitations-Linsen-Splitter',
+        '💿 Schallplatte einer unbekannten Zivilisation', '💍 Chronometrischer Ring', '⏲ Dampfbetriebene Taschenmechanik',
+        '🚀 Astronauten-Anstecknadel (Mission unbekannt)', '💳 Interdimensionale Visitenkarte', '⚡ Versteinerter Blitzschlag',
+        '🌱 Terraforming-Samenkapsel', '🏴‍☠️ Piraten-Dublone mit Zeitstempel', '🧠 Neuronales Erinnerungsfragment',
+        '🕯 Mittelalterliches Wachssiegel', '🔮 Plasma-Kompressions-Kugel', '⏳ Sanduhr mit rückwärts fließendem Sand',
+        '📃 Unübersetzte Alien-Schriftrolle', '🤖 Retro-Roboter-Spielzeugkopf', '🎵 Temporale Stimmgabel',
+        '🛰 Fragment eines gefallenen Satelliten', '🎼 Partitur aus einer Zukunft ohne Musik',
+        '🌀 Kristallisierte Zeitschleife', '🪙 Uraltes Münzstück mit unbekanntem Symbol'
+    ];
+    const FORGE_MISSION_HOURS = 8;
+    const FORGE_RETURN_MS = 60000;        // genau 1 Minute
+    const DEKONTAM_JOURNEY_MS = 3600000;  // genau 1 Stunde
+    const ARCHIV_JOURNEY_MS = 1800000;    // genau 30 Minuten
+
     const PASSIVE_ROOMS = {
         'THERMO-KOPPLER':          { text: 'Erzeugt automatisch 1 Credit alle 2 Stunden' },
         'TRANSFORMATOREN-STATION': { text: 'Tauschfunktion: 5000 Credits → 1 Materiezelle' },
@@ -187,6 +211,48 @@
         updateUI();
     }
 
+    // Abschluss-Belohnung des Zeitreise-Kreislaufs im Artefakt-Archiv: 1-5 Chronos-Zellen
+    // garantiert, plus 60% Chance auf ein neues Artefakt aus dem noch nicht gesammelten Pool.
+    // Sind alle 40 Artefakte bereits gesammelt, entfällt dieser Teil komplett.
+    function resolveArchivReward(agent) {
+        if (!Array.isArray(gameState.collectedArtifacts)) gameState.collectedArtifacts = [];
+        const chronos = 1 + Math.floor(Math.random() * 5); // 1-5
+        gameState.chronosZellen += chronos;
+
+        let artifactMsg = '';
+        const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a));
+        if (uncollected.length > 0 && Math.random() < 0.6) {
+            const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
+            gameState.collectedArtifacts.push(picked);
+            artifactMsg = ' + Artefakt geborgen: ' + picked;
+        }
+
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Zeitreise-Kreislauf abgeschlossen: +' + chronos + ' Chronos-Zellen' + artifactMsg);
+        }
+        if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
+    }
+
+    // Zeigt die bisher gesammelten Artefakte als kompakte "Regalfächer" im Archiv-Panel an.
+    function renderArtifactCollection() {
+        const box = document.getElementById('artifact-collection-display');
+        if (!box) return;
+        const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
+        let html = '<div style="font-size:0.7em; color:#aaa; margin-bottom:8px;">' + collected.length + ' / ' + ARTEFAKTE.length + ' gesammelt' +
+            (collected.length >= ARTEFAKTE.length ? ' · Sammlung vollständig!' : '') + '</div>';
+        if (collected.length === 0) {
+            html += '<div style="font-size:0.7em; color:#666; font-style:italic;">Noch keine Artefakte geborgen.</div>';
+        } else {
+            html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(90px, 1fr)); gap:6px;">';
+            collected.forEach(function(a) {
+                html += '<div class="artifact-shelf-slot" title="' + a.replace(/"/g, '&quot;') + '">' + a + '</div>';
+            });
+            html += '</div>';
+        }
+        box.innerHTML = html;
+    }
+
+
     // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
     // Timer im Browser) - dadurch funktioniert das System auch korrekt, wenn die Seite
     // zwischenzeitlich geschlossen war und man erst Stunden später wieder reinschaut.
@@ -202,7 +268,13 @@
                     agent.location = agent.targetRoom;
                     agent.targetRoom = null;
                     const task = AGENT_TASK_ROOMS[agent.location];
-                    if (task) {
+                    if (isForgeRoom(agent.location)) {
+                        // Kein Timer - der Agent wartet hier, bis der Spieler das
+                        // Zeitreise-Terminal manuell startet (siehe window.startForgeJourney).
+                        agent.state = 'forge_ready';
+                        agent.taskStartTs = null;
+                        agent.taskDurationMs = null;
+                    } else if (task) {
                         agent.state = 'working';
                         agent.taskStartTs = now;
                         agent.taskDurationMs = agentScaledDurationMs(task.hours, agent.level);
@@ -211,6 +283,39 @@
                         agent.taskStartTs = null;
                         agent.taskDurationMs = null;
                     }
+                    changed = true;
+                }
+            } else if (agent.state === 'journey_mission') {
+                // 8h Zeitreise-Mission - Agent gilt als "unterwegs" (siehe renderAgentPanel/
+                // renderBunkerAgentVisuals), physisch nicht in der Forge sichtbar.
+                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                    agent.state = 'journey_forge_return';
+                    agent.taskStartTs = now;
+                    agent.taskDurationMs = 60000; // genau 1 Minute, bewusst NICHT level-skaliert
+                    changed = true;
+                }
+            } else if (agent.state === 'journey_forge_return') {
+                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                    agent.location = 'DEKONTAMINATIONS-SCHLEUSE';
+                    agent.state = 'journey_dekontam';
+                    agent.taskStartTs = now;
+                    agent.taskDurationMs = 3600000; // genau 1 Stunde
+                    changed = true;
+                }
+            } else if (agent.state === 'journey_dekontam') {
+                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                    agent.location = 'ARTEFAKT-ARCHIV';
+                    agent.state = 'journey_archiv';
+                    agent.taskStartTs = now;
+                    agent.taskDurationMs = 1800000; // genau 30 Minuten
+                    changed = true;
+                }
+            } else if (agent.state === 'journey_archiv') {
+                if (now - agent.taskStartTs >= agent.taskDurationMs) {
+                    resolveArchivReward(agent);
+                    agent.state = 'idle';
+                    agent.taskStartTs = null;
+                    agent.taskDurationMs = null;
                     changed = true;
                 }
             } else if (agent.state === 'working') {
@@ -256,6 +361,7 @@
         if (changed) { updateUI(); try { saveGameState(); } catch(e) {} }
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
         if (typeof renderBunkerAgentVisuals === 'function' && bunkerActive) renderBunkerAgentVisuals();
+        if (typeof renderForgeStatus === 'function') renderForgeStatus();
         return changed;
     }
 
@@ -292,6 +398,10 @@
 
         if (agent.state === 'waiting_in_quartiere') {
             if (typeof showCustomAlert === 'function') showCustomAlert('Agent befindet sich in den Quartieren und kann während der Wartezeit nicht umgeleitet werden.');
+            return;
+        }
+        if (agent.state === 'journey_mission' || agent.state === 'journey_forge_return' || agent.state === 'journey_dekontam' || agent.state === 'journey_archiv') {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Agent befindet sich im Zeitreise-Kreislauf und kann währenddessen nicht umgeleitet werden.');
             return;
         }
         if (agent.location === targetType && agent.state !== 'working') return;
@@ -377,6 +487,7 @@
                 if (parsed.credits !== undefined) gameState.credits = parsed.credits;
                 if (parsed.materieZellen !== undefined) gameState.materieZellen = parsed.materieZellen;
                 if (parsed.chronosZellen !== undefined) gameState.chronosZellen = parsed.chronosZellen;
+                if (Array.isArray(parsed.collectedArtifacts)) gameState.collectedArtifacts = parsed.collectedArtifacts;
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
                 if (Array.isArray(parsed.agents)) gameState.agents = parsed.agents;
                 if (parsed.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
@@ -432,6 +543,7 @@
                     if (data.baseData) gameState.baseData = data.baseData;
                     if (Array.isArray(data.agents)) gameState.agents = data.agents;
                     if (data.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
+                    if (Array.isArray(data.collectedArtifacts)) gameState.collectedArtifacts = data.collectedArtifacts;
                 }
                 gameState.credits = fusedCredits;
                 gameState.materieZellen = fusedMz;
@@ -486,6 +598,7 @@
                     baseData: gameState.baseData,
                     agents: gameState.agents,
                     agentSystemUnlocked: gameState.agentSystemUnlocked,
+                    collectedArtifacts: gameState.collectedArtifacts,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -635,6 +748,16 @@
                 statusLabel = '<div class="bunker-agent-wait">wartet · ' + countdown + '</div>';
             } else if (agent.state === 'working' && countdown) {
                 statusLabel = '<div class="bunker-agent-timer">⏱ ' + countdown + '</div>';
+            } else if (agent.state === 'forge_ready') {
+                statusLabel = '<div class="bunker-agent-wait" style="color:#c060ff;">bereit · Terminal öffnen</div>';
+            } else if (agent.state === 'journey_mission') {
+                statusLabel = '<div class="bunker-agent-timer" style="color:#c060ff;">🌀 Unterwegs · ' + countdown + '</div>';
+            } else if (agent.state === 'journey_forge_return') {
+                statusLabel = '<div class="bunker-agent-timer" style="color:#c060ff;">zurückgekehrt · ' + countdown + '</div>';
+            } else if (agent.state === 'journey_dekontam') {
+                statusLabel = '<div class="bunker-agent-timer">☢ Dekontamination · ' + countdown + '</div>';
+            } else if (agent.state === 'journey_archiv') {
+                statusLabel = '<div class="bunker-agent-timer">📦 Archivierung · ' + countdown + '</div>';
             }
             wrap.innerHTML = '<div class="bunker-agent-level">Lvl ' + agent.level + '</div><div class="bunker-figure"></div>' + statusLabel;
             wrap.onclick = (ev) => {
@@ -642,6 +765,11 @@
                 if (agent.state === 'waiting_in_quartiere') {
                     playBeepBase(300, 0.1);
                     if (typeof showCustomAlert === 'function') showCustomAlert('Agent wartet in den Quartieren und kann gerade nicht ausgewählt werden.');
+                    return;
+                }
+                if (agent.state === 'journey_mission' || agent.state === 'journey_forge_return' || agent.state === 'journey_dekontam' || agent.state === 'journey_archiv') {
+                    playBeepBase(300, 0.1);
+                    if (typeof showCustomAlert === 'function') showCustomAlert('Agent befindet sich im Zeitreise-Kreislauf und kann gerade nicht ausgewählt werden.');
                     return;
                 }
                 playBeepBase(1200, 0.05);
@@ -760,10 +888,21 @@
         return type;
     }
 
+    // Ordnet der Raum-Kategorie die passende CSS-Klasse für den Sidebar-Infotext zu.
+    function roomInfoColorClass(roomType) {
+        const cat = roomEffectCategory(roomType);
+        if (cat === 'passive') return ' passive-room-info';
+        if (cat === 'danger') return ' danger-room-info';
+        if (cat === 'journey') return ' journey-room-info';
+        return '';
+    }
+
     // Liefert 'active' (Agent nötig -> grün), 'passive' (läuft automatisch -> hellblau),
-    // 'danger' (Agent nötig, aber mit Lebensrisiko -> orange) oder null (reine Deko).
+    // 'danger' (Agent nötig, aber mit Lebensrisiko -> orange), 'journey' (Zeitreise-Kreislauf ->
+    // lila) oder null (reine Deko).
     function roomEffectCategory(roomType) {
         if (roomType === 'IMPULS-KONDENSATOR') return 'danger';
+        if (isForgeRoom(roomType)) return 'journey';
         if (roomType === 'AGENTEN-QUARTIERE' || AGENT_TASK_ROOMS[roomType]) return 'active';
         if (PASSIVE_ROOMS[roomType]) return 'passive';
         return null;
@@ -775,6 +914,9 @@
         }
         if (roomType === 'IMPULS-KONDENSATOR') {
             return '⚠ Agent arbeitet hier 20min · 50% Todesrisiko (permanenter Verlust) · bei Erfolg: +1 Level, 2 MZ, 1000 Credits';
+        }
+        if (isForgeRoom(roomType)) {
+            return 'Agent wartet ohne Zeitlimit · Terminal starten für 8h-Zeitreise → Dekontamination (1h) → Archiv (30min)';
         }
         if (PASSIVE_ROOMS[roomType]) {
             return PASSIVE_ROOMS[roomType].text;
@@ -825,7 +967,7 @@
                         '<div class="bunker-floor-label"><b>' + roomDisplayName(room.type) + '</b>' +
                         (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
                         '</div>' +
-                        (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info' + (roomEffectCategory(room.type) === 'passive' ? ' passive-room-info' : (roomEffectCategory(room.type) === 'danger' ? ' danger-room-info' : '')) + '">' + agentRoomInfoText(room.type) + '</div>' : '') +
+                        (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info' + roomInfoColorClass(room.type) + '">' + agentRoomInfoText(room.type) + '</div>' : '') +
                     '</div>' +
                 '</div>';
             floorsEl.appendChild(floor);
@@ -989,6 +1131,7 @@
             document.getElementById('menu-quartiere').style.display = 'none';
             document.getElementById('menu-platzhalter').style.display = 'none';
             reloadFurniture(type); 
+            if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
         } else if (type === 'AGENTEN-QUARTIERE') {
             document.getElementById('menu-zentrale').style.display = 'none';
             document.getElementById('menu-archiv').style.display = 'none';
@@ -2822,6 +2965,10 @@ window.spawnFurniture = (type, count) => {
 // === TEMPORAL TIME FORGE (ehem. VAKUUM-SCHMIEDE) ===
 const menuForge = `
 <div id="menu-vakuum-schmiede" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card" style="border-color:#c060ff;">
+        <b style="color:#c060ff;">[ ZEITREISE-KREISLAUF ]</b>
+        <div id="forge-journey-status" style="font-size:0.75em; color:#aaa; margin-top:6px;">Kein Agent anwesend.</div>
+    </div>
     <div class="upgrade-card" style="border-color:#0ff;"><b style="color:#0ff;">[ ZEITMASCHINEN-KERN ]</b><p style="font-size:0.7em; color:#aaa;">Rotierender Ringkern mit pulsierendem Energiezentrum - das Herzstück der Schmiede.</p><button id="btn-buy-zeitmaschinen-kern" onclick="window.buyFurniture('zeitmaschinen_kern', 3500)" class="btn-upgrade-exec" style="background:#0ff; color:#000; border:1px solid #0ff;">KAUFEN (3500 C + 50 MZ)</button></div>
     <div class="upgrade-card"><b>[ HOLO-PROJEKTOR ]</b><p style="font-size:0.7em; color:#aaa;">Projiziert eine flackernde, rotierende Zeitstrom-Sphäre.</p><button id="btn-buy-holo-projektor" onclick="window.buyFurniture('holo_projektor', 1300)" class="btn-upgrade-exec">KAUFEN (1300 C)</button></div>
     <div class="upgrade-card"><b>[ ENERGIE-BOGEN-GENERATOR ]</b><p style="font-size:0.7em; color:#aaa;">Zwei Ladeknoten mit ständig überspringenden Energiebögen.</p><button id="btn-buy-energie-bogen" onclick="window.buyFurniture('energie_bogen', 950)" class="btn-upgrade-exec">KAUFEN (950 C)</button></div>
@@ -2854,7 +3001,11 @@ window.openRoom = (type) => {
     if (oldOpenRoom_VS) oldOpenRoom_VS(type);
     const m = document.getElementById('menu-vakuum-schmiede');
     if (m) m.style.display = isForgeRoom(type) ? 'flex' : 'none';
-    if (isForgeRoom(type)) { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+    if (isForgeRoom(type)) {
+        const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important');
+        window.reloadFurniture(type); window.updateAusbauButtons();
+        if (typeof renderForgeStatus === 'function') renderForgeStatus();
+    }
 };
 
 const oldBuyFurniture_VS = window.buyFurniture;
@@ -2909,6 +3060,94 @@ window.spawnFurniture = (type, count) => {
     }
     room.appendChild(item);
 };
+
+// === ZEITREISE-KREISLAUF: Terminal-Logik ===
+let forgeTerminalAgentId = null;
+
+function renderForgeStatus() {
+    const box = document.getElementById('forge-journey-status');
+    if (!box) return;
+    // Sucht gezielt einen Agenten, der HIER wartet (forge_ready) - andere Zustände (z.B. schon
+    // unterwegs) sollen den Button nicht erneut anzeigen.
+    const readyAgent = gameState.agents.find(a => isForgeRoom(a.location) && a.state === 'forge_ready');
+    if (readyAgent) {
+        box.innerHTML = 'Agent (Lvl ' + readyAgent.level + ') wartet bereit.<br>' +
+            '<button class="btn-upgrade-exec" style="margin-top:8px; background:#c060ff; color:#000; border:1px solid #c060ff;" onclick="window.openForgeTerminal(\'' + readyAgent.id + '\')">⏳ ZEITREISE-TERMINAL ÖFFNEN</button>';
+    } else {
+        const busyAgent = gameState.agents.find(a => a.state === 'journey_mission' && isForgeRoom(a.location));
+        const returnAgent = gameState.agents.find(a => a.state === 'journey_forge_return');
+        if (busyAgent) {
+            box.innerHTML = '🌀 Agent ist auf Zeitreise unterwegs · Rückkehr in ' + formatAgentCountdown(busyAgent) + '.';
+        } else if (returnAgent) {
+            box.innerHTML = 'Agent kurz zurück in der Forge, bevor es weiter zur Dekontaminationsschleuse geht.';
+        } else {
+            box.innerHTML = 'Kein Agent bereit. Weise einen Agenten dieser Forge zu.';
+        }
+    }
+}
+
+window.openForgeTerminal = function(agentId) {
+    const agent = gameState.agents.find(a => a.id === agentId);
+    if (!agent || agent.state !== 'forge_ready') { if (typeof showCustomAlert === 'function') showCustomAlert('Agent ist nicht mehr bereit.'); return; }
+    forgeTerminalAgentId = agentId;
+    const yearInput = document.getElementById('forge-terminal-year');
+    const log = document.getElementById('forge-terminal-log');
+    const startBtn = document.getElementById('forge-terminal-start-btn');
+    if (yearInput) yearInput.value = '';
+    if (log) log.innerHTML = '';
+    if (startBtn) { startBtn.disabled = false; startBtn.innerText = 'START'; }
+    const overlay = document.getElementById('forge-terminal-overlay');
+    if (overlay) overlay.style.display = 'flex';
+};
+
+window.closeForgeTerminal = function() {
+    const overlay = document.getElementById('forge-terminal-overlay');
+    if (overlay) overlay.style.display = 'none';
+    forgeTerminalAgentId = null;
+};
+
+window.startForgeJourney = function() {
+    const agent = gameState.agents.find(a => a.id === forgeTerminalAgentId);
+    if (!agent || agent.state !== 'forge_ready') { if (typeof showCustomAlert === 'function') showCustomAlert('Agent ist nicht mehr bereit.'); window.closeForgeTerminal(); return; }
+    const yearInput = document.getElementById('forge-terminal-year');
+    const year = (yearInput && yearInput.value.trim()) ? yearInput.value.trim() : 'UNBEKANNT';
+    const log = document.getElementById('forge-terminal-log');
+    const startBtn = document.getElementById('forge-terminal-start-btn');
+    if (startBtn) { startBtn.disabled = true; startBtn.innerText = 'LÄUFT...'; }
+
+    const lines = [
+        '> Zielkoordinate eingehend: Jahr ' + year,
+        '> Kalibriere Zeitmaschinen-Kern...',
+        '> Energie-Bögen stabilisiert.',
+        '> Temporale Signatur des Agenten verankert.',
+        '> Sprungfenster wird geöffnet...',
+        '> AGENT VERSETZT. Mission gestartet - Rückkehr in ~8h.'
+    ];
+    let i = 0;
+    function printNext() {
+        if (!log) return;
+        if (i < lines.length) {
+            const l = document.createElement('div');
+            l.innerText = lines[i];
+            log.appendChild(l);
+            log.scrollTop = log.scrollHeight;
+            i++;
+            setTimeout(printNext, 650);
+        } else {
+            // Erst NACHDEM das Log fertig durchgelaufen ist, wird die eigentliche Mission
+            // scharf geschaltet - passt zum "Start"-Gefühl des Terminals.
+            agent.state = 'journey_mission';
+            agent.taskStartTs = Date.now();
+            agent.taskDurationMs = agentScaledDurationMs(FORGE_MISSION_HOURS, agent.level);
+            saveGameState();
+            renderBunkerAgentVisuals();
+            renderForgeStatus();
+            setTimeout(window.closeForgeTerminal, 1500);
+        }
+    }
+    printNext();
+};
+
 
 
 /* ==== next block ==== */
