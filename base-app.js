@@ -3053,7 +3053,7 @@ window.spawnFurniture = (type, count) => {
     if (type === 'zeitmaschinen_kern') {
         item.classList.add('item-zeitmaschinen-kern');
         item.innerHTML =
-            '<div class="ttf-ring ttf-ring-1"></div><div class="ttf-ring ttf-ring-2"></div><div class="ttf-ring ttf-ring-3"></div>' +
+            '<div class="ttf-ring ttf-ring-1"></div><div class="ttf-ring ttf-ring-2"></div><div class="ttf-ring ttf-ring-3"></div><div class="ttf-ring ttf-ring-4"></div><div class="ttf-ring ttf-ring-5"></div>' +
             '<svg class="ttf-lightning-svg" viewBox="0 0 110 110"></svg>' +
             '<div class="ttf-core"></div>' +
             '<div class="ttf-spark s1"></div><div class="ttf-spark s2"></div><div class="ttf-spark s3"></div>' +

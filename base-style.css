@@ -851,17 +851,19 @@
     23%,25% { opacity:1; } 68%,70% { opacity:1; }
 }
 
-/* Zeitmaschinen-Kern: drei gegenläufig rotierende, RÄUMLICH GENEIGTE Ringe (perspective+rotateX,
-   damit sie wie echte umlaufende Ringe statt flache Kreise wirken) um einen pulsierenden
-   Energiekern, mit umkreisenden Funken. Eigene Keyframes (nicht die der Chrono-Leuchte
-   wiederverwendet), da die Neigung nur hier gebraucht wird. */
-@keyframes ttf-core-ring-spin { from { transform:translate(-50%,-50%) rotateX(62deg) rotateZ(0deg); } to { transform:translate(-50%,-50%) rotateX(62deg) rotateZ(360deg); } }
-@keyframes ttf-core-ring-spin-rev { from { transform:translate(-50%,-50%) rotateX(62deg) rotateZ(360deg); } to { transform:translate(-50%,-50%) rotateX(62deg) rotateZ(0deg); } }
-.item-zeitmaschinen-kern { width:110px; height:110px; position:absolute; z-index:3; left:50%; bottom:35px; transform:translateX(-50%); perspective:280px; }
-.ttf-ring { position:absolute; top:50%; left:50%; border-radius:50%; border-style:solid; transform-style:preserve-3d; }
-.ttf-ring-1 { width:104px; height:104px; border-width:4px; border-color:#0ff transparent #0ff transparent; margin:-52px 0 0 -52px; animation:ttf-core-ring-spin 4s linear infinite; box-shadow:0 0 15px #0ff; }
-.ttf-ring-2 { width:76px; height:76px; border-width:3px; border-color:transparent #08f transparent #08f; margin:-38px 0 0 -38px; animation:ttf-core-ring-spin-rev 2.6s linear infinite; box-shadow:0 0 12px #08f; }
-.ttf-ring-3 { width:50px; height:50px; border-width:3px; border-color:#c0f #c0f transparent transparent; margin:-25px 0 0 -25px; animation:ttf-core-ring-spin 1.6s linear infinite; box-shadow:0 0 10px #c0f; }
+/* Zeitmaschinen-Kern: fünf konzentrische, gegenläufig rotierende Ringe unterschiedlicher
+   Geschwindigkeit um einen pulsierenden Energiekern - bewusst FLACH (kein 3D-Tilt mehr), da
+   die vorherige Kippung die Ringe optisch vom Kern-Mittelpunkt weg verschoben hat, obwohl
+   beide rechnerisch denselben Zentrierungspunkt (top:50%/left:50%/margin) nutzten. Jeder Ring
+   wird zur "Rückseite" hin kleiner und etwas dunkler, für einen Tunnel-/Sog-Effekt. Sitzt
+   direkt über dem Sockel (.ttf-base), Kern exakt im Zentrum aller Ringe. */
+.item-zeitmaschinen-kern { width:110px; height:110px; position:absolute; z-index:3; left:50%; bottom:35px; transform:translateX(-50%); }
+.ttf-ring { position:absolute; top:50%; left:50%; border-radius:50%; border-style:solid; }
+.ttf-ring-1 { width:104px; height:104px; border-width:4px; border-color:#0ff transparent #0ff transparent; margin:-52px 0 0 -52px; animation:ttf-ring-spin 4s linear infinite; box-shadow:0 0 15px #0ff; }
+.ttf-ring-2 { width:86px; height:86px; border-width:3px; border-color:transparent #08f transparent #08f; margin:-43px 0 0 -43px; animation:ttf-ring-spin-rev 3.1s linear infinite; box-shadow:0 0 13px #08f; }
+.ttf-ring-3 { width:68px; height:68px; border-width:3px; border-color:#c0f #c0f transparent transparent; margin:-34px 0 0 -34px; animation:ttf-ring-spin 2.4s linear infinite; box-shadow:0 0 11px #c0f; }
+.ttf-ring-4 { width:50px; height:50px; border-width:2px; border-color:transparent #0f8 transparent #0f8; margin:-25px 0 0 -25px; animation:ttf-ring-spin-rev 1.8s linear infinite; box-shadow:0 0 9px #0f8; opacity:0.8; }
+.ttf-ring-5 { width:34px; height:34px; border-width:2px; border-color:#fff #fff transparent transparent; margin:-17px 0 0 -17px; animation:ttf-ring-spin 1.3s linear infinite; box-shadow:0 0 8px #fff; opacity:0.6; }
 .ttf-core { width:22px; height:22px; position:absolute; top:50%; left:50%; margin:-11px 0 0 -11px; border-radius:50%; background:radial-gradient(circle,#fff,#0ff 40%,#08f 80%); animation:ttf-core-pulse 1.5s ease-in-out infinite; z-index:2; }
 .ttf-spark { width:4px; height:4px; border-radius:50%; background:#fff; position:absolute; top:50%; left:50%; box-shadow:0 0 8px #fff, 0 0 15px #0ff; animation:ttf-spark-orbit 2.2s linear infinite; }
 .ttf-spark.s2 { animation-duration:3.2s; animation-direction:reverse; background:#c0f; box-shadow:0 0 8px #c0f; }
