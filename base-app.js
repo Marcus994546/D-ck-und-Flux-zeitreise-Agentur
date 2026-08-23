@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMission: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -99,8 +99,33 @@
         'KINETIK-LABOR':        { hours: 1, effect: 'player_xp', amount: 5 },
         // Höchstes Risiko: 20min Zyklus, 50% Chance den Agenten dauerhaft zu verlieren -
         // Sonderbehandlung direkt in tickAgents(), da applyAgentReward() kein Löschen kennt.
-        'IMPULS-KONDENSATOR':   { hours: 20 / 60, effect: 'life_risk' }
+        'IMPULS-KONDENSATOR':   { hours: 20 / 60, effect: 'life_risk' },
+        // Nur der Starter-Agent darf hier arbeiten (siehe moveAgentTo).
+        'OSZILLATIONS-KAMMER':  { hours: 15, effect: 'materiezelle', amount: 1 },
+        // Erzeugt kein direktes Ressourcen-Reward, sondern den aktuellen Zeitreise-Auftrag
+        // (Ziel-Jahr + Briefing) - Sonderbehandlung in applyAgentReward().
+        'FUNK-RELAIS "HORIZONT"': { hours: 0.5, effect: 'horizon_mission' }
     };
+
+    // Kreative Sci-Fi-Aufträge für das Funk-Relais "Horizont" - kombiniert mit einem Zieljahr,
+    // das immer mindestens 30 Jahre in der Zukunft oder Vergangenheit liegt.
+    const HORIZON_BRIEFINGS = [
+        'Behebe eine temporale Anomalie', 'Sichere ein zeitverlorenes Artefakt',
+        'Stabilisiere einen kollabierenden Zeitstrom', 'Verhindere eine Paradox-Kaskade',
+        'Untersuche ein anomales Chronosignal', 'Berge Daten aus einem havarierten Zeitschiff',
+        'Neutralisiere einen Temporal-Parasiten', 'Kartiere eine unbekannte Zeitlinie',
+        'Rette eine gestrandete Expedition', 'Extrahiere eine Quantenspur',
+        'Kalibriere einen Zeit-Leuchtturm', 'Verfolge eine Signatur aus einer Alternativ-Zeitlinie'
+    ];
+    function generateHorizonMission() {
+        const briefing = HORIZON_BRIEFINGS[Math.floor(Math.random() * HORIZON_BRIEFINGS.length)];
+        const currentYear = new Date().getFullYear();
+        const direction = Math.random() < 0.5 ? -1 : 1;
+        const offset = 30 + Math.floor(Math.random() * 200); // mind. 30, bis zu 230 Jahre
+        const year = currentYear + direction * offset;
+        return { briefing: briefing, year: String(year) };
+    }
+
 
     // Passive Räume: laufen automatisch im Hintergrund, sobald gebaut - kein Agent nötig.
     // "text" ist die Kurzbeschreibung in der Raum-Sidebar (siehe agentRoomInfoText).
@@ -198,6 +223,9 @@
                 taskStartTs: null,
                 taskDurationMs: null
             });
+        } else if (task.effect === 'horizon_mission') {
+            gameState.horizonMission = generateHorizonMission();
+            if (typeof showInfoToast === 'function') showInfoToast('Funk-Relais "Horizont": Neuer Zeitreise-Auftrag empfangen - Ziel: Jahr ' + gameState.horizonMission.year + '.');
         }
     }
 
@@ -231,13 +259,17 @@
 
         let artifactMsg = '';
         const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a));
-        if (uncollected.length > 0 && Math.random() < 0.6) {
+        // Kein Zufall mehr: nur wenn beim Missionsstart in der Forge exakt das aktuelle
+        // Horizont-Zieljahr eingegeben wurde (agent.artifactEligible, siehe startForgeJourney),
+        // gibt es überhaupt eine Chance auf ein Artefakt aus dem noch nicht gesammelten Pool.
+        if (agent.artifactEligible && uncollected.length > 0) {
             const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
             gameState.collectedArtifacts.push(picked);
             artifactMsg = ' + Artefakt geborgen: ' + picked;
         }
+        agent.artifactEligible = false;
 
-        if (typeof showCustomAlert === 'function') {
+        if (typeof showInfoToast === 'function') {
             showInfoToast('Zeitreise-Kreislauf abgeschlossen: +' + chronos + ' Chronos-Zellen' + artifactMsg);
         }
         if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
@@ -381,6 +413,7 @@
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
         if (typeof renderBunkerAgentVisuals === 'function' && bunkerActive) renderBunkerAgentVisuals();
         if (typeof renderForgeStatus === 'function') renderForgeStatus();
+        if (typeof renderHorizonStatus === 'function') renderHorizonStatus();
         return changed;
     }
 
@@ -425,6 +458,10 @@
         }
         if (agent.isStarter && targetType === 'IMPULS-KONDENSATOR') {
             if (typeof showCustomAlert === 'function') showCustomAlert('Der Starter-Agent darf den Impuls-Kondensator nicht betreten - so bleibt immer mindestens ein Agent garantiert am Leben.');
+            return;
+        }
+        if (!agent.isStarter && targetType === 'OSZILLATIONS-KAMMER') {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Zugang verweigert. Nur für Agent #1.');
             return;
         }
         if (agent.location === targetType && agent.state !== 'working') return;
@@ -511,6 +548,7 @@
                 if (parsed.materieZellen !== undefined) gameState.materieZellen = parsed.materieZellen;
                 if (parsed.chronosZellen !== undefined) gameState.chronosZellen = parsed.chronosZellen;
                 if (Array.isArray(parsed.collectedArtifacts)) gameState.collectedArtifacts = parsed.collectedArtifacts;
+                if (parsed.horizonMission !== undefined) gameState.horizonMission = parsed.horizonMission;
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
                 if (Array.isArray(parsed.agents)) gameState.agents = parsed.agents;
                 if (parsed.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
@@ -567,6 +605,7 @@
                     if (Array.isArray(data.agents)) gameState.agents = data.agents;
                     if (data.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
                     if (Array.isArray(data.collectedArtifacts)) gameState.collectedArtifacts = data.collectedArtifacts;
+                    if (data.horizonMission !== undefined) gameState.horizonMission = data.horizonMission;
                 }
                 gameState.credits = fusedCredits;
                 gameState.materieZellen = fusedMz;
@@ -604,6 +643,7 @@
         d.credits = gameState.credits; 
         d.mz = gameState.materieZellen; 
         d.chronosZellen = gameState.chronosZellen;
+        d.horizonMission = gameState.horizonMission;
         d.lvl = gameState.userLevel; 
         localStorage.setItem(mainProfileKey, JSON.stringify(d));
 
@@ -622,6 +662,7 @@
                     agents: gameState.agents,
                     agentSystemUnlocked: gameState.agentSystemUnlocked,
                     collectedArtifacts: gameState.collectedArtifacts,
+                    horizonMission: gameState.horizonMission,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -926,7 +967,7 @@
     // lila) oder null (reine Deko).
     function roomEffectCategory(roomType) {
         if (roomType === 'IMPULS-KONDENSATOR') return 'danger';
-        if (isForgeRoom(roomType) || roomType === 'DEKONTAMINATIONS-SCHLEUSE' || roomType === 'ARTEFAKT-ARCHIV') return 'journey';
+        if (isForgeRoom(roomType) || roomType === 'DEKONTAMINATIONS-SCHLEUSE' || roomType === 'ARTEFAKT-ARCHIV' || roomType === 'FUNK-RELAIS "HORIZONT"') return 'journey';
         if (roomType === 'AGENTEN-QUARTIERE' || AGENT_TASK_ROOMS[roomType]) return 'active';
         if (PASSIVE_ROOMS[roomType]) return 'passive';
         return null;
@@ -946,7 +987,13 @@
             return 'Zwischenstation im Zeitreise-Kreislauf · Agent verbleibt hier genau 1h zur temporalen Reinigung';
         }
         if (roomType === 'ARTEFAKT-ARCHIV') {
-            return 'Abschluss des Zeitreise-Kreislaufs · 30min · Belohnung: 1-5 Chronos-Zellen, zu 60% ein Artefakt';
+            return 'Abschluss des Zeitreise-Kreislaufs · 30min · Belohnung: 1-5 Chronos-Zellen, Artefakt nur bei korrektem Horizont-Zieljahr';
+        }
+        if (roomType === 'OSZILLATIONS-KAMMER') {
+            return 'Nur Agent #1 (Starter) · 15h · Belohnung: 1 Materiezelle';
+        }
+        if (roomType === 'FUNK-RELAIS "HORIZONT"') {
+            return 'Agent 30min zugewiesen · erzeugt einen Zeitreise-Auftrag (Ziel-Jahr) für die TEMPORAL TIME FORGE';
         }
         if (roomType === 'TRANSFORMATOREN-STATION') {
             return PASSIVE_ROOMS[roomType].text +
@@ -3214,6 +3261,15 @@ window.startForgeJourney = function() {
         } else {
             // Erst NACHDEM das Log fertig durchgelaufen ist, wird die eigentliche Mission
             // scharf geschaltet - passt zum "Start"-Gefühl des Terminals.
+            // Artefakt-Berechtigung: nur wenn das eingegebene Jahr EXAKT dem aktuellen
+            // Funk-Relais-"Horizont"-Auftrag entspricht. Bei Treffer wird der Auftrag verbraucht
+            // (Button im Relais verschwindet dann beim nächsten Öffnen des Raums).
+            const horizonMatch = gameState.horizonMission && String(gameState.horizonMission.year) === year;
+            agent.artifactEligible = !!horizonMatch;
+            if (horizonMatch) {
+                gameState.horizonMission = null;
+                if (typeof renderHorizonStatus === 'function') renderHorizonStatus();
+            }
             agent.state = 'journey_mission';
             agent.taskStartTs = Date.now();
             agent.taskDurationMs = agentScaledDurationMs(FORGE_MISSION_HOURS, agent.level, agent.isStarter);
@@ -3727,6 +3783,10 @@ window.spawnFurniture = (type, count) => {
 // === FUNK-RELAIS "HORIZONT" ===
 const menuFunkRelais = `
 <div id="menu-funk-relais-horizont" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card" style="border-color:#c060ff;">
+        <b style="color:#c060ff;">[ ZEITREISE-AUFTRAG ]</b>
+        <div id="horizon-mission-status" style="font-size:0.75em; color:#aaa; margin-top:6px;">Kein aktiver Auftrag.</div>
+    </div>
     <div class="upgrade-card"><b>[ SIGNAL-BLINKLICHT ]</b><p style="font-size:0.7em; color:#aaa;">Rot-weiß blinkendes Antennenlicht.</p><button id="btn-buy-lampe-funk" onclick="window.buyFurniture('lampe_funk', 130)" class="btn-upgrade-exec">KAUFEN (130 C)</button></div>
     <div class="upgrade-card"><b>[ PARABOL-ANTENNE 'HORIZONT' ]</b><p style="font-size:0.7em; color:#aaa;">Rotierende Schüssel, sendet Signalwellen aus.</p><button id="btn-buy-parabol-antenne" onclick="window.buyFurniture('parabol_antenne', 1000)" class="btn-upgrade-exec">KAUFEN (1000 C)</button></div>
     <div class="upgrade-card"><b>[ SUBRAUM-FREQUENZMODULATOR ]</b><p style="font-size:0.7em; color:#aaa;">Konsole mit lebendiger Wellenform-Anzeige.</p><button id="btn-buy-subraum-modulator" onclick="window.buyFurniture('subraum_modulator', 3100)" class="btn-upgrade-exec" style="background:#08f; color:#000; border:1px solid #08f;">KAUFEN (3100 C + 45 MZ)</button></div>
@@ -3756,7 +3816,36 @@ window.openRoom = (type) => {
     if (oldOpenRoom_FR) oldOpenRoom_FR(type);
     const m = document.getElementById('menu-funk-relais-horizont');
     if (m) m.style.display = (type === 'FUNK-RELAIS "HORIZONT"') ? 'flex' : 'none';
-    if (type === 'FUNK-RELAIS "HORIZONT"') { const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important'); window.reloadFurniture(type); window.updateAusbauButtons(); }
+    if (type === 'FUNK-RELAIS "HORIZONT"') {
+        const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important');
+        window.reloadFurniture(type); window.updateAusbauButtons();
+        if (typeof renderHorizonStatus === 'function') renderHorizonStatus();
+    }
+};
+
+function renderHorizonStatus() {
+    const box = document.getElementById('horizon-mission-status');
+    if (!box) return;
+    if (gameState.horizonMission) {
+        box.innerHTML = 'Auftrag aktiv - Zieljahr: <b style="color:#c060ff;">' + gameState.horizonMission.year + '</b><br>' +
+            '<button class="btn-upgrade-exec" style="margin-top:8px; background:#c060ff; color:#000; border:1px solid #c060ff;" onclick="window.showHorizonBriefing()">📡 BRIEFING ANZEIGEN</button>';
+    } else {
+        box.innerHTML = 'Kein aktiver Auftrag. Weise einen Agenten für 30min zu, um einen neuen Zeitreise-Auftrag zu empfangen.';
+    }
+}
+
+window.showHorizonBriefing = function() {
+    if (!gameState.horizonMission) { if (typeof showCustomAlert === 'function') showCustomAlert('Kein aktiver Auftrag.'); return; }
+    const overlay = document.getElementById('horizon-briefing-overlay');
+    const text = document.getElementById('horizon-briefing-text');
+    const year = document.getElementById('horizon-briefing-year');
+    if (text) text.innerText = gameState.horizonMission.briefing;
+    if (year) year.innerText = gameState.horizonMission.year;
+    if (overlay) overlay.style.display = 'flex';
+};
+window.closeHorizonBriefing = function() {
+    const overlay = document.getElementById('horizon-briefing-overlay');
+    if (overlay) overlay.style.display = 'none';
 };
 
 const oldBuyFurniture_FR = window.buyFurniture;
