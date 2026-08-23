@@ -142,9 +142,12 @@
     const ROOM_BUILD_COST_MZ = 10;
 
     // Formel lt. Vorgabe: Neue Dauer = Basis-Dauer * (1 - (Level - 1) * 0.05)
+    // Für Admin-Accounts gilt zusätzlich ein permanenter 95%-Speed-Bonus (nur 5% der Zeit) -
+    // rein zum schnelleren Testen des kompletten Agenten-/Zeitreise-Systems.
+    function adminTimeFactor() { return isAdminSession ? 0.05 : 1; }
     function agentScaledDurationMs(baseHours, level) {
         const factor = Math.max(0.1, 1 - (level - 1) * 0.05); // Untergrenze, falls Level je höher als 19 würde
-        return Math.round(baseHours * 3600000 * factor);
+        return Math.round(baseHours * 3600000 * factor * adminTimeFactor());
     }
 
     const AGENT_UNLOCK_COST_CREDITS = 13000;
@@ -291,7 +294,7 @@
                 if (now - agent.taskStartTs >= agent.taskDurationMs) {
                     agent.state = 'journey_forge_return';
                     agent.taskStartTs = now;
-                    agent.taskDurationMs = 60000; // genau 1 Minute, bewusst NICHT level-skaliert
+                    agent.taskDurationMs = Math.round(FORGE_RETURN_MS * adminTimeFactor()); // genau 1 Minute, bewusst NICHT level-skaliert
                     changed = true;
                 }
             } else if (agent.state === 'journey_forge_return') {
@@ -299,7 +302,7 @@
                     agent.location = 'DEKONTAMINATIONS-SCHLEUSE';
                     agent.state = 'journey_dekontam';
                     agent.taskStartTs = now;
-                    agent.taskDurationMs = 3600000; // genau 1 Stunde
+                    agent.taskDurationMs = Math.round(DEKONTAM_JOURNEY_MS * adminTimeFactor()); // genau 1 Stunde
                     changed = true;
                 }
             } else if (agent.state === 'journey_dekontam') {
@@ -307,7 +310,7 @@
                     agent.location = 'ARTEFAKT-ARCHIV';
                     agent.state = 'journey_archiv';
                     agent.taskStartTs = now;
-                    agent.taskDurationMs = 1800000; // genau 30 Minuten
+                    agent.taskDurationMs = Math.round(ARCHIV_JOURNEY_MS * adminTimeFactor()); // genau 30 Minuten
                     changed = true;
                 }
             } else if (agent.state === 'journey_archiv') {
@@ -3041,6 +3044,7 @@ window.spawnFurniture = (type, count) => {
         item.classList.add('item-zeitmaschinen-kern');
         item.innerHTML =
             '<div class="ttf-ring ttf-ring-1"></div><div class="ttf-ring ttf-ring-2"></div><div class="ttf-ring ttf-ring-3"></div>' +
+            '<div class="ttf-bolt tb1"></div><div class="ttf-bolt tb2"></div><div class="ttf-bolt tb3"></div>' +
             '<div class="ttf-core"></div>' +
             '<div class="ttf-spark s1"></div><div class="ttf-spark s2"></div><div class="ttf-spark s3"></div>' +
             '<div class="ttf-base"></div>';
