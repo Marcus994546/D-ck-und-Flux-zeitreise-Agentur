@@ -889,10 +889,10 @@
     // ansonsten steht er dort, wo der zuletzt aktive Agent sich gerade befindet.
     let bunkerElevatorAnimating = false;
 
-    // Wiederverwendbare Aufzug-Fahrt-Animation - läuft jetzt in drei klaren Etappen statt einer
-    // einzigen durchgehenden Gleitbewegung: (1) Aufzug fährt zur AKTUELLEN Position des Agenten
-    // und hält dort an, (2) das Männchen steigt sichtbar ein (kurze Pause), (3) erst DANACH
-    // fährt der Aufzug zum eigentlichen Ziel weiter.
+    // Wiederverwendbare Aufzug-Fahrt-Animation - Ablauf: (1) Aufzug fährt zur AKTUELLEN Position
+    // des Agenten, (2) steht dort GENAU 10s lang, während (3) das Männchen sichtbar aus der
+    // Raummitte in den Aufzug hineinläuft (dauert 5s, läuft innerhalb der 10s Standzeit ab),
+    // (4) erst nach den vollen 10s fährt der Aufzug weiter. Kein Countdown/Timer wird angezeigt.
     function playElevatorAnimation(oldLocation, newLocation) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
         const car = document.getElementById('bunker-elevator-car');
@@ -902,8 +902,9 @@
         if (!car || newIdx < 0) return;
 
         const PICKUP_MS = 1800;   // Anfahrt zur Abholung
-        const BOARD_MS = 900;     // Pause, während das Männchen einsteigt
-        const DEPART_MS = 2600;   // Fahrt zum Ziel
+        const STAND_MS = 10000;   // Aufzug steht am Zielfloor - genau 10s, wie gewünscht
+        const WALK_MS = 5000;     // Männchen braucht 5s von der Raummitte bis zum Aufzug
+        const DEPART_MS = 2600;   // Fahrt zum eigentlichen Ziel
         const ARRIVE_MS = 500;    // kurze Pause nach Ankunft, bevor neu gerendert wird
 
         bunkerElevatorAnimating = true;
@@ -925,9 +926,26 @@
             setTimeout(() => setTimeout(finish, ARRIVE_MS), DEPART_MS);
         }
 
-        function board() {
-            if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
-            setTimeout(depart, BOARD_MS);
+        function boardAndWait() {
+            // Laufanimation: das Männchen wandert sichtbar von der Raummitte zum Aufzug.
+            const roomPreview = (oldIdx >= 0) ? document.getElementById('bunker-room-' + oldIdx) : null;
+            if (roomPreview) {
+                const walker = document.createElement('div');
+                walker.className = 'bunker-walking-figure';
+                walker.innerHTML = '<div class="bunker-figure"></div>';
+                roomPreview.appendChild(walker);
+                requestAnimationFrame(() => { walker.style.left = '0%'; });
+                setTimeout(() => {
+                    walker.remove();
+                    if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
+                }, WALK_MS);
+            } else {
+                // Raum nicht auffindbar - Männchen erscheint direkt im Aufzug, ohne Lauf-Animation.
+                if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
+            }
+            // Unabhängig vom Laufweg steht der Aufzug in jedem Fall die vollen 10s, bevor er
+            // weiterfährt (die 5s Laufzeit passen locker hinein).
+            setTimeout(depart, STAND_MS);
         }
 
         if (oldIdx >= 0) {
@@ -937,11 +955,11 @@
             requestAnimationFrame(() => {
                 car.style.top = (oldIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
             });
-            setTimeout(board, PICKUP_MS);
+            setTimeout(boardAndWait, PICKUP_MS);
         } else {
             // Alte Position unbekannt - Aufzug bleibt einfach stehen, wo er gerade ist
             // (keine falsche Rückkehr zur Zentrale), Männchen steigt direkt dort ein.
-            board();
+            boardAndWait();
         }
     }
 
