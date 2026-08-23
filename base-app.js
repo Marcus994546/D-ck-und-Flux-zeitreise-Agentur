@@ -231,7 +231,7 @@
         }
 
         if (typeof showCustomAlert === 'function') {
-            showCustomAlert('Zeitreise-Kreislauf abgeschlossen: +' + chronos + ' Chronos-Zellen' + artifactMsg);
+            showInfoToast('Zeitreise-Kreislauf abgeschlossen: +' + chronos + ' Chronos-Zellen' + artifactMsg);
         }
         if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
     }
@@ -335,7 +335,7 @@
                             if (agent.level < AGENT_MAX_LEVEL) agent.level++;
                             gameState.materieZellen += 2;
                             gameState.credits += 1000;
-                            if (typeof showCustomAlert === 'function') showCustomAlert('Impuls-Kondensator: Agent hat die Entladung überlebt und ist aufgestiegen! (+1 Level, +2 MZ, +1000 Credits)');
+                            if (typeof showInfoToast === 'function') showInfoToast('Impuls-Kondensator: Agent hat die Entladung überlebt und ist aufgestiegen! (+1 Agentenlevel, +2 MZ, +1000 Credits)');
                         } else {
                             gameState.agents = gameState.agents.filter(a => a.id !== agent.id);
                             if (typeof showCustomAlert === 'function') showCustomAlert('Impuls-Kondensator: Agent wurde von der Entladung getötet und dauerhaft gelöscht.');
@@ -905,7 +905,7 @@
     // lila) oder null (reine Deko).
     function roomEffectCategory(roomType) {
         if (roomType === 'IMPULS-KONDENSATOR') return 'danger';
-        if (isForgeRoom(roomType)) return 'journey';
+        if (isForgeRoom(roomType) || roomType === 'DEKONTAMINATIONS-SCHLEUSE' || roomType === 'ARTEFAKT-ARCHIV') return 'journey';
         if (roomType === 'AGENTEN-QUARTIERE' || AGENT_TASK_ROOMS[roomType]) return 'active';
         if (PASSIVE_ROOMS[roomType]) return 'passive';
         return null;
@@ -916,10 +916,16 @@
             return 'Pflicht-Zwischenstopp bei jedem Raumwechsel · wartet hier 1h';
         }
         if (roomType === 'IMPULS-KONDENSATOR') {
-            return '⚠ Agent arbeitet hier 20min · 50% Todesrisiko · bei Erfolg: +1 Level, 2 MZ, 1000 Credits';
+            return '⚠ Agent wartet 20 Minuten · 50% Todesrisiko · bei Erfolg: +1 Agentenlevel, 2 MZ, 1000 Credits';
         }
         if (isForgeRoom(roomType)) {
             return 'Agent wartet ohne Zeitlimit · Terminal starten für 8h-Zeitreise → Dekontamination (1h) → Archiv (30min)';
+        }
+        if (roomType === 'DEKONTAMINATIONS-SCHLEUSE') {
+            return 'Zwischenstation im Zeitreise-Kreislauf · Agent verbleibt hier genau 1h zur temporalen Reinigung';
+        }
+        if (roomType === 'ARTEFAKT-ARCHIV') {
+            return 'Abschluss des Zeitreise-Kreislaufs · Agent verbleibt hier 30min · Belohnung: 1-5 Chronos-Zellen, 60% Chance auf ein Artefakt';
         }
         if (roomType === 'TRANSFORMATOREN-STATION') {
             return PASSIVE_ROOMS[roomType].text +
@@ -3048,7 +3054,7 @@ window.spawnFurniture = (type, count) => {
         item.classList.add('item-zeitmaschinen-kern');
         item.innerHTML =
             '<div class="ttf-ring ttf-ring-1"></div><div class="ttf-ring ttf-ring-2"></div><div class="ttf-ring ttf-ring-3"></div>' +
-            '<div class="ttf-bolt tb1"></div><div class="ttf-bolt tb2"></div><div class="ttf-bolt tb3"></div>' +
+            '<svg class="ttf-lightning-svg" viewBox="0 0 110 110"></svg>' +
             '<div class="ttf-core"></div>' +
             '<div class="ttf-spark s1"></div><div class="ttf-spark s2"></div><div class="ttf-spark s3"></div>' +
             '<div class="ttf-base"></div>';
@@ -3067,10 +3073,53 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="cl-ring"></div>';
     }
     room.appendChild(item);
+    if (type === 'zeitmaschinen_kern') {
+        const svg = item.querySelector('.ttf-lightning-svg');
+        if (svg && typeof spawnForgeLightning === 'function') spawnForgeLightning(svg);
+    }
 };
 
 // === ZEITREISE-KREISLAUF: Terminal-Logik ===
 let forgeTerminalAgentId = null;
+
+// Zeichnet einzigartige, gezackte Blitze im Zeitmaschinen-Kern per SVG - bewusst KEINE geraden
+// Balken wie beim Energie-Bogen-Generator, sondern ein per Zufall verzerrter Zickzack-Pfad, der
+// in eine zufällige Richtung vom Zentrum aus "schießt". Läuft in einer selbstbeendenden Schleife:
+// sobald das Element den Raum verlässt (z.B. Raum geschlossen -> clearRoom), bricht sie von
+// selbst ab, statt für immer im Hintergrund weiterzulaufen.
+function spawnForgeLightning(svgEl) {
+    function jaggedPath(angleDeg) {
+        const cx = 55, cy = 55;
+        const angle = angleDeg * Math.PI / 180;
+        const perp = angle + Math.PI / 2;
+        const length = 26 + Math.random() * 22;
+        const steps = 4 + Math.floor(Math.random() * 3);
+        const pts = [];
+        for (let i = 0; i <= steps; i++) {
+            const frac = i / steps;
+            const dist = 6 + frac * length;
+            const jitter = i === 0 ? 0 : (Math.random() - 0.5) * 16;
+            const x = cx + Math.cos(angle) * dist + Math.cos(perp) * jitter;
+            const y = cy + Math.sin(angle) * dist + Math.sin(perp) * jitter;
+            pts.push(x.toFixed(1) + ',' + y.toFixed(1));
+        }
+        return pts.join(' ');
+    }
+    function flash() {
+        if (!document.body.contains(svgEl)) return; // Raum verlassen - Schleife beenden
+        svgEl.innerHTML = '';
+        const count = 1 + Math.floor(Math.random() * 2); // 1-2 gleichzeitige Blitze
+        for (let i = 0; i < count; i++) {
+            const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            poly.setAttribute('points', jaggedPath(Math.random() * 360)); // zufällige Richtung
+            poly.setAttribute('class', 'ttf-lightning-bolt');
+            svgEl.appendChild(poly);
+        }
+        setTimeout(() => { if (document.body.contains(svgEl)) svgEl.innerHTML = ''; }, 120 + Math.random() * 100);
+        setTimeout(flash, 450 + Math.random() * 1300);
+    }
+    flash();
+}
 
 function renderForgeStatus() {
     const box = document.getElementById('forge-journey-status');
@@ -3827,7 +3876,7 @@ window.exchangeCreditsForMZ = async function() {
         gameState.materieZellen += 1;
         updateUI();
         await saveGameState();
-        if (typeof showCustomAlert === 'function') showCustomAlert('Tausch erfolgreich: 5000 Credits → 1 Materiezelle.');
+        if (typeof showInfoToast === 'function') showInfoToast('Tausch erfolgreich: 5000 Credits → 1 Materiezelle.');
     } else {
         if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Credits für den Tausch (5000 C benötigt).');
     }

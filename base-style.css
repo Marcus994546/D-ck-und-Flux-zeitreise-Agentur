@@ -851,32 +851,28 @@
     23%,25% { opacity:1; } 68%,70% { opacity:1; }
 }
 
-/* Zeitmaschinen-Kern: drei gegenläufig rotierende Ringe unterschiedlicher Geschwindigkeit um
-   einen pulsierenden Energiekern, mit umkreisenden Funken und nach außen schießenden
-   Blitzen zwischen den Ringen - das optische Highlight des Raums. Tiefer im Raum platziert
-   (vorher zu nah an der Decke). */
-.item-zeitmaschinen-kern { width:110px; height:110px; position:absolute; z-index:3; left:50%; bottom:35px; transform:translateX(-50%); }
-.ttf-ring { position:absolute; top:50%; left:50%; border-radius:50%; border-style:solid; }
-.ttf-ring-1 { width:104px; height:104px; border-width:3px; border-color:#0ff transparent #0ff transparent; margin:-52px 0 0 -52px; animation:ttf-ring-spin 4s linear infinite; box-shadow:0 0 15px #0ff; }
-.ttf-ring-2 { width:76px; height:76px; border-width:2px; border-color:transparent #08f transparent #08f; margin:-38px 0 0 -38px; animation:ttf-ring-spin-rev 2.6s linear infinite; box-shadow:0 0 12px #08f; }
-.ttf-ring-3 { width:50px; height:50px; border-width:2px; border-color:#c0f #c0f transparent transparent; margin:-25px 0 0 -25px; animation:ttf-ring-spin 1.6s linear infinite; box-shadow:0 0 10px #c0f; }
+/* Zeitmaschinen-Kern: drei gegenläufig rotierende, RÄUMLICH GENEIGTE Ringe (perspective+rotateX,
+   damit sie wie echte umlaufende Ringe statt flache Kreise wirken) um einen pulsierenden
+   Energiekern, mit umkreisenden Funken. Eigene Keyframes (nicht die der Chrono-Leuchte
+   wiederverwendet), da die Neigung nur hier gebraucht wird. */
+@keyframes ttf-core-ring-spin { from { transform:translate(-50%,-50%) rotateX(62deg) rotateZ(0deg); } to { transform:translate(-50%,-50%) rotateX(62deg) rotateZ(360deg); } }
+@keyframes ttf-core-ring-spin-rev { from { transform:translate(-50%,-50%) rotateX(62deg) rotateZ(360deg); } to { transform:translate(-50%,-50%) rotateX(62deg) rotateZ(0deg); } }
+.item-zeitmaschinen-kern { width:110px; height:110px; position:absolute; z-index:3; left:50%; bottom:35px; transform:translateX(-50%); perspective:280px; }
+.ttf-ring { position:absolute; top:50%; left:50%; border-radius:50%; border-style:solid; transform-style:preserve-3d; }
+.ttf-ring-1 { width:104px; height:104px; border-width:4px; border-color:#0ff transparent #0ff transparent; margin:-52px 0 0 -52px; animation:ttf-core-ring-spin 4s linear infinite; box-shadow:0 0 15px #0ff; }
+.ttf-ring-2 { width:76px; height:76px; border-width:3px; border-color:transparent #08f transparent #08f; margin:-38px 0 0 -38px; animation:ttf-core-ring-spin-rev 2.6s linear infinite; box-shadow:0 0 12px #08f; }
+.ttf-ring-3 { width:50px; height:50px; border-width:3px; border-color:#c0f #c0f transparent transparent; margin:-25px 0 0 -25px; animation:ttf-core-ring-spin 1.6s linear infinite; box-shadow:0 0 10px #c0f; }
 .ttf-core { width:22px; height:22px; position:absolute; top:50%; left:50%; margin:-11px 0 0 -11px; border-radius:50%; background:radial-gradient(circle,#fff,#0ff 40%,#08f 80%); animation:ttf-core-pulse 1.5s ease-in-out infinite; z-index:2; }
 .ttf-spark { width:4px; height:4px; border-radius:50%; background:#fff; position:absolute; top:50%; left:50%; box-shadow:0 0 8px #fff, 0 0 15px #0ff; animation:ttf-spark-orbit 2.2s linear infinite; }
 .ttf-spark.s2 { animation-duration:3.2s; animation-direction:reverse; background:#c0f; box-shadow:0 0 8px #c0f; }
 .ttf-spark.s3 { animation-duration:4.4s; background:#0f8; box-shadow:0 0 8px #0f8; }
 .ttf-base { position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); width:90px; height:14px; background:linear-gradient(180deg,#222,#000); border:2px solid #0ff; border-radius:4px; box-shadow:0 0 20px rgba(0,255,255,0.4); }
 
-/* Blitze, die vom Kern aus radial zwischen den Ringen "schießen" - dieselbe asynchrone
-   Flacker-Technik wie beim Energie-Bogen-Generator, nur radial statt horizontal angeordnet,
-   damit es wie echte Entladungen zwischen den rotierenden Ringen wirkt. */
-.ttf-bolt {
-    position:absolute; top:50%; left:50%; width:2px; height:48px;
-    background:linear-gradient(180deg, #fff, #0ff 40%, #c0f 80%, transparent);
-    box-shadow:0 0 8px #fff, 0 0 16px #0ff; transform-origin:top center; z-index:1;
-}
-.ttf-bolt.tb1 { transform:translate(-50%,-2px) rotate(15deg); animation:ttf-arc-flicker-a 2.4s infinite; }
-.ttf-bolt.tb2 { transform:translate(-50%,-2px) rotate(140deg); animation:ttf-arc-flicker-b 2.9s infinite; }
-.ttf-bolt.tb3 { transform:translate(-50%,-2px) rotate(255deg); animation:ttf-arc-flicker-a 2s infinite 0.9s; }
+/* Einzigartige, zackige Blitze des Zeitmaschinen-Kerns (bewusst NICHT dieselbe Optik wie beim
+   Energie-Bogen-Generator): echte gezackte Pfade statt gerader Balken, per JS in
+   zufällige Richtungen gezeichnet (siehe spawnForgeLightning in base-app.js). */
+.ttf-lightning-svg { position:absolute; top:0; left:0; width:100%; height:100%; z-index:4; overflow:visible; pointer-events:none; }
+.ttf-lightning-bolt { fill:none; stroke:#fff; stroke-width:1.6; stroke-linejoin:round; filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #0ff) drop-shadow(0 0 18px #c0f); }
 
 /* Holo-Projektor: flackernde, rotierende Zeitstrom-Sphäre über einer Emitter-Basis. */
 .item-holo-projektor { width:70px; height:110px; position:absolute; z-index:2; bottom:70px; left:38px; }
