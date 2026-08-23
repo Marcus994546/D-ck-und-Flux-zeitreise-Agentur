@@ -2621,25 +2621,64 @@ window.f_showDescription = function(withVoice) {
         document.getElementById('loot-popup').style.display = 'none';
     };
 
-    window.applyMissionRewards = function(type) {
+    window.applyMissionRewards = async function(type) {
         const loot = window.missionLootTables[type];
-        if (!loot) return;
+        if (!loot) return null;
         let xp = loot.xp, credits = loot.credits, materiezellen = loot.materiezellen;
         // Resonanz-Kammer: 5% Chance auf verdoppelten Loot (Credits/MZ/XP - nicht der
         // "level"-Bonus, der eine separate, deutlich stärkere Belohnung ist).
+        let doubled = false;
         if (window.passiveRoomEffects && window.passiveRoomEffects.resonanzKammer && Math.random() < 0.05) {
-            xp *= 2; credits *= 2; materiezellen *= 2;
+            xp *= 2; credits *= 2; materiezellen *= 2; doubled = true;
         }
+        const quantenLaborAktiv = !!(window.passiveRoomEffects && window.passiveRoomEffects.quantenLabor && xp > 0);
         if (xp > 0 && typeof window.updateXP === 'function') window.updateXP(xp);
         if (loot.level > 0) {
             window.playerLevel += loot.level;
             window.updateUI();
-            window.saveProgress();
         }
         if (credits > 0) window.playerCredits += credits;
         if (materiezellen > 0) window.playerMateriezellen += materiezellen;
-        window.saveProgress();
+        window.updateUI();
+        // WICHTIG: hier bewusst EINMAL gewartet (statt wie zuvor nur "fire and forget") - direkt
+        // danach ruft completeExtraction() f_start() auf, das seinerseits loadProgress() (also
+        // einen Firestore-READ) auslöst. Ohne dieses await konnte der nachfolgende Lesevorgang
+        // schneller sein als der Schreibvorgang hier und die gerade gutgeschriebene Belohnung
+        // wieder mit dem alten Server-Stand überschreiben - der vermutete Ursprung dafür, dass
+        // Belohnungen manchmal scheinbar "verschwunden" sind.
+        await window.saveProgress();
+        return {
+            xp: xp > 0 ? Math.round(xp) : 0,
+            credits: credits,
+            materiezellen: materiezellen,
+            levelBonus: loot.level > 0 ? loot.level : 0,
+            doubled: doubled,
+            quantenLaborAktiv: quantenLaborAktiv
+        };
     };
+
+    // Zeigt nach einer abgeschlossenen Mission ein Popup mit der tatsächlich gutgeschriebenen
+    // Belohnung an - inkl. Hinweis, falls die Resonanz-Kammer den Loot verdoppelt hat.
+    function showMissionRewardPopup(result) {
+        if (!result) return;
+        const lines = [];
+        if (result.credits > 0) lines.push(result.credits + ' Credits');
+        if (result.materiezellen > 0) lines.push(result.materiezellen + ' Materiezelle' + (result.materiezellen === 1 ? '' : 'n'));
+        if (result.xp > 0) lines.push(result.xp + ' XP' + (result.quantenLaborAktiv ? ' (inkl. Quanten-Labor-Bonus)' : ''));
+        if (result.levelBonus > 0) lines.push('+' + result.levelBonus + ' Level');
+
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(0,20,15,0.96); color:#0f8; border:1px solid #0f8; box-shadow:0 0 20px rgba(0,255,136,0.4); padding:14px 22px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
+        el.innerHTML = (result.doubled ? '<div style="color:#ffcc00; font-weight:bold; margin-bottom:6px;">⚡ RESONANZ-KAMMER: DOPPELTER LOOT!</div>' : '') +
+            '<div><b>Mission abgeschlossen</b></div>' +
+            (lines.length > 0 ? '<div style="margin-top:4px;">Erhalten: ' + lines.join(' · ') + '</div>' : '<div style="margin-top:4px; opacity:0.7;">Keine Belohnung für diese Mission.</div>');
+        document.body.appendChild(el);
+        setTimeout(() => {
+            el.style.transition = 'opacity 1s ease-out';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 1000);
+        }, 4500);
+    }
 
 
 /* ==== next block ==== */
@@ -3475,13 +3514,14 @@ window.f_showDescription = function(withVoice) {
 
         document.getElementById('mission-return-anim').style.display = 'flex';
         setTimeout(() => { document.getElementById('mission-return-bar').style.width = '100%'; }, 50);
-        setTimeout(() => {
-            window.applyMissionRewards(window.currentMissionType);
+        setTimeout(async () => {
+            const rewardResult = await window.applyMissionRewards(window.currentMissionType);
             document.getElementById('mission-return-anim').style.display = 'none';
             document.getElementById('mission-return-bar').style.width = '0%';
             restoreHomescreen();
             window.missionActive = false;
             window.f_start();
+            showMissionRewardPopup(rewardResult);
         }, 2200);
     }
 

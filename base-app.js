@@ -2344,6 +2344,11 @@ window._saveMZ = function() {
 // === TRANSFORMATOREN-STATION ===
 const menuTransStation = `
 <div id="menu-transformatoren-station" style="display:none; flex-direction:column; gap:15px;">
+    <div class="upgrade-card" style="border-color:#4dd0ff;">
+        <b style="color:#4dd0ff;">[ ENERGIE-TAUSCH ]</b>
+        <p style="font-size:0.7em; color:#aaa;">Wandelt überschüssige Credits direkt in seltene Materiezellen um.</p>
+        <button id="btn-transformator-exchange" onclick="window.exchangeCreditsForMZ()" class="btn-upgrade-exec" style="background:#4dd0ff; color:#000; border:1px solid #4dd0ff;">TAUSCHEN (5000 C → 1 MZ)</button>
+    </div>
     <div class="upgrade-card"><b>[ TEMPORALER ENERGIE-INVERTER ]</b><p style="font-size:0.7em; color:#aaa;">Fetter Kasten mit schwebenden Magnet-Isolatoren.</p><button id="btn-buy-temp-inverter" onclick="window.buyFurniture('temp_inverter', 2800)" class="btn-upgrade-exec" style="background:#c0f; color:#000; border:1px solid #c0f;">KAUFEN (2800 C + 40 MZ)</button></div>
     <div class="upgrade-card"><b>[ CHRONO-VERTEILERKNOTEN ]</b><p style="font-size:0.7em; color:#aaa;">Schlanker Hologramm-Schrank.</p><button id="btn-buy-chrono-knoten" onclick="window.buyFurniture('chrono_knoten', 950)" class="btn-upgrade-exec">KAUFEN (950 C)</button></div>
     <div class="upgrade-card"><b>[ WARTUNGSDROHNE ]</b><p style="font-size:0.7em; color:#aaa;">Schwebt deaktiviert in einer Ladestation.</p><button id="btn-buy-wartungs-drohne" onclick="window.buyFurniture('wartungs_drohne', 450)" class="btn-upgrade-exec">KAUFEN (450 C)</button></div>
@@ -3507,17 +3512,7 @@ window.spawnFurniture = (type, count) => {
 /* ==== next block ==== */
 
 
-// === TRANSFORMATOREN-STATION (passiver Raum: direkte Tauschfunktion, kein Agent nötig) ===
-const menuTransformatoren = `
-<div id="menu-transformatoren-station" style="display:none; flex-direction:column; gap:15px;">
-    <div class="upgrade-card">
-        <b>[ ENERGIE-TAUSCH ]</b>
-        <p style="font-size:0.7em; color:#aaa;">Wandelt überschüssige Credits direkt in seltene Materiezellen um.</p>
-        <button id="btn-transformator-exchange" onclick="window.exchangeCreditsForMZ()" class="btn-upgrade-exec" style="background:#4dd0ff; color:#000; border:1px solid #4dd0ff;">TAUSCHEN (5000 C → 1 MZ)</button>
-    </div>
-</div>`;
-if (!document.getElementById('menu-transformatoren-station')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuTransformatoren);
-
+// === TRANSFORMATOREN-STATION: Tauschfunktion (Credits -> Materiezellen) ===
 window.exchangeCreditsForMZ = async function() {
     const cost = 5000;
     if (gameState.credits >= cost) {
@@ -3528,16 +3523,5 @@ window.exchangeCreditsForMZ = async function() {
         if (typeof showCustomAlert === 'function') showCustomAlert('Tausch erfolgreich: 5000 Credits → 1 Materiezelle.');
     } else {
         if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Credits für den Tausch (5000 C benötigt).');
-    }
-};
-
-const oldOpenRoom_TRANS = window.openRoom;
-window.openRoom = (type) => {
-    if (oldOpenRoom_TRANS) oldOpenRoom_TRANS(type);
-    const m = document.getElementById('menu-transformatoren-station');
-    if (m) m.style.display = (type === 'TRANSFORMATOREN-STATION') ? 'flex' : 'none';
-    if (type === 'TRANSFORMATOREN-STATION') {
-        const ph = document.getElementById('menu-platzhalter');
-        if (ph) ph.style.setProperty('display', 'none', 'important');
     }
 };
