@@ -1613,6 +1613,10 @@
             document.getElementById('menu-platzhalter').style.display = 'none';
             reloadFurniture(type); 
             if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
+            // Zusätzlicher, leicht verzögerter Aufruf als Sicherheitsnetz - falls die Regal-Fächer
+            // durch einen Reflow/Timing-Effekt beim ersten (synchronen) Versuch noch nicht bereit
+            // waren, greift dieser zweite Versuch nach dem nächsten Render-Tick.
+            setTimeout(() => { if (typeof placeArtifactsInShelves === 'function') placeArtifactsInShelves(); }, 60);
         } else if (type === 'AGENTEN-QUARTIERE') {
             document.getElementById('menu-zentrale').style.display = 'none';
             document.getElementById('menu-archiv').style.display = 'none';
@@ -4463,7 +4467,7 @@ const itemsSubraumNexus = ['sn_holoprojektor', 'sn_biokapsel', 'sn_schattentermi
 const oldOpenRoom_SN = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoom_SN) oldOpenRoom_SN(type);
-    if (type === 'SUBRAUM-NEXUS' && (!window._roomAreaTargetId || window._roomAreaTargetId === 'room-area')) {
+    if (type === 'SUBRAUM-NEXUS') {
         const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display', 'none', 'important');
         if (typeof window.reloadFurniture === 'function') window.reloadFurniture(type);
     }
@@ -4472,7 +4476,7 @@ window.openRoom = (type) => {
 const oldReload_SN = window.reloadFurniture;
 window.reloadFurniture = (type) => {
     if (oldReload_SN) oldReload_SN(type);
-    if (type === 'SUBRAUM-NEXUS' && (!window._roomAreaTargetId || window._roomAreaTargetId === 'room-area')) {
+    if (type === 'SUBRAUM-NEXUS') {
         itemsSubraumNexus.forEach(item => window.spawnFurniture(item, 1));
     }
 };
@@ -4480,43 +4484,43 @@ window.reloadFurniture = (type) => {
 const oldSpawn_SN = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_SN) oldSpawn_SN(type, count);
-    // WICHTIG: Nur in der GROSSEN Detailansicht spawnen (window._roomAreaTargetId === 'room-area'),
-    // NIE in einer kleinen bunker-room-N-Vorschau der Aktive-Basis-Übersicht - dort waren die
-    // Objekte durch die 0.46-Verkleinerung praktisch unsichtbar (nur ein kleiner grauer Punkt)
-    // und haben trotzdem den Klick abgefangen, der eigentlich den Raum öffnen sollte.
-    if (window._roomAreaTargetId && window._roomAreaTargetId !== 'room-area') return;
     const room = document.getElementById(window._roomAreaTargetId || 'room-area');
     if (!room || !itemsSubraumNexus.includes(type)) return;
+    // In der großen Detailansicht klickbar, in der kleinen Vorschau der Aktive-Basis-Übersicht
+    // NUR sichtbar (kein eigener Klick-Handler) - dort soll ein Klick weiterhin den gesamten
+    // Raum öffnen, statt von einem einzelnen Gegenstand abgefangen zu werden.
+    const isDetailView = (!window._roomAreaTargetId || window._roomAreaTargetId === 'room-area');
     const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (!isDetailView) item.style.pointerEvents = 'none';
     if (type === 'sn_holoprojektor') {
         item.classList.add('item-sn-holoprojektor');
         item.innerHTML =
             '<div class="sn-holo-screen"><div class="sn-holo-flicker"></div><div class="sn-holo-scanline"></div></div>' +
             '<div class="sn-holo-base"></div>';
-        item.onclick = (ev) => { ev.stopPropagation(); window.openHoloprojektor(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openHoloprojektor(); };
     } else if (type === 'sn_biokapsel') {
         item.classList.add('item-sn-biokapsel');
         item.innerHTML =
             '<div class="sn-kapsel-tube"><div class="sn-kapsel-liquid"></div><div class="sn-kapsel-bubble b1"></div><div class="sn-kapsel-bubble b2"></div><div class="sn-kapsel-bubble b3"></div></div>' +
             '<div class="sn-kapsel-base"></div>';
-        item.onclick = (ev) => { ev.stopPropagation(); window.openBioKapsel(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openBioKapsel(); };
     } else if (type === 'sn_schattenterminal') {
         item.classList.add('item-sn-schattenterminal');
         item.innerHTML =
             '<div class="sn80-monitor"><div class="sn80-screen"></div><div class="sn80-vents"><span></span><span></span><span></span><span></span></div></div>' +
             '<div class="sn80-keyboard"></div>';
-        item.onclick = (ev) => { ev.stopPropagation(); window.openSchattensyndikat(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openSchattensyndikat(); };
     } else if (type === 'sn_rohrpost') {
         item.classList.add('item-sn-rohrpost');
-        item.id = 'sn-rohrpost-item';
+        if (isDetailView) item.id = 'sn-rohrpost-item';
         item.innerHTML =
             '<div class="sn-rohrpost-pipe"></div>' +
             '<div class="sn-rohrpost-box"><div class="sn-rohrpost-slot"></div><div class="sn-rohrpost-light"></div></div>';
-        item.onclick = (ev) => { ev.stopPropagation(); window.openRohrpost(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openRohrpost(); };
     } else if (type === 'sn_infostand') {
         item.classList.add('item-sn-infostand');
         item.innerHTML = '<div class="sn-info-icon">ℹ</div><div class="sn-info-base"></div>';
-        item.onclick = (ev) => { ev.stopPropagation(); window.openSubraumInfo(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openSubraumInfo(); };
     }
     room.appendChild(item);
     if (type === 'sn_rohrpost' && typeof updateRohrpostVisual === 'function') updateRohrpostVisual();
