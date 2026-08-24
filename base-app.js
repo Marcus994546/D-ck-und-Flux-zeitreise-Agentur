@@ -487,6 +487,21 @@
         if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'ZENTRALE', agent.isStarter, agent.id);
     }
 
+    // Ab Level 10 (Maximum) kehrt ein Agent nach einem Zyklus NICHT zur Zentrale zurück, sondern
+    // läuft über die Agenten-Quartiere (Schlafkammer) direkt wieder in denselben Raum, dem er
+    // zugewiesen war - und wiederholt das automatisch, bis der Spieler ihn manuell woanders
+    // hinschickt. Läuft technisch genau wie eine normale Spieler-Zuweisung ab (also inklusive
+    // Quartiere-Wartezeit), nur dass Ziel = aktueller Raum ist.
+    function sendAgentOnAutoLoop(agent) {
+        const oldLocation = agent.location;
+        agent.targetRoom = oldLocation;
+        agent.state = 'waiting_in_quartiere';
+        agent.location = 'AGENTEN-QUARTIERE';
+        agent.taskStartTs = Date.now();
+        agent.taskDurationMs = agentScaledDurationMs(AGENT_QUARTIERE_HOURS, agent.level, agent.isStarter);
+        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE', agent.isStarter, agent.id);
+    }
+
     // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
     // Timer im Browser) - dadurch funktioniert das System auch korrekt, wenn die Seite
     // zwischenzeitlich geschlossen war und man erst Stunden später wieder reinschaut.
@@ -636,9 +651,15 @@
                     } else {
                         // Ein Zyklus, dann automatisch zurück zur Zentrale - kein automatisches
                         // Wiederholen mehr. Ein neuer Zyklus muss vom Spieler jedes Mal bewusst
-                        // durch erneutes Zuweisen gestartet werden.
+                        // durch erneutes Zuweisen gestartet werden. AUSNAHME: Ab Level 10
+                        // (Maximum) läuft der Agent stattdessen automatisch über die Quartiere
+                        // direkt wieder in denselben Raum, bis der Spieler ihn manuell umleitet.
                         applyAgentReward(agent, task);
-                        sendAgentHome(agent);
+                        if (agent.level >= AGENT_MAX_LEVEL) {
+                            sendAgentOnAutoLoop(agent);
+                        } else {
+                            sendAgentHome(agent);
+                        }
                         changed = true;
                     }
                 }
