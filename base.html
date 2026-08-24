@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260823f">
+    <link rel="stylesheet" href="base-style.css?v=20260823h">
 </head>
 <body>
 
@@ -174,6 +174,15 @@
 
 <div id="paradox-warp-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.75); align-items:center; justify-content:center; flex-direction:column;"></div>
 
+<div id="artifact-detail-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+    <div style="background:#0a0514; border:1px solid #c060ff; box-shadow:0 0 30px rgba(192,96,255,0.5); border-radius:6px; padding:20px; width:min(380px, 90vw); font-family:'Orbitron', monospace;">
+        <h3 id="artifact-detail-name" style="color:#c060ff; text-shadow:0 0 10px #c060ff; margin-top:0; font-size:1em;">-</h3>
+        <p style="font-size:0.75em; color:#aaa; margin-bottom:0;">Jahr: <b id="artifact-detail-year" style="color:#c060ff;">-</b></p>
+        <p id="artifact-detail-story" style="font-size:0.85em; color:#e0c0ff; margin-top:10px; line-height:1.5; font-family:sans-serif;">-</p>
+        <button class="btn-back" style="width:100%; margin-top:16px;" onclick="window.closeArtifactDetail()">SCHLIESSEN</button>
+    </div>
+</div>
+
 <div id="interior-screen">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 id="room-title-detail" style="text-shadow: 0 0 10px var(--neon-color); margin: 0;">ZENTRALE</h3>
@@ -289,7 +298,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260823f"></script>
-<script src="base-app.js?v=20260823f"></script>
+<script type="module" src="base-firebase-init.js?v=20260823h"></script>
+<script src="base-app.js?v=20260823h"></script>
 </body>
 </html>

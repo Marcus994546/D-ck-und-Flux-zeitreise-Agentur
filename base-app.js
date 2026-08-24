@@ -159,21 +159,49 @@
     // 40 sammelbare Artefakte für den Zeitreise-Kreislauf (Forge -> Dekontaminationsschleuse ->
     // Artefakt-Archiv). Jedes wird höchstens einmal vergeben; ist die Liste komplett, entfällt
     // die Artefakt-Chance und es gibt nur noch Chronos-Zellen (siehe resolveArchivReward()).
+    // "name" bleibt der stabile Schlüssel für gameState.collectedArtifacts (Rückwärtskompatibel
+    // zu bereits gesammelten Artefakten aus der Zeit vor Jahr/Story).
     const ARTEFAKTE = [
-        '⏱ Verrostete Taschenuhr, 19. Jhd.', '🧭 Quantenverschränkter Kompass', '🗺 Holo-Sternenkarten-Fragment',
-        '📜 Pergament mit unlesbarer Zukunftsschrift', '🪙 Antigravitations-Münze', '💾 Fossilierter Datenkristall',
-        '🎖 Römische Legionärs-Plakette', '🧬 Nano-Schwarm-Kokon (inaktiv)', '📿 Flüssigmetall-Amulett',
-        '⚱ Ägyptisches Kanopen-Fragment', '🎴 Photonen-Fächer', '📓 Verkohltes Logbuch eines Zeitschiffs',
-        '💎 Kristallisierte Sternennebel-Probe', '⚙ Viktorianische Zahnradbrosche', '🖋 Selbstschreibende Feder',
-        '🕳 Miniatur-Wurmloch-Generator (deaktiviert)', '⚔ Samurai-Klingenscherbe', '🐛 Bio-lumineszentes Insekt in Bernstein',
-        '📡 Verzerrtes Echo-Modul', '🪨 Steinzeitliches Feuerstein-Werkzeug', '🔭 Gravitations-Linsen-Splitter',
-        '💿 Schallplatte einer unbekannten Zivilisation', '💍 Chronometrischer Ring', '⏲ Dampfbetriebene Taschenmechanik',
-        '🚀 Astronauten-Anstecknadel (Mission unbekannt)', '💳 Interdimensionale Visitenkarte', '⚡ Versteinerter Blitzschlag',
-        '🌱 Terraforming-Samenkapsel', '🏴‍☠️ Piraten-Dublone mit Zeitstempel', '🧠 Neuronales Erinnerungsfragment',
-        '🕯 Mittelalterliches Wachssiegel', '🔮 Plasma-Kompressions-Kugel', '⏳ Sanduhr mit rückwärts fließendem Sand',
-        '📃 Unübersetzte Alien-Schriftrolle', '🤖 Retro-Roboter-Spielzeugkopf', '🎵 Temporale Stimmgabel',
-        '🛰 Fragment eines gefallenen Satelliten', '🎼 Partitur aus einer Zukunft ohne Musik',
-        '🌀 Kristallisierte Zeitschleife', '🪙 Uraltes Münzstück mit unbekanntem Symbol'
+        { icon: '⏱', name: '⏱ Verrostete Taschenuhr, 19. Jhd.', year: '1887', story: 'Geborgen aus einem eingestürzten Bergwerksschacht. Gehörte einem Eisenbahningenieur, der spurlos verschwand, nachdem er von einer "Zeitverwerfung im Tunnel IV" berichtet hatte.' },
+        { icon: '🧭', name: '🧭 Quantenverschränkter Kompass', year: '2214', story: 'Navigationsprototyp einer frühen interstellaren Expedition. Die Nadel zeigt nicht nach Norden, sondern immer auf ihr verschränktes Zwillingsgerät - egal, in welcher Zeit sich dieses gerade befindet.' },
+        { icon: '🗺', name: '🗺 Holo-Sternenkarten-Fragment', year: '3042', story: 'Bruchstück einer holografischen Sternenkarte aus dem Archiv eines Kolonieschiffs. Die abgebildeten Sternbilder entsprechen keinem bekannten Nachthimmel.' },
+        { icon: '📜', name: '📜 Pergament mit unlesbarer Zukunftsschrift', year: '2670', story: 'Gefunden in einem versiegelten Tresor. Linguisten konnten eine Schrift nicht übersetzen, die laut Materialdatierung noch gar nicht erfunden wurde.' },
+        { icon: '🪙', name: '🪙 Antigravitations-Münze', year: '2450', story: 'Souvenir-Währung eines schwebenden Stadtstaates. Schwebt bis heute wenige Millimeter über jeder Oberfläche, auf die man sie legt.' },
+        { icon: '💾', name: '💾 Fossilierter Datenkristall', year: '2510', story: 'Ein Speicherkristall, über Jahrhunderte in einem bernsteinartigen Harz fossiliert. Lesbare Fragmente deuten auf die letzte Übertragung einer untergegangenen Zivilisation hin.' },
+        { icon: '🎖', name: '🎖 Römische Legionärs-Plakette', year: '79 n. Chr.', story: 'Geborgen nahe Pompeji, Minuten bevor der Vesuv ausbrach. Der Agent kam mit knapper Not und der Plakette zurück.' },
+        { icon: '🧬', name: '🧬 Nano-Schwarm-Kokon (inaktiv)', year: '2390', story: 'Ruhender Nanoschwarm aus einem gescheiterten Terraforming-Projekt. Laut Missionsprotokoll besser deaktiviert zu lassen.' },
+        { icon: '📿', name: '📿 Flüssigmetall-Amulett', year: '2530', story: 'Zeremonieller Schmuck, der beim Tragen leicht die Form verändert. Herkunftskultur unbekannt, vermutlich post-menschlich.' },
+        { icon: '⚱', name: '⚱ Ägyptisches Kanopen-Fragment', year: '1300 v. Chr.', story: 'Bruchstück eines Kanopenkrugs aus dem Neuen Reich. Die Hieroglyphen erwähnen einen "Wächter der Zeit", von dem sonst keine Aufzeichnung existiert.' },
+        { icon: '🎴', name: '🎴 Photonen-Fächer', year: '2610', story: 'Zeremonieller Fächer, der Lichtmuster projiziert. Wurde bei einem Fest zu Ehren einer Sonne verwendet, die noch gar nicht zur Nova geworden ist.' },
+        { icon: '📓', name: '📓 Verkohltes Logbuch eines Zeitschiffs', year: '2199', story: 'Der letzte Eintrag bricht mitten im Satz ab: "Koordinaten instabil, wir sind-"' },
+        { icon: '💎', name: '💎 Kristallisierte Sternennebel-Probe', year: '2800', story: 'Soll ein komprimiertes Fragment eines echten Nebels enthalten. Leuchtet schwach, sobald der Raum dunkel wird.' },
+        { icon: '⚙', name: '⚙ Viktorianische Zahnradbrosche', year: '1889', story: 'Stammt aus einer Uhrmacher-Gilde. Die winzigen Zahnräder drehen sich bis heute von selbst - nach einer Zeit, die nicht mit unserer übereinstimmt.' },
+        { icon: '🖋', name: '🖋 Selbstschreibende Feder', year: '1921', story: 'Geborgen aus dem Séance-Salon eines Mediums. Schreibt gelegentlich noch immer Bruchstücke von Ereignissen, die noch nicht geschehen sind.' },
+        { icon: '🕳', name: '🕳 Miniatur-Wurmloch-Generator (deaktiviert)', year: '2777', story: 'Tischgroßer Prototyp, deaktiviert nachdem ein Laborunfall einen ganzen Korridor in sich selbst gefaltet hat.' },
+        { icon: '⚔', name: '⚔ Samurai-Klingenscherbe', year: '1600', story: 'Splitter einer Klinge, die angeblich während einer Sonnenfinsternis geschmiedet wurde. Die Schneide wird bis heute nicht stumpf.' },
+        { icon: '🐛', name: '🐛 Bio-lumineszentes Insekt in Bernstein', year: 'vor 40 Mio. Jahren', story: 'Ein leuchtendes Insekt, perfekt im Bernstein konserviert - von einer Art, die in keinem bekannten Fossilbericht auftaucht.' },
+        { icon: '📡', name: '📡 Verzerrtes Echo-Modul', year: '2455', story: 'Kommunikationsrelais, das immer noch dasselbe verzerrte Notsignal wiederholt - Jahrzehnte, nachdem das Ursprungsschiff verschwand.' },
+        { icon: '🪨', name: '🪨 Steinzeitliches Feuerstein-Werkzeug', year: '12.000 v. Chr.', story: 'Gefunden in einer Höhle neben Felsmalereien, die verblüffend genau die Expedition zeigen, die es später entdecken würde.' },
+        { icon: '🔭', name: '🔭 Gravitations-Linsen-Splitter', year: '2690', story: 'Fragment der Gravitationslinse eines Observatoriums. Verbiegt bis heute minimal das Licht in seiner Umgebung.' },
+        { icon: '💿', name: '💿 Schallplatte einer unbekannten Zivilisation', year: '2340', story: 'Trieb in einem Trümmerfeld. Die Aufnahme spielt ein Lied in keiner bekannten Sprache - und klingt trotzdem seltsam vertraut.' },
+        { icon: '💍', name: '💍 Chronometrischer Ring', year: '2280', story: 'Ein Verlobungsring, der leise einen Countdown zu einem Ereignis mitzählt, über das keiner der beiden Träger je gesprochen hat.' },
+        { icon: '⏲', name: '⏲ Dampfbetriebene Taschenmechanik', year: '1863', story: 'Ein tragbarer Dampfautomat, für den nie ein Patent eingereicht wurde - obwohl die Bauweise ihrer Zeit weit voraus war.' },
+        { icon: '🚀', name: '🚀 Astronauten-Anstecknadel (Mission unbekannt)', year: '2071', story: 'Missionsabzeichen ohne passenden Flug in irgendeinem Archiv - als wäre die Mission selbst gelöscht worden.' },
+        { icon: '💳', name: '💳 Interdimensionale Visitenkarte', year: '2500er', story: 'Nennt einen Namen, einen Titel und Koordinaten, die in diesem Universum auf keinen Ort verweisen.' },
+        { icon: '⚡', name: '⚡ Versteinerter Blitzschlag', year: '1740', story: 'Ein Blitzeinschlag so gewaltig, dass Augenzeugen schworen, kurz eine zweite Sonne am Himmel gesehen zu haben.' },
+        { icon: '🌱', name: '🌱 Terraforming-Samenkapsel', year: '2610', story: 'Ruhende Samenkapsel, ausgelegt für ein ganzes Ökosystem. Laut Scan noch immer keimfähig.' },
+        { icon: '🏴‍☠️', name: '🏴‍☠️ Piraten-Dublone mit Zeitstempel', year: '1715', story: 'Eine Golddublone mit eingraviertem Datum - das zum Zeitpunkt der Prägung noch gar nicht existierte.' },
+        { icon: '🧠', name: '🧠 Neuronales Erinnerungsfragment', year: '2495', story: 'Ein konserviertes Erinnerungsfragment. Beim Abspielen zeigte es dem Agenten kurz den letzten Gedanken einer fremden Person.' },
+        { icon: '🕯', name: '🕯 Mittelalterliches Wachssiegel', year: '1350', story: 'Siegel eines Klosters, das laut allen Aufzeichnungen ein Jahrhundert vor der Herstellung dieses Wachses bereits abgebrannt war.' },
+        { icon: '🔮', name: '🔮 Plasma-Kompressions-Kugel', year: '2620', story: 'Energiespeicher-Kugel aus einem gescheiterten Fusionsexperiment. Noch immer schwach warm.' },
+        { icon: '⏳', name: '⏳ Sanduhr mit rückwärts fließendem Sand', year: '1790', story: 'Der Sand läuft rückwärts. Niemand, der sie benutzt hat, konnte sich einigen, welche Zeit sie eigentlich misst.' },
+        { icon: '📃', name: '📃 Unübersetzte Alien-Schriftrolle', year: '2900', story: 'Geborgen von einem verlassenen Raumschiff. Jeder Übersetzungsversuch liefert eine andere Nachricht.' },
+        { icon: '🤖', name: '🤖 Retro-Roboter-Spielzeugkopf', year: '1958', story: 'Ein Blechroboter-Kopf, der beim Aufziehen gelegentlich statisch verrauschte Koordinaten flüstert.' },
+        { icon: '🎵', name: '🎵 Temporale Stimmgabel', year: '2410', story: 'Einmal angeschlagen, erklingt ein Ton, der schon kurz VOR dem Anschlagen zu hören scheint.' },
+        { icon: '🛰', name: '🛰 Fragment eines gefallenen Satelliten', year: '2085', story: 'Trümmerteil eines Satelliten, der laut Orbitalprotokoll offiziell immer noch im Orbit kreist.' },
+        { icon: '🎼', name: '🎼 Partitur aus einer Zukunft ohne Musik', year: '2760', story: 'Notenblatt aus einer Ära, die Musik abgeschafft hatte. Niemand konnte erklären, warum ausgerechnet dieses eine Blatt überdauerte.' },
+        { icon: '🌀', name: '🌀 Kristallisierte Zeitschleife', year: 'unbekannt', story: 'Ein eingefrorener Splitter einer Kausalitätsschleife, mitten in der Wiederholung erstarrt. Laut Etikett nur mit Handschuhen anfassen.' },
+        { icon: '🪙', name: '🪙 Uraltes Münzstück mit unbekanntem Symbol', year: 'unbekannt', story: 'Trägt ein Symbol, das älter ist als jedes bekannte Schriftsystem - dabei ist das Metall kaum zehn Jahre alt.' }
     ];
     const FORGE_MISSION_HOURS = 8;
     const FORGE_RETURN_MS = 60000;        // genau 1 Minute
@@ -300,15 +328,15 @@
         gameState.chronosZellen += chronos;
 
         let artifactMsg = '';
-        const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a));
+        const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a.name));
         // Kein Zufall mehr: nur wenn beim Missionsstart in der Forge exakt das aktuelle
         // Horizont-Zieljahr eingegeben wurde (agent.artifactEligible, siehe startForgeJourney),
         // gibt es überhaupt eine Chance auf ein Artefakt aus dem noch nicht gesammelten Pool.
         if (agent.artifactEligible) {
             if (uncollected.length > 0) {
                 const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
-                gameState.collectedArtifacts.push(picked);
-                artifactMsg = ' + Artefakt geborgen: ' + picked;
+                gameState.collectedArtifacts.push(picked.name);
+                artifactMsg = ' + Artefakt geborgen: ' + picked.name;
             } else {
                 // Berechtigt, aber die Sammlung ist bereits vollständig (alle 40) - das war
                 // vorher unsichtbar, jetzt wird es explizit gemeldet statt stillschweigend
@@ -325,6 +353,10 @@
     }
 
     // Zeigt die bisher gesammelten Artefakte als kompakte "Regalfächer" im Archiv-Panel an.
+    function findArtefaktByName(name) {
+        return ARTEFAKTE.find(a => a.name === name);
+    }
+
     function renderArtifactCollection() {
         const box = document.getElementById('artifact-collection-display');
         if (!box) return;
@@ -335,12 +367,53 @@
             html += '<div style="font-size:0.7em; color:#666; font-style:italic;">Noch keine Artefakte geborgen.</div>';
         } else {
             html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(90px, 1fr)); gap:6px;">';
-            collected.forEach(function(a) {
-                html += '<div class="artifact-shelf-slot" title="' + a.replace(/"/g, '&quot;') + '">' + a + '</div>';
+            collected.forEach(function(name) {
+                html += '<div class="artifact-shelf-slot" title="' + name.replace(/"/g, '&quot;') + '" onclick="window.showArtifactDetail(\'' + name.replace(/'/g, "\\'") + '\')">' + name + '</div>';
             });
             html += '</div>';
         }
         box.innerHTML = html;
+        if (typeof placeArtifactsInShelves === 'function') placeArtifactsInShelves();
+    }
+
+    // Zeigt Name, Jahr und Story eines gesammelten Artefakts in einem Popup.
+    window.showArtifactDetail = function(name) {
+        const a = findArtefaktByName(name);
+        if (!a) return;
+        const overlay = document.getElementById('artifact-detail-overlay');
+        const nameEl = document.getElementById('artifact-detail-name');
+        const yearEl = document.getElementById('artifact-detail-year');
+        const storyEl = document.getElementById('artifact-detail-story');
+        if (nameEl) nameEl.innerText = a.name;
+        if (yearEl) yearEl.innerText = a.year;
+        if (storyEl) storyEl.innerText = a.story;
+        if (overlay) overlay.style.display = 'flex';
+    };
+    window.closeArtifactDetail = function() {
+        const overlay = document.getElementById('artifact-detail-overlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+
+    // Platziert die gesammelten Artefakt-Icons grafisch in den Regalfächern (.regal-fach) der
+    // gebauten Archiv-Regale - verteilt auf alle vorhandenen Fächer, mehrere Icons pro Fach
+    // möglich, falls mehr Artefakte als physische Fächer vorhanden sind. Jedes Icon ist
+    // anklickbar und öffnet dasselbe Detail-Popup wie die Liste im Panel.
+    function placeArtifactsInShelves() {
+        const faecher = document.querySelectorAll('#room-area .regal-fach, .bunker-room-preview .regal-fach');
+        if (!faecher.length) return;
+        faecher.forEach(f => { f.innerHTML = ''; });
+        const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
+        collected.forEach(function(name, i) {
+            const fach = faecher[i % faecher.length];
+            if (!fach) return;
+            const a = findArtefaktByName(name);
+            const icon = document.createElement('span');
+            icon.className = 'regal-artifact-icon';
+            icon.textContent = a ? a.icon : '❔';
+            icon.title = name;
+            icon.onclick = function(ev) { ev.stopPropagation(); window.showArtifactDetail(name); };
+            fach.appendChild(icon);
+        });
     }
 
 
@@ -480,11 +553,11 @@
                         }
                         changed = true;
                     } else if (task.effect === 'quantum_warp') {
-                        const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a));
+                        const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a.name));
                         const success = uncollected.length > 0 && Math.random() < 0.5;
                         if (success) {
                             const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
-                            gameState.collectedArtifacts.push(picked);
+                            gameState.collectedArtifacts.push(picked.name);
                             if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
                         }
                         if (typeof triggerParadoxWarpEffect === 'function') triggerParadoxWarpEffect(success);
@@ -918,12 +991,30 @@
             if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
         }
 
+        function disembark() {
+            // Männchen läuft sichtbar vom Aufzug in die Raummitte hinein - Spiegelbild des
+            // Einsteigens. Der Aufzug bleibt die vollen 10s stehen (wie beim Einsteigen), auch
+            // wenn der Laufweg selbst nur 5s dauert.
+            const roomPreview = document.getElementById('bunker-room-' + newIdx);
+            if (roomPreview && riderSlot) {
+                riderSlot.innerHTML = '';
+                const walker = document.createElement('div');
+                walker.className = 'bunker-walking-figure';
+                walker.style.left = '0%';
+                walker.innerHTML = '<div class="bunker-figure"></div>';
+                roomPreview.appendChild(walker);
+                requestAnimationFrame(() => { walker.style.left = '50%'; });
+                setTimeout(() => { walker.remove(); }, WALK_MS);
+            }
+            setTimeout(finish, STAND_MS);
+        }
+
         function depart() {
             setDuration(DEPART_MS);
             requestAnimationFrame(() => {
                 car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
             });
-            setTimeout(() => setTimeout(finish, ARRIVE_MS), DEPART_MS);
+            setTimeout(() => setTimeout(disembark, ARRIVE_MS), DEPART_MS);
         }
 
         function boardAndWait() {
