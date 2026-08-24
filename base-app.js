@@ -448,7 +448,7 @@
         agent.location = 'ZENTRALE';
         agent.taskStartTs = null;
         agent.taskDurationMs = null;
-        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'ZENTRALE');
+        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'ZENTRALE', agent.isStarter);
     }
 
     // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
@@ -466,7 +466,7 @@
                     const oldLocation = agent.location;
                     agent.location = agent.targetRoom;
                     agent.targetRoom = null;
-                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location);
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter);
                     const task = AGENT_TASK_ROOMS[agent.location];
                     if (isForgeRoom(agent.location)) {
                         // Kein Timer - der Agent wartet hier, bis der Spieler das
@@ -516,7 +516,7 @@
                     agent.state = 'journey_dekontam';
                     agent.taskStartTs = now;
                     agent.taskDurationMs = Math.round(DEKONTAM_JOURNEY_MS * adminTimeFactor()); // genau 1 Stunde
-                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location);
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter);
                     changed = true;
                 }
             } else if (agent.state === 'journey_dekontam') {
@@ -526,7 +526,7 @@
                     agent.state = 'journey_archiv';
                     agent.taskStartTs = now;
                     agent.taskDurationMs = Math.round(ARCHIV_JOURNEY_MS * adminTimeFactor()); // genau 30 Minuten
-                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location);
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter);
                     changed = true;
                 }
             } else if (agent.state === 'journey_archiv') {
@@ -702,7 +702,7 @@
         // Kurze, rein optische Aufzug-Fahrt vom alten Standort zu den Quartieren. Die eigentliche
         // Wartezeit wird danach durch den Agenten sichtbar IN den Quartieren dargestellt, nicht im
         // Aufzug selbst (siehe renderBunkerAgentVisuals).
-        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE');
+        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE', agent.isStarter);
 
         if (typeof showInfoToast === 'function') showInfoToast('Agent bewegt sich in die Agenten-Quartiere.');
     };
@@ -1042,13 +1042,14 @@
     // des Agenten, (2) steht dort GENAU 10s lang, während (3) das Männchen sichtbar aus der
     // Raummitte in den Aufzug hineinläuft (dauert 5s, läuft innerhalb der 10s Standzeit ab),
     // (4) erst nach den vollen 10s fährt der Aufzug weiter. Kein Countdown/Timer wird angezeigt.
-    function playElevatorAnimation(oldLocation, newLocation) {
+    function playElevatorAnimation(oldLocation, newLocation, isStarter) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
         const car = document.getElementById('bunker-elevator-car');
         const riderSlot = document.getElementById('bunker-elevator-rider-slot');
         const newIdx = bunkerFloorIndexForType(newLocation);
         const oldIdx = bunkerFloorIndexForType(oldLocation);
         if (!car || newIdx < 0) return;
+        const starterClass = isStarter ? ' bunker-agent-starter' : '';
 
         const PICKUP_MS = 1800;   // Anfahrt zur Abholung
         const STAND_MS = 10000;   // Aufzug steht am Zielfloor - genau 10s, wie gewünscht
@@ -1075,7 +1076,7 @@
             if (roomPreview && riderSlot) {
                 riderSlot.innerHTML = '';
                 const walker = document.createElement('div');
-                walker.className = 'bunker-walking-figure';
+                walker.className = 'bunker-walking-figure' + starterClass;
                 walker.style.left = '0%';
                 walker.innerHTML = '<div class="bunker-figure"></div>';
                 roomPreview.appendChild(walker);
@@ -1098,17 +1099,17 @@
             const roomPreview = (oldIdx >= 0) ? document.getElementById('bunker-room-' + oldIdx) : null;
             if (roomPreview) {
                 const walker = document.createElement('div');
-                walker.className = 'bunker-walking-figure';
+                walker.className = 'bunker-walking-figure' + starterClass;
                 walker.innerHTML = '<div class="bunker-figure"></div>';
                 roomPreview.appendChild(walker);
                 requestAnimationFrame(() => { walker.style.left = '0%'; });
                 setTimeout(() => {
                     walker.remove();
-                    if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
+                    if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider' + starterClass + '"></div>';
                 }, WALK_MS);
             } else {
                 // Raum nicht auffindbar - Männchen erscheint direkt im Aufzug, ohne Lauf-Animation.
-                if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider"></div>';
+                if (riderSlot) riderSlot.innerHTML = '<div class="bunker-figure bunker-rider' + starterClass + '"></div>';
             }
             // Unabhängig vom Laufweg steht der Aufzug in jedem Fall die vollen 10s, bevor er
             // weiterfährt (die 5s Laufzeit passen locker hinein).
@@ -1135,16 +1136,17 @@
         const riderSlot = document.getElementById('bunker-elevator-rider-slot');
         if (!car || !gameState.agentSystemUnlocked) { if (riderSlot) riderSlot.innerHTML = ''; return; }
 
-        document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
+        // WICHTIG: Während eine Aufzug-Fahrt-Animation läuft, wird HIER GAR NICHTS angefasst -
+        // weder die Raum-Figuren noch der Aufzug selbst. Vorher wurden die Raum-Figuren
+        // unabhängig vom Animationsstatus immer neu gezeichnet (z.B. durch den periodischen
+        // 1s-Refresh) - das hat den reisenden Agenten SOFORT an seinem (im Datenmodell schon
+        // aktualisierten) Zielort erscheinen lassen, während gleichzeitig noch die Aufzugfahrt
+        // lief - wirkte wie zwei Kopien desselben Agenten, die sich am Ziel "vereinen".
+        if (bunkerElevatorAnimating) return;
 
-        // Der Aufzug selbst dient nur noch der kurzen Fahrt-Animation (siehe moveAgentTo) und
-        // parkt ansonsten leer an der Zentrale. Während der Wartezeit steht der Agent SICHTBAR
-        // in den Quartieren, nicht im Aufzug. Während einer laufenden Fahrt-Animation wird der
-        // Aufzug hier NICHT angefasst, sonst würde die kurze Fahrt mitten drin abgeschnitten.
-        if (!bunkerElevatorAnimating) {
-            if (riderSlot) riderSlot.innerHTML = '';
-            car.style.top = '8px';
-        }
+        document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
+        if (riderSlot) riderSlot.innerHTML = '';
+        car.style.top = '8px';
 
         const agentsPerRoomCount = {};
         gameState.agents.forEach(agent => {
@@ -4615,7 +4617,97 @@ window.openRohrpost = function() {
     if (typeof showCustomAlert === 'function') showCustomAlert('Temporale Rohrpost ist noch nicht freigeschaltet.');
 };
 
-// --- Platzhalter für Holoprojektor-Chat (folgt in einem separaten Schritt) ---
-window.openHoloprojektor = function() {
-    if (typeof showCustomAlert === 'function') showCustomAlert('Holoprojektor-Kanal ist noch nicht freigeschaltet.');
+// --- Holoprojektor: Direktkanal zur Administration, baut auf dem bestehenden Komm-Link-System
+// auf (gleiche Firestore-Collection "agenten_funk", gleiches Kanal-/Nachrichtenschema) - der
+// Admin sieht neue Nachrichten dadurch automatisch als normalen ungelesenen Chat im Komm-Link
+// des Hauptterminals, inkl. der dort bereits vorhandenen "[NEUE NACHRICHT]"-Markierung. Kein
+// separates Ping-System nötig.
+let holoChatListener = null;
+let holoChannelId = null;
+let holoAdminSlug = null;
+
+async function findAdminSlug() {
+    if (holoAdminSlug) return holoAdminSlug;
+    try {
+        const q = window.query(window.collection(window.db, "agenten"), window.where("isAdmin", "==", true), window.limit(1));
+        const snap = await window.getDocs(q);
+        if (!snap.empty) { holoAdminSlug = snap.docs[0].id; return holoAdminSlug; }
+    } catch (e) { console.error("Admin-Suche fehlgeschlagen:", e); }
+    return null;
+}
+
+window.openHoloprojektor = async function() {
+    const adminSlug = await findAdminSlug();
+    if (!adminSlug) {
+        if (typeof showCustomAlert === 'function') showCustomAlert('Kein Administrator-Kanal gefunden.');
+        return;
+    }
+    const myName = window.agentSlug(currentAgentName);
+    holoChannelId = [myName, adminSlug].sort().join("_");
+
+    // Platzhalter-Kanal anlegen, falls noch keine Nachricht existiert (analog zu
+    // window.openPrivateChat im Hauptterminal).
+    window.setDoc(window.doc(window.db, "agenten_funk", holoChannelId), { ungelesen_fuer: "" }, { merge: true });
+
+    const overlay = document.getElementById('holoprojektor-overlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    if (holoChatListener) holoChatListener();
+    const q = window.query(window.collection(window.db, "agenten_funk", holoChannelId, "nachrichten"), window.orderBy("zeitstempel", "asc"), window.limit(50));
+    holoChatListener = window.onSnapshot(q, (snapshot) => {
+        const win = document.getElementById('holo-chat-window');
+        if (!win) return;
+        win.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const isMe = (data.absender === currentAgentName);
+            const msgDiv = document.createElement('div');
+            msgDiv.style.cssText = isMe ? "color:#aaa; align-self:flex-end; text-align:right;" : "color:#0ff; align-self:flex-start; text-align:left;";
+            const senderEl = document.createElement('b');
+            senderEl.textContent = (isMe ? 'Du' : 'ADMINISTRATION') + ': ';
+            const textEl = document.createElement('span');
+            textEl.textContent = String(data.text || '');
+            msgDiv.appendChild(senderEl);
+            msgDiv.appendChild(textEl);
+            win.appendChild(msgDiv);
+        });
+        win.scrollTop = win.scrollHeight;
+    });
+};
+
+window.closeHoloprojektor = function() {
+    const overlay = document.getElementById('holoprojektor-overlay');
+    if (overlay) overlay.style.display = 'none';
+    if (holoChatListener) { holoChatListener(); holoChatListener = null; }
+};
+
+window.sendHoloMsg = async function() {
+    const inp = document.getElementById('holo-msg-input');
+    const text = inp ? inp.value.trim() : '';
+    if (text === '' || !holoChannelId) return;
+
+    const cost = 1;
+    if (gameState.chronosZellen < cost) {
+        if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Chronos-Zellen (1 pro Nachricht benötigt).');
+        return;
+    }
+    inp.value = '';
+    try {
+        const myName = window.agentSlug(currentAgentName);
+        const msgRef = window.collection(window.db, "agenten_funk", holoChannelId, "nachrichten");
+        await window.addDoc(msgRef, { absender: currentAgentName, text: text, zeitstempel: window.serverTimestamp() });
+        const channelRef = window.doc(window.db, "agenten_funk", holoChannelId);
+        await window.setDoc(channelRef, {
+            teilnehmer: [myName, holoAdminSlug],
+            ungelesen_fuer: holoAdminSlug,
+            last_ping: Date.now()
+        }, { merge: true });
+        // Kosten erst NACH erfolgreichem Versand abziehen.
+        gameState.chronosZellen -= cost;
+        updateUI();
+        await saveGameState();
+    } catch (e) {
+        console.error(e);
+        if (typeof showCustomAlert === 'function') showCustomAlert('Nachricht konnte nicht gesendet werden.');
+    }
 };

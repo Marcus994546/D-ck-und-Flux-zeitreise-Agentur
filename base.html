@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260823q">
+    <link rel="stylesheet" href="base-style.css?v=20260823r">
 </head>
 <body>
 
@@ -220,6 +220,19 @@
     </div>
 </div>
 
+<div id="holoprojektor-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+    <div style="background:#001a1a; border:1px solid #0ff; box-shadow:0 0 30px rgba(0,255,255,0.5); border-radius:6px; padding:20px; width:min(420px, 90vw); font-family:'Orbitron', monospace;">
+        <h3 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-top:0;">[ HOLOPROJEKTOR · DIREKTKANAL ADMINISTRATION ]</h3>
+        <p style="font-size:0.65em; color:#aaa; margin-top:0;">Jede gesendete Nachricht kostet 1 Chronos-Zelle.</p>
+        <div id="holo-chat-window" style="height:220px; border:1px solid #0ff; background:rgba(0,0,0,0.8); margin-bottom:10px; padding:10px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; text-align:left; font-size:0.8em; font-family:sans-serif;"></div>
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="holo-msg-input" placeholder="Nachricht an die Administration..." autocomplete="off" style="flex-grow:1; background:#000; border:1px solid #0ff; color:#0ff; padding:8px; font-family:sans-serif; outline:none;">
+            <button class="btn-upgrade-exec" id="holo-send-btn" style="background:#0ff; color:#000; border:1px solid #0ff; width:auto; padding:0 15px;" onclick="window.sendHoloMsg()">SENDEN</button>
+        </div>
+        <button class="btn-back" style="width:100%; margin-top:15px;" onclick="window.closeHoloprojektor()">SCHLIESSEN</button>
+    </div>
+</div>
+
 <div id="interior-screen">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 id="room-title-detail" style="text-shadow: 0 0 10px var(--neon-color); margin: 0;">ZENTRALE</h3>
@@ -335,7 +348,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260823q"></script>
-<script src="base-app.js?v=20260823q"></script>
+<script type="module" src="base-firebase-init.js?v=20260823r"></script>
+<script src="base-app.js?v=20260823r"></script>
 </body>
 </html>

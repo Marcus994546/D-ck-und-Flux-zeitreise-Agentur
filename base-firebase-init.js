@@ -1,6 +1,6 @@
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
   const firebaseConfig = {
@@ -19,6 +19,15 @@
   window.doc = doc;
   window.setDoc = setDoc;
   window.getDoc = getDoc;
+  window.collection = collection;
+  window.addDoc = addDoc;
+  window.getDocs = getDocs;
+  window.query = query;
+  window.where = where;
+  window.orderBy = orderBy;
+  window.limit = limit;
+  window.onSnapshot = onSnapshot;
+  window.serverTimestamp = serverTimestamp;
 
   // Gleiche kanonische Namensform wie in index.html: Umlaute/Sonderzeichen -> "_".
   // Muss mit dem Schema übereinstimmen, das bei Login/Registrierung verwendet wird,
