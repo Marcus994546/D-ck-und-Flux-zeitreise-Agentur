@@ -4484,12 +4484,15 @@ window.openRoom = (type) => {
         const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important');
         if (typeof renderRohrpostStatus === 'function') renderRohrpostStatus();
         // Anders als bei reinen Deko-Möbelshops IST der Inhalt des Ausbau-Menüs hier der
-        // eigentliche Sinn des Raums - deshalb automatisch öffnen statt hinter dem
-        // "AGENTUR-AUSBAU ÖFFNEN"-Button zu verstecken.
+        // eigentliche Sinn des Raums - deshalb IMMER direkt erzwungen sichtbar, statt über
+        // toggleAusbauMenu()'s Zustandserkennung zu gehen (die offenbar nicht zuverlässig
+        // erkannt hat, dass das Menü noch geschlossen war).
         const ausbauMenu = document.getElementById('ausbau-menu');
-        if (ausbauMenu && (ausbauMenu.style.display === 'none' || ausbauMenu.style.display === '')) {
-            if (typeof window.toggleAusbauMenu === 'function') window.toggleAusbauMenu();
-        }
+        const roomBox = document.getElementById(window._roomAreaTargetId || 'room-area');
+        const toggleBtn = document.getElementById('toggle-ausbau-btn');
+        if (ausbauMenu) ausbauMenu.style.setProperty('display', 'flex', 'important');
+        if (roomBox) roomBox.style.setProperty('display', 'none', 'important');
+        if (toggleBtn) toggleBtn.innerText = 'AUSBAU-MENÜ SCHLIESSEN';
     }
 };
 
