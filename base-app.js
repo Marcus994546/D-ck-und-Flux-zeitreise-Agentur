@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, deadAgents: [], userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, deadAgents: [], pendingDrop: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -812,6 +812,7 @@
                     if (Array.isArray(data.collectedArtifacts)) gameState.collectedArtifacts = data.collectedArtifacts;
                     if (Array.isArray(data.horizonMissions)) gameState.horizonMissions = data.horizonMissions;
                     if (Array.isArray(data.deadAgents)) gameState.deadAgents = data.deadAgents;
+                    gameState.pendingDrop = data.pendingDrop || null;
                     if (data.overdriveStartTs !== undefined) gameState.overdriveStartTs = data.overdriveStartTs;
                     if (data.overdriveEndTs !== undefined) gameState.overdriveEndTs = data.overdriveEndTs;
                 }
@@ -4456,7 +4457,7 @@ const itemsSubraumNexus = ['sn_holoprojektor', 'sn_biokapsel', 'sn_schattentermi
 const oldOpenRoom_SN = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoom_SN) oldOpenRoom_SN(type);
-    if (type === 'SUBRAUM-NEXUS') {
+    if (type === 'SUBRAUM-NEXUS' && (!window._roomAreaTargetId || window._roomAreaTargetId === 'room-area')) {
         const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display', 'none', 'important');
         if (typeof window.reloadFurniture === 'function') window.reloadFurniture(type);
     }
@@ -4465,7 +4466,7 @@ window.openRoom = (type) => {
 const oldReload_SN = window.reloadFurniture;
 window.reloadFurniture = (type) => {
     if (oldReload_SN) oldReload_SN(type);
-    if (type === 'SUBRAUM-NEXUS') {
+    if (type === 'SUBRAUM-NEXUS' && (!window._roomAreaTargetId || window._roomAreaTargetId === 'room-area')) {
         itemsSubraumNexus.forEach(item => window.spawnFurniture(item, 1));
     }
 };
@@ -4473,6 +4474,11 @@ window.reloadFurniture = (type) => {
 const oldSpawn_SN = window.spawnFurniture;
 window.spawnFurniture = (type, count) => {
     if (oldSpawn_SN) oldSpawn_SN(type, count);
+    // WICHTIG: Nur in der GROSSEN Detailansicht spawnen (window._roomAreaTargetId === 'room-area'),
+    // NIE in einer kleinen bunker-room-N-Vorschau der Aktive-Basis-Übersicht - dort waren die
+    // Objekte durch die 0.46-Verkleinerung praktisch unsichtbar (nur ein kleiner grauer Punkt)
+    // und haben trotzdem den Klick abgefangen, der eigentlich den Raum öffnen sollte.
+    if (window._roomAreaTargetId && window._roomAreaTargetId !== 'room-area') return;
     const room = document.getElementById(window._roomAreaTargetId || 'room-area');
     if (!room || !itemsSubraumNexus.includes(type)) return;
     const item = document.createElement('div'); item.classList.add('fixed-item');
@@ -4490,12 +4496,16 @@ window.spawnFurniture = (type, count) => {
         item.onclick = (ev) => { ev.stopPropagation(); window.openBioKapsel(); };
     } else if (type === 'sn_schattenterminal') {
         item.classList.add('item-sn-schattenterminal');
-        item.innerHTML = '<div class="sn-schatten-screen"></div><div class="sn-schatten-led"></div>';
+        item.innerHTML =
+            '<div class="sn80-monitor"><div class="sn80-screen"></div><div class="sn80-vents"><span></span><span></span><span></span><span></span></div></div>' +
+            '<div class="sn80-keyboard"></div>';
         item.onclick = (ev) => { ev.stopPropagation(); window.openSchattensyndikat(); };
     } else if (type === 'sn_rohrpost') {
         item.classList.add('item-sn-rohrpost');
         item.id = 'sn-rohrpost-item';
-        item.innerHTML = '<div class="sn-rohrpost-hatch"><div class="sn-rohrpost-ring"></div></div><div class="sn-rohrpost-light"></div>';
+        item.innerHTML =
+            '<div class="sn-rohrpost-pipe"></div>' +
+            '<div class="sn-rohrpost-box"><div class="sn-rohrpost-slot"></div><div class="sn-rohrpost-light"></div></div>';
         item.onclick = (ev) => { ev.stopPropagation(); window.openRohrpost(); };
     } else if (type === 'sn_infostand') {
         item.classList.add('item-sn-infostand');
@@ -4503,6 +4513,7 @@ window.spawnFurniture = (type, count) => {
         item.onclick = (ev) => { ev.stopPropagation(); window.openSubraumInfo(); };
     }
     room.appendChild(item);
+    if (type === 'sn_rohrpost' && typeof updateRohrpostVisual === 'function') updateRohrpostVisual();
 };
 
 // --- Infostand ---
@@ -4607,14 +4618,101 @@ window.buyBlackMarketArtifact = async function(name) {
     window.openSchattensyndikat(); // Liste neu aufbauen (Artefakt jetzt raus)
 };
 
-// --- Platzhalter für Rohrpost (Admin-Drops folgen in einem separaten Schritt) ---
-function renderRohrpostStatus() {
-    const box = document.getElementById('rohrpost-status-hub');
-    if (!box) return;
-    box.innerText = 'Keine Sendung vorhanden.';
+// --- Temporale Rohrpost: Admin-Drops mit Bau-Zeitpunkt-Snapshot ---
+// Admin schreibt "pendingDrop" direkt in JEDES berechtigten Spielers "Agent - Base"-Dokument
+// (die Admin-Schreibrechte dafür existieren in firestore.rules schon: isAdminUser() darf JEDES
+// "Agent - Base"-Dokument beschreiben). Nur Spieler, die SUBRAUM-NEXUS zum Versandzeitpunkt
+// bereits gebaut hatten, bekommen den Eintrag - später gebaute Räume erhalten nichts rückwirkend.
+function updateRohrpostVisual() {
+    const item = document.getElementById('sn-rohrpost-item');
+    if (item) item.classList.toggle('sn-rohrpost-pending', !!gameState.pendingDrop);
 }
-window.openRohrpost = function() {
-    if (typeof showCustomAlert === 'function') showCustomAlert('Temporale Rohrpost ist noch nicht freigeschaltet.');
+function renderRohrpostStatus() { updateRohrpostVisual(); }
+
+window.openRohrpost = async function() {
+    if (isAdminSession) {
+        // --- Admin-Ansicht: Versand-Formular ---
+        const overlay = document.getElementById('rohrpost-admin-overlay');
+        const info = document.getElementById('rohrpost-admin-eligible');
+        if (info) info.innerText = 'Lade Empfänger...';
+        if (overlay) overlay.style.display = 'flex';
+        try {
+            const snap = await window.getDocs(window.collection(window.db, "Agent - Base"));
+            let count = 0;
+            snap.forEach(d => {
+                const bd = d.data().baseData;
+                if (Array.isArray(bd) && bd.some(r => r.type === 'SUBRAUM-NEXUS')) count++;
+            });
+            if (info) info.innerText = count + ' Agent' + (count === 1 ? ' hat' : 'en haben') + ' den Subraum-Nexus bereits freigeschaltet und würde' + (count === 1 ? '' : 'n') + ' diese Sendung erhalten.';
+        } catch (e) {
+            console.error(e);
+            if (info) info.innerText = 'Empfänger konnten nicht ermittelt werden.';
+        }
+        return;
+    }
+    // --- Spieler-Ansicht: Sendung abholen, falls vorhanden ---
+    if (gameState.pendingDrop) {
+        const d = gameState.pendingDrop;
+        const resourceLabel = { credits: 'Credits', materiezellen: 'Materiezellen', chronoszellen: 'Chronos-Zellen' }[d.resourceType] || d.resourceType;
+        const textEl = document.getElementById('rohrpost-claim-text');
+        const msgEl = document.getElementById('rohrpost-claim-message');
+        if (textEl) textEl.innerText = 'Eine Sendung der Administration ist eingetroffen: ' + d.amount + ' ' + resourceLabel + '.';
+        if (msgEl) msgEl.innerText = d.message ? '„' + d.message + '"' : '';
+        const overlay = document.getElementById('rohrpost-claim-overlay');
+        if (overlay) overlay.style.display = 'flex';
+    } else {
+        if (typeof showCustomAlert === 'function') showCustomAlert('Keine Sendung vorhanden.');
+    }
+};
+
+window.closeRohrpostAdmin = function() {
+    const overlay = document.getElementById('rohrpost-admin-overlay');
+    if (overlay) overlay.style.display = 'none';
+};
+
+window.sendRohrpostDrop = async function() {
+    const resourceType = document.getElementById('rohrpost-admin-resource').value;
+    const amount = parseInt(document.getElementById('rohrpost-admin-amount').value) || 0;
+    const message = document.getElementById('rohrpost-admin-message').value.trim();
+    if (amount <= 0) { if (typeof showCustomAlert === 'function') showCustomAlert('Menge muss größer als 0 sein.'); return; }
+
+    try {
+        const snap = await window.getDocs(window.collection(window.db, "Agent - Base"));
+        const drop = { resourceType, amount, message, sentAt: Date.now() };
+        let count = 0;
+        const writes = [];
+        snap.forEach(d => {
+            const bd = d.data().baseData;
+            if (Array.isArray(bd) && bd.some(r => r.type === 'SUBRAUM-NEXUS')) {
+                writes.push(window.setDoc(window.doc(window.db, "Agent - Base", d.id), { pendingDrop: drop }, { merge: true }));
+                count++;
+            }
+        });
+        await Promise.all(writes);
+        if (typeof showInfoToast === 'function') showInfoToast('Sendung an ' + count + ' Agent' + (count === 1 ? '' : 'en') + ' versendet.');
+        window.closeRohrpostAdmin();
+    } catch (e) {
+        console.error(e);
+        if (typeof showCustomAlert === 'function') showCustomAlert('Versand fehlgeschlagen.');
+    }
+};
+
+window.claimRohrpostDrop = async function() {
+    if (!gameState.pendingDrop) return;
+    const d = gameState.pendingDrop;
+    if (d.resourceType === 'credits') gameState.credits += d.amount;
+    else if (d.resourceType === 'materiezellen') gameState.materieZellen += d.amount;
+    else if (d.resourceType === 'chronoszellen') gameState.chronosZellen += d.amount;
+    gameState.pendingDrop = null;
+    updateUI();
+    updateRohrpostVisual();
+    await saveGameState();
+    try {
+        await window.setDoc(window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName)), { pendingDrop: null }, { merge: true });
+    } catch (e) { console.error(e); }
+    const overlay = document.getElementById('rohrpost-claim-overlay');
+    if (overlay) overlay.style.display = 'none';
+    if (typeof showInfoToast === 'function') showInfoToast('Sendung entnommen.');
 };
 
 // --- Holoprojektor: Direktkanal zur Administration, baut auf dem bestehenden Komm-Link-System
