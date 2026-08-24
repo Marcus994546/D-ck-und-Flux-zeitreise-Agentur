@@ -1100,6 +1100,12 @@
     // normal sichtbar. Vorher hat ein einziges globales Flag ALLE Agenten ausgeblendet, sobald
     // irgendeiner unterwegs war.
     let bunkerAnimatingAgentIds = new Set();
+    // Warteschlange für Aufzug-Fahrten: es gibt nur EINEN Aufzug im DOM - schickt man zwei
+    // Agenten kurz hintereinander los, haben sich bisher beide Animationen denselben Aufzug
+    // geteilt und sich gegenseitig überschrieben (der zweite Agent wirkte dadurch, als wäre er
+    // in einen "nicht existierenden" Aufzug gestiegen). Jetzt wartet eine zweite Anfrage in der
+    // Warteschlange, bis die laufende Fahrt komplett abgeschlossen ist.
+    let elevatorQueue = [];
 
     // Wiederverwendbare Aufzug-Fahrt-Animation - Ablauf: (1) Aufzug fährt zur AKTUELLEN Position
     // des Agenten, (2) steht dort GENAU 10s lang, während (3) das Männchen sichtbar aus der
@@ -1107,11 +1113,26 @@
     // (4) erst nach den vollen 10s fährt der Aufzug weiter. Kein Countdown/Timer wird angezeigt.
     function playElevatorAnimation(oldLocation, newLocation, isStarter, agentId) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
+        if (bunkerElevatorAnimating) {
+            // Aufzug gerade beschäftigt - Anfrage einreihen, wird automatisch gestartet, sobald
+            // die aktuell laufende Fahrt fertig ist (siehe finish() unten).
+            elevatorQueue.push({ oldLocation, newLocation, isStarter, agentId });
+            return;
+        }
+        runElevatorRide(oldLocation, newLocation, isStarter, agentId);
+    }
+
+    function runElevatorRide(oldLocation, newLocation, isStarter, agentId) {
         const car = document.getElementById('bunker-elevator-car');
         const riderSlot = document.getElementById('bunker-elevator-rider-slot');
         const newIdx = bunkerFloorIndexForType(newLocation);
         const oldIdx = bunkerFloorIndexForType(oldLocation);
-        if (!car || newIdx < 0) return;
+        if (!car || newIdx < 0) {
+            // Auch bei einem übersprungenen Versuch weiter mit der nächsten Warteschlangen-
+            // Anfrage, sonst bliebe die Schlange stecken.
+            if (elevatorQueue.length > 0) { const next = elevatorQueue.shift(); runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId); }
+            return;
+        }
         const starterClass = isStarter ? ' bunker-agent-starter' : '';
 
         const PICKUP_MS = 1800;   // Anfahrt zur Abholung
@@ -1131,6 +1152,11 @@
             bunkerElevatorAnimating = false;
             if (agentId) bunkerAnimatingAgentIds.delete(agentId);
             if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
+            // Nächste wartende Fahrt automatisch starten, falls vorhanden.
+            if (elevatorQueue.length > 0) {
+                const next = elevatorQueue.shift();
+                runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId);
+            }
         }
 
         function disembark() {
