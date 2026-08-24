@@ -1375,7 +1375,7 @@
    selbst angewendet, nicht auf den ganzen Wrapper - sonst würde auch das Level-Badge mit
    vergrößert. */
 .bunker-agent-figure .bunker-figure {
-    position: relative; bottom: auto; left: auto; transform: scale(2.174);
+    position: relative; bottom: auto; left: auto; transform: scale(2.174); transform-origin: bottom center;
 }
 /* Läuft sichtbar von der Raummitte zum Aufzug (siehe playElevatorAnimation) - 5s Übergang auf
    "left", startet bei 50% (Raummitte) und endet bei 0% (linker Rand, Richtung Aufzugsschacht). */
@@ -1383,11 +1383,11 @@
     position: absolute; bottom: 4px; left: 50%; z-index: 31;
     transition: left 5s linear; transform: translateX(-50%);
 }
-.bunker-walking-figure .bunker-figure { position: relative; bottom: auto; left: auto; transform: scale(2.174); }
+.bunker-walking-figure .bunker-figure { position: relative; bottom: auto; left: auto; transform: scale(2.174); transform-origin: bottom center; }
 .bunker-agent-level {
     font-size: 0.55em; color: #0ff; background: rgba(0,20,20,0.8); border: 1px solid #0ff;
-    border-radius: 3px; padding: 1px 4px; margin-bottom: 2px; white-space: nowrap;
-    box-shadow: 0 0 6px rgba(0,255,255,0.5);
+    border-radius: 3px; padding: 1px 4px; margin-bottom: 44px; white-space: nowrap;
+    box-shadow: 0 0 6px rgba(0,255,255,0.5); position: relative; z-index: 32;
 }
 .bunker-agent-figure-selected .bunker-agent-level {
     color: #ff8800; border-color: #ff8800; box-shadow: 0 0 8px rgba(255,136,0,0.7);

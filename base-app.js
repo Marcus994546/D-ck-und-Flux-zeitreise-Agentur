@@ -4446,54 +4446,26 @@ window.triggerParadoxWarpEffect = function(success) {
 };
 
 // === SUBRAUM-NEXUS: VIP-Raum mit 5 interaktiven Stationen ===
-const menuSubraumNexus = `
-<div id="menu-subraum-nexus" style="display:none; flex-direction:column; gap:12px;">
-    <div class="upgrade-card" style="border-color:#8040ff;">
-        <b style="color:#8040ff;">[ SUBRAUM-NEXUS ]</b>
-        <p style="font-size:0.7em; color:#aaa;">100 Credits/h passiv · mit Agent zusätzlich alle 3h 1 Materiezelle.</p>
-    </div>
-    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openHoloprojektor()">
-        <b style="color:#0ff;">📡 HOLOPROJEKTOR</b>
-        <p style="font-size:0.7em; color:#aaa;">Direktkanal zur Administration (1 Chronos-Zelle/Nachricht).</p>
-    </div>
-    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openBioKapsel()">
-        <b style="color:#0f8;">🧪 BIO-REKONSTRUKTIONS-KAPSEL</b>
-        <p style="font-size:0.7em; color:#aaa;">Gestorbene Agenten wiederbeleben (25 Chronos-Zellen).</p>
-    </div>
-    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openSchattensyndikat()">
-        <b style="color:#f44;">🖥 SCHATTENSYNDIKAT-TERMINAL</b>
-        <p style="font-size:0.7em; color:#aaa;">Schwarzmarkt für fehlende Archiv-Artefakte.</p>
-    </div>
-    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openRohrpost()">
-        <b style="color:#08f;">📮 TEMPORALE ROHRPOST</b>
-        <div id="rohrpost-status" style="font-size:0.7em; color:#aaa; margin-top:4px;">Keine Sendung vorhanden.</div>
-    </div>
-    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openSubraumInfo()">
-        <b style="color:#ccc;">ℹ️ INFOSTAND</b>
-        <p style="font-size:0.7em; color:#aaa;">Komplette Erklärung dieses Raums.</p>
-    </div>
-</div>`;
-if (!document.getElementById('menu-subraum-nexus')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuSubraumNexus);
+// (Kein Ausbau-Menü-Panel mehr - siehe #subraum-nexus-hub-overlay in base.html, ein
+// eigenständiges Vollbild-Popup, komplett unabhängig vom Raum-/Ausbau-Menü-Anzeigezustand.)
 
 const oldOpenRoom_SN = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoom_SN) oldOpenRoom_SN(type);
-    const m = document.getElementById('menu-subraum-nexus');
-    if (m) m.style.display = (type === 'SUBRAUM-NEXUS') ? 'flex' : 'none';
     if (type === 'SUBRAUM-NEXUS') {
-        const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important');
+        // Bulletproof: eigenständiges Vollbild-Popup mit hohem z-index, KOMPLETT unabhängig
+        // vom Ausbau-Menü/Room-Box-Anzeigezustand - kann also nicht mehr durch irgendeine
+        // andere Anzeige-Logik verdeckt oder überschrieben werden.
         if (typeof renderRohrpostStatus === 'function') renderRohrpostStatus();
-        // Anders als bei reinen Deko-Möbelshops IST der Inhalt des Ausbau-Menüs hier der
-        // eigentliche Sinn des Raums - deshalb IMMER direkt erzwungen sichtbar, statt über
-        // toggleAusbauMenu()'s Zustandserkennung zu gehen (die offenbar nicht zuverlässig
-        // erkannt hat, dass das Menü noch geschlossen war).
-        const ausbauMenu = document.getElementById('ausbau-menu');
-        const roomBox = document.getElementById(window._roomAreaTargetId || 'room-area');
-        const toggleBtn = document.getElementById('toggle-ausbau-btn');
-        if (ausbauMenu) ausbauMenu.style.setProperty('display', 'flex', 'important');
-        if (roomBox) roomBox.style.setProperty('display', 'none', 'important');
-        if (toggleBtn) toggleBtn.innerText = 'AUSBAU-MENÜ SCHLIESSEN';
+        const hub = document.getElementById('subraum-nexus-hub-overlay');
+        if (hub) hub.style.setProperty('display', 'flex', 'important');
     }
+};
+window.closeSubraumNexusHub = function() {
+    const hub = document.getElementById('subraum-nexus-hub-overlay');
+    if (hub) hub.style.display = 'none';
+    // Zurück zur Ansicht, von der aus der Raum geöffnet wurde.
+    if (typeof window.closeRoom === 'function') window.closeRoom();
 };
 
 // --- Infostand ---
@@ -4600,7 +4572,7 @@ window.buyBlackMarketArtifact = async function(name) {
 
 // --- Platzhalter für Rohrpost (Admin-Drops folgen in einem separaten Schritt) ---
 function renderRohrpostStatus() {
-    const box = document.getElementById('rohrpost-status');
+    const box = document.getElementById('rohrpost-status-hub');
     if (!box) return;
     box.innerText = 'Keine Sendung vorhanden.';
 }
