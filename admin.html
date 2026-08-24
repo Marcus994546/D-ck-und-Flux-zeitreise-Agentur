@@ -10,7 +10,7 @@
 <style>
   :root {
     --neon: #00ffcc; --bg-dark: #0b0e14; --panel: #10141c; --warn: #ff8800; --crit: #ff4444;
-    --credits-color: #ffcc00; --mz-color: #b0f;
+    --credits-color: #ffcc00; --mz-color: #b0f; --chronos-color: #4dd0ff;
     --glow: 0 0 10px rgba(0,255,204,0.45), 0 0 20px rgba(0,255,204,0.15);
   }
   * { box-sizing: border-box; }
@@ -74,6 +74,9 @@
   td input.input-credits:focus { border-color: var(--credits-color); box-shadow: 0 0 6px rgba(255,204,0,0.5); }
   td input.input-mz { color: var(--mz-color); border-color: rgba(187,0,255,0.4); }
   td input.input-mz:focus { border-color: var(--mz-color); box-shadow: 0 0 6px rgba(187,0,255,0.5); }
+  th.col-chronos { color: var(--chronos-color); opacity: 1; }
+  td input.input-chronos { color: var(--chronos-color); border-color: rgba(77,208,255,0.4); }
+  td input.input-chronos:focus { border-color: var(--chronos-color); box-shadow: 0 0 6px rgba(77,208,255,0.5); }
   tr.admin-row td { color: var(--warn); }
   .row-btns { display: flex; gap: 6px; }
   .row-btn {
@@ -149,11 +152,12 @@
             <tr>
               <th>Agent</th><th>Admin</th><th>XP</th><th>Level</th>
               <th class="col-credits">💰 Credits</th><th class="col-mz">🧬 Materiezellen</th>
+              <th class="col-chronos">⏳ Chronos-Zellen</th>
               <th>Letzter Login</th><th>Aktion</th>
             </tr>
           </thead>
           <tbody id="agent-table-body">
-            <tr><td colspan="8" style="opacity:.5;">Lade Agenten...</td></tr>
+            <tr><td colspan="9" style="opacity:.5;">Lade Agenten...</td></tr>
           </tbody>
         </table>
       </div>
@@ -273,7 +277,7 @@
 
   window.loadAllAgents = async function() {
     const tbody = document.getElementById('agent-table-body');
-    tbody.innerHTML = '<tr><td colspan="8" style="opacity:.5;">Lade Agenten...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="opacity:.5;">Lade Agenten...</td></tr>';
     try {
       const agentSnap = await window.getDocs(window.collection(window.db, "agenten"));
 
@@ -284,7 +288,7 @@
       renderTable();
       plotMap();
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="8" style="color:var(--crit);">Fehler beim Laden: ${escapeHtml(e.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="color:var(--crit);">Fehler beim Laden: ${escapeHtml(e.message)}</td></tr>`;
     }
   };
 
@@ -299,7 +303,7 @@
 
     const rows = agentsCache.filter(a => a.id.toLowerCase().includes(filter));
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="opacity:.5;">Keine Treffer.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="opacity:.5;">Keine Treffer.</td></tr>';
       return;
     }
 
@@ -322,6 +326,7 @@
       const mzValue = (a.materiezellen !== undefined) ? a.materiezellen : (a.materialzellen ?? 0);
       tr.appendChild(numberCell('credits', a.credits ?? 0, 'input-credits'));
       tr.appendChild(numberCell('materiezellen', mzValue, 'input-mz'));
+      tr.appendChild(numberCell('chronoszellen', a.chronoszellen ?? 0, 'input-chronos'));
 
       const lastSeenTd = document.createElement('td');
       lastSeenTd.textContent = a.lastSeen || '—';
@@ -380,14 +385,14 @@
 
   async function saveRow(agentId, tr) {
     const getVal = (field) => Number(tr.querySelector(`input[data-field="${field}"]`).value) || 0;
-    const xp = getVal('xp'), lvl = getVal('lvl'), credits = getVal('credits'), materiezellen = getVal('materiezellen');
+    const xp = getVal('xp'), lvl = getVal('lvl'), credits = getVal('credits'), materiezellen = getVal('materiezellen'), chronoszellen = getVal('chronoszellen');
 
     try {
-      // Credits/Materiezellen sind fusioniert: es gibt nur noch EINEN Wert pro Agent,
-      // gespeichert im kanonischen Profil-Dokument "agenten" (nicht mehr zusätzlich in
+      // Credits/Materiezellen/Chronos-Zellen sind fusioniert: es gibt nur noch EINEN Wert pro
+      // Agent, gespeichert im kanonischen Profil-Dokument "agenten" (nicht mehr zusätzlich in
       // "Agent - Base" - das enthält nur noch Raum-/Grid-Daten).
       await window.setDoc(window.doc(window.db, "agenten", agentId), {
-        xp, lvl, credits, materiezellen
+        xp, lvl, credits, materiezellen, chronoszellen
       }, { merge: true });
 
       tr.classList.remove('save-flash');

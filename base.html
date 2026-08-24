@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260823h">
+    <link rel="stylesheet" href="base-style.css?v=20260823i">
 </head>
 <body>
 
@@ -183,6 +183,38 @@
     </div>
 </div>
 
+<div id="subraum-info-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+    <div style="background:#0a0a1e; border:1px solid #8040ff; box-shadow:0 0 30px rgba(128,64,255,0.5); border-radius:6px; padding:20px; width:min(420px, 90vw); max-height:80vh; overflow-y:auto; font-family:'Orbitron', monospace;">
+        <h3 style="color:#8040ff; text-shadow:0 0 10px #8040ff; margin-top:0;">[ SUBRAUM-NEXUS · INFOSTAND ]</h3>
+        <div style="font-size:0.8em; color:#ddd; line-height:1.6; font-family:sans-serif;">
+            <p><b style="color:#0f8;">Passive Produktion:</b> Sobald gebaut, erzeugt der Nexus dauerhaft 100 Credits pro Stunde - ganz ohne Agent.</p>
+            <p><b style="color:#0f8;">Aktive Produktion:</b> Weist du einen Agenten zu, produziert der Raum zusätzlich alle 3 Stunden 1 Materiezelle.</p>
+            <p><b style="color:#0ff;">Holoprojektor:</b> Direktkanal zur Administration. Jede gesendete Nachricht kostet dich 1 Chronos-Zelle.</p>
+            <p><b style="color:#0f8;">Bio-Rekonstruktions-Kapsel:</b> Belebt gestorbene Agenten wieder - 25 Chronos-Zellen pro Agent, danach wieder voll einsatzfähig.</p>
+            <p><b style="color:#f44;">Schattensyndikat-Terminal:</b> Schwarzmarkt für fehlende Archiv-Artefakte - 100.000 Credits + 10 Materiezellen pro Stück.</p>
+            <p><b style="color:#08f;">Temporale Rohrpost:</b> Globale Drops der Administration. Nur Spieler, die den Nexus zum Versandzeitpunkt bereits gebaut hatten, erhalten sie - keine rückwirkende Zustellung.</p>
+        </div>
+        <button class="btn-back" style="width:100%; margin-top:16px;" onclick="window.closeSubraumInfo()">SCHLIESSEN</button>
+    </div>
+</div>
+
+<div id="subraum-biokapsel-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+    <div style="background:#001a10; border:1px solid #0f8; box-shadow:0 0 30px rgba(0,255,136,0.5); border-radius:6px; padding:20px; width:min(400px, 90vw); max-height:80vh; display:flex; flex-direction:column; font-family:'Orbitron', monospace;">
+        <h3 style="color:#0f8; text-shadow:0 0 10px #0f8; margin-top:0;">[ BIO-REKONSTRUKTIONS-KAPSEL ]</h3>
+        <div id="biokapsel-list" style="overflow-y:auto; margin-bottom:12px;"></div>
+        <button class="btn-back" style="width:100%;" onclick="window.closeBioKapsel()">SCHLIESSEN</button>
+    </div>
+</div>
+
+<div id="subraum-schatten-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+    <div style="background:#1a0505; border:1px solid #f44; box-shadow:0 0 30px rgba(255,68,68,0.5); border-radius:6px; padding:20px; width:min(420px, 90vw); max-height:80vh; display:flex; flex-direction:column; font-family:'Orbitron', monospace;">
+        <h3 style="color:#f44; text-shadow:0 0 10px #f44; margin-top:0;">[ SCHATTENSYNDIKAT-TERMINAL ]</h3>
+        <p style="font-size:0.7em; color:#aaa; margin-top:0;">100.000 Credits + 10 Materiezellen pro Artefakt.</p>
+        <div id="schatten-list" style="overflow-y:auto; margin-bottom:12px;"></div>
+        <button class="btn-back" style="width:100%;" onclick="window.closeSchattensyndikat()">SCHLIESSEN</button>
+    </div>
+</div>
+
 <div id="interior-screen">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 id="room-title-detail" style="text-shadow: 0 0 10px var(--neon-color); margin: 0;">ZENTRALE</h3>
@@ -298,7 +330,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260823h"></script>
-<script src="base-app.js?v=20260823h"></script>
+<script type="module" src="base-firebase-init.js?v=20260823i"></script>
+<script src="base-app.js?v=20260823i"></script>
 </body>
 </html>

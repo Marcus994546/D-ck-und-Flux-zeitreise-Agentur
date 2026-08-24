@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, deadAgents: [], userLevel: 1, agents: [], agentSystemUnlocked: false };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -110,7 +110,10 @@
         'HOCHSPANNUNGS-VERTEILER': { hours: 1, effect: 'overdrive' },
         // Nur nutzbar bei aktivem Horizont-Auftrag - Sonderbehandlung in moveAgentTo() und
         // applyAgentReward().
-        'PARADOXON-FILTER':       { hours: 5 / 60, effect: 'quantum_warp' }
+        'PARADOXON-FILTER':       { hours: 5 / 60, effect: 'quantum_warp' },
+        // Läuft ZUSÄTZLICH zur eigenen (immer aktiven) passiven Credit-Produktion - siehe
+        // tickPassiveRooms(). Ein Raum kann beides gleichzeitig sein.
+        'SUBRAUM-NEXUS':          { hours: 3, effect: 'materiezelle', amount: 1 }
     };
 
     // Globales Agenten-Limit: Basis 8 (Agent #1 + 7 reguläre), +3 durch das Kryo-Depot.
@@ -221,6 +224,7 @@
         'RENAISSANCE-GENERATOR':   { text: 'Tauschfunktion: Credits gegen Chronos-Zelle' }
     };
     const THERMO_KOPPLER_INTERVAL_MS = 2 * 3600000; // alle 2 Stunden 1 Credit
+    const SUBRAUM_NEXUS_INTERVAL_MS = 3600000; // stündlich 100 Credits, unabhängig von einem Agenten
     const ROOM_BUILD_COST_MZ = 10;
 
     // Formel lt. Vorgabe: Neue Dauer = Basis-Dauer * (1 - (Level - 1) * 0.05)
@@ -417,6 +421,21 @@
     }
 
 
+    // Entfernt einen gestorbenen Agenten aus dem aktiven Roster, merkt ihn sich aber im
+    // "Friedhof" (gameState.deadAgents) - Grundlage für die Bio-Rekonstruktions-Kapsel im
+    // Subraum-Nexus, die gestorbene Agenten gegen Chronos-Zellen wiederbeleben kann.
+    function killAgent(agent, diedIn) {
+        if (!Array.isArray(gameState.deadAgents)) gameState.deadAgents = [];
+        gameState.deadAgents.push({
+            id: agent.id,
+            level: agent.level,
+            isStarter: !!agent.isStarter,
+            diedIn: diedIn,
+            diedAt: Date.now()
+        });
+        gameState.agents = gameState.agents.filter(a => a.id !== agent.id);
+    }
+
     // Schickt einen Agenten automatisch zurück zur Zentrale - OHNE Umweg über die Agenten-
     // Quartiere (Ausnahme von der sonst geltenden Regel, dass jeder Raumwechsel zwingend über
     // die Quartiere läuft; das gilt nur für manuelle Umleitungen durch den Spieler). Genutzt nach
@@ -536,7 +555,7 @@
                             if (typeof showInfoToast === 'function') showInfoToast('Impuls-Kondensator: Agent hat die Entladung überlebt und ist aufgestiegen! (+1 Agentenlevel, +2 MZ, +1000 Credits)');
                             sendAgentHome(agent);
                         } else {
-                            gameState.agents = gameState.agents.filter(a => a.id !== agent.id);
+                            killAgent(agent, 'IMPULS-KONDENSATOR');
                             if (typeof showCustomAlert === 'function') showCustomAlert('Impuls-Kondensator: Agent wurde von der Entladung getötet und dauerhaft gelöscht.');
                         }
                         changed = true;
@@ -548,7 +567,7 @@
                             if (typeof showInfoToast === 'function') showInfoToast('Hochspannungs-Verteiler: Agent hat den System-Overdrive überstanden.');
                             sendAgentHome(agent);
                         } else {
-                            gameState.agents = gameState.agents.filter(a => a.id !== agent.id);
+                            killAgent(agent, 'HOCHSPANNUNGS-VERTEILER');
                             if (typeof showCustomAlert === 'function') showCustomAlert('Hochspannungs-Verteiler: Agent wurde vom Overdrive getötet und dauerhaft gelöscht.');
                         }
                         changed = true;
@@ -611,6 +630,15 @@
                 while (effectiveElapsed(room.lastTick, now) >= THERMO_KOPPLER_INTERVAL_MS && safety < 1000) {
                     gameState.credits += 1;
                     room.lastTick += THERMO_KOPPLER_INTERVAL_MS;
+                    changed = true;
+                    safety++;
+                }
+            } else if (room.type === 'SUBRAUM-NEXUS') {
+                if (!room.lastTick) { room.lastTick = now; changed = true; return; }
+                let safety = 0;
+                while (effectiveElapsed(room.lastTick, now) >= SUBRAUM_NEXUS_INTERVAL_MS && safety < 1000) {
+                    gameState.credits += 100;
+                    room.lastTick += SUBRAUM_NEXUS_INTERVAL_MS;
                     changed = true;
                     safety++;
                 }
@@ -691,7 +719,7 @@
         'RENAISSANCE-GENERATOR': '#201515', 'THERMO-KOPPLER': '#2a1a15', 'KINETIK-LABOR': '#152530', 'MATERIE-DEKOMPRESSOR': '#2a1520',
         'VAKUUM-SCHMIEDE': '#0a1420', 'TEMPORAL TIME FORGE': '#0a1420', 'RESONANZ-KAMMER': '#201025', 'KYBERNETIK-STATION': '#15202a', 'SCANNER-PHALANX': '#1a251a',
         'DEKONTAMINATIONS-SCHLEUSE': '#1a2a1a', 'ANOMALIE-DETEKTOR': '#25152a', 'KRYO-DEPOT': '#10202a', 'FUNK-RELAIS "HORIZONT"': '#151530',
-        'KI-KERNMATRIX': '#121822'
+        'KI-KERNMATRIX': '#121822', 'SUBRAUM-NEXUS': '#0d0d2a'
     };
 
     const roomTypes = [
@@ -706,7 +734,8 @@
         { n: 'RESONANZ-KAMMER', d: 'Testet übernatürliche Fähigkeiten.' }, { n: 'KYBERNETIK-STATION', d: 'Einbau von Verstärkern.' },
         { n: 'SCANNER-PHALANX', d: 'Überwacht das Gelände.' }, { n: 'DEKONTAMINATIONS-SCHLEUSE', d: 'Reinigt von Strahlung.' },
         { n: 'ANOMALIE-DETEKTOR', d: 'Warnt vor Zeitrissen.' }, { n: 'KRYO-DEPOT', d: 'Lagert seltene Proben.' },
-        { n: 'FUNK-RELAIS "HORIZONT"', d: 'Erhöht die Funk-Reichweite.' }, { n: 'KI-KERNMATRIX', d: 'Zentraler künstlicher Verstand.' }
+        { n: 'FUNK-RELAIS "HORIZONT"', d: 'Erhöht die Funk-Reichweite.' }, { n: 'KI-KERNMATRIX', d: 'Zentraler künstlicher Verstand.' },
+        { n: 'SUBRAUM-NEXUS', d: 'VIP-Schnittstelle - Direktkanal zur Administration.' }
     ];
 
     // --- CLOUD SYNCHRONISATION (FOOLPROOF LEVEL CHECK) ---
@@ -722,6 +751,7 @@
                 if (parsed.chronosZellen !== undefined) gameState.chronosZellen = parsed.chronosZellen;
                 if (Array.isArray(parsed.collectedArtifacts)) gameState.collectedArtifacts = parsed.collectedArtifacts;
                 if (Array.isArray(parsed.horizonMissions)) gameState.horizonMissions = parsed.horizonMissions;
+                if (Array.isArray(parsed.deadAgents)) gameState.deadAgents = parsed.deadAgents;
                 if (parsed.overdriveStartTs !== undefined) gameState.overdriveStartTs = parsed.overdriveStartTs;
                 if (parsed.overdriveEndTs !== undefined) gameState.overdriveEndTs = parsed.overdriveEndTs;
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
@@ -781,6 +811,7 @@
                     if (data.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
                     if (Array.isArray(data.collectedArtifacts)) gameState.collectedArtifacts = data.collectedArtifacts;
                     if (Array.isArray(data.horizonMissions)) gameState.horizonMissions = data.horizonMissions;
+                    if (Array.isArray(data.deadAgents)) gameState.deadAgents = data.deadAgents;
                     if (data.overdriveStartTs !== undefined) gameState.overdriveStartTs = data.overdriveStartTs;
                     if (data.overdriveEndTs !== undefined) gameState.overdriveEndTs = data.overdriveEndTs;
                 }
@@ -821,6 +852,7 @@
         d.mz = gameState.materieZellen; 
         d.chronosZellen = gameState.chronosZellen;
         d.horizonMissions = gameState.horizonMissions;
+        d.deadAgents = gameState.deadAgents;
         d.overdriveStartTs = gameState.overdriveStartTs;
         d.overdriveEndTs = gameState.overdriveEndTs;
         d.lvl = gameState.userLevel; 
@@ -842,6 +874,7 @@
                     agentSystemUnlocked: gameState.agentSystemUnlocked,
                     collectedArtifacts: gameState.collectedArtifacts,
                     horizonMissions: gameState.horizonMissions,
+                    deadAgents: gameState.deadAgents,
                     overdriveStartTs: gameState.overdriveStartTs,
                     overdriveEndTs: gameState.overdriveEndTs,
                     letztesUpdate: new Date().toISOString()
@@ -903,12 +936,16 @@
         const levelI = document.getElementById('next-room-level-info');
         levelI.innerText = gameState.userLevel < reqLvl ? `Sperre: Level ${reqLvl} benötigt!` : `Bereit für Ausbau (Level ${reqLvl})`;
         const buildCost = getRoomBuildCostMZ();
+        const SUBRAUM_NEXUS_COST_CHRONOS = 75;
         roomTypes.forEach(room => {
             const built = gameState.baseData.some(r => r.type === room.n);
             const item = document.createElement('div'); item.className = 'selection-item';
             if (built || gameState.userLevel < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
             else { item.onclick = () => confirmRoomSelection(room.n); }
-            item.innerHTML = `<b>[ ${room.n} ]</b> <span style="float:right; color:#0f8; font-weight:bold;">${buildCost} MZ</span><br><small>${room.d}</small>${(gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
+            const priceLabel = (room.n === 'SUBRAUM-NEXUS')
+                ? '<span style="float:right; color:#c060ff; font-weight:bold;">' + SUBRAUM_NEXUS_COST_CHRONOS + ' Chronos-Zellen</span>'
+                : '<span style="float:right; color:#0f8; font-weight:bold;">' + buildCost + ' MZ</span>';
+            item.innerHTML = `<b>[ ${room.n} ]</b> ${priceLabel}<br><small>${room.d}</small>${(gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
             list.appendChild(item);
         });
         document.getElementById('room-selection-overlay').style.display = 'flex';
@@ -917,6 +954,15 @@
     window.hideRoomMenu = () => { playBeepBase(600, 0.05); document.getElementById('room-selection-overlay').style.display = 'none'; };
 
     window.confirmRoomSelection = async (type) => {
+        if (type === 'SUBRAUM-NEXUS') {
+            const cost = 75;
+            if (gameState.chronosZellen >= cost) {
+                gameState.chronosZellen -= cost;
+                gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1, lastTick: Date.now()});
+                updateUI(); renderGrid(); hideRoomMenu(); await saveGameState();
+            } else { hideRoomMenu(); if (typeof showCustomAlert === 'function') showCustomAlert("System: Nicht genügend Chronos-Zellen (75 benötigt)."); }
+            return;
+        }
         const buildCost = getRoomBuildCostMZ();
         if (gameState.materieZellen >= buildCost) {
             gameState.materieZellen -= buildCost;
@@ -1280,6 +1326,9 @@
         }
         if (roomType === 'OSZILLATIONS-KAMMER') {
             return 'Nur Agent #1 (Starter) · 15h · Belohnung: 1 Materiezelle';
+        }
+        if (roomType === 'SUBRAUM-NEXUS') {
+            return 'VIP-Raum · immer 100 Credits/h passiv · mit Agent zusätzlich alle 3h 1 Materiezelle · Detailansicht mit 5 Interaktionen';
         }
         if (roomType === 'FUNK-RELAIS "HORIZONT"') {
             return 'Agent 30min zugewiesen · erzeugt einen Zeitreise-Auftrag (Ziel-Jahr) für die TEMPORAL TIME FORGE' +
@@ -4352,4 +4401,162 @@ window.triggerParadoxWarpEffect = function(success) {
         overlay.style.display = 'none';
         overlay.innerHTML = '';
     }, success ? 2600 : 1800);
+};
+
+// === SUBRAUM-NEXUS: VIP-Raum mit 5 interaktiven Stationen ===
+const menuSubraumNexus = `
+<div id="menu-subraum-nexus" style="display:none; flex-direction:column; gap:12px;">
+    <div class="upgrade-card" style="border-color:#8040ff;">
+        <b style="color:#8040ff;">[ SUBRAUM-NEXUS ]</b>
+        <p style="font-size:0.7em; color:#aaa;">100 Credits/h passiv · mit Agent zusätzlich alle 3h 1 Materiezelle.</p>
+    </div>
+    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openHoloprojektor()">
+        <b style="color:#0ff;">📡 HOLOPROJEKTOR</b>
+        <p style="font-size:0.7em; color:#aaa;">Direktkanal zur Administration (1 Chronos-Zelle/Nachricht).</p>
+    </div>
+    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openBioKapsel()">
+        <b style="color:#0f8;">🧪 BIO-REKONSTRUKTIONS-KAPSEL</b>
+        <p style="font-size:0.7em; color:#aaa;">Gestorbene Agenten wiederbeleben (25 Chronos-Zellen).</p>
+    </div>
+    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openSchattensyndikat()">
+        <b style="color:#f44;">🖥 SCHATTENSYNDIKAT-TERMINAL</b>
+        <p style="font-size:0.7em; color:#aaa;">Schwarzmarkt für fehlende Archiv-Artefakte.</p>
+    </div>
+    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openRohrpost()">
+        <b style="color:#08f;">📮 TEMPORALE ROHRPOST</b>
+        <div id="rohrpost-status" style="font-size:0.7em; color:#aaa; margin-top:4px;">Keine Sendung vorhanden.</div>
+    </div>
+    <div class="upgrade-card" style="cursor:pointer;" onclick="window.openSubraumInfo()">
+        <b style="color:#ccc;">ℹ️ INFOSTAND</b>
+        <p style="font-size:0.7em; color:#aaa;">Komplette Erklärung dieses Raums.</p>
+    </div>
+</div>`;
+if (!document.getElementById('menu-subraum-nexus')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuSubraumNexus);
+
+const oldOpenRoom_SN = window.openRoom;
+window.openRoom = (type) => {
+    if (oldOpenRoom_SN) oldOpenRoom_SN(type);
+    const m = document.getElementById('menu-subraum-nexus');
+    if (m) m.style.display = (type === 'SUBRAUM-NEXUS') ? 'flex' : 'none';
+    if (type === 'SUBRAUM-NEXUS') {
+        const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important');
+        if (typeof renderRohrpostStatus === 'function') renderRohrpostStatus();
+    }
+};
+
+// --- Infostand ---
+window.openSubraumInfo = function() {
+    const overlay = document.getElementById('subraum-info-overlay');
+    if (overlay) overlay.style.display = 'flex';
+};
+window.closeSubraumInfo = function() {
+    const overlay = document.getElementById('subraum-info-overlay');
+    if (overlay) overlay.style.display = 'none';
+};
+
+// --- Bio-Rekonstruktions-Kapsel ---
+window.openBioKapsel = function() {
+    const list = document.getElementById('biokapsel-list');
+    const dead = Array.isArray(gameState.deadAgents) ? gameState.deadAgents : [];
+    if (list) {
+        if (dead.length === 0) {
+            list.innerHTML = '<p style="font-size:0.75em; color:#666; font-style:italic;">Keine gestorbenen Agenten zu rekonstruieren.</p>';
+        } else {
+            list.innerHTML = dead.map((d, i) =>
+                '<div class="upgrade-card" style="text-align:left;">' +
+                    '<b>' + (d.isStarter ? '★ Starter-Agent' : 'Agent') + ' · Lvl ' + d.level + '</b>' +
+                    '<p style="font-size:0.7em; color:#aaa; margin:4px 0;">Gestorben in: ' + d.diedIn + '</p>' +
+                    '<button class="btn-upgrade-exec" style="background:#0f8; color:#000; border:1px solid #0f8;" onclick="window.reviveDeadAgent(' + i + ')">WIEDERBELEBEN (25 Chronos-Zellen)</button>' +
+                '</div>'
+            ).join('');
+        }
+    }
+    const overlay = document.getElementById('subraum-biokapsel-overlay');
+    if (overlay) overlay.style.display = 'flex';
+};
+window.closeBioKapsel = function() {
+    const overlay = document.getElementById('subraum-biokapsel-overlay');
+    if (overlay) overlay.style.display = 'none';
+};
+window.reviveDeadAgent = async function(idx) {
+    const cost = 25;
+    if (!Array.isArray(gameState.deadAgents) || !gameState.deadAgents[idx]) return;
+    if (gameState.chronosZellen < cost) {
+        if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Chronos-Zellen (25 benötigt).');
+        return;
+    }
+    const dead = gameState.deadAgents[idx];
+    gameState.chronosZellen -= cost;
+    gameState.deadAgents.splice(idx, 1);
+    gameState.agents.push({
+        id: 'agent_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        level: dead.level,
+        location: 'ZENTRALE',
+        state: 'idle',
+        targetRoom: null,
+        taskStartTs: null,
+        taskDurationMs: null,
+        isStarter: dead.isStarter
+    });
+    updateUI();
+    await saveGameState();
+    if (typeof showInfoToast === 'function') showInfoToast('Agent erfolgreich rekonstruiert und wieder einsatzbereit.');
+    window.openBioKapsel(); // Liste neu aufbauen
+};
+
+// --- Schattensyndikat-Terminal ---
+window.openSchattensyndikat = function() {
+    const list = document.getElementById('schatten-list');
+    const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
+    const missing = ARTEFAKTE.filter(a => !collected.includes(a.name));
+    if (list) {
+        if (missing.length === 0) {
+            list.innerHTML = '<p style="font-size:0.75em; color:#666; font-style:italic;">Sammlung bereits vollständig - nichts mehr zu kaufen.</p>';
+        } else {
+            list.innerHTML = missing.map(a =>
+                '<div class="upgrade-card" style="text-align:left;">' +
+                    '<b>' + a.name + '</b>' +
+                    '<button class="btn-upgrade-exec" style="background:#f44; color:#000; border:1px solid #f44; margin-top:6px;" onclick="window.buyBlackMarketArtifact(\'' + a.name.replace(/'/g, "\\'") + '\')">KAUFEN (100.000 C + 10 MZ)</button>' +
+                '</div>'
+            ).join('');
+        }
+    }
+    const overlay = document.getElementById('subraum-schatten-overlay');
+    if (overlay) overlay.style.display = 'flex';
+};
+window.closeSchattensyndikat = function() {
+    const overlay = document.getElementById('subraum-schatten-overlay');
+    if (overlay) overlay.style.display = 'none';
+};
+window.buyBlackMarketArtifact = async function(name) {
+    const costC = 100000, costMZ = 10;
+    if (gameState.credits < costC || gameState.materieZellen < costMZ) {
+        if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Ressourcen (100.000 C + 10 MZ benötigt).');
+        return;
+    }
+    if (!Array.isArray(gameState.collectedArtifacts)) gameState.collectedArtifacts = [];
+    if (gameState.collectedArtifacts.includes(name)) { window.openSchattensyndikat(); return; }
+    gameState.credits -= costC;
+    gameState.materieZellen -= costMZ;
+    gameState.collectedArtifacts.push(name);
+    updateUI();
+    await saveGameState();
+    if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
+    if (typeof showInfoToast === 'function') showInfoToast('Artefakt vom Schwarzmarkt erworben: ' + name);
+    window.openSchattensyndikat(); // Liste neu aufbauen (Artefakt jetzt raus)
+};
+
+// --- Platzhalter für Rohrpost (Admin-Drops folgen in einem separaten Schritt) ---
+function renderRohrpostStatus() {
+    const box = document.getElementById('rohrpost-status');
+    if (!box) return;
+    box.innerText = 'Keine Sendung vorhanden.';
+}
+window.openRohrpost = function() {
+    if (typeof showCustomAlert === 'function') showCustomAlert('Temporale Rohrpost ist noch nicht freigeschaltet.');
+};
+
+// --- Platzhalter für Holoprojektor-Chat (folgt in einem separaten Schritt) ---
+window.openHoloprojektor = function() {
+    if (typeof showCustomAlert === 'function') showCustomAlert('Holoprojektor-Kanal ist noch nicht freigeschaltet.');
 };
