@@ -944,15 +944,31 @@
         if (chronosBalEl) chronosBalEl.innerText = gameState.chronosZellen;
         const buildCost = getRoomBuildCostMZ();
         const SUBRAUM_NEXUS_COST_CHRONOS = 75;
+        // Subraum-Nexus ist der "Abschluss-Raum": erst baubar, wenn alle anderen Raumtypen
+        // bereits besitzt werden.
+        const otherRoomTypes = roomTypes.filter(r => r.n !== 'SUBRAUM-NEXUS').map(r => r.n);
+        const missingRooms = otherRoomTypes.filter(n => !gameState.baseData.some(r => r.type === n));
         roomTypes.forEach(room => {
             const built = gameState.baseData.some(r => r.type === room.n);
+            const isNexus = room.n === 'SUBRAUM-NEXUS';
+            const nexusLocked = isNexus && missingRooms.length > 0;
             const item = document.createElement('div'); item.className = 'selection-item';
+            if (isNexus) item.style.border = '1px solid #ffd700';
             if (built || gameState.userLevel < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
+            else if (nexusLocked) {
+                // Bewusst NICHT deaktiviert: Klick bleibt möglich, zeigt aber eine erklärende
+                // Fehlermeldung statt einfach nichts zu tun.
+                item.style.opacity = '0.55'; item.style.cursor = 'pointer';
+                item.onclick = () => { if (typeof showCustomAlert === 'function') showCustomAlert('Subraum-Nexus benötigt zuerst alle anderen Räume (noch ' + missingRooms.length + ' fehlend).'); };
+            }
             else { item.onclick = () => confirmRoomSelection(room.n); }
-            const priceLabel = (room.n === 'SUBRAUM-NEXUS')
+            const priceLabel = isNexus
                 ? '<span style="float:right; color:#c060ff; font-weight:bold;">' + SUBRAUM_NEXUS_COST_CHRONOS + ' Chronos-Zellen</span>'
                 : '<span style="float:right; color:#0f8; font-weight:bold;">' + buildCost + ' MZ</span>';
-            item.innerHTML = `<b>[ ${room.n} ]</b> ${priceLabel}<br><small>${room.d}</small>${(gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>' : ''}`;
+            const nameLabel = isNexus ? '<b style="color:#ffd700; text-shadow:0 0 6px rgba(255,215,0,0.6);">[ ' + room.n + ' ]</b>' : `<b>[ ${room.n} ]</b>`;
+            const lockHint = (gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>'
+                : (nexusLocked ? '<div style="font-size:0.65em; color:#ff8800; margin-top:4px;">Benötigt zuerst alle ' + otherRoomTypes.length + ' anderen Räume (noch ' + missingRooms.length + ' fehlend)</div>' : '');
+            item.innerHTML = `${nameLabel} ${priceLabel}<br><small>${room.d}</small>${lockHint}`;
             list.appendChild(item);
         });
         document.getElementById('room-selection-overlay').style.display = 'flex';
@@ -962,6 +978,13 @@
 
     window.confirmRoomSelection = async (type) => {
         if (type === 'SUBRAUM-NEXUS') {
+            const otherRoomTypes = roomTypes.filter(r => r.n !== 'SUBRAUM-NEXUS').map(r => r.n);
+            const missingRooms = otherRoomTypes.filter(n => !gameState.baseData.some(r => r.type === n));
+            if (missingRooms.length > 0) {
+                hideRoomMenu();
+                if (typeof showCustomAlert === 'function') showCustomAlert('Subraum-Nexus benötigt zuerst alle anderen Räume (noch ' + missingRooms.length + ' fehlend).');
+                return;
+            }
             const cost = 75;
             if (gameState.chronosZellen >= cost) {
                 gameState.chronosZellen -= cost;
@@ -4460,6 +4483,13 @@ window.openRoom = (type) => {
     if (type === 'SUBRAUM-NEXUS') {
         const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display','none','important');
         if (typeof renderRohrpostStatus === 'function') renderRohrpostStatus();
+        // Anders als bei reinen Deko-Möbelshops IST der Inhalt des Ausbau-Menüs hier der
+        // eigentliche Sinn des Raums - deshalb automatisch öffnen statt hinter dem
+        // "AGENTUR-AUSBAU ÖFFNEN"-Button zu verstecken.
+        const ausbauMenu = document.getElementById('ausbau-menu');
+        if (ausbauMenu && (ausbauMenu.style.display === 'none' || ausbauMenu.style.display === '')) {
+            if (typeof window.toggleAusbauMenu === 'function') window.toggleAusbauMenu();
+        }
     }
 };
 
