@@ -903,8 +903,10 @@
         }
         const grid = document.getElementById('base-grid'); if(!grid) return;
         grid.innerHTML = '';
-        for (let y = 0; y < 5; y++) {
-            for (let x = 0; x < 5; x++) {
+        // Gitter ist 7x7 (49 Zellen) - bei 5x5 (25) war mit inzwischen 25 verschiedenen
+        // Raumtypen (inkl. Zentrale) buchstäblich kein Platz mehr für weitere Räume übrig.
+        for (let y = 0; y < 7; y++) {
+            for (let x = 0; x < 7; x++) {
                 const slot = document.createElement('div'); slot.className = 'room-slot';
                 slot.style.gridColumn = x + 1; slot.style.gridRow = y + 1;
                 const room = gameState.baseData.find(r => r.x === x && r.y === y);
@@ -916,6 +918,7 @@
                     slot.style.display = 'flex';
                 } else if (isNeighbor) {
                     slot.classList.add('room-buildable'); slot.innerHTML = '<span>+</span>';
+                    slot.dataset.buildable = '1';
                     slot.style.display = 'flex'; slot.onclick = () => { playBeepBase(900, 0.05); buyRoom(x, y); };
                 }
                 grid.appendChild(slot);
@@ -935,6 +938,10 @@
         list.innerHTML = ''; const reqLvl = gameState.baseData.length * 3;
         const levelI = document.getElementById('next-room-level-info');
         levelI.innerText = gameState.userLevel < reqLvl ? `Sperre: Level ${reqLvl} benötigt!` : `Bereit für Ausbau (Level ${reqLvl})`;
+        const mzBalEl = document.getElementById('selection-mz-balance');
+        if (mzBalEl) mzBalEl.innerText = gameState.materieZellen;
+        const chronosBalEl = document.getElementById('selection-chronos-balance');
+        if (chronosBalEl) chronosBalEl.innerText = gameState.chronosZellen;
         const buildCost = getRoomBuildCostMZ();
         const SUBRAUM_NEXUS_COST_CHRONOS = 75;
         roomTypes.forEach(room => {
@@ -1274,8 +1281,20 @@
         document.getElementById('view-ausbaumenu').style.display = 'flex';
         updateUI();
         renderGrid();
-        const wrap = document.getElementById('grid-wrapper');
-        if (wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
+        // Statt blind auf die geometrische Mitte des GESAMTEN Gitters zu scrollen (das ist bei
+        // 7x7 nicht zwangsläufig dort, wo die tatsächlich gebaute Basis liegt), wird gezielt ein
+        // echtes Baufeld ("+") in den sichtbaren Bereich gescrollt - garantiert sichtbar, egal wo
+        // es im Gitter liegt. Gibt es keins (Basis komplett leer o.ä.), wird notfalls die
+        // Zentrale selbst zentriert.
+        const buildable = document.querySelector('#base-grid [data-buildable="1"]');
+        const zentrale = Array.from(document.querySelectorAll('#base-grid .room-active')).find(el => el.textContent.includes('ZENTRALE'));
+        const target = buildable || zentrale;
+        if (target && typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({ block: 'center', inline: 'center' });
+        } else {
+            const wrap = document.getElementById('grid-wrapper');
+            if (wrap) { wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; wrap.scrollTop = (wrap.scrollHeight - wrap.clientHeight) / 2; }
+        }
     };
 
     // Zeigt den aktuellen Anzeigenamen eines Raums - fängt den Fall ab, dass ein bereits vor
