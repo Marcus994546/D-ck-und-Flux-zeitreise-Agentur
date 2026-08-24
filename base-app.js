@@ -4446,26 +4446,61 @@ window.triggerParadoxWarpEffect = function(success) {
 };
 
 // === SUBRAUM-NEXUS: VIP-Raum mit 5 interaktiven Stationen ===
-// (Kein Ausbau-Menü-Panel mehr - siehe #subraum-nexus-hub-overlay in base.html, ein
-// eigenständiges Vollbild-Popup, komplett unabhängig vom Raum-/Ausbau-Menü-Anzeigezustand.)
+// Anders als zuerst umgesetzt: die 5 Stationen sind ECHTE, physische Gegenstände im Raum
+// selbst (wie der Zeitmaschinen-Kern in der Forge oder das Regal im Archiv) - kein
+// separates Menü-Popup. Immer alle 5 vorhanden, sobald der Raum gebaut ist, kein Kauf nötig.
+const itemsSubraumNexus = ['sn_holoprojektor', 'sn_biokapsel', 'sn_schattenterminal', 'sn_rohrpost', 'sn_infostand'];
 
 const oldOpenRoom_SN = window.openRoom;
 window.openRoom = (type) => {
     if (oldOpenRoom_SN) oldOpenRoom_SN(type);
     if (type === 'SUBRAUM-NEXUS') {
-        // Bulletproof: eigenständiges Vollbild-Popup mit hohem z-index, KOMPLETT unabhängig
-        // vom Ausbau-Menü/Room-Box-Anzeigezustand - kann also nicht mehr durch irgendeine
-        // andere Anzeige-Logik verdeckt oder überschrieben werden.
-        if (typeof renderRohrpostStatus === 'function') renderRohrpostStatus();
-        const hub = document.getElementById('subraum-nexus-hub-overlay');
-        if (hub) hub.style.setProperty('display', 'flex', 'important');
+        const ph = document.getElementById('menu-platzhalter'); if (ph) ph.style.setProperty('display', 'none', 'important');
+        if (typeof window.reloadFurniture === 'function') window.reloadFurniture(type);
     }
 };
-window.closeSubraumNexusHub = function() {
-    const hub = document.getElementById('subraum-nexus-hub-overlay');
-    if (hub) hub.style.display = 'none';
-    // Zurück zur Ansicht, von der aus der Raum geöffnet wurde.
-    if (typeof window.closeRoom === 'function') window.closeRoom();
+
+const oldReload_SN = window.reloadFurniture;
+window.reloadFurniture = (type) => {
+    if (oldReload_SN) oldReload_SN(type);
+    if (type === 'SUBRAUM-NEXUS') {
+        itemsSubraumNexus.forEach(item => window.spawnFurniture(item, 1));
+    }
+};
+
+const oldSpawn_SN = window.spawnFurniture;
+window.spawnFurniture = (type, count) => {
+    if (oldSpawn_SN) oldSpawn_SN(type, count);
+    const room = document.getElementById(window._roomAreaTargetId || 'room-area');
+    if (!room || !itemsSubraumNexus.includes(type)) return;
+    const item = document.createElement('div'); item.classList.add('fixed-item');
+    if (type === 'sn_holoprojektor') {
+        item.classList.add('item-sn-holoprojektor');
+        item.innerHTML =
+            '<div class="sn-holo-screen"><div class="sn-holo-flicker"></div><div class="sn-holo-scanline"></div></div>' +
+            '<div class="sn-holo-base"></div>';
+        item.onclick = (ev) => { ev.stopPropagation(); window.openHoloprojektor(); };
+    } else if (type === 'sn_biokapsel') {
+        item.classList.add('item-sn-biokapsel');
+        item.innerHTML =
+            '<div class="sn-kapsel-tube"><div class="sn-kapsel-liquid"></div><div class="sn-kapsel-bubble b1"></div><div class="sn-kapsel-bubble b2"></div><div class="sn-kapsel-bubble b3"></div></div>' +
+            '<div class="sn-kapsel-base"></div>';
+        item.onclick = (ev) => { ev.stopPropagation(); window.openBioKapsel(); };
+    } else if (type === 'sn_schattenterminal') {
+        item.classList.add('item-sn-schattenterminal');
+        item.innerHTML = '<div class="sn-schatten-screen"></div><div class="sn-schatten-led"></div>';
+        item.onclick = (ev) => { ev.stopPropagation(); window.openSchattensyndikat(); };
+    } else if (type === 'sn_rohrpost') {
+        item.classList.add('item-sn-rohrpost');
+        item.id = 'sn-rohrpost-item';
+        item.innerHTML = '<div class="sn-rohrpost-hatch"><div class="sn-rohrpost-ring"></div></div><div class="sn-rohrpost-light"></div>';
+        item.onclick = (ev) => { ev.stopPropagation(); window.openRohrpost(); };
+    } else if (type === 'sn_infostand') {
+        item.classList.add('item-sn-infostand');
+        item.innerHTML = '<div class="sn-info-icon">ℹ</div><div class="sn-info-base"></div>';
+        item.onclick = (ev) => { ev.stopPropagation(); window.openSubraumInfo(); };
+    }
+    room.appendChild(item);
 };
 
 // --- Infostand ---

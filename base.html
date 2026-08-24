@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260823p">
+    <link rel="stylesheet" href="base-style.css?v=20260823q">
 </head>
 <body>
 
@@ -220,39 +220,6 @@
     </div>
 </div>
 
-<!-- Bulletproof, von der Raum-Detailansicht/Ausbau-Menü komplett UNABHÄNGIGES Popup - wird
-     direkt beim Öffnen des Subraum-Nexus gezeigt, unabhängig von jeglichem Anzeige-Status
-     anderer Elemente. -->
-<div id="subraum-nexus-hub-overlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(5,0,20,0.95); align-items:center; justify-content:center; flex-direction:column; overflow-y:auto; padding:20px 0;">
-    <div style="background:#0a0a1e; border:1px solid #8040ff; box-shadow:0 0 40px rgba(128,64,255,0.6); border-radius:8px; padding:24px; width:min(420px, 90vw); font-family:'Orbitron', monospace;">
-        <h3 style="color:#8040ff; text-shadow:0 0 10px #8040ff; margin-top:0; text-align:center;">[ SUBRAUM-NEXUS ]</h3>
-        <p style="font-size:0.7em; color:#aaa; text-align:center; margin-bottom:18px;">100 Credits/h passiv · mit Agent zusätzlich alle 3h 1 Materiezelle</p>
-
-        <div class="upgrade-card" style="cursor:pointer; margin-bottom:10px;" onclick="window.openHoloprojektor()">
-            <b style="color:#0ff;">📡 HOLOPROJEKTOR</b>
-            <p style="font-size:0.7em; color:#aaa; margin:4px 0 0;">Direktkanal zur Administration (1 Chronos-Zelle/Nachricht).</p>
-        </div>
-        <div class="upgrade-card" style="cursor:pointer; margin-bottom:10px;" onclick="window.openBioKapsel()">
-            <b style="color:#0f8;">🧪 BIO-REKONSTRUKTIONS-KAPSEL</b>
-            <p style="font-size:0.7em; color:#aaa; margin:4px 0 0;">Gestorbene Agenten wiederbeleben (25 Chronos-Zellen).</p>
-        </div>
-        <div class="upgrade-card" style="cursor:pointer; margin-bottom:10px;" onclick="window.openSchattensyndikat()">
-            <b style="color:#f44;">🖥 SCHATTENSYNDIKAT-TERMINAL</b>
-            <p style="font-size:0.7em; color:#aaa; margin:4px 0 0;">Schwarzmarkt für fehlende Archiv-Artefakte.</p>
-        </div>
-        <div class="upgrade-card" style="cursor:pointer; margin-bottom:10px;" onclick="window.openRohrpost()">
-            <b style="color:#08f;">📮 TEMPORALE ROHRPOST</b>
-            <div id="rohrpost-status-hub" style="font-size:0.7em; color:#aaa; margin-top:4px;">Keine Sendung vorhanden.</div>
-        </div>
-        <div class="upgrade-card" style="cursor:pointer; margin-bottom:16px;" onclick="window.openSubraumInfo()">
-            <b style="color:#ccc;">ℹ️ INFOSTAND</b>
-            <p style="font-size:0.7em; color:#aaa; margin:4px 0 0;">Komplette Erklärung dieses Raums.</p>
-        </div>
-
-        <button class="btn-back" style="width:100%;" onclick="window.closeSubraumNexusHub()">SCHLIESSEN</button>
-    </div>
-</div>
-
 <div id="interior-screen">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 id="room-title-detail" style="text-shadow: 0 0 10px var(--neon-color); margin: 0;">ZENTRALE</h3>
@@ -368,7 +335,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260823p"></script>
-<script src="base-app.js?v=20260823p"></script>
+<script type="module" src="base-firebase-init.js?v=20260823q"></script>
+<script src="base-app.js?v=20260823q"></script>
 </body>
 </html>
