@@ -403,7 +403,13 @@
     // möglich, falls mehr Artefakte als physische Fächer vorhanden sind. Jedes Icon ist
     // anklickbar und öffnet dasselbe Detail-Popup wie die Liste im Panel.
     function placeArtifactsInShelves() {
-        const faecher = document.querySelectorAll('#room-area .regal-fach, .bunker-room-preview .regal-fach');
+        // Nur im aktuell aktiven Container suchen (nie gemischt über kleine Vorschau UND große
+        // Detailansicht hinweg - das hat die Verteilung der Icons durcheinandergebracht, siehe
+        // dieselbe Ursache beim Subraum-Nexus-Fix).
+        const targetId = window._roomAreaTargetId || 'room-area';
+        const container = document.getElementById(targetId);
+        if (!container) return;
+        const faecher = container.querySelectorAll('.regal-fach');
         if (!faecher.length) return;
         faecher.forEach(f => { f.innerHTML = ''; });
         const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
