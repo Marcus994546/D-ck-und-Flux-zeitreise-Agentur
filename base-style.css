@@ -1561,7 +1561,7 @@
    Blinkt blau, sobald eine Admin-Sendung wartet (siehe .sn-rohrpost-pending). Container reicht
    bewusst bis zur tatsächlichen Raumdecke (.room-box ist 250px hoch, Sockel bei bottom:65px -
    also 185px Container-Höhe, damit das Rohr lückenlos bis oben reicht). */
-.item-sn-rohrpost { width: 40px; height: 185px; position: absolute; z-index: 2; bottom: 45px; right: 0px; cursor: pointer; transform: perspective(180px) rotateY(-55deg); transform-origin: right center; }
+.item-sn-rohrpost { width: 40px; height: 185px; position: absolute; z-index: 2; bottom: 65px; right: 0px; cursor: pointer; }
 .sn-rohrpost-pipe {
     position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 137px;
     background: linear-gradient(90deg, #1a2530, #3a4a5a 40%, #1a2530);
