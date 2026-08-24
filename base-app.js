@@ -1249,13 +1249,50 @@
                     return;
                 }
                 playBeepBase(1200, 0.05);
-                window.selectedAgentId = (window.selectedAgentId === agent.id) ? null : agent.id;
-                renderBunkerAgentVisuals();
-                if (window.selectedAgentId && typeof showInfoToast === 'function') showInfoToast('Agent ausgewählt (Lvl ' + agent.level + '). Ziel-Stockwerk antippen.');
+                if (typeof showAgentInfoPopup === 'function') showAgentInfoPopup(agent.id);
             };
             preview.appendChild(wrap);
         });
     }
+
+    // Zeigt Level, den daraus resultierenden Zeit-Boost (und den Starter-Extra-Bonus, falls
+    // zutreffend) in einem Popup mit zwei klaren Aktionen: Menü schließen, oder den Agenten zur
+    // Zuweisung auswählen (identisch zum bisherigen Klick-Verhalten, nur jetzt über den Button).
+    window.showAgentInfoPopup = function(agentId) {
+        const agent = gameState.agents.find(a => a.id === agentId);
+        if (!agent) return;
+        const titleEl = document.getElementById('agent-info-title');
+        const bodyEl = document.getElementById('agent-info-body');
+        const assignBtn = document.getElementById('agent-info-assign-btn');
+        const overlay = document.getElementById('agent-info-popup');
+        if (!titleEl || !bodyEl || !assignBtn || !overlay) return;
+
+        // Gleiche Formel wie agentScaledDurationMs(): Level-Bonus + ggf. Starter-Extra-Bonus.
+        const levelBonusPct = Math.min(90, (agent.level - 1) * 5);
+        const starterBonusPct = agent.isStarter ? 5 : 0;
+        const totalBonusPct = levelBonusPct + starterBonusPct;
+
+        titleEl.innerText = (agent.isStarter ? '★ STARTER-AGENT' : 'AGENT') + ' · LVL ' + agent.level;
+        bodyEl.innerHTML =
+            '<div>Level: <b style="color:#0ff;">' + agent.level + '</b></div>' +
+            '<div>Zeit-Boost durch Level: <b style="color:#0f8;">' + levelBonusPct + '%</b> schneller</div>' +
+            (agent.isStarter ? '<div>Starter-Extra-Bonus: <b style="color:#ffd700;">+' + starterBonusPct + '%</b></div>' : '') +
+            '<div style="margin-top:6px; border-top:1px solid rgba(0,255,255,0.2); padding-top:6px;">Gesamt: <b style="color:#0ff;">' + totalBonusPct + '%</b> schneller bei allen Zyklen (Aufgaben, Quartiere-Wartezeit, Zeitreise-Mission)</div>' +
+            (agent.isStarter ? '<div style="margin-top:6px; font-size:0.85em; color:#aaa;">Kann außerdem den Impuls-Kondensator nicht betreten - so bleibt immer mindestens ein Agent garantiert am Leben.</div>' : '');
+
+        assignBtn.onclick = () => {
+            window.selectedAgentId = agentId;
+            renderBunkerAgentVisuals();
+            if (typeof showInfoToast === 'function') showInfoToast('Agent ausgewählt (Lvl ' + agent.level + '). Ziel-Stockwerk antippen.');
+            window.closeAgentInfoPopup();
+        };
+
+        overlay.style.display = 'flex';
+    };
+    window.closeAgentInfoPopup = function() {
+        const overlay = document.getElementById('agent-info-popup');
+        if (overlay) overlay.style.display = 'none';
+    };
 
     function getAgentUnlockRequirementStatus() {
         const roomsBuilt = AGENT_UNLOCK_REQUIRED_ROOMS.map(type => ({
