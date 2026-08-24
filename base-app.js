@@ -409,10 +409,40 @@
         const targetId = window._roomAreaTargetId || 'room-area';
         const container = document.getElementById(targetId);
         if (!container) return;
-        const faecher = container.querySelectorAll('.regal-fach');
-        if (!faecher.length) return;
-        faecher.forEach(f => { f.innerHTML = ''; });
         const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
+
+        let faecher = container.querySelectorAll('.regal-fach');
+        if (!faecher.length) {
+            // Kein gekauftes Archiv-Regal vorhanden (das ist ein KÄUFLICHES Möbelstück, kein
+            // Standard-Inventar) - Artefakte sollen aber unabhängig davon trotzdem sichtbar sein.
+            // Fallback: eigener kleiner Sammel-Bereich direkt im Raum, unabhängig vom Regal-Kauf.
+            let fallback = container.querySelector('#artifact-fallback-display');
+            if (!fallback) {
+                fallback = document.createElement('div');
+                fallback.id = 'artifact-fallback-display';
+                fallback.className = 'fixed-item';
+                fallback.style.cssText = 'position:absolute; left:8px; bottom:8px; width:120px; display:flex; flex-wrap:wrap; gap:3px; z-index:4;';
+                container.appendChild(fallback);
+            }
+            fallback.innerHTML = '';
+            if (collected.length === 0) return;
+            collected.forEach(function(name) {
+                const a = findArtefaktByName(name);
+                const icon = document.createElement('span');
+                icon.className = 'regal-artifact-icon';
+                icon.style.cssText = 'background:rgba(192,96,255,0.12); border:1px solid rgba(192,96,255,0.4); border-radius:3px; padding:2px 3px;';
+                icon.textContent = a ? a.icon : '❔';
+                icon.title = name;
+                icon.onclick = function(ev) { ev.stopPropagation(); window.showArtifactDetail(name); };
+                fallback.appendChild(icon);
+            });
+            return;
+        }
+
+        const existingFallback = container.querySelector('#artifact-fallback-display');
+        if (existingFallback) existingFallback.remove();
+
+        faecher.forEach(f => { f.innerHTML = ''; });
         collected.forEach(function(name, i) {
             const fach = faecher[i % faecher.length];
             if (!fach) return;
@@ -454,7 +484,7 @@
         agent.location = 'ZENTRALE';
         agent.taskStartTs = null;
         agent.taskDurationMs = null;
-        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'ZENTRALE', agent.isStarter);
+        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'ZENTRALE', agent.isStarter, agent.id);
     }
 
     // Prüft alle Agenten gegen die reale, vergangene Zeit (nicht nur gegen einen laufenden
@@ -472,7 +502,7 @@
                     const oldLocation = agent.location;
                     agent.location = agent.targetRoom;
                     agent.targetRoom = null;
-                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter);
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter, agent.id);
                     const task = AGENT_TASK_ROOMS[agent.location];
                     if (isForgeRoom(agent.location)) {
                         // Kein Timer - der Agent wartet hier, bis der Spieler das
@@ -522,7 +552,7 @@
                     agent.state = 'journey_dekontam';
                     agent.taskStartTs = now;
                     agent.taskDurationMs = Math.round(DEKONTAM_JOURNEY_MS * adminTimeFactor()); // genau 1 Stunde
-                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter);
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter, agent.id);
                     changed = true;
                 }
             } else if (agent.state === 'journey_dekontam') {
@@ -532,7 +562,7 @@
                     agent.state = 'journey_archiv';
                     agent.taskStartTs = now;
                     agent.taskDurationMs = Math.round(ARCHIV_JOURNEY_MS * adminTimeFactor()); // genau 30 Minuten
-                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter);
+                    if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter, agent.id);
                     changed = true;
                 }
             } else if (agent.state === 'journey_archiv') {
@@ -708,7 +738,7 @@
         // Kurze, rein optische Aufzug-Fahrt vom alten Standort zu den Quartieren. Die eigentliche
         // Wartezeit wird danach durch den Agenten sichtbar IN den Quartieren dargestellt, nicht im
         // Aufzug selbst (siehe renderBunkerAgentVisuals).
-        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE', agent.isStarter);
+        if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE', agent.isStarter, agent.id);
 
         if (typeof showInfoToast === 'function') showInfoToast('Agent bewegt sich in die Agenten-Quartiere.');
     };
@@ -1044,12 +1074,17 @@
     // fährt nur, wenn ein Agent tatsächlich per Befehl unterwegs ist (state=waiting_in_quartiere),
     // ansonsten steht er dort, wo der zuletzt aktive Agent sich gerade befindet.
     let bunkerElevatorAnimating = false;
+    // Verfolgt, WELCHE Agenten gerade eine Aufzug-Animation durchlaufen (nicht nur EIN globales
+    // Ja/Nein) - nur diese werden beim Neu-Rendern übersprungen, alle anderen Agenten bleiben
+    // normal sichtbar. Vorher hat ein einziges globales Flag ALLE Agenten ausgeblendet, sobald
+    // irgendeiner unterwegs war.
+    let bunkerAnimatingAgentIds = new Set();
 
     // Wiederverwendbare Aufzug-Fahrt-Animation - Ablauf: (1) Aufzug fährt zur AKTUELLEN Position
     // des Agenten, (2) steht dort GENAU 10s lang, während (3) das Männchen sichtbar aus der
     // Raummitte in den Aufzug hineinläuft (dauert 5s, läuft innerhalb der 10s Standzeit ab),
     // (4) erst nach den vollen 10s fährt der Aufzug weiter. Kein Countdown/Timer wird angezeigt.
-    function playElevatorAnimation(oldLocation, newLocation, isStarter) {
+    function playElevatorAnimation(oldLocation, newLocation, isStarter, agentId) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
         const car = document.getElementById('bunker-elevator-car');
         const riderSlot = document.getElementById('bunker-elevator-rider-slot');
@@ -1065,6 +1100,7 @@
         const ARRIVE_MS = 500;    // kurze Pause nach Ankunft, bevor neu gerendert wird
 
         bunkerElevatorAnimating = true;
+        if (agentId) bunkerAnimatingAgentIds.add(agentId);
         document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
         if (riderSlot) riderSlot.innerHTML = '';
 
@@ -1072,6 +1108,7 @@
 
         function finish() {
             bunkerElevatorAnimating = false;
+            if (agentId) bunkerAnimatingAgentIds.delete(agentId);
             if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
         }
 
@@ -1143,20 +1180,22 @@
         const riderSlot = document.getElementById('bunker-elevator-rider-slot');
         if (!car || !gameState.agentSystemUnlocked) { if (riderSlot) riderSlot.innerHTML = ''; return; }
 
-        // WICHTIG: Während eine Aufzug-Fahrt-Animation läuft, wird HIER GAR NICHTS angefasst -
-        // weder die Raum-Figuren noch der Aufzug selbst. Vorher wurden die Raum-Figuren
-        // unabhängig vom Animationsstatus immer neu gezeichnet (z.B. durch den periodischen
-        // 1s-Refresh) - das hat den reisenden Agenten SOFORT an seinem (im Datenmodell schon
-        // aktualisierten) Zielort erscheinen lassen, während gleichzeitig noch die Aufzugfahrt
-        // lief - wirkte wie zwei Kopien desselben Agenten, die sich am Ziel "vereinen".
-        if (bunkerElevatorAnimating) return;
-
         document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
-        if (riderSlot) riderSlot.innerHTML = '';
-        car.style.top = '8px';
+
+        // Den Aufzug/Rider-Slot selbst nur anfassen, wenn GERADE KEINE Fahrt läuft (es gibt nur
+        // einen Aufzug) - sonst würde eine laufende Animation mittendrin abgeschnitten.
+        if (!bunkerElevatorAnimating) {
+            if (riderSlot) riderSlot.innerHTML = '';
+            car.style.top = '8px';
+        }
 
         const agentsPerRoomCount = {};
         gameState.agents.forEach(agent => {
+            // NUR der/die gerade animierende(n) Agent(en) werden hier übersprungen - deren
+            // Darstellung übernimmt vollständig die laufende Aufzug-Animation. Alle ANDEREN
+            // Agenten bleiben normal sichtbar (vorher hat ein einziges globales Flag ALLE
+            // Agenten ausgeblendet, sobald irgendeiner unterwegs war).
+            if (bunkerAnimatingAgentIds.has(agent.id)) return;
             const idx = bunkerFloorIndexForType(agent.location);
             if (idx < 0) return;
             const preview = document.getElementById('bunker-room-' + idx);
@@ -4570,20 +4609,25 @@ window.reviveDeadAgent = async function(idx) {
     const dead = gameState.deadAgents[idx];
     gameState.chronosZellen -= cost;
     gameState.deadAgents.splice(idx, 1);
-    gameState.agents.push({
+    const newAgent = {
         id: 'agent_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
         level: dead.level,
-        location: 'ZENTRALE',
+        location: 'SUBRAUM-NEXUS',
         state: 'idle',
         targetRoom: null,
         taskStartTs: null,
         taskDurationMs: null,
         isStarter: dead.isStarter
-    });
+    };
+    gameState.agents.push(newAgent);
     updateUI();
     await saveGameState();
-    if (typeof showInfoToast === 'function') showInfoToast('Agent erfolgreich rekonstruiert und wieder einsatzbereit.');
-    window.openBioKapsel(); // Liste neu aufbauen
+    if (typeof showInfoToast === 'function') showInfoToast('Agent erfolgreich rekonstruiert - fährt mit dem Aufzug zur Zentrale.');
+    window.closeBioKapsel();
+    // Wie jeder andere Agent auch: sichtbar über den Aufzug zur Zentrale fahren, statt direkt
+    // dort zu erscheinen.
+    if (typeof sendAgentHome === 'function') sendAgentHome(newAgent);
+    await saveGameState();
 };
 
 // --- Schattensyndikat-Terminal ---
