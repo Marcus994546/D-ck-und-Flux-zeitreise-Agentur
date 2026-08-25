@@ -283,6 +283,39 @@
             '</select>';
         }
 
+        // Handelsangebote statt einfachem Senden: "ich will X, ich biete dafür Y".
+        let handelHtml = '';
+        if (otherMembers.length > 0) {
+            handelHtml =
+                '<div style="border-top:1px solid rgba(0,255,255,0.3); margin-top:12px; padding-top:12px;">' +
+                    '<b style="color:#0ff; font-size:0.85em;">NEUES HANDELSANGEBOT</b>' +
+                    '<div style="font-size:0.75em; color:#aaa; margin:4px 0;">An wen, und was du im Tausch dafür anbietest.</div>' +
+                    '<select id="handel-empfaenger" style="width:100%; background:#000; border:1px solid #0ff; color:#0ff; padding:6px; margin-bottom:6px; font-family:inherit;">' +
+                        otherMembers.map(s => '<option value="' + s + '">' + window.escHtml(s) + '</option>').join('') +
+                    '</select>' +
+                    '<div style="display:flex; gap:5px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">' +
+                        '<span style="font-size:0.75em; color:#0f8;">ICH WILL</span>' +
+                        '<input type="number" id="handel-will-menge" min="1" placeholder="Menge" style="width:70px; background:#000; border:1px solid #0f8; color:#0f8; padding:6px; font-family:inherit;">' +
+                        '<select id="handel-will-typ" style="flex:1; background:#000; border:1px solid #0f8; color:#0f8; padding:6px; font-family:inherit;">' +
+                            '<option value="credits">Credits (max 1000)</option>' +
+                            '<option value="materiezellen">Materiezellen (max 5)</option>' +
+                            '<option value="chronoszellen">Chronos-Zellen (max 2)</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div style="display:flex; gap:5px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">' +
+                        '<span style="font-size:0.75em; color:#ffcc00;">ICH BIETE</span>' +
+                        '<input type="number" id="handel-bietet-menge" min="1" placeholder="Menge" style="width:70px; background:#000; border:1px solid #ffcc00; color:#ffcc00; padding:6px; font-family:inherit;">' +
+                        '<select id="handel-bietet-typ" style="flex:1; background:#000; border:1px solid #ffcc00; color:#ffcc00; padding:6px; font-family:inherit;">' +
+                            '<option value="credits">Credits (max 1000)</option>' +
+                            '<option value="materiezellen">Materiezellen (max 5)</option>' +
+                            '<option value="chronoszellen">Chronos-Zellen (max 2)</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<button class="modell-btn" onclick="window.handelAngebotErstellen(\'' + allianz.id + '\')">ANGEBOT ERSTELLEN</button>' +
+                '</div>' +
+                '<div id="handel-offene-angebote" style="margin-top:15px;"><p style="color:#0f8; font-size:0.8em;">Lade Angebote...</p></div>';
+        }
+
         content.innerHTML =
             '<div style="border:1px solid #0ff; padding:15px; text-align:left;">' +
                 '<h4 style="color:#0ff; margin-top:0;">' + window.escHtml(allianz.name) + '</h4>' +
@@ -291,10 +324,185 @@
                     '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Lvl</th></tr>' +
                     memberRows +
                 '</table>' +
+                handelHtml +
                 successorSelect +
-                '<button class="modell-btn" style="border-color:#f44; color:#f44;" onclick="window.allianzVerlassen(\'' + allianz.id + '\')">' + (isOwner && otherMembers.length > 0 ? 'ALLIANZ VERLASSEN' : (isOwner ? 'ALLIANZ AUFLÖSEN' : 'ALLIANZ VERLASSEN')) + '</button>' +
+                '<button class="modell-btn" style="border-color:#f44; color:#f44; margin-top:12px;" onclick="window.allianzVerlassen(\'' + allianz.id + '\')">' + (isOwner && otherMembers.length > 0 ? 'ALLIANZ VERLASSEN' : (isOwner ? 'ALLIANZ AUFLÖSEN' : 'ALLIANZ VERLASSEN')) + '</button>' +
             '</div>';
+
+        if (otherMembers.length > 0) renderHandelsangebote();
     }
+
+    const HANDEL_MAX = { credits: 1000, materiezellen: 5, chronoszellen: 2 };
+    const HANDEL_LABEL = { credits: 'Credits', materiezellen: 'Materiezellen', chronoszellen: 'Chronos-Zellen' };
+
+    // Bucht den angebotenen Betrag SOFORT vom eigenen Konto ab (Treuhand) - wird bei Ablehnung
+    // oder Stornierung wieder gutgeschrieben. So bleibt jede Kontoänderung immer eine reine
+    // Erhöhung auf einem FREMDEN Dokument (die einzige Art, die die Firestore-Regeln zulassen),
+    // nie eine Verringerung.
+    window.handelAngebotErstellen = async function(allianzId) {
+        const empfaenger = document.getElementById('handel-empfaenger').value;
+        const willTyp = document.getElementById('handel-will-typ').value;
+        const willMenge = parseInt(document.getElementById('handel-will-menge').value) || 0;
+        const bietetTyp = document.getElementById('handel-bietet-typ').value;
+        const bietetMenge = parseInt(document.getElementById('handel-bietet-menge').value) || 0;
+
+        if (willMenge <= 0 || bietetMenge <= 0) { alert('Bitte für beide Seiten eine Menge größer als 0 eingeben.'); return; }
+        if (willMenge > HANDEL_MAX[willTyp]) { alert('Maximal ' + HANDEL_MAX[willTyp] + ' ' + HANDEL_LABEL[willTyp] + ' pro Angebot.'); return; }
+        if (bietetMenge > HANDEL_MAX[bietetTyp]) { alert('Maximal ' + HANDEL_MAX[bietetTyp] + ' ' + HANDEL_LABEL[bietetTyp] + ' pro Angebot.'); return; }
+
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const myRef = window.doc(window.db, "agenten", mySlug);
+            const mySnap = await window.getDoc(myRef);
+            const myData = mySnap.exists() ? mySnap.data() : {};
+            const meinBestand = (bietetTyp === 'materiezellen') ? ((myData.materiezellen !== undefined) ? myData.materiezellen : (myData.materialzellen || 0)) : (myData[bietetTyp] || 0);
+            if (meinBestand < bietetMenge) { alert('Nicht genug ' + HANDEL_LABEL[bietetTyp] + ' vorhanden, um das anzubieten.'); return; }
+
+            // Treuhand: eigenes Angebot sofort vom eigenen Konto abbuchen.
+            await window.setDoc(myRef, { [bietetTyp]: meinBestand - bietetMenge }, { merge: true });
+            if (bietetTyp === 'credits') window.playerCredits = meinBestand - bietetMenge;
+            else if (bietetTyp === 'materiezellen') window.playerMateriezellen = meinBestand - bietetMenge;
+
+            await window.addDoc(window.collection(window.db, "handelsangebote"), {
+                allianzId, von: mySlug, an: empfaenger,
+                willTyp, willMenge, bietetTyp, bietetMenge,
+                status: 'offen', createdAt: Date.now()
+            });
+            alert('Angebot erstellt.');
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            alert('Angebot konnte nicht erstellt werden.');
+        }
+    };
+
+    async function renderHandelsangebote() {
+        const box = document.getElementById('handel-offene-angebote');
+        if (!box) return;
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const snap = await window.getDocs(window.query(window.collection(window.db, "handelsangebote"), window.where('status', '==', 'offen')));
+            const eingehend = [], ausgehend = [];
+            snap.forEach(d => {
+                const a = { id: d.id, ...d.data() };
+                if (a.an === mySlug) eingehend.push(a);
+                else if (a.von === mySlug) ausgehend.push(a);
+            });
+
+            let html = '';
+            if (eingehend.length > 0) {
+                html += '<b style="color:#0ff; font-size:0.85em;">EINGEHENDE ANGEBOTE</b>';
+                eingehend.forEach(a => {
+                    html += '<div style="border:1px solid rgba(0,255,255,0.4); padding:8px; margin-top:6px; font-size:0.8em;">' +
+                        window.escHtml(a.von) + ' will <b>' + a.willMenge + ' ' + HANDEL_LABEL[a.willTyp] + '</b> von dir, bietet dafür <b>' + a.bietetMenge + ' ' + HANDEL_LABEL[a.bietetTyp] + '</b>.' +
+                        '<div style="display:flex; gap:5px; margin-top:6px;">' +
+                            '<button class="modell-btn" style="flex:1; border-color:#0f8; color:#0f8;" onclick="window.handelAnnehmen(\'' + a.id + '\')">ANNEHMEN</button>' +
+                            '<button class="modell-btn" style="flex:1; border-color:#f44; color:#f44;" onclick="window.handelAblehnen(\'' + a.id + '\')">ABLEHNEN</button>' +
+                        '</div>' +
+                    '</div>';
+                });
+            }
+            if (ausgehend.length > 0) {
+                html += '<b style="color:#0ff; font-size:0.85em; display:block; margin-top:10px;">MEINE OFFENEN ANGEBOTE</b>';
+                ausgehend.forEach(a => {
+                    html += '<div style="border:1px solid rgba(0,255,255,0.4); padding:8px; margin-top:6px; font-size:0.8em;">' +
+                        'An ' + window.escHtml(a.an) + ': will <b>' + a.willMenge + ' ' + HANDEL_LABEL[a.willTyp] + '</b>, bietest <b>' + a.bietetMenge + ' ' + HANDEL_LABEL[a.bietetTyp] + '</b>.' +
+                        '<button class="modell-btn" style="width:100%; margin-top:6px; border-color:#f44; color:#f44;" onclick="window.handelStornieren(\'' + a.id + '\')">ZURÜCKZIEHEN</button>' +
+                    '</div>';
+                });
+            }
+            if (!html) html = '<p style="color:#aaa; font-size:0.8em;">Keine offenen Handelsangebote.</p>';
+            box.innerHTML = html;
+        } catch (e) {
+            console.error(e);
+            box.innerHTML = '<p style="color:#f44; font-size:0.8em;">Angebote konnten nicht geladen werden.</p>';
+        }
+    }
+
+    window.handelAnnehmen = async function(angebotId) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "handelsangebote", angebotId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists() || snap.data().status !== 'offen') { alert('Angebot nicht mehr verfügbar.'); return; }
+            const a = snap.data();
+
+            const myRef = window.doc(window.db, "agenten", mySlug);
+            const mySnap = await window.getDoc(myRef);
+            const myData = mySnap.exists() ? mySnap.data() : {};
+            const meinWillBestand = (a.willTyp === 'materiezellen') ? ((myData.materiezellen !== undefined) ? myData.materiezellen : (myData.materialzellen || 0)) : (myData[a.willTyp] || 0);
+            if (meinWillBestand < a.willMenge) { alert('Du hast nicht genug ' + HANDEL_LABEL[a.willTyp] + ', um das Angebot anzunehmen.'); return; }
+            const meinBietetBestand = myData[a.bietetTyp] || 0;
+
+            // Eigenes Dokument: das Verlangte abgeben, das (treuhänderisch hinterlegte) Angebot
+            // des anderen entgegennehmen - beides eigener Besitz, uneingeschränkt erlaubt.
+            await window.setDoc(myRef, {
+                [a.willTyp]: meinWillBestand - a.willMenge,
+                [a.bietetTyp]: meinBietetBestand + a.bietetMenge
+            }, { merge: true });
+
+            // Anbieter-Dokument: nur eine Erhöhung um das Verlangte - die einzige Art von
+            // Fremdzugriff, die die Regeln erlauben.
+            const vonRef = window.doc(window.db, "agenten", a.von);
+            const vonSnap = await window.getDoc(vonRef);
+            const vonBestand = vonSnap.exists() ? (vonSnap.data()[a.willTyp] || 0) : 0;
+            await window.setDoc(vonRef, { [a.willTyp]: vonBestand + a.willMenge }, { merge: true });
+
+            await window.setDoc(ref, { status: 'angenommen' }, { merge: true });
+
+            if (a.willTyp === 'credits') window.playerCredits = meinWillBestand - a.willMenge;
+            else if (a.willTyp === 'materiezellen') window.playerMateriezellen = meinWillBestand - a.willMenge;
+            if (a.bietetTyp === 'credits') window.playerCredits = (window.playerCredits || 0) + a.bietetMenge;
+            else if (a.bietetTyp === 'materiezellen') window.playerMateriezellen = (window.playerMateriezellen || 0) + a.bietetMenge;
+
+            alert('Handel abgeschlossen.');
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            alert('Annahme fehlgeschlagen.');
+        }
+    };
+
+    window.handelAblehnen = async function(angebotId) {
+        try {
+            const ref = window.doc(window.db, "handelsangebote", angebotId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists() || snap.data().status !== 'offen') return;
+            const a = snap.data();
+            // Treuhand-Rückerstattung an den Anbieter (reine Erhöhung, erlaubt).
+            const vonRef = window.doc(window.db, "agenten", a.von);
+            const vonSnap = await window.getDoc(vonRef);
+            const vonBestand = vonSnap.exists() ? (vonSnap.data()[a.bietetTyp] || 0) : 0;
+            await window.setDoc(vonRef, { [a.bietetTyp]: vonBestand + a.bietetMenge }, { merge: true });
+            await window.setDoc(ref, { status: 'abgelehnt' }, { merge: true });
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            alert('Ablehnung fehlgeschlagen.');
+        }
+    };
+
+    window.handelStornieren = async function(angebotId) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "handelsangebote", angebotId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists() || snap.data().status !== 'offen') return;
+            const a = snap.data();
+            // Eigene Treuhand-Rückerstattung, auf dem eigenen Dokument - uneingeschränkt erlaubt.
+            const myRef = window.doc(window.db, "agenten", mySlug);
+            const mySnap = await window.getDoc(myRef);
+            const meinBestand = mySnap.exists() ? (mySnap.data()[a.bietetTyp] || 0) : 0;
+            await window.setDoc(myRef, { [a.bietetTyp]: meinBestand + a.bietetMenge }, { merge: true });
+            if (a.bietetTyp === 'credits') window.playerCredits = meinBestand + a.bietetMenge;
+            else if (a.bietetTyp === 'materiezellen') window.playerMateriezellen = meinBestand + a.bietetMenge;
+            await window.setDoc(ref, { status: 'storniert' }, { merge: true });
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            alert('Stornierung fehlgeschlagen.');
+        }
+    };
 
     function renderAllianzBrowser(alleAllianzen) {
         const content = document.getElementById('netzwerk-content');
@@ -334,6 +542,7 @@
                 mitglieder: [mySlug],
                 createdAt: Date.now()
             });
+            await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: allianzId }, { merge: true });
             renderAllianz();
         } catch (e) {
             console.error(e);
@@ -350,6 +559,7 @@
             const data = snap.data();
             if (Array.isArray(data.mitglieder) && data.mitglieder.includes(mySlug)) return;
             await window.setDoc(ref, { mitglieder: [...(data.mitglieder || []), mySlug] }, { merge: true });
+            await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: allianzId }, { merge: true });
             renderAllianz();
         } catch (e) {
             console.error(e);
@@ -369,12 +579,14 @@
 
             if (restMitglieder.length === 0) {
                 await window.deleteDoc(ref);
+                await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
                 renderAllianz();
                 return;
             }
 
             if (!amOwner) {
                 await window.setDoc(ref, { mitglieder: restMitglieder }, { merge: true });
+                await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
                 renderAllianz();
                 return;
             }
@@ -386,6 +598,7 @@
             const newOwner = manualChoice || await waehleNachfolger(restMitglieder);
 
             await window.setDoc(ref, { mitglieder: restMitglieder, ownerSlug: newOwner }, { merge: true });
+            await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
             renderAllianz();
         } catch (e) {
             console.error(e);
