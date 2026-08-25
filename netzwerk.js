@@ -62,6 +62,57 @@
         return tier ? tier.label : '';
     }
 
+    // --- Gemeinsames Spieler-Profil-Popup (Rangliste, Spielersuche, Allianz-Mitgliederliste) ---
+    window.zeigeSpielerProfil = async function(slug) {
+        const modal = document.getElementById('spieler-profil-modal');
+        const inhalt = document.getElementById('spieler-profil-inhalt');
+        if (!modal || !inhalt) return;
+        inhalt.innerHTML = '<p style="color:#0f8; text-align:center;">Lade...</p>';
+        modal.style.display = 'flex';
+        try {
+            const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
+            if (!snap.exists()) {
+                inhalt.innerHTML = '<p style="color:#f44; text-align:center;">Agent nicht gefunden.</p>';
+                return;
+            }
+            const data = snap.data();
+            let artifactCount = 0, maxRoomLevel = 0, agentCount = 0;
+            try {
+                const baseSnap = await window.getDoc(window.doc(window.db, "Agent - Base", slug));
+                if (baseSnap.exists()) {
+                    const bd = baseSnap.data();
+                    if (Array.isArray(bd.collectedArtifacts)) artifactCount = bd.collectedArtifacts.length;
+                    if (Array.isArray(bd.baseData)) maxRoomLevel = Math.max(0, ...bd.baseData.map(r => r.lvl || 1));
+                    if (Array.isArray(bd.agents)) agentCount = bd.agents.length;
+                }
+            } catch (e) {}
+            let isAllianzGruender = false, allianzName = '';
+            try {
+                const allianzSnap = await window.getDocs(window.collection(window.db, "allianzen"));
+                allianzSnap.forEach(d => {
+                    if (d.data().ownerSlug === slug) isAllianzGruender = true;
+                    if (Array.isArray(d.data().mitglieder) && d.data().mitglieder.includes(slug)) allianzName = d.data().name;
+                });
+            } catch (e) {}
+            const mz = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
+            const title = computeBestTitle({ lvl: data.lvl || 1, credits: data.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender });
+
+            inhalt.innerHTML =
+                '<h3 style="color:#0ff; margin-top:0; text-shadow:0 0 8px #0ff;">' + window.escHtml(slug) + '</h3>' +
+                (title ? '<div style="opacity:0.85; margin-bottom:10px;">' + title + '</div>' : '') +
+                (allianzName ? '<div style="font-size:0.8em; color:#aaa; margin-bottom:10px;">Allianz: <b style="color:#0ff;">' + window.escHtml(allianzName) + '</b></div>' : '') +
+                '<div>Level: <b>' + (data.lvl || 1) + '</b></div>' +
+                '<div>Credits: <b>' + (data.credits || 0).toLocaleString('de-DE') + '</b></div>' +
+                '<div>Materiezellen: <b>' + mz + '</b></div>' +
+                '<div>Chronos-Zellen: <b>' + (data.chronoszellen || 0) + '</b></div>' +
+                '<div>Artefakte: <b>' + artifactCount + '/40</b></div>' +
+                '<div>Agenten: <b>' + agentCount + '</b></div>';
+        } catch (e) {
+            console.error(e);
+            inhalt.innerHTML = '<p style="color:#f44; text-align:center;">Profil konnte nicht geladen werden.</p>';
+        }
+    };
+
     // --- RANGLISTE ---
     // Score-Formel: bewusst simpel und transparent gehalten, gewichtet Artefakte und
     // Spieler-Level stärker als reine Ressourcenmenge.
@@ -130,7 +181,7 @@
                 const isMe = (e.slug === myName);
                 html += '<tr style="' + (isMe ? 'background:rgba(0,255,255,0.15); font-weight:bold;' : '') + ' border-bottom:1px solid rgba(0,255,255,0.15);">' +
                     '<td style="padding:4px;">' + (i + 1) + '</td>' +
-                    '<td style="padding:4px; text-align:left;">' + window.escHtml(e.slug) + (isMe ? ' (Du)' : '') + (e.title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + e.title + '</span>' : '') + '</td>' +
+                    '<td style="padding:4px; text-align:left;"><span style="cursor:pointer; text-decoration:underline dotted;" onclick="window.zeigeSpielerProfil(\'' + e.slug + '\')">' + window.escHtml(e.slug) + '</span>' + (isMe ? ' (Du)' : '') + (e.title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + e.title + '</span>' : '') + '</td>' +
                     '<td style="padding:4px;">' + e.lvl + '</td>' +
                     '<td style="padding:4px;">' + e.artifactCount + '/40</td>' +
                     '<td style="padding:4px;">' + e.score.toLocaleString('de-DE') + '</td>' +
@@ -170,39 +221,15 @@
         ergebnis.innerHTML = '<p style="color:#0f8;">Suche...</p>';
         try {
             const slug = window.agentSlug(name);
-            const agentRef = window.doc(window.db, "agenten", slug);
-            const snap = await window.getDoc(agentRef);
+            const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
             if (!snap.exists()) {
                 ergebnis.innerHTML = '<p style="color:#f44;">Kein Agent mit diesem Namen gefunden.</p>';
                 return;
             }
-            const data = snap.data();
-            let artifactCount = 0, maxRoomLevel = 0, agentCount = 0;
-            try {
-                const baseSnap = await window.getDoc(window.doc(window.db, "Agent - Base", slug));
-                if (baseSnap.exists()) {
-                    const bd = baseSnap.data();
-                    if (Array.isArray(bd.collectedArtifacts)) artifactCount = bd.collectedArtifacts.length;
-                    if (Array.isArray(bd.baseData)) maxRoomLevel = Math.max(0, ...bd.baseData.map(r => r.lvl || 1));
-                    if (Array.isArray(bd.agents)) agentCount = bd.agents.length;
-                }
-            } catch (e) {}
-            let isAllianzGruender = false;
-            try {
-                const allianzSnap = await window.getDocs(window.collection(window.db, "allianzen"));
-                allianzSnap.forEach(d => { if (d.data().ownerSlug === slug) isAllianzGruender = true; });
-            } catch (e) {}
-            const mz = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
-            const title = computeBestTitle({ lvl: data.lvl || 1, credits: data.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender });
             ergebnis.innerHTML =
-                '<div style="border:1px solid #0ff; padding:15px; text-align:left; font-size:0.85em;">' +
-                    '<b style="color:#0ff; font-size:1.1em;">' + window.escHtml(name) + '</b>' +
-                    (title ? '<div style="opacity:0.8; margin-bottom:8px;">' + title + '</div>' : '<br><br>') +
-                    'Level: <b>' + (data.lvl || 1) + '</b><br>' +
-                    'Credits: <b>' + (data.credits || 0).toLocaleString('de-DE') + '</b><br>' +
-                    'Materiezellen: <b>' + mz + '</b><br>' +
-                    'Chronos-Zellen: <b>' + (data.chronoszellen || 0) + '</b><br>' +
-                    'Artefakte: <b>' + artifactCount + '/40</b>' +
+                '<div style="border:1px solid #0ff; padding:15px; text-align:center; cursor:pointer;" onclick="window.zeigeSpielerProfil(\'' + slug + '\')">' +
+                    '<b style="color:#0ff; font-size:1.1em; text-decoration:underline dotted;">' + window.escHtml(name) + '</b>' +
+                    '<div style="font-size:0.7em; color:#888; margin-top:4px;">Antippen für Profil</div>' +
                 '</div>';
         } catch (e) {
             console.error(e);
@@ -267,7 +294,7 @@
                 } catch (e) {}
                 const title = computeBestTitle({ lvl: d.lvl || 1, credits: d.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender: slug === allianz.ownerSlug });
                 memberRows += '<tr style="border-bottom:1px solid rgba(0,255,255,0.15);">' +
-                    '<td style="padding:4px; text-align:left;">' + window.escHtml(slug) + (slug === allianz.ownerSlug ? ' 👑' : '') + (slug === mySlug ? ' (Du)' : '') + (title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + title + '</span>' : '') + '</td>' +
+                    '<td style="padding:4px; text-align:left;"><span style="cursor:pointer; text-decoration:underline dotted;" onclick="window.zeigeSpielerProfil(\'' + slug + '\')">' + window.escHtml(slug) + '</span>' + (slug === allianz.ownerSlug ? ' 👑' : '') + (slug === mySlug ? ' (Du)' : '') + (title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + title + '</span>' : '') + '</td>' +
                     '<td style="padding:4px;">' + (d.lvl || 1) + '</td>' +
                 '</tr>';
             } catch (e) {}
