@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, deadAgents: [], pendingDrop: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, overdrivePct: 100, deadAgents: [], pendingDrop: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -93,11 +93,13 @@
     const AGENT_MAX_LEVEL = 10;
     const ROOM_LEVEL_UP_COST_MZ = 8;
     const ROOM_LEVEL_UP_COST_CREDITS = 1000;
+    // Zentrale wird separat behandelt (keine Buttons), Subraum-Nexus darf nicht gelevelt werden.
+    const NOT_LEVELABLE_ROOMS = ['SUBRAUM-NEXUS'];
 
     // Raum-Level-Skalierung (unabhängig von Agenten-Leveln!): jeder Raum in gameState.baseData
     // hat sein eigenes "lvl"-Feld, das sich per Level-Up-Popup gegen Ressourcen steigern lässt.
     function roomLevelOf(roomType) {
-        const room = gameState.baseData.find(r => r.type === roomType);
+        const room = gameState.baseData.find(r => r.type === roomType || (roomType === 'TEMPORAL TIME FORGE' && r.type === 'VAKUUM-SCHMIEDE'));
         return room ? (room.lvl || 1) : 1;
     }
     // Credits-Räume: Menge wächst linear mit dem Raum-Level (Basis 5 -> Lvl1:5, Lvl2:10, Lvl3:15).
@@ -110,6 +112,33 @@
         const minutes = Math.max(15, 60 - (roomLevel - 1) * 3);
         return minutes / 60;
     }
+
+    // --- Weitere raumspezifische Level-Formeln (alle mit Untergrenze gegen 0/negativ) ---
+    function scaledQuantenLaborBonusPct(lvl) { return 2 + (lvl - 1) * 1; } // 2%, +1%/Lvl
+    function scaledOverdrivePct(lvl) { return 50 + (lvl - 1) * (40 / 9); } // 50% -> 90% bei Lvl10
+    function scaledQuantumWarpChancePct(lvl) { return 30 + (lvl - 1) * 5; } // 30% -> 75% bei Lvl10
+    function scaledArchivJourneyMinutes(lvl) { return Math.max(5, 30 - (lvl - 1) * 2); }
+    function scaledTechnikDeckDiscountPct(lvl) { return 5 + (lvl - 1) * 2; }
+    function scaledServerHubPct(lvl) { return 10 + (lvl - 1) * 2; }
+    function scaledImpulsCredits(lvl) { return 1000 + (lvl - 1) * 100; }
+    function scaledImpulsMaterie(lvl) { return 2 + Math.floor((lvl - 1) / 2); }
+    function scaledImpulsAgentLevelBonus(lvl) { return lvl >= 10 ? 3 : (lvl >= 5 ? 2 : 1); }
+    function scaledTransformatorCostCredits(lvl) { return Math.max(500, 5000 - (lvl - 1) * 200); }
+    function scaledRenaissanceSellCredits(lvl) { return 10000 + (lvl - 1) * 500; }
+    function scaledThermoCredits(lvl) { return 1 + (lvl - 1) * 4; }
+    function scaledKinetikXP(lvl) { return 5 * lvl; }
+    function scaledMaterieDekompressor(lvl) { return lvl >= 10 ? 3 : (lvl >= 5 ? 2 : 1); }
+    function scaledForgeMissionMinutesReduction(lvl) { return (lvl - 1) * 10; } // von 480min abgezogen
+    function scaledResonanzPct(lvl) { return 5 + (lvl - 1) * 1; }
+    function scaledKybernetikMeters(lvl) { return 2 + Math.floor((lvl - 1) / 2); }
+    function scaledScannerMinutes(lvl) { return Math.max(60, 1440 - (lvl - 1) * 30); }
+    function scaledDekontamMinutes(lvl) { return Math.max(5, 60 - (lvl - 1) * 2); }
+    function scaledAnomaliePct(lvl) { return 5 + (lvl - 1) * 1.5; }
+    function scaledKryoDepotBonus(lvl) { return 3 + Math.floor((lvl - 1) / 2); }
+    function scaledHorizonMinutes(lvl) { return Math.max(5, 30 - (lvl - 1) * 1); }
+    function scaledKiKernmatrixMinutes(lvl) { return Math.max(30, 480 - (lvl - 1) * 6); }
+    function scaledKiKernmatrixAgentLevelBonus(lvl) { return lvl >= 10 ? 2 : 1; }
+
     const AGENT_TASK_ROOMS = {
         'SCANNER-PHALANX':      { hours: 24, effect: 'spawn_agent' },
         'KI-KERNMATRIX':        { hours: 8, effect: 'level_up' },
@@ -135,12 +164,12 @@
         'SUBRAUM-NEXUS':          { hours: 3, effect: 'materiezelle', amount: 1 }
     };
 
-    // Globales Agenten-Limit: Basis 8 (Agent #1 + 7 reguläre), +3 durch das Kryo-Depot.
+    // Globales Agenten-Limit: Basis 8 (Agent #1 + 7 reguläre), +Kryo-Depot-Bonus (skaliert mit
+    // dessen Raum-Level - siehe scaledKryoDepotBonus).
     const AGENT_BASE_LIMIT = 8;
-    const KRYO_DEPOT_BONUS_LIMIT = 3;
     function getAgentLimit() {
-        const hasKryoDepot = gameState.baseData.some(r => r.type === 'KRYO-DEPOT');
-        return AGENT_BASE_LIMIT + (hasKryoDepot ? KRYO_DEPOT_BONUS_LIMIT : 0);
+        const kryoRoom = gameState.baseData.find(r => r.type === 'KRYO-DEPOT');
+        return AGENT_BASE_LIMIT + (kryoRoom ? scaledKryoDepotBonus(kryoRoom.lvl || 1) : 0);
     }
 
     // System-Overdrive (Hochspannungs-Verteiler): während des Fensters [overdriveStartTs,
@@ -150,7 +179,8 @@
         if (!gameState.overdriveStartTs || !gameState.overdriveEndTs) return 0;
         const overlapStart = Math.max(taskStartTs, gameState.overdriveStartTs);
         const overlapEnd = Math.min(now, gameState.overdriveEndTs);
-        return Math.max(0, overlapEnd - overlapStart);
+        const pct = (gameState.overdrivePct !== undefined && gameState.overdrivePct !== null) ? gameState.overdrivePct : 100;
+        return Math.max(0, overlapEnd - overlapStart) * (pct / 100);
     }
     function effectiveElapsed(taskStartTs, now) {
         return (now - taskStartTs) + overdriveBonusMs(taskStartTs, now);
@@ -240,7 +270,7 @@
         'TECHNIK-DECK':            { text: '5% Rabatt auf alle Raum-Ausbaukosten' },
         'SERVER-HUB':              { text: '10% Chance, eine Warnung sofort abzufangen' },
         'KRYO-DEPOT':              { text: '+3 maximale Agenten-Plätze, dauerhaft (insgesamt 11)' },
-        'RENAISSANCE-GENERATOR':   { text: 'Tauschfunktion: Credits gegen Chronos-Zelle' }
+        'RENAISSANCE-GENERATOR':   { text: 'Verkauft Chronos-Zellen gegen Credits' }
     };
     const THERMO_KOPPLER_INTERVAL_MS = 2 * 3600000; // alle 2 Stunden 1 Credit
     const SUBRAUM_NEXUS_INTERVAL_MS = 3600000; // stündlich 100 Credits, unabhängig von einem Agenten
@@ -300,11 +330,17 @@
         if (task.effect === 'credits') {
             gameState.credits += scaledCreditsAmount(task.amount, roomLevel);
         } else if (task.effect === 'materiezelle') {
-            gameState.materieZellen += scaledMaterieAmount(roomLevel);
+            // Materie-Dekompressor hat eine eigene, gestufte Formel (Lvl1-4:1, Lvl5-9:2, Lvl10:3),
+            // alle anderen Materiezelle-Räume (Oszillations-Kammer, Subraum-Nexus) nutzen weiter
+            // die generische "alle zwei Level +1"-Formel.
+            gameState.materieZellen += (agent.location === 'MATERIE-DEKOMPRESSOR')
+                ? scaledMaterieDekompressor(roomLevel)
+                : scaledMaterieAmount(roomLevel);
         } else if (task.effect === 'level_up') {
-            if (agent.level < AGENT_MAX_LEVEL) agent.level++;
+            const bonus = scaledKiKernmatrixAgentLevelBonus(roomLevel);
+            agent.level = Math.min(AGENT_MAX_LEVEL, agent.level + bonus);
         } else if (task.effect === 'player_xp') {
-            grantPlayerXP(task.amount).catch(e => console.error('XP-Gutschrift Fehler:', e));
+            grantPlayerXP(scaledKinetikXP(roomLevel)).catch(e => console.error('XP-Gutschrift Fehler:', e));
         } else if (task.effect === 'spawn_agent') {
             gameState.agents.push({
                 id: 'agent_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
@@ -548,12 +584,20 @@
                     } else if (task) {
                         agent.state = 'working';
                         agent.taskStartTs = now;
-                        agent.taskDurationMs = agentScaledDurationMs(task.hours, agent.level, agent.isStarter);
+                        // Manche Räume haben eine vom RAUM-Level abhängige Basis-Zyklusdauer
+                        // (zusätzlich zur bestehenden Agenten-Level-Skalierung).
+                        let baseHours = task.hours;
+                        if (agent.location === 'KI-KERNMATRIX') baseHours = scaledKiKernmatrixMinutes(roomLevelOf('KI-KERNMATRIX')) / 60;
+                        else if (agent.location === 'SCANNER-PHALANX') baseHours = scaledScannerMinutes(roomLevelOf('SCANNER-PHALANX')) / 60;
+                        else if (agent.location === 'FUNK-RELAIS "HORIZONT"') baseHours = scaledHorizonMinutes(roomLevelOf('FUNK-RELAIS "HORIZONT"')) / 60;
+                        agent.taskDurationMs = agentScaledDurationMs(baseHours, agent.level, agent.isStarter);
                         if (agent.location === 'HOCHSPANNUNGS-VERTEILER') {
                             // Overdrive-Fenster beginnt SOFORT beim Start, nicht erst am Ende.
+                            const pct = scaledOverdrivePct(roomLevelOf('HOCHSPANNUNGS-VERTEILER'));
+                            gameState.overdrivePct = pct;
                             gameState.overdriveStartTs = now;
                             gameState.overdriveEndTs = now + agent.taskDurationMs;
-                            if (typeof showInfoToast === 'function') showInfoToast('System-Overdrive aktiviert: Alle anderen Timer laufen 1h lang doppelt so schnell!');
+                            if (typeof showInfoToast === 'function') showInfoToast('System-Overdrive aktiviert: Alle anderen Timer laufen für die Dauer ' + Math.round(pct) + '% schneller!');
                         } else if (agent.location === 'PARADOXON-FILTER') {
                             // Der älteste aktive Horizont-Auftrag wird sofort beim Start verbraucht
                             // (FIFO), unabhängig vom späteren Erfolg des Quanten-Warps. Mehrere
@@ -586,7 +630,7 @@
                     agent.location = 'DEKONTAMINATIONS-SCHLEUSE';
                     agent.state = 'journey_dekontam';
                     agent.taskStartTs = now;
-                    agent.taskDurationMs = Math.round(DEKONTAM_JOURNEY_MS * adminTimeFactor()); // genau 1 Stunde
+                    agent.taskDurationMs = Math.round(scaledDekontamMinutes(roomLevelOf('DEKONTAMINATIONS-SCHLEUSE')) * 60000 * adminTimeFactor());
                     if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter, agent.id);
                     changed = true;
                 }
@@ -596,7 +640,7 @@
                     agent.location = 'ARTEFAKT-ARCHIV';
                     agent.state = 'journey_archiv';
                     agent.taskStartTs = now;
-                    agent.taskDurationMs = Math.round(ARCHIV_JOURNEY_MS * adminTimeFactor()); // genau 30 Minuten
+                    agent.taskDurationMs = Math.round(scaledArchivJourneyMinutes(roomLevelOf('ARTEFAKT-ARCHIV')) * 60000 * adminTimeFactor());
                     if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter, agent.id);
                     changed = true;
                 }
@@ -620,10 +664,14 @@
                     if (task.effect === 'life_risk') {
                         const survived = Math.random() < 0.5;
                         if (survived) {
-                            if (agent.level < AGENT_MAX_LEVEL) agent.level++;
-                            gameState.materieZellen += 2;
-                            gameState.credits += 1000;
-                            if (typeof showInfoToast === 'function') showInfoToast('Impuls-Kondensator: Agent hat die Entladung überlebt und ist aufgestiegen! (+1 Agentenlevel, +2 MZ, +1000 Credits)');
+                            const roomLvl = roomLevelOf('IMPULS-KONDENSATOR');
+                            const lvlBonus = scaledImpulsAgentLevelBonus(roomLvl);
+                            agent.level = Math.min(AGENT_MAX_LEVEL, agent.level + lvlBonus);
+                            const mzGain = scaledImpulsMaterie(roomLvl);
+                            const creditsGain = scaledImpulsCredits(roomLvl);
+                            gameState.materieZellen += mzGain;
+                            gameState.credits += creditsGain;
+                            if (typeof showInfoToast === 'function') showInfoToast('Impuls-Kondensator: Agent hat die Entladung überlebt und ist aufgestiegen! (+' + lvlBonus + ' Agentenlevel, +' + mzGain + ' MZ, +' + creditsGain + ' Credits)');
                             sendAgentHome(agent);
                         } else {
                             killAgent(agent, 'IMPULS-KONDENSATOR');
@@ -644,7 +692,8 @@
                         changed = true;
                     } else if (task.effect === 'quantum_warp') {
                         const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a.name));
-                        const success = uncollected.length > 0 && Math.random() < 0.5;
+                        const chancePct = scaledQuantumWarpChancePct(roomLevelOf('PARADOXON-FILTER'));
+                        const success = uncollected.length > 0 && Math.random() * 100 < chancePct;
                         if (success) {
                             const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
                             gameState.collectedArtifacts.push(picked.name);
@@ -705,7 +754,7 @@
                 if (!room.lastTick) { room.lastTick = now; changed = true; return; }
                 let safety = 0;
                 while (effectiveElapsed(room.lastTick, now) >= THERMO_KOPPLER_INTERVAL_MS && safety < 1000) {
-                    gameState.credits += 1;
+                    gameState.credits += scaledThermoCredits(room.lvl || 1);
                     room.lastTick += THERMO_KOPPLER_INTERVAL_MS;
                     changed = true;
                     safety++;
@@ -830,6 +879,7 @@
                 if (Array.isArray(parsed.horizonMissions)) gameState.horizonMissions = parsed.horizonMissions;
                 if (Array.isArray(parsed.deadAgents)) gameState.deadAgents = parsed.deadAgents;
                 if (parsed.overdriveStartTs !== undefined) gameState.overdriveStartTs = parsed.overdriveStartTs;
+                if (parsed.overdrivePct !== undefined) gameState.overdrivePct = parsed.overdrivePct;
                 if (parsed.overdriveEndTs !== undefined) gameState.overdriveEndTs = parsed.overdriveEndTs;
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
                 if (Array.isArray(parsed.agents)) gameState.agents = parsed.agents;
@@ -891,6 +941,7 @@
                     if (Array.isArray(data.deadAgents)) gameState.deadAgents = data.deadAgents;
                     gameState.pendingDrop = data.pendingDrop || null;
                     if (data.overdriveStartTs !== undefined) gameState.overdriveStartTs = data.overdriveStartTs;
+                    if (data.overdrivePct !== undefined) gameState.overdrivePct = data.overdrivePct;
                     if (data.overdriveEndTs !== undefined) gameState.overdriveEndTs = data.overdriveEndTs;
                 }
                 gameState.credits = fusedCredits;
@@ -932,6 +983,7 @@
         d.horizonMissions = gameState.horizonMissions;
         d.deadAgents = gameState.deadAgents;
         d.overdriveStartTs = gameState.overdriveStartTs;
+        d.overdrivePct = gameState.overdrivePct;
         d.overdriveEndTs = gameState.overdriveEndTs;
         d.lvl = gameState.userLevel; 
         localStorage.setItem(mainProfileKey, JSON.stringify(d));
@@ -954,6 +1006,7 @@
                     horizonMissions: gameState.horizonMissions,
                     deadAgents: gameState.deadAgents,
                     overdriveStartTs: gameState.overdriveStartTs,
+                    overdrivePct: gameState.overdrivePct,
                     overdriveEndTs: gameState.overdriveEndTs,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
@@ -1004,11 +1057,13 @@
         }
     }
 
-    // Technik-Deck: 5% Rabatt auf die Ausbaukosten für Räume, immer zugunsten des Spielers
-    // abgerundet. Aktuell kostet ein neuer Raum pauschal ROOM_BUILD_COST_MZ Materiezellen.
+    // Technik-Deck: Rabatt auf die Ausbaukosten für Räume, skaliert mit dessen Raum-Level
+    // (siehe scaledTechnikDeckDiscountPct), immer zugunsten des Spielers abgerundet.
     function getRoomBuildCostMZ() {
-        const isTechnikDeck = gameState.baseData.some(r => r.type === 'TECHNIK-DECK');
-        return isTechnikDeck ? Math.max(1, Math.floor(ROOM_BUILD_COST_MZ * 0.95)) : ROOM_BUILD_COST_MZ;
+        const technikRoom = gameState.baseData.find(r => r.type === 'TECHNIK-DECK');
+        if (!technikRoom) return ROOM_BUILD_COST_MZ;
+        const discountPct = scaledTechnikDeckDiscountPct(technikRoom.lvl || 1);
+        return Math.max(1, Math.floor(ROOM_BUILD_COST_MZ * (1 - discountPct / 100)));
     }
 
     window.buyRoom = (x, y) => {
@@ -1387,6 +1442,25 @@
     };
 
     // --- Raum-Level-Up-Popup: aktuelle vs. nächste Produktionsstufe, Kauf-Button ---
+    // Baut den "Aktuell vs. nächstes Level"-HTML-Block einheitlich zusammen.
+    function roomLevelCompareHtml(level, nextLevel, curVal, nextVal, unitLabel, decimals) {
+        const fmt = (v) => decimals ? v.toFixed(decimals) : Math.round(v);
+        const diff = nextVal - curVal;
+        return '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
+            '<div style="margin-bottom:8px;">' + fmt(curVal) + ' ' + unitLabel + '</div>' +
+            '<div style="color:#4dd0ff;">Bei Level ' + nextLevel + '</div>' +
+            '<div>' + fmt(curVal) + ' <span style="opacity:0.6;">' + (diff >= 0 ? '+' : '') + fmt(diff) + '</span> = ' + fmt(nextVal) + ' ' + unitLabel + '</div>';
+    }
+    // Räume, bei denen die Zeit/Wartedauer SINKT statt eines Produktionswerts zu STEIGEN -
+    // eigene Darstellung, da "weniger ist besser" andersrum kommuniziert werden sollte.
+    function roomLevelTimeHtml(level, nextLevel, curMin, nextMin) {
+        const diff = curMin - nextMin;
+        return '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
+            '<div style="margin-bottom:8px;">' + Math.round(curMin) + ' Minuten</div>' +
+            '<div style="color:#4dd0ff;">Bei Level ' + nextLevel + '</div>' +
+            '<div>' + Math.round(nextMin) + ' Minuten <span style="opacity:0.7;">(' + (diff >= 0 ? '-' : '+') + Math.abs(Math.round(diff)) + ' Min.)</span></div>';
+    }
+
     window.renderRoomLevelPopup = function(roomType) {
         const room = gameState.baseData.find(r => r.type === roomType);
         if (!room) return;
@@ -1400,29 +1474,55 @@
 
         let productionHtml = '';
         if (roomType === 'AGENTEN-QUARTIERE') {
-            const curMin = Math.round(scaledQuartiereHours(level) * 60);
-            const nextMin = Math.round(scaledQuartiereHours(nextLevel) * 60);
-            productionHtml =
-                '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
-                '<div style="margin-bottom:8px;">' + curMin + ' Minuten Wartezeit</div>' +
-                '<div style="color:#4dd0ff;">Bei Level ' + nextLevel + '</div>' +
-                '<div>' + nextMin + ' Minuten <span style="opacity:0.7;">(' + (curMin - nextMin >= 0 ? '-' : '+') + Math.abs(curMin - nextMin) + ' Min.)</span></div>';
+            productionHtml = roomLevelTimeHtml(level, nextLevel, scaledQuartiereHours(level) * 60, scaledQuartiereHours(nextLevel) * 60);
+        } else if (roomType === 'ARTEFAKT-ARCHIV') {
+            productionHtml = roomLevelTimeHtml(level, nextLevel, scaledArchivJourneyMinutes(level), scaledArchivJourneyMinutes(nextLevel));
+        } else if (roomType === 'DEKONTAMINATIONS-SCHLEUSE') {
+            productionHtml = roomLevelTimeHtml(level, nextLevel, scaledDekontamMinutes(level), scaledDekontamMinutes(nextLevel));
+        } else if (roomType === 'SCANNER-PHALANX') {
+            productionHtml = roomLevelTimeHtml(level, nextLevel, scaledScannerMinutes(level), scaledScannerMinutes(nextLevel));
+        } else if (roomType === 'FUNK-RELAIS "HORIZONT"') {
+            productionHtml = roomLevelTimeHtml(level, nextLevel, scaledHorizonMinutes(level), scaledHorizonMinutes(nextLevel));
+        } else if (roomType === 'KI-KERNMATRIX') {
+            productionHtml = roomLevelTimeHtml(level, nextLevel, scaledKiKernmatrixMinutes(level), scaledKiKernmatrixMinutes(nextLevel)) +
+                '<div style="margin-top:8px; font-size:0.85em; color:#ffd700;">Ab Level 10: Agent steigt pro Zyklus um +2 Agentenlevel statt +1.</div>';
+        } else if (isForgeRoom(roomType)) {
+            productionHtml = roomLevelTimeHtml(level, nextLevel, FORGE_MISSION_HOURS * 60 - scaledForgeMissionMinutesReduction(level), FORGE_MISSION_HOURS * 60 - scaledForgeMissionMinutesReduction(nextLevel));
+        } else if (roomType === 'IMPULS-KONDENSATOR') {
+            const curC = scaledImpulsCredits(level), nextC = scaledImpulsCredits(nextLevel);
+            const curM = scaledImpulsMaterie(level), nextM = scaledImpulsMaterie(nextLevel);
+            productionHtml = roomLevelCompareHtml(level, nextLevel, curC, nextC, 'Credits bei Erfolg') +
+                '<div style="margin-top:10px;">' + roomLevelCompareHtml(level, nextLevel, curM, nextM, 'Materiezellen bei Erfolg') + '</div>' +
+                '<div style="margin-top:8px; font-size:0.85em; color:#ffd700;">Ab Level 5: +2 Agentenlevel bei Erfolg. Ab Level 10: +3 Agentenlevel bei Erfolg.</div>';
+        } else if (roomType === 'HOCHSPANNUNGS-VERTEILER') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledOverdrivePct(level), scaledOverdrivePct(nextLevel), '% schnellere Timer', 1);
+        } else if (roomType === 'PARADOXON-FILTER') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledQuantumWarpChancePct(level), scaledQuantumWarpChancePct(nextLevel), '% Erfolgschance');
+        } else if (roomType === 'TECHNIK-DECK') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledTechnikDeckDiscountPct(level), scaledTechnikDeckDiscountPct(nextLevel), '% Rabatt auf Raumausbau');
+        } else if (roomType === 'SERVER-HUB') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledServerHubPct(level), scaledServerHubPct(nextLevel), '% Abfangchance');
+        } else if (roomType === 'ANOMALIE-DETEKTOR') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledAnomaliePct(level), scaledAnomaliePct(nextLevel), '% langsamerer Kohärenz-Abfall', 1);
+        } else if (roomType === 'QUANTEN-LABOR') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledQuantenLaborBonusPct(level), scaledQuantenLaborBonusPct(nextLevel), '% Bonus auf alle XP');
+        } else if (roomType === 'KYBERNETIK-STATION') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledKybernetikMeters(level), scaledKybernetikMeters(nextLevel), 'm GPS-Ankunftsradius');
+        } else if (roomType === 'RESONANZ-KAMMER') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledResonanzPct(level), scaledResonanzPct(nextLevel), '% Chance auf doppelten Loot');
+        } else if (roomType === 'KRYO-DEPOT') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledKryoDepotBonus(level), scaledKryoDepotBonus(nextLevel), 'zusätzliche Agenten-Plätze');
+        } else if (roomType === 'TRANSFORMATOREN-STATION') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledTransformatorCostCredits(level), scaledTransformatorCostCredits(nextLevel), 'Credits pro Materiezelle (Tauschkosten)');
+        } else if (roomType === 'RENAISSANCE-GENERATOR') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledRenaissanceSellCredits(level), scaledRenaissanceSellCredits(nextLevel), 'Credits pro verkaufter Chronos-Zelle');
         } else if (task && task.effect === 'credits') {
-            const cur = scaledCreditsAmount(task.amount, level);
-            const next = scaledCreditsAmount(task.amount, nextLevel);
-            productionHtml =
-                '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
-                '<div style="margin-bottom:8px;">' + cur + ' Credits pro Zyklus</div>' +
-                '<div style="color:#4dd0ff;">Bei Level ' + nextLevel + '</div>' +
-                '<div>' + cur + ' <span style="opacity:0.6;">+' + (next - cur) + '</span> = ' + next + ' Credits pro Zyklus</div>';
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledCreditsAmount(task.amount, level), scaledCreditsAmount(task.amount, nextLevel), 'Credits pro Zyklus');
         } else if (task && task.effect === 'materiezelle') {
-            const cur = scaledMaterieAmount(level);
-            const next = scaledMaterieAmount(nextLevel);
-            productionHtml =
-                '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
-                '<div style="margin-bottom:8px;">' + cur + ' Materiezelle' + (cur === 1 ? '' : 'n') + ' pro Zyklus</div>' +
-                '<div style="color:#4dd0ff;">Bei Level ' + nextLevel + '</div>' +
-                '<div>' + cur + ' <span style="opacity:0.6;">+' + (next - cur) + '</span> = ' + next + ' Materiezelle' + (next === 1 ? '' : 'n') + ' pro Zyklus</div>';
+            const formula = (roomType === 'MATERIE-DEKOMPRESSOR') ? scaledMaterieDekompressor : scaledMaterieAmount;
+            productionHtml = roomLevelCompareHtml(level, nextLevel, formula(level), formula(nextLevel), 'Materiezellen pro Zyklus');
+        } else if (task && task.effect === 'player_xp') {
+            productionHtml = roomLevelCompareHtml(level, nextLevel, scaledKinetikXP(level), scaledKinetikXP(nextLevel), 'Spieler-XP pro Zyklus');
         } else {
             productionHtml = '<div style="opacity:0.7;">Für diesen Raum ist noch keine Level-abhängige Produktionssteigerung hinterlegt - der Level-Wert wird aber trotzdem gespeichert.</div>';
         }
@@ -1689,10 +1789,12 @@
                         (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
                         '</div>' +
                         (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info' + roomInfoColorClass(room.type) + '">' + agentRoomInfoText(room.type) + '</div>' : '') +
+                        (room.type === 'ZENTRALE' ? '' :
                         '<div class="bunker-floor-buttons">' +
                             '<button class="bunker-floor-btn" onclick="event.stopPropagation(); window.showRoomInfoPopup(\'' + room.type + '\')">ℹ INFO</button>' +
-                            '<button class="bunker-floor-btn bunker-floor-btn-level" onclick="event.stopPropagation(); window.showRoomLevelPopup(\'' + room.type + '\')">⬆ LEVEL</button>' +
-                        '</div>' +
+                            (NOT_LEVELABLE_ROOMS.includes(room.type) ? '' :
+                            '<button class="bunker-floor-btn bunker-floor-btn-level" onclick="event.stopPropagation(); window.showRoomLevelPopup(\'' + room.type + '\')">⬆ LEVEL</button>') +
+                        '</div>') +
                     '</div>' +
                 '</div>';
             floorsEl.appendChild(floor);
@@ -3929,7 +4031,8 @@ window.startForgeJourney = function() {
             }
             agent.state = 'journey_mission';
             agent.taskStartTs = Date.now();
-            agent.taskDurationMs = agentScaledDurationMs(FORGE_MISSION_HOURS, agent.level, agent.isStarter);
+            const forgeBaseMinutes = Math.max(30, FORGE_MISSION_HOURS * 60 - scaledForgeMissionMinutesReduction(roomLevelOf('TEMPORAL TIME FORGE')));
+            agent.taskDurationMs = agentScaledDurationMs(forgeBaseMinutes / 60, agent.level, agent.isStarter);
             saveGameState();
             renderBunkerAgentVisuals();
             renderForgeStatus();
@@ -4636,6 +4739,8 @@ window.spawnFurniture = (type, count) => {
 
 // === TRANSFORMATOREN-STATION: Tauschfunktion (Credits -> Materiezellen) ===
 window.openTransformatorPopup = function() {
+    const btn = document.getElementById('btn-transformator-exchange');
+    if (btn) btn.innerText = 'TAUSCHEN (' + scaledTransformatorCostCredits(roomLevelOf('TRANSFORMATOREN-STATION')) + ' C → 1 MZ)';
     const overlay = document.getElementById('transformator-popup-overlay');
     if (overlay) overlay.style.display = 'flex';
 };
@@ -4644,20 +4749,22 @@ window.closeTransformatorPopup = function() {
     if (overlay) overlay.style.display = 'none';
 };
 window.exchangeCreditsForMZ = async function() {
-    const cost = 5000;
+    const cost = scaledTransformatorCostCredits(roomLevelOf('TRANSFORMATOREN-STATION'));
     if (gameState.credits >= cost) {
         gameState.credits -= cost;
         gameState.materieZellen += 1;
         updateUI();
         await saveGameState();
-        if (typeof showInfoToast === 'function') showInfoToast('Tausch erfolgreich: 5000 Credits → 1 Materiezelle.');
+        if (typeof showInfoToast === 'function') showInfoToast('Tausch erfolgreich: ' + cost + ' Credits → 1 Materiezelle.');
     } else {
-        if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Credits für den Tausch (5000 C benötigt).');
+        if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Credits für den Tausch (' + cost + ' C benötigt).');
     }
 };
 
 // === RENAISSANCE-GENERATOR: bidirektionale Tauschfunktion (Credits <-> Chronos-Zellen) ===
 window.openRenaissancePopup = function() {
+    const btn = document.getElementById('btn-renaissance-sell');
+    if (btn) btn.innerText = 'VERKAUFEN: 1 Chronos-Zelle → ' + scaledRenaissanceSellCredits(roomLevelOf('RENAISSANCE-GENERATOR')).toLocaleString('de-DE') + ' C';
     const overlay = document.getElementById('renaissance-popup-overlay');
     if (overlay) overlay.style.display = 'flex';
 };
@@ -4665,25 +4772,14 @@ window.closeRenaissancePopup = function() {
     const overlay = document.getElementById('renaissance-popup-overlay');
     if (overlay) overlay.style.display = 'none';
 };
-window.buyChronosZelle = async function() {
-    const cost = 15000;
-    if (gameState.credits >= cost) {
-        gameState.credits -= cost;
-        gameState.chronosZellen += 1;
-        updateUI();
-        await saveGameState();
-        if (typeof showInfoToast === 'function') showInfoToast('Tausch erfolgreich: 15.000 Credits → 1 Chronos-Zelle.');
-    } else {
-        if (typeof showCustomAlert === 'function') showCustomAlert('System: Nicht genügend Credits (15.000 C benötigt).');
-    }
-};
 window.sellChronosZelle = async function() {
     if (gameState.chronosZellen >= 1) {
+        const payout = scaledRenaissanceSellCredits(roomLevelOf('RENAISSANCE-GENERATOR'));
         gameState.chronosZellen -= 1;
-        gameState.credits += 10000;
+        gameState.credits += payout;
         updateUI();
         await saveGameState();
-        if (typeof showInfoToast === 'function') showInfoToast('Tausch erfolgreich: 1 Chronos-Zelle → 10.000 Credits.');
+        if (typeof showInfoToast === 'function') showInfoToast('Tausch erfolgreich: 1 Chronos-Zelle → ' + payout + ' Credits.');
     } else {
         if (typeof showCustomAlert === 'function') showCustomAlert('System: Keine Chronos-Zelle zum Verkaufen vorhanden.');
     }

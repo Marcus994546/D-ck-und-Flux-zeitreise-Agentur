@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260824d">
+    <link rel="stylesheet" href="base-style.css?v=20260824e">
 </head>
 <body>
 
@@ -171,8 +171,7 @@
     <div style="background:#051410; border:1px solid #4dd0ff; box-shadow:0 0 30px rgba(77,208,255,0.5); border-radius:6px; padding:20px; width:min(360px, 90vw); font-family:'Orbitron', monospace;">
         <h3 style="color:#4dd0ff; text-shadow:0 0 10px #4dd0ff; margin-top:0;">[ RENAISSANCE-TAUSCH ]</h3>
         <p style="font-size:0.8em; color:#aaa; margin-bottom:16px;">Asymmetrischer Wechselkurs zwischen Credits und Chronos-Zellen.</p>
-        <button class="btn-upgrade-exec" style="width:100%; background:#4dd0ff; color:#000; border:1px solid #4dd0ff; margin-bottom:10px;" onclick="window.buyChronosZelle()">KAUFEN: 15.000 C → 1 Chronos-Zelle</button>
-        <button class="btn-upgrade-exec" style="width:100%; background:#ffcc00; color:#000; border:1px solid #ffcc00; margin-bottom:12px;" onclick="window.sellChronosZelle()">VERKAUFEN: 1 Chronos-Zelle → 10.000 C</button>
+        <button class="btn-upgrade-exec" id="btn-renaissance-sell" style="width:100%; background:#ffcc00; color:#000; border:1px solid #ffcc00; margin-bottom:12px;" onclick="window.sellChronosZelle()">VERKAUFEN: 1 Chronos-Zelle → 10.000 C</button>
         <button class="btn-back" style="width:100%;" onclick="window.closeRenaissancePopup()">SCHLIESSEN</button>
     </div>
 </div>
@@ -404,7 +403,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260824d"></script>
-<script src="base-app.js?v=20260824d"></script>
+<script type="module" src="base-firebase-init.js?v=20260824e"></script>
+<script src="base-app.js?v=20260824e"></script>
 </body>
 </html>

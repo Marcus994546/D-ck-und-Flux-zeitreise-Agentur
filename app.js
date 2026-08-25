@@ -13,15 +13,16 @@
     };
 
     // Liest einmalig beim Login, welche PASSIVEN Basis-Räume gebaut wurden (Agentur-Basis,
-    // eigene Firestore-Collection "Agent - Base"), und merkt sich das als einfache Booleans -
-    // Grundlage für alle passiven Raum-Effekte, die sich aufs Hauptterminal auswirken
-    // (Kohärenz, XP-Bonus, GPS-Ankunftsradius, Loot-Chance, Server-Hub-Abfangen).
+    // eigene Firestore-Collection "Agent - Base"), und merkt sich JEWEILS DEREN RAUM-LEVEL
+    // (0 = nicht gebaut) - Grundlage für alle passiven Raum-Effekte, die sich aufs Hauptterminal
+    // auswirken (Kohärenz, XP-Bonus, GPS-Ankunftsradius, Loot-Chance, Server-Hub-Abfangen), jetzt
+    // jeweils mit dem Raum-Level skaliert statt einem festen Wert.
     window.passiveRoomEffects = {
-        anomalieDetektor: false,
-        quantenLabor: false,
-        kybernetikStation: false,
-        resonanzKammer: false,
-        serverHub: false
+        anomalieDetektor: 0,
+        quantenLabor: 0,
+        kybernetikStation: 0,
+        resonanzKammer: 0,
+        serverHub: 0
     };
     window.loadPassiveRoomEffects = async function() {
         if (!window.db || !window.getDoc || !window.agentName) return;
@@ -31,16 +32,24 @@
             if (!snap.exists()) return;
             const rooms = snap.data().baseData;
             if (!Array.isArray(rooms)) return;
-            const built = (name) => rooms.some(r => r.type === name);
+            const levelOf = (name) => { const r = rooms.find(r => r.type === name); return r ? (r.lvl || 1) : 0; };
             window.passiveRoomEffects = {
-                anomalieDetektor: built('ANOMALIE-DETEKTOR'),
-                quantenLabor: built('QUANTEN-LABOR'),
-                kybernetikStation: built('KYBERNETIK-STATION'),
-                resonanzKammer: built('RESONANZ-KAMMER'),
-                serverHub: built('SERVER-HUB')
+                anomalieDetektor: levelOf('ANOMALIE-DETEKTOR'),
+                quantenLabor: levelOf('QUANTEN-LABOR'),
+                kybernetikStation: levelOf('KYBERNETIK-STATION'),
+                resonanzKammer: levelOf('RESONANZ-KAMMER'),
+                serverHub: levelOf('SERVER-HUB')
             };
         } catch (e) {}
     };
+
+    // --- Level-Formeln für die passiven Raum-Effekte im Hauptterminal (müssen exakt zu den
+    // gleichnamigen Formeln in base-app.js passen) ---
+    function scaledAnomaliePct(lvl) { return 5 + (lvl - 1) * 1.5; }
+    function scaledQuantenLaborBonusPct(lvl) { return 2 + (lvl - 1) * 1; }
+    function scaledKybernetikMeters(lvl) { return 2 + Math.floor((lvl - 1) / 2); }
+    function scaledResonanzPct(lvl) { return 5 + (lvl - 1) * 1; }
+    function scaledServerHubPct(lvl) { return 10 + (lvl - 1) * 2; }
 
     let statusCache = "";
     let isInstabil = false;
@@ -178,7 +187,10 @@
                 if (display) display.innerText = currentCoherence.toFixed(1) + "%";
             } else if (currentSystemStatus === "WARNUNG" || currentSystemStatus === "INSTABIL") {
                 let drop = 0.5 + Math.random() * 1.0;
-                if (window.passiveRoomEffects && window.passiveRoomEffects.anomalieDetektor) drop *= 0.95;
+                if (window.passiveRoomEffects && window.passiveRoomEffects.anomalieDetektor > 0) {
+                    const pct = scaledAnomaliePct(window.passiveRoomEffects.anomalieDetektor);
+                    drop *= (1 - pct / 100);
+                }
                 currentCoherence = Math.max(0, currentCoherence - drop);
                 currentCoherence = parseFloat(currentCoherence.toFixed(1));
                 if (display) display.innerText = currentCoherence.toFixed(1) + "%";
@@ -280,11 +292,14 @@
     }
 
     function erzeugeWarnSequenz() {
-        // Server-Hub: 10% Chance, den Übergang zu WARNUNG direkt abzufangen - Kohärenz bleibt
-        // unangetastet, der Status bleibt schlicht auf STABIL stehen.
-        if (window.passiveRoomEffects && window.passiveRoomEffects.serverHub && Math.random() < 0.10) {
-            showPassiveRoomPopup('Server-Hub hat abfallende Kohärenz wieder stabilisiert.');
-            return;
+        // Server-Hub: Chance, den Übergang zu WARNUNG direkt abzufangen (skaliert mit
+        // Raum-Level) - Kohärenz bleibt unangetastet, der Status bleibt schlicht auf STABIL stehen.
+        if (window.passiveRoomEffects && window.passiveRoomEffects.serverHub > 0) {
+            const pct = scaledServerHubPct(window.passiveRoomEffects.serverHub);
+            if (Math.random() * 100 < pct) {
+                showPassiveRoomPopup('Server-Hub hat abfallende Kohärenz wieder stabilisiert.');
+                return;
+            }
         }
         const navBtn = document.getElementById('status-nav-btn');
         currentSystemStatus = "WARNUNG";
@@ -895,8 +910,9 @@ window.startGlobalNotification = function() {
     window.updateXP = function(val) {
         // Quanten-Labor-Bonus gilt nur für tatsächliche Belohnungen (val > 0), nicht für
         // XP-Abzüge/Strafen - sonst würden Strafen durch denselben Faktor verschlimmert.
-        if (val > 0 && window.passiveRoomEffects && window.passiveRoomEffects.quantenLabor) {
-            val = val * 1.02;
+        if (val > 0 && window.passiveRoomEffects && window.passiveRoomEffects.quantenLabor > 0) {
+            const pct = scaledQuantenLaborBonusPct(window.passiveRoomEffects.quantenLabor);
+            val = val * (1 + pct / 100);
         }
         window.playerXP += val;
         while (window.playerXP >= 100) { window.playerLevel++; window.playerXP -= 100; }
@@ -2625,13 +2641,14 @@ window.f_showDescription = function(withVoice) {
         const loot = window.missionLootTables[type];
         if (!loot) return null;
         let xp = loot.xp, credits = loot.credits, materiezellen = loot.materiezellen;
-        // Resonanz-Kammer: 5% Chance auf verdoppelten Loot (Credits/MZ/XP - nicht der
-        // "level"-Bonus, der eine separate, deutlich stärkere Belohnung ist).
+        // Resonanz-Kammer: Chance auf verdoppelten Loot (skaliert mit Raum-Level; Credits/MZ/XP -
+        // nicht der "level"-Bonus, der eine separate, deutlich stärkere Belohnung ist).
         let doubled = false;
-        if (window.passiveRoomEffects && window.passiveRoomEffects.resonanzKammer && Math.random() < 0.05) {
-            xp *= 2; credits *= 2; materiezellen *= 2; doubled = true;
+        if (window.passiveRoomEffects && window.passiveRoomEffects.resonanzKammer > 0) {
+            const pct = scaledResonanzPct(window.passiveRoomEffects.resonanzKammer);
+            if (Math.random() * 100 < pct) { xp *= 2; credits *= 2; materiezellen *= 2; doubled = true; }
         }
-        const quantenLaborAktiv = !!(window.passiveRoomEffects && window.passiveRoomEffects.quantenLabor && xp > 0);
+        const quantenLaborAktiv = !!(window.passiveRoomEffects && window.passiveRoomEffects.quantenLabor > 0 && xp > 0);
         if (xp > 0 && typeof window.updateXP === 'function') window.updateXP(xp);
         if (loot.level > 0) {
             window.playerLevel += loot.level;
@@ -2853,7 +2870,7 @@ window.f_showDescription = function(withVoice) {
                     updateCompass();
 
                     let arrivalRadius = window.missionArrivalRadius[window.currentMissionType] || 10;
-                    if (window.passiveRoomEffects && window.passiveRoomEffects.kybernetikStation) arrivalRadius += 2;
+                    if (window.passiveRoomEffects && window.passiveRoomEffects.kybernetikStation > 0) arrivalRadius += scaledKybernetikMeters(window.passiveRoomEffects.kybernetikStation);
                     if (dist <= arrivalRadius && !gpsArmed) {
                         gpsArmed = true;
                         stopGpsTracking();
