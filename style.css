@@ -632,3 +632,10 @@ body > *:not(.top-level) {
     content: ''; position: absolute; left: -3px; top: 0; width: 6px; height: 6px;
     border-radius: 50%; background: #ff8800; box-shadow: 0 0 8px #ff8800;
 }
+
+/* === Agentur-Netzwerk (vorher: Zeit-Stränge-Platzhalter) === */
+.netzwerk-tab-btn {
+    background: #000; color: #0ff; border: 1px solid rgba(0,255,255,0.4);
+    padding: 8px 14px; cursor: pointer; font-family: monospace; font-size: 0.8em;
+}
+.netzwerk-tab-active { background: rgba(0,255,255,0.15); border-color: #0ff; box-shadow: 0 0 8px rgba(0,255,255,0.4); }

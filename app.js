@@ -428,18 +428,6 @@
         }
     };
 
-    function f_epochen() {
-        triggerScan();
-        if (typeof renderEpochen === 'function') {
-            renderEpochen();
-        } else {
-            document.getElementById('content-body').innerHTML = '<h3>Zeit Stränge</h3>' +
-                '<div style="color:#0f8; font-family:monospace; margin: 20px 0; border: 1px dashed #0f8; padding: 15px;">' +
-                '[ SYSTEM-UPDATE ERFORDERLICH ]<br>Zeitalter-Datenbank offline. Warte auf Modul-Verknüpfung...</div>' +
-                '<hr><button onclick="f_start()">Zurück</button>';
-        }
-    }
-
     function aktualisiereStatusWerte() {
         if (statusCache === "") erzwingeStatus('STABIL', 'status-ok', false);
     }
@@ -2086,7 +2074,6 @@ window.f_showDescription = function(withVoice) {
     let currentMission = -1;
 
     const origBuchen = window.f_buchen;
-    const origEpochen = window.f_epochen;
     const origStatus = window.f_status;
 
     function checkEMPTrigger(originalAction) {
@@ -2107,8 +2094,11 @@ window.f_showDescription = function(withVoice) {
     }
 
     window.f_buchen = function() { checkSystemWarningChance(); checkEMPTrigger(origBuchen); };
-    window.f_epochen = function() { checkSystemWarningChance(); checkEMPTrigger(origEpochen); };
     window.f_status = function() { checkSystemWarningChance(); checkEMPTrigger(origStatus); };
+    // Netzwerk (vorher Zeit-Stränge) ist jetzt ein eigenständiges Modul (netzwerk.js) - erhält
+    // aber weiterhin dieselbe Warn-/EMP-Zufallschance wie die anderen drei Haupt-Buttons.
+    const origOpenNetzwerk = window.openNetzwerk;
+    window.openNetzwerk = function() { checkSystemWarningChance(); checkEMPTrigger(origOpenNetzwerk); };
 
     window.triggerTrap = function() {
         document.getElementById('emp-trap').style.setProperty('display', 'none', 'important');
