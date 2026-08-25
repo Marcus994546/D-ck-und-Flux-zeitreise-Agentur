@@ -1567,7 +1567,7 @@
    Blinkt blau, sobald eine Admin-Sendung wartet (siehe .sn-rohrpost-pending). Container reicht
    bewusst bis zur tatsächlichen Raumdecke (.room-box ist 250px hoch, Sockel bei bottom:65px -
    also 185px Container-Höhe, damit das Rohr lückenlos bis oben reicht). */
-.item-sn-rohrpost { width: 40px; height: 185px; position: absolute; z-index: 2; bottom: 65px; right: 0px; cursor: pointer; }
+.item-sn-rohrpost { width: 32px; height: 185px; position: absolute; z-index: 3; bottom: 65px; right: 4px; cursor: pointer; }
 .sn-rohrpost-pipe {
     position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 137px;
     background: linear-gradient(90deg, #1a2530, #3a4a5a 40%, #1a2530);
@@ -1583,12 +1583,12 @@
 @keyframes sn-pipe-flow { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
 .sn-rohrpost-box {
     position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-    width: 40px; height: 48px; background: linear-gradient(180deg, #202c38, #101820);
+    width: 32px; height: 48px; background: linear-gradient(180deg, #202c38, #101820);
     border: 2px solid #08f; border-radius: 4px; box-shadow: 0 0 15px rgba(0,136,255,0.35);
 }
 .sn-rohrpost-slot {
     position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-    width: 24px; height: 10px; background: #000; border: 1px solid #08f; border-radius: 2px;
+    width: 18px; height: 10px; background: #000; border: 1px solid #08f; border-radius: 2px;
     box-shadow: inset 0 0 6px rgba(0,136,255,0.5);
 }
 .sn-rohrpost-light { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 7px; height: 7px; border-radius: 50%; background: #234; }
