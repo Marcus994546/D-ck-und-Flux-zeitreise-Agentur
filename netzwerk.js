@@ -40,6 +40,26 @@
         else if (tab === 'allianz') renderAllianz();
     };
 
+    // --- TITEL/ABZEICHEN ---
+    // Rein clientseitig aus bereits vorhandenen Werten berechnet, kein eigenes Firestore-Feld
+    // nötig. Absteigend nach Prestige sortiert - es wird immer nur der EINE höchste zutreffende
+    // Titel angezeigt, um die Anzeige nicht zu überladen.
+    const TITLE_TIERS = [
+        { check: (s) => s.artifactCount >= 40, label: '🏆 Archiv-Vollender' },
+        { check: (s) => s.isAllianzGruender, label: '👑 Allianz-Gründer' },
+        { check: (s) => s.artifactCount >= 25, label: '💎 Artefakt-Meister' },
+        { check: (s) => s.maxRoomLevel >= 10, label: '⚙️ Architekt' },
+        { check: (s) => s.lvl >= 50, label: '⚡ Meister-Agent' },
+        { check: (s) => s.artifactCount >= 10, label: '🔹 Artefakt-Sammler' },
+        { check: (s) => s.credits >= 100000, label: '💰 Wohlhabender Agent' },
+        { check: (s) => s.lvl >= 25, label: '🌟 Erfahrener Agent' },
+        { check: (s) => s.agentCount >= 8, label: '🧑‍🤝‍🧑 Vollbesetzte Agentur' }
+    ];
+    function computeBestTitle(stats) {
+        const tier = TITLE_TIERS.find(t => t.check(stats));
+        return tier ? tier.label : '';
+    }
+
     // --- RANGLISTE ---
     // Score-Formel: bewusst simpel und transparent gehalten, gewichtet Artefakte und
     // Spieler-Level stärker als reine Ressourcenmenge.
@@ -65,10 +85,20 @@
             const agentenSnap = await window.getDocs(window.collection(window.db, "agenten"));
             const baseSnap = await window.getDocs(window.collection(window.db, "Agent - Base"));
             const artifactCounts = {};
+            const maxRoomLevels = {};
+            const agentCounts = {};
             baseSnap.forEach(d => {
-                const arr = d.data().collectedArtifacts;
+                const bd = d.data();
+                const arr = bd.collectedArtifacts;
                 artifactCounts[d.id] = Array.isArray(arr) ? arr.length : 0;
+                maxRoomLevels[d.id] = Array.isArray(bd.baseData) ? Math.max(0, ...bd.baseData.map(r => r.lvl || 1)) : 0;
+                agentCounts[d.id] = Array.isArray(bd.agents) ? bd.agents.length : 0;
             });
+            let allianzGruender = {};
+            try {
+                const allianzSnap = await window.getDocs(window.collection(window.db, "allianzen"));
+                allianzSnap.forEach(d => { allianzGruender[d.data().ownerSlug] = true; });
+            } catch (e) {}
 
             const entries = [];
             agentenSnap.forEach(d => {
@@ -79,9 +109,12 @@
                     credits: data.credits || 0,
                     materiezellen: (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0),
                     chronoszellen: data.chronoszellen || 0,
-                    artifactCount: artifactCounts[d.id] || 0
+                    artifactCount: artifactCounts[d.id] || 0,
+                    maxRoomLevel: maxRoomLevels[d.id] || 0,
+                    agentCount: agentCounts[d.id] || 0,
+                    isAllianzGruender: !!allianzGruender[d.id]
                 };
-                entries.push({ ...stats, score: computeAgenturScore(stats) });
+                entries.push({ ...stats, score: computeAgenturScore(stats), title: computeBestTitle(stats) });
             });
             entries.sort((a, b) => b.score - a.score);
 
@@ -95,7 +128,7 @@
                 const isMe = (e.slug === myName);
                 html += '<tr style="' + (isMe ? 'background:rgba(0,255,255,0.15); font-weight:bold;' : '') + ' border-bottom:1px solid rgba(0,255,255,0.15);">' +
                     '<td style="padding:4px;">' + (i + 1) + '</td>' +
-                    '<td style="padding:4px; text-align:left;">' + window.escHtml(e.slug) + (isMe ? ' (Du)' : '') + '</td>' +
+                    '<td style="padding:4px; text-align:left;">' + window.escHtml(e.slug) + (isMe ? ' (Du)' : '') + (e.title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + e.title + '</span>' : '') + '</td>' +
                     '<td style="padding:4px;">' + e.lvl + '</td>' +
                     '<td style="padding:4px;">' + e.artifactCount + '/40</td>' +
                     '<td style="padding:4px;">' + e.score.toLocaleString('de-DE') + '</td>' +
@@ -142,17 +175,27 @@
                 return;
             }
             const data = snap.data();
-            let artifactCount = 0;
+            let artifactCount = 0, maxRoomLevel = 0, agentCount = 0;
             try {
                 const baseSnap = await window.getDoc(window.doc(window.db, "Agent - Base", slug));
-                if (baseSnap.exists() && Array.isArray(baseSnap.data().collectedArtifacts)) {
-                    artifactCount = baseSnap.data().collectedArtifacts.length;
+                if (baseSnap.exists()) {
+                    const bd = baseSnap.data();
+                    if (Array.isArray(bd.collectedArtifacts)) artifactCount = bd.collectedArtifacts.length;
+                    if (Array.isArray(bd.baseData)) maxRoomLevel = Math.max(0, ...bd.baseData.map(r => r.lvl || 1));
+                    if (Array.isArray(bd.agents)) agentCount = bd.agents.length;
                 }
             } catch (e) {}
+            let isAllianzGruender = false;
+            try {
+                const allianzSnap = await window.getDocs(window.collection(window.db, "allianzen"));
+                allianzSnap.forEach(d => { if (d.data().ownerSlug === slug) isAllianzGruender = true; });
+            } catch (e) {}
             const mz = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
+            const title = computeBestTitle({ lvl: data.lvl || 1, credits: data.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender });
             ergebnis.innerHTML =
                 '<div style="border:1px solid #0ff; padding:15px; text-align:left; font-size:0.85em;">' +
-                    '<b style="color:#0ff; font-size:1.1em;">' + window.escHtml(name) + '</b><br><br>' +
+                    '<b style="color:#0ff; font-size:1.1em;">' + window.escHtml(name) + '</b>' +
+                    (title ? '<div style="opacity:0.8; margin-bottom:8px;">' + title + '</div>' : '<br><br>') +
                     'Level: <b>' + (data.lvl || 1) + '</b><br>' +
                     'Credits: <b>' + (data.credits || 0).toLocaleString('de-DE') + '</b><br>' +
                     'Materiezellen: <b>' + mz + '</b><br>' +
@@ -210,8 +253,19 @@
             try {
                 const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
                 const d = snap.exists() ? snap.data() : {};
+                let artifactCount = 0, maxRoomLevel = 0, agentCount = 0;
+                try {
+                    const baseSnap = await window.getDoc(window.doc(window.db, "Agent - Base", slug));
+                    if (baseSnap.exists()) {
+                        const bd = baseSnap.data();
+                        if (Array.isArray(bd.collectedArtifacts)) artifactCount = bd.collectedArtifacts.length;
+                        if (Array.isArray(bd.baseData)) maxRoomLevel = Math.max(0, ...bd.baseData.map(r => r.lvl || 1));
+                        if (Array.isArray(bd.agents)) agentCount = bd.agents.length;
+                    }
+                } catch (e) {}
+                const title = computeBestTitle({ lvl: d.lvl || 1, credits: d.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender: slug === allianz.ownerSlug });
                 memberRows += '<tr style="border-bottom:1px solid rgba(0,255,255,0.15);">' +
-                    '<td style="padding:4px; text-align:left;">' + window.escHtml(slug) + (slug === allianz.ownerSlug ? ' 👑' : '') + (slug === mySlug ? ' (Du)' : '') + '</td>' +
+                    '<td style="padding:4px; text-align:left;">' + window.escHtml(slug) + (slug === allianz.ownerSlug ? ' 👑' : '') + (slug === mySlug ? ' (Du)' : '') + (title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + title + '</span>' : '') + '</td>' +
                     '<td style="padding:4px;">' + (d.lvl || 1) + '</td>' +
                 '</tr>';
             } catch (e) {}
