@@ -850,7 +850,7 @@
 
     const roomTypes = [
         { n: 'FLUX-REAKTOR', d: 'Energieerzeugung für die Basis.' }, { n: 'HOCHSPANNUNGS-VERTEILER', d: 'Stabilisiert das Stromnetz.' },
-        { n: 'QUANTEN-LABOR', d: 'Ermöglicht technische Forschung.' }, { n: 'PARADOXON-FILTER', d: 'Reduziert Zeitanomalien.' },
+        { n: 'QUANTEN-LABOR', d: 'Ermöglicht technische Forschung.' }, { n: 'PARADOXON-FILTER', d: 'Riskanter Quanten-Warp zur Artefakt-Bergung.' },
         { n: 'ARTEFAKT-ARCHIV', d: 'Generiert passives Einkommen.' }, { n: 'TECHNIK-DECK', d: 'Rabatte auf neue Flux-Modelle.' },
         { n: 'AGENTEN-QUARTIERE', d: 'Erhöht das Personal-Limit.' }, { n: 'SERVER-HUB', d: 'Schützt vor Credit-Diebstahl.' },
         { n: 'IMPULS-KONDENSATOR', d: 'Speichert massive Energiemengen.' }, { n: 'OSZILLATIONS-KAMMER', d: 'Frequenz-Feinabstimmung.' },
@@ -1417,22 +1417,50 @@
     };
 
     // --- Raum-Info-Popup: ausführliche Beschreibung (Flavor-Text + Mechanik + aktuelles Level) ---
+    // Ausführliche, mehrsätzige Erklärungen pro Raum für den Info-Button - bewusst eigenständig
+    // formuliert, nicht nur aus Flavor-Text + Mechanik-Kurztext zusammengesetzt.
+    const ROOM_DETAILED_INFO = {
+        'ZENTRALE': 'Der Ausgangspunkt der gesamten Basis. Von hier aus gehen neu rekrutierte und zurückkehrende Agenten los, und hier warten sie zwischen zwei Einsätzen. Die Zentrale selbst produziert nichts und lässt sich nicht ausbauen - sie ist reine Infrastruktur.',
+        'FLUX-REAKTOR': 'Ein einfacher Energiewandler, der einem zugewiesenen Agenten stündlich eine feste Menge Credits abwirft. Die Ausbeute pro Zyklus wächst linear mit dem Raum-Level - ein Level-2-Reaktor liefert doppelt so viel wie auf Level 1, ein Level-3-Reaktor das Dreifache.',
+        'MATERIE-DEKOMPRESSOR': 'Zerlegt geborgene Fundstücke in nutzbare Materiezellen. Ein Zyklus dauert 8 Stunden. Die Ausbeute steigt nicht gleichmäßig, sondern in Stufen: bis Level 4 gibt es 1 Materiezelle pro Zyklus, ab Level 5 sind es 2, ab Level 10 schließlich 3.',
+        'KINETIK-LABOR': 'Wandelt die Bewegungsenergie eines arbeitenden Agenten in Spieler-Erfahrungspunkte um - hilft also nicht dem Agenten, sondern deinem eigenen Spieler-Fortschritt. Die XP-Ausbeute pro Zyklus wächst linear mit dem Raum-Level.',
+        'IMPULS-KONDENSATOR': 'Ein Hochrisiko-Raum: Der zugewiesene Agent hat nur eine 50/50-Chance, die Entladung zu überstehen. Überlebt er, steigt er im Level auf (ab Raum-Level 5 gleich um zwei Stufen, ab Level 10 um drei) und bringt Credits sowie Materiezellen mit, die ebenfalls mit dem Raum-Level wachsen. Stirbt er, ist er dauerhaft verloren - landet aber im Friedhof des Subraum-Nexus und kann dort gegen Chronos-Zellen wiederbelebt werden. Der Starter-Agent (★) darf diesen Raum aus Sicherheitsgründen nie betreten.',
+        'OSZILLATIONS-KAMMER': 'Ein exklusiver Raum, der ausschließlich vom allerersten Agenten (★) betreten werden darf. Ein Zyklus dauert 15 Stunden und liefert Materiezellen nach der generischen Zwei-Level-Formel.',
+        'FUNK-RELAIS "HORIZONT"': 'Empfängt sci-fi-artige Zeitreise-Aufträge mit einem konkreten Zieljahr. Mehrere Aufträge können gleichzeitig aktiv sein. Wird in der TEMPORAL TIME FORGE exakt dieses Jahr eingegeben, gilt die Reise als artefakt-berechtigt. Die Zeit bis zum Empfang eines neuen Auftrags sinkt mit dem Raum-Level.',
+        'HOCHSPANNUNGS-VERTEILER': 'Aktiviert beim Start sofort einen System-Overdrive: Für die Dauer des Zyklus laufen alle ANDEREN Agenten-Timer in der Basis beschleunigt. Der Beschleunigungsfaktor selbst wächst mit dem Raum-Level (von 50% auf Level 1 bis 90% auf Level 10). Der zugewiesene Agent selbst riskiert dabei sein Leben (50% Sterberisiko) und profitiert nicht vom eigenen Overdrive. Der Starter-Agent ist aus Sicherheitsgründen ausgeschlossen.',
+        'PARADOXON-FILTER': 'Ein instabiler Quanten-Warp-Versuch, der in nur 5 Minuten direkt ein Artefakt ins Archiv holen kann - vorausgesetzt, es liegt gerade ein aktiver Horizont-Auftrag vor (der beim Start sofort verbraucht wird, unabhängig vom Ausgang). Die Erfolgschance ist an das Raum-Level gekoppelt: 30% auf Level 1, steigend bis 75% auf Level 10. Chronos-Zellen gibt es über diesen Weg nie.',
+        'TEMPORAL TIME FORGE': 'Das Herzstück des Zeitreise-Kreislaufs. Der Agent wartet hier, bis du am Terminal manuell ein Zieljahr einträgst und die Reise startest. Stimmt das Jahr mit einem aktiven Horizont-Auftrag überein, ist die Reise artefakt-berechtigt. Die Grund-Missionsdauer von 8 Stunden sinkt mit dem Raum-Level um 10 Minuten pro Stufe, zusätzlich zur normalen Agenten-Level-Beschleunigung.',
+        'ARTEFAKT-ARCHIV': 'Endstation des Zeitreise-Kreislaufs. Hier gibt es garantiert 1-5 Chronos-Zellen, und bei artefakt-berechtigten Reisen zusätzlich die Chance auf eines von 40 einzigartigen Artefakten mit eigener Jahresangabe und Fundgeschichte. Gesammelte Artefakte werden physisch im Regal (falls gekauft) oder in einem Sammelbereich im Raum angezeigt. Die reine Aufenthaltsdauer hier sinkt mit dem Raum-Level.',
+        'AGENTEN-QUARTIERE': 'Die Schlafkammer, durch die jeder reguläre Raumwechsel eines Agenten zwingend läuft. Die Wartezeit hier beträgt auf Level 1 eine volle Stunde und sinkt mit jedem weiteren Level um 3 Minuten (Untergrenze 15 Minuten), zusätzlich zur normalen Agenten-Level-Beschleunigung.',
+        'DEKONTAMINATIONS-SCHLEUSE': 'Pflichtstation im Zeitreise-Kreislauf nach der Rückkehr aus der Forge. Reinigt den Agenten von temporaler Kontamination. Die Grunddauer von 60 Minuten sinkt mit dem Raum-Level um 2 Minuten pro Stufe.',
+        'SCANNER-PHALANX': 'Rekrutiert nach Ablauf des Zyklus einen komplett neuen Agenten (sofern das Agenten-Limit nicht bereits erreicht ist) - beide, der arbeitende und der neue Agent, kehren danach zurück. Die Grund-Zykluszeit von 24 Stunden sinkt mit dem Raum-Level um 30 Minuten pro Stufe.',
+        'KI-KERNMATRIX': 'Trainiert einen zugewiesenen Agenten und lässt ihn im Level aufsteigen (normalerweise um eine Stufe, ab Raum-Level 10 gleich um zwei). Die Grund-Zykluszeit von 8 Stunden sinkt mit dem Raum-Level um 6 Minuten pro Stufe.',
+        'THERMO-KOPPLER': 'Nutzt die Erdwärme der Ödnis und produziert vollkommen automatisch, ganz ohne zugewiesenen Agenten, alle 2 Stunden Credits. Die Ausbeute pro Tick steigt um 4 Credits pro Level.',
+        'TRANSFORMATOREN-STATION': 'Ein manueller Tauschautomat: Credits gegen Materiezellen, jederzeit nutzbar. Die Kosten pro Materiezelle sinken mit dem Raum-Level um 200 Credits pro Stufe.',
+        'RENAISSANCE-GENERATOR': 'Verkauft Chronos-Zellen gegen Credits - ein reiner Verkaufsautomat, hier lassen sich keine Chronos-Zellen kaufen. Der Auszahlungsbetrag pro verkaufter Chronos-Zelle steigt mit dem Raum-Level um 500 Credits pro Stufe.',
+        'ANOMALIE-DETEKTOR': 'Verlangsamt automatisch den Kohärenz-Abfall während WARNUNG- und INSTABIL-Phasen im Hauptterminal. Die Verlangsamung wächst mit dem Raum-Level von 5% auf 1,5%-Schritten weiter.',
+        'QUANTEN-LABOR': 'Gibt einen passiven Bonus auf JEDE positive XP-Belohnung im Hauptterminal (nicht auf Abzüge/Strafen). Der Bonus wächst mit dem Raum-Level von 2% um jeweils 1 Prozentpunkt weiter.',
+        'KYBERNETIK-STATION': 'Vergrößert den GPS-Ankunftsradius bei Missionen im Hauptterminal, was das Erreichen eines Zielpunkts erleichtert. Der Bonus wächst alle zwei Level um einen weiteren Meter.',
+        'RESONANZ-KAMMER': 'Gibt bei jedem abgeschlossenen Mission-Loot im Hauptterminal eine Zufallschance auf komplett verdoppelte Belohnung (Credits, Materiezellen und XP gleichermaßen). Die Chance wächst mit dem Raum-Level von 5% um jeweils 1 Prozentpunkt weiter.',
+        'TECHNIK-DECK': 'Gewährt einen Rabatt auf die Materiezellen-Kosten beim Bau neuer Räume. Der Rabatt wächst mit dem Raum-Level von 5% um jeweils 2 Prozentpunkte weiter.',
+        'SERVER-HUB': 'Kann im Hauptterminal einen drohenden Übergang zu WARNUNG direkt abfangen, sodass die Kohärenz stabil bleibt. Die Abfangchance wächst mit dem Raum-Level von 10% um jeweils 2 Prozentpunkte weiter.',
+        'KRYO-DEPOT': 'Erweitert das globale Agenten-Limit über die Basis von 8 hinaus. Der Bonus wächst alle zwei Level um einen weiteren Platz.',
+        'SUBRAUM-NEXUS': 'Der VIP-Raum der Agentur mit fünf eigenständigen Stationen: Holoprojektor (Direktkanal zur Administration, 1 Chronos-Zelle pro Nachricht), Bio-Rekonstruktions-Kapsel (Wiederbelebung gestorbener Agenten für 25 Chronos-Zellen), Schattensyndikat-Terminal (Schwarzmarkt für fehlende Artefakte), Temporale Rohrpost (globale Drops der Administration) und Infostand. Produziert unabhängig von einem Agenten dauerhaft 100 Credits pro Stunde, mit zugewiesenem Agenten zusätzlich alle 3 Stunden 1 Materiezelle. Dieser Raum kann selbst nicht gelevelt werden.'
+    };
+
     window.showRoomInfoPopup = function(roomType) {
         const room = gameState.baseData.find(r => r.type === roomType);
         const level = room ? (room.lvl || 1) : 1;
-        const catalogEntry = roomTypes.find(r => r.n === roomType);
         const titleEl = document.getElementById('room-info-title');
         const bodyEl = document.getElementById('room-info-body');
         if (!titleEl || !bodyEl) return;
-        titleEl.innerText = '[ ' + roomDisplayName(roomType) + ' · LVL ' + level + ' ]';
-        const flavor = catalogEntry ? catalogEntry.d : '';
-        const mechanic = agentRoomInfoText(roomType);
+        titleEl.innerText = '[ ' + roomDisplayName(roomType) + (roomType !== 'ZENTRALE' ? ' · LVL ' + level : '') + ' ]';
         const category = roomEffectCategory(roomType);
-        const categoryLabel = { active: 'Aktiver Raum (Agent nötig)', passive: 'Passiver Raum (läuft automatisch)', danger: 'Hochrisiko-Raum', journey: 'Teil des Zeitreise-Kreislaufs', quantum: 'Instabile Quanten-Alternative' }[category] || 'Dekorativer Raum';
+        const categoryLabel = { active: 'Aktiver Raum (Agent nötig)', passive: 'Passiver Raum (läuft automatisch)', danger: 'Hochrisiko-Raum', journey: 'Teil des Zeitreise-Kreislaufs', quantum: 'Instabile Quanten-Alternative' }[category] || (roomType === 'ZENTRALE' ? 'Infrastruktur' : 'Dekorativer Raum');
+        const detail = ROOM_DETAILED_INFO[roomType] || 'Für diesen Raum ist noch keine ausführliche Beschreibung hinterlegt.';
         bodyEl.innerHTML =
-            '<div style="margin-bottom:8px; font-style:italic; color:#aaa;">' + (flavor || 'Keine weitere Beschreibung hinterlegt.') + '</div>' +
             '<div style="margin-bottom:8px;"><b style="color:#0ff;">Kategorie:</b> ' + categoryLabel + '</div>' +
-            (mechanic ? '<div><b style="color:#0ff;">Mechanik:</b> ' + mechanic + '</div>' : '');
+            '<div>' + detail + '</div>';
         const overlay = document.getElementById('room-info-popup');
         if (overlay) overlay.style.display = 'flex';
     };
@@ -1704,7 +1732,7 @@
             return 'Pflicht-Zwischenstopp bei jedem Raumwechsel · wartet hier 1h';
         }
         if (roomType === 'IMPULS-KONDENSATOR') {
-            return '⚠ Agent wartet 20 Minuten · 50% Todesrisiko · bei Erfolg: +1 Agentenlevel, 2 MZ, 1000 Credits';
+            return '⚠ Agent wartet 20 Minuten · 50% Todesrisiko · bei Erfolg: +' + scaledImpulsAgentLevelBonus(roomLevelOf('IMPULS-KONDENSATOR')) + ' Agentenlevel, ' + scaledImpulsMaterie(roomLevelOf('IMPULS-KONDENSATOR')) + ' MZ, ' + scaledImpulsCredits(roomLevelOf('IMPULS-KONDENSATOR')) + ' Credits';
         }
         if (isForgeRoom(roomType)) {
             return 'Agent wartet ohne Zeitlimit · Terminal starten für 8h-Zeitreise → Dekontamination (1h) → Archiv (30min)';
@@ -1726,10 +1754,10 @@
                 ' <button onclick="event.stopPropagation(); window.showHorizonBriefing();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#c060ff; color:#000; border:1px solid #c060ff; border-radius:3px; cursor:pointer; font-family:inherit;">📡 BERICHTE</button>';
         }
         if (roomType === 'HOCHSPANNUNGS-VERTEILER') {
-            return '⚠ Regulärer Agent (nicht #1) · 1h · Alle Timer laufen währenddessen 2x schneller · 50% Todesrisiko danach';
+            return '⚠ Regulärer Agent (nicht #1) · 1h · Alle Timer laufen währenddessen ' + Math.round(scaledOverdrivePct(roomLevelOf('HOCHSPANNUNGS-VERTEILER'))) + '% schneller · 50% Todesrisiko danach';
         }
         if (roomType === 'PARADOXON-FILTER') {
-            return 'Agent 5min · versucht per Quanten-Warp ein Artefakt direkt ins Archiv zu holen · 50/50';
+            return 'Agent 5min · versucht per Quanten-Warp ein Artefakt direkt ins Archiv zu holen · ' + Math.round(scaledQuantumWarpChancePct(roomLevelOf('PARADOXON-FILTER'))) + '% Erfolgschance';
         }
         if (roomType === 'TRANSFORMATOREN-STATION') {
             return PASSIVE_ROOMS[roomType].text +
