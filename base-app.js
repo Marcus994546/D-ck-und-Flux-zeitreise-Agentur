@@ -91,6 +91,25 @@
     // ============================================================
     const AGENT_QUARTIERE_HOURS = 1;
     const AGENT_MAX_LEVEL = 10;
+    const ROOM_LEVEL_UP_COST_MZ = 8;
+    const ROOM_LEVEL_UP_COST_CREDITS = 1000;
+
+    // Raum-Level-Skalierung (unabhängig von Agenten-Leveln!): jeder Raum in gameState.baseData
+    // hat sein eigenes "lvl"-Feld, das sich per Level-Up-Popup gegen Ressourcen steigern lässt.
+    function roomLevelOf(roomType) {
+        const room = gameState.baseData.find(r => r.type === roomType);
+        return room ? (room.lvl || 1) : 1;
+    }
+    // Credits-Räume: Menge wächst linear mit dem Raum-Level (Basis 5 -> Lvl1:5, Lvl2:10, Lvl3:15).
+    function scaledCreditsAmount(baseAmount, roomLevel) { return baseAmount * roomLevel; }
+    // Materiezelle-Räume: +1 alle ZWEI Level (Lvl1:1, Lvl2:1, Lvl3:2, Lvl4:2, Lvl5:3, ...).
+    function scaledMaterieAmount(roomLevel) { return Math.ceil(roomLevel / 2); }
+    // Reine Wartezeit-Räume (kein direkter Rohstoff-Output, z.B. Agenten-Quartiere): Dauer sinkt
+    // pro Level um 3 Minuten (Lvl1: 60min, Lvl2: 57min, Lvl3: 54min, ...), mit Untergrenze.
+    function scaledQuartiereHours(roomLevel) {
+        const minutes = Math.max(15, 60 - (roomLevel - 1) * 3);
+        return minutes / 60;
+    }
     const AGENT_TASK_ROOMS = {
         'SCANNER-PHALANX':      { hours: 24, effect: 'spawn_agent' },
         'KI-KERNMATRIX':        { hours: 8, effect: 'level_up' },
@@ -277,10 +296,11 @@
     }
 
     function applyAgentReward(agent, task) {
+        const roomLevel = roomLevelOf(agent.location);
         if (task.effect === 'credits') {
-            gameState.credits += task.amount;
+            gameState.credits += scaledCreditsAmount(task.amount, roomLevel);
         } else if (task.effect === 'materiezelle') {
-            gameState.materieZellen += task.amount;
+            gameState.materieZellen += scaledMaterieAmount(roomLevel);
         } else if (task.effect === 'level_up') {
             if (agent.level < AGENT_MAX_LEVEL) agent.level++;
         } else if (task.effect === 'player_xp') {
@@ -498,7 +518,7 @@
         agent.state = 'waiting_in_quartiere';
         agent.location = 'AGENTEN-QUARTIERE';
         agent.taskStartTs = Date.now();
-        agent.taskDurationMs = agentScaledDurationMs(AGENT_QUARTIERE_HOURS, agent.level, agent.isStarter);
+        agent.taskDurationMs = agentScaledDurationMs(scaledQuartiereHours(roomLevelOf('AGENTEN-QUARTIERE')), agent.level, agent.isStarter);
         if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE', agent.isStarter, agent.id);
     }
 
@@ -750,7 +770,7 @@
         agent.state = 'waiting_in_quartiere';
         agent.location = 'AGENTEN-QUARTIERE';
         agent.taskStartTs = Date.now();
-        agent.taskDurationMs = agentScaledDurationMs(AGENT_QUARTIERE_HOURS, agent.level, agent.isStarter);
+        agent.taskDurationMs = agentScaledDurationMs(scaledQuartiereHours(roomLevelOf('AGENTEN-QUARTIERE')), agent.level, agent.isStarter);
 
         window.selectedAgentId = null;
         saveGameState();
@@ -1341,6 +1361,86 @@
         if (overlay) overlay.style.display = 'none';
     };
 
+    // --- Raum-Info-Popup: ausführliche Beschreibung (Flavor-Text + Mechanik + aktuelles Level) ---
+    window.showRoomInfoPopup = function(roomType) {
+        const room = gameState.baseData.find(r => r.type === roomType);
+        const level = room ? (room.lvl || 1) : 1;
+        const catalogEntry = roomTypes.find(r => r.n === roomType);
+        const titleEl = document.getElementById('room-info-title');
+        const bodyEl = document.getElementById('room-info-body');
+        if (!titleEl || !bodyEl) return;
+        titleEl.innerText = '[ ' + roomDisplayName(roomType) + ' · LVL ' + level + ' ]';
+        const flavor = catalogEntry ? catalogEntry.d : '';
+        const mechanic = agentRoomInfoText(roomType);
+        const category = roomEffectCategory(roomType);
+        const categoryLabel = { active: 'Aktiver Raum (Agent nötig)', passive: 'Passiver Raum (läuft automatisch)', danger: 'Hochrisiko-Raum', journey: 'Teil des Zeitreise-Kreislaufs', quantum: 'Instabile Quanten-Alternative' }[category] || 'Dekorativer Raum';
+        bodyEl.innerHTML =
+            '<div style="margin-bottom:8px; font-style:italic; color:#aaa;">' + (flavor || 'Keine weitere Beschreibung hinterlegt.') + '</div>' +
+            '<div style="margin-bottom:8px;"><b style="color:#0ff;">Kategorie:</b> ' + categoryLabel + '</div>' +
+            (mechanic ? '<div><b style="color:#0ff;">Mechanik:</b> ' + mechanic + '</div>' : '');
+        const overlay = document.getElementById('room-info-popup');
+        if (overlay) overlay.style.display = 'flex';
+    };
+    window.closeRoomInfoPopup = function() {
+        const overlay = document.getElementById('room-info-popup');
+        if (overlay) overlay.style.display = 'none';
+    };
+
+    // --- Raum-Level-Up-Popup: aktuelle vs. nächste Produktionsstufe, Kauf-Button ---
+    window.renderRoomLevelPopup = function(roomType) {
+        const room = gameState.baseData.find(r => r.type === roomType);
+        if (!room) return;
+        const level = room.lvl || 1;
+        const nextLevel = level + 1;
+        const task = AGENT_TASK_ROOMS[roomType];
+        const titleEl = document.getElementById('room-level-title');
+        const bodyEl = document.getElementById('room-level-body');
+        if (!titleEl || !bodyEl) return;
+        titleEl.innerText = '[ ' + roomDisplayName(roomType) + ' · LEVEL-UP ]';
+
+        let productionHtml = '';
+        if (roomType === 'AGENTEN-QUARTIERE') {
+            const curMin = Math.round(scaledQuartiereHours(level) * 60);
+            const nextMin = Math.round(scaledQuartiereHours(nextLevel) * 60);
+            productionHtml =
+                '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
+                '<div style="margin-bottom:8px;">' + curMin + ' Minuten Wartezeit</div>' +
+                '<div style="color:#4dd0ff;">Bei Level ' + nextLevel + '</div>' +
+                '<div>' + nextMin + ' Minuten <span style="opacity:0.7;">(' + (curMin - nextMin >= 0 ? '-' : '+') + Math.abs(curMin - nextMin) + ' Min.)</span></div>';
+        } else if (task && task.effect === 'credits') {
+            const cur = scaledCreditsAmount(task.amount, level);
+            const next = scaledCreditsAmount(task.amount, nextLevel);
+            productionHtml =
+                '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
+                '<div style="margin-bottom:8px;">' + cur + ' Credits pro Zyklus</div>' +
+                '<div style="color:#4dd0ff;">Bei Level ' + nextLevel + '</div>' +
+                '<div>' + cur + ' <span style="opacity:0.6;">+' + (next - cur) + '</span> = ' + next + ' Credits pro Zyklus</div>';
+        } else if (task && task.effect === 'materiezelle') {
+            const cur = scaledMaterieAmount(level);
+            const next = scaledMaterieAmount(nextLevel);
+            productionHtml =
+                '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
+                '<div style="margin-bottom:8px;">' + cur + ' Materiezelle' + (cur === 1 ? '' : 'n') + ' pro Zyklus</div>' +
+                '<div style="color:#4dd0ff;">Bei Level ' + nextLevel + '</div>' +
+                '<div>' + cur + ' <span style="opacity:0.6;">+' + (next - cur) + '</span> = ' + next + ' Materiezelle' + (next === 1 ? '' : 'n') + ' pro Zyklus</div>';
+        } else {
+            productionHtml = '<div style="opacity:0.7;">Für diesen Raum ist noch keine Level-abhängige Produktionssteigerung hinterlegt - der Level-Wert wird aber trotzdem gespeichert.</div>';
+        }
+        bodyEl.innerHTML = productionHtml;
+
+        const btn = document.getElementById('room-level-upgrade-btn');
+        if (btn) btn.onclick = () => window.levelUpRoom(roomType);
+    };
+    window.showRoomLevelPopup = function(roomType) {
+        window.renderRoomLevelPopup(roomType);
+        const overlay = document.getElementById('room-level-popup');
+        if (overlay) overlay.style.display = 'flex';
+    };
+    window.closeRoomLevelPopup = function() {
+        const overlay = document.getElementById('room-level-popup');
+        if (overlay) overlay.style.display = 'none';
+    };
+
     function getAgentUnlockRequirementStatus() {
         const roomsBuilt = AGENT_UNLOCK_REQUIRED_ROOMS.map(type => ({
             type,
@@ -1455,6 +1555,23 @@
     // Zeigt den aktuellen Anzeigenamen eines Raums - fängt den Fall ab, dass ein bereits vor
     // der Umbenennung gebauter Raum in den gespeicherten Daten noch unter dem alten internen
     // Namen "VAKUUM-SCHMIEDE" geführt wird.
+    window.levelUpRoom = async function(roomType) {
+        const room = gameState.baseData.find(r => r.type === roomType);
+        if (!room) return;
+        if (gameState.materieZellen < ROOM_LEVEL_UP_COST_MZ || gameState.credits < ROOM_LEVEL_UP_COST_CREDITS) {
+            if (typeof showCustomAlert === 'function') showCustomAlert('System: ' + ROOM_LEVEL_UP_COST_CREDITS + ' Credits + ' + ROOM_LEVEL_UP_COST_MZ + ' Materiezellen benötigt.');
+            return;
+        }
+        gameState.materieZellen -= ROOM_LEVEL_UP_COST_MZ;
+        gameState.credits -= ROOM_LEVEL_UP_COST_CREDITS;
+        room.lvl = (room.lvl || 1) + 1;
+        updateUI();
+        await saveGameState();
+        if (typeof showInfoToast === 'function') showInfoToast(roomDisplayName(roomType) + ' auf Level ' + room.lvl + ' hochgestuft.');
+        if (typeof window.renderRoomLevelPopup === 'function') window.renderRoomLevelPopup(roomType);
+        if (typeof renderBunkerView === 'function') renderBunkerView();
+    };
+
     function roomDisplayName(type) {
         if (type === 'VAKUUM-SCHMIEDE') return 'TEMPORAL TIME FORGE';
         return type;
@@ -1572,6 +1689,10 @@
                         (room.type !== 'ZENTRALE' ? ' · LVL ' + room.lvl : ' · EINGANGSEBENE') +
                         '</div>' +
                         (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info' + roomInfoColorClass(room.type) + '">' + agentRoomInfoText(room.type) + '</div>' : '') +
+                        '<div class="bunker-floor-buttons">' +
+                            '<button class="bunker-floor-btn" onclick="event.stopPropagation(); window.showRoomInfoPopup(\'' + room.type + '\')">ℹ INFO</button>' +
+                            '<button class="bunker-floor-btn bunker-floor-btn-level" onclick="event.stopPropagation(); window.showRoomLevelPopup(\'' + room.type + '\')">⬆ LEVEL</button>' +
+                        '</div>' +
                     '</div>' +
                 '</div>';
             floorsEl.appendChild(floor);
@@ -1584,7 +1705,10 @@
         // damit clearRoom() - jetzt containerspezifisch - keinen falschen Raum trifft).
         bunkerFloorsData.forEach((room, idx) => {
             window._roomAreaTargetId = 'bunker-room-' + idx;
-            try { window.reloadFurniture(room.type); } catch(e) { console.error('Bunker-Vorschau Fehler bei Stockwerk "' + room.type + '":', e); }
+            try {
+                window.reloadFurniture(room.type);
+                if (room.type === 'ARTEFAKT-ARCHIV' && typeof placeArtifactsInShelves === 'function') placeArtifactsInShelves();
+            } catch(e) { console.error('Bunker-Vorschau Fehler bei Stockwerk "' + room.type + '":', e); }
         });
         window._roomAreaTargetId = 'room-area';
 

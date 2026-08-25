@@ -1312,6 +1312,12 @@
 .bunker-floor-label {
     font-size: 0.72em; color: #fff; letter-spacing: 0.3px; margin-bottom: 4px;
 }
+.bunker-floor-buttons { display: flex; gap: 6px; margin-top: 5px; }
+.bunker-floor-btn {
+    font-size: 0.6em; padding: 3px 8px; background: rgba(0,255,255,0.1); color: #0ff;
+    border: 1px solid rgba(0,255,255,0.5); border-radius: 3px; cursor: pointer; font-family: inherit;
+}
+.bunker-floor-btn-level { background: rgba(0,255,136,0.1); color: #0f8; border-color: rgba(0,255,136,0.5); }
 
 /* Der echte Raum (Wände + Möbel, per window._roomAreaTargetId hierher umgeleitet) wird
    1:1 wie im normalen Raum-Bildschirm aufgebaut, dann als Ganzes herunterskaliert - dadurch
