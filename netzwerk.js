@@ -23,6 +23,7 @@
             '<div id="netzwerk-tabs" style="display:flex; gap:8px; justify-content:center; margin-bottom:15px;">' +
                 '<button class="netzwerk-tab-btn" data-tab="rangliste" onclick="window.switchNetzwerkTab(\'rangliste\')">RANGLISTE</button>' +
                 '<button class="netzwerk-tab-btn" data-tab="suche" onclick="window.switchNetzwerkTab(\'suche\')">SPIELER SUCHEN</button>' +
+                '<button class="netzwerk-tab-btn" data-tab="allianz" onclick="window.switchNetzwerkTab(\'allianz\')">ALLIANZEN</button>' +
             '</div>' +
             '<div id="netzwerk-content"></div>' +
             '<hr><button onclick="f_start()">Zurück</button>';
@@ -36,6 +37,7 @@
         });
         if (tab === 'rangliste') renderRangliste();
         else if (tab === 'suche') renderSpielerSuche();
+        else if (tab === 'allianz') renderAllianz();
     };
 
     // --- RANGLISTE ---
@@ -160,6 +162,150 @@
         } catch (e) {
             console.error(e);
             ergebnis.innerHTML = '<p style="color:#f44;">Suche fehlgeschlagen.</p>';
+        }
+    };
+
+    // --- ALLIANZEN ---
+    async function renderAllianz() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = '<p style="color:#0f8; text-align:center;">Lade...</p>';
+        if (!window.db) { content.innerHTML = '<p style="color:#f44;">Keine Verbindung zur Datenbank.</p>'; return; }
+
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            // Eigene Allianz suchen: einmalig alle Allianzen laden und nach der eigenen Slug in
+            // "mitglieder" filtern (die Collection bleibt bei einer kleinen Spielerbasis günstig
+            // in einem Rutsch abfragbar).
+            const allSnap = await window.getDocs(window.collection(window.db, "allianzen"));
+            let myAllianz = null;
+            const alleAllianzen = [];
+            allSnap.forEach(d => {
+                const data = d.data();
+                alleAllianzen.push({ id: d.id, ...data });
+                if (Array.isArray(data.mitglieder) && data.mitglieder.includes(mySlug)) myAllianz = { id: d.id, ...data };
+            });
+
+            if (myAllianz) {
+                renderEigeneAllianz(myAllianz);
+            } else {
+                renderAllianzBrowser(alleAllianzen);
+            }
+        } catch (e) {
+            console.error(e);
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Allianzen konnten nicht geladen werden.</p>';
+        }
+    }
+
+    async function renderEigeneAllianz(allianz) {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        const mySlug = window.agentSlug(window.agentName);
+        const isOwner = (allianz.ownerSlug === mySlug);
+
+        // Für jedes Mitglied die Basisdaten für eine kleine Mitgliederliste nachladen.
+        let memberRows = '';
+        for (const slug of allianz.mitglieder) {
+            try {
+                const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
+                const d = snap.exists() ? snap.data() : {};
+                memberRows += '<tr style="border-bottom:1px solid rgba(0,255,255,0.15);">' +
+                    '<td style="padding:4px; text-align:left;">' + window.escHtml(slug) + (slug === allianz.ownerSlug ? ' 👑' : '') + (slug === mySlug ? ' (Du)' : '') + '</td>' +
+                    '<td style="padding:4px;">' + (d.lvl || 1) + '</td>' +
+                '</tr>';
+            } catch (e) {}
+        }
+
+        content.innerHTML =
+            '<div style="border:1px solid #0ff; padding:15px; text-align:left;">' +
+                '<h4 style="color:#0ff; margin-top:0;">' + window.escHtml(allianz.name) + '</h4>' +
+                '<p style="font-size:0.8em; color:#aaa;">' + allianz.mitglieder.length + ' Mitglied' + (allianz.mitglieder.length === 1 ? '' : 'er') + '</p>' +
+                '<table style="width:100%; border-collapse:collapse; font-size:0.8em; margin-bottom:15px;">' +
+                    '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Lvl</th></tr>' +
+                    memberRows +
+                '</table>' +
+                '<button class="modell-btn" style="border-color:#f44; color:#f44;" onclick="window.allianzVerlassen(\'' + allianz.id + '\')">' + (isOwner && allianz.mitglieder.length > 1 ? 'ALLIANZ VERLASSEN (Besitz geht nicht automatisch über)' : (isOwner ? 'ALLIANZ AUFLÖSEN' : 'ALLIANZ VERLASSEN')) + '</button>' +
+            '</div>';
+    }
+
+    function renderAllianzBrowser(alleAllianzen) {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        let listHtml = '';
+        if (alleAllianzen.length === 0) {
+            listHtml = '<p style="color:#aaa; font-size:0.85em;">Noch keine Allianzen gegründet - sei die erste!</p>';
+        } else {
+            listHtml = '<div style="max-height:250px; overflow-y:auto; margin-bottom:15px;">';
+            alleAllianzen.sort((a, b) => (b.mitglieder || []).length - (a.mitglieder || []).length).forEach(a => {
+                listHtml += '<div style="display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(0,255,255,0.3); padding:8px; margin-bottom:6px;">' +
+                    '<span>' + window.escHtml(a.name) + ' <span style="opacity:0.6; font-size:0.8em;">(' + (a.mitglieder || []).length + ')</span></span>' +
+                    '<button class="netzwerk-tab-btn" onclick="window.allianzBeitreten(\'' + a.id + '\')">BEITRETEN</button>' +
+                '</div>';
+            });
+            listHtml += '</div>';
+        }
+        content.innerHTML =
+            '<p style="font-size:0.8em; color:#aaa;">Du bist noch in keiner Allianz.</p>' +
+            listHtml +
+            '<div style="display:flex; gap:5px; margin-top:10px;">' +
+                '<input type="text" id="allianz-name-input" placeholder="Name für neue Allianz..." maxlength="40" style="flex-grow:1; background:#000; border:1px solid #0ff; color:#0ff; padding:8px; font-family:inherit;">' +
+                '<button class="modell-btn" onclick="window.allianzGruenden()">GRÜNDEN</button>' +
+            '</div>';
+    }
+
+    window.allianzGruenden = async function() {
+        const input = document.getElementById('allianz-name-input');
+        const name = input ? input.value.trim() : '';
+        if (!name) return;
+        const mySlug = window.agentSlug(window.agentName);
+        const allianzId = window.agentSlug(name) + '_' + Date.now();
+        try {
+            await window.setDoc(window.doc(window.db, "allianzen", allianzId), {
+                name: name,
+                ownerSlug: mySlug,
+                mitglieder: [mySlug],
+                createdAt: Date.now()
+            });
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            alert('Allianz konnte nicht gegründet werden.');
+        }
+    };
+
+    window.allianzBeitreten = async function(allianzId) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "allianzen", allianzId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists()) return;
+            const data = snap.data();
+            if (Array.isArray(data.mitglieder) && data.mitglieder.includes(mySlug)) return;
+            await window.setDoc(ref, { mitglieder: [...(data.mitglieder || []), mySlug] }, { merge: true });
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            alert('Beitritt fehlgeschlagen.');
+        }
+    };
+
+    window.allianzVerlassen = async function(allianzId) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "allianzen", allianzId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists()) return;
+            const data = snap.data();
+            const restMitglieder = (data.mitglieder || []).filter(s => s !== mySlug);
+            if (restMitglieder.length === 0) {
+                await window.deleteDoc(ref);
+            } else {
+                await window.setDoc(ref, { mitglieder: restMitglieder }, { merge: true });
+            }
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            alert('Aktion fehlgeschlagen.');
         }
     };
 })();
