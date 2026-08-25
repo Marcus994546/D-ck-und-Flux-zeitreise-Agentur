@@ -823,6 +823,21 @@ window.startGlobalNotification = function() {
             }
         } catch (e) { console.error("Standort-Uplink fehlgeschlagen:", e); }
 
+        // Aktivitäts-Tage der letzten 10 Tage mitführen (Grundlage für den Allianz-
+        // Nachfolge-Algorithmus, siehe netzwerk.js) - heutiges Datum ergänzen, alles älter als
+        // 10 Tage verwerfen.
+        let activeDays = [];
+        try {
+            if (window.db && window.getDoc) {
+                const existingSnap = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(window.agentName)));
+                if (existingSnap.exists() && Array.isArray(existingSnap.data().activeDays)) activeDays = existingSnap.data().activeDays;
+            }
+        } catch (e) {}
+        const todayIso = new Date().toISOString().slice(0, 10);
+        if (!activeDays.includes(todayIso)) activeDays.push(todayIso);
+        const tenDaysAgoTs = Date.now() - 10 * 86400000;
+        activeDays = activeDays.filter(iso => new Date(iso + 'T00:00:00').getTime() >= tenDaysAgoTs);
+
         const data = { 
             xp: window.playerXP, 
             lvl: window.playerLevel, 
@@ -836,7 +851,9 @@ window.startGlobalNotification = function() {
             agentOrigin: `${locationData.country}, ${locationData.region} (${locationData.city})`,
             lat: locationData.lat,
             lon: locationData.lon,
-            lastSeen: new Date().toLocaleString('de-DE')
+            lastSeen: new Date().toLocaleString('de-DE'),
+            lastSeenTs: Date.now(),
+            activeDays: activeDays
         };
         
         localStorage.setItem('flux_agent_' + window.agentName.toLowerCase(), JSON.stringify(data));

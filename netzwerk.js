@@ -202,6 +202,7 @@
         if (!content) return;
         const mySlug = window.agentSlug(window.agentName);
         const isOwner = (allianz.ownerSlug === mySlug);
+        const otherMembers = allianz.mitglieder.filter(s => s !== mySlug);
 
         // Für jedes Mitglied die Basisdaten für eine kleine Mitgliederliste nachladen.
         let memberRows = '';
@@ -216,6 +217,16 @@
             } catch (e) {}
         }
 
+        // Der Besitzer kann beim Verlassen optional selbst einen Nachfolger bestimmen - lässt er
+        // die Auswahl auf "Automatisch", entscheidet der Algorithmus (siehe waehleNachfolger()).
+        let successorSelect = '';
+        if (isOwner && otherMembers.length > 0) {
+            successorSelect = '<select id="allianz-nachfolger-select" style="width:100%; background:#000; border:1px solid #0ff; color:#0ff; padding:6px; margin-bottom:8px; font-family:inherit;">' +
+                '<option value="">Nachfolger automatisch bestimmen</option>' +
+                otherMembers.map(s => '<option value="' + s + '">' + window.escHtml(s) + ' als Nachfolger festlegen</option>').join('') +
+            '</select>';
+        }
+
         content.innerHTML =
             '<div style="border:1px solid #0ff; padding:15px; text-align:left;">' +
                 '<h4 style="color:#0ff; margin-top:0;">' + window.escHtml(allianz.name) + '</h4>' +
@@ -224,7 +235,8 @@
                     '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Lvl</th></tr>' +
                     memberRows +
                 '</table>' +
-                '<button class="modell-btn" style="border-color:#f44; color:#f44;" onclick="window.allianzVerlassen(\'' + allianz.id + '\')">' + (isOwner && allianz.mitglieder.length > 1 ? 'ALLIANZ VERLASSEN (Besitz geht nicht automatisch über)' : (isOwner ? 'ALLIANZ AUFLÖSEN' : 'ALLIANZ VERLASSEN')) + '</button>' +
+                successorSelect +
+                '<button class="modell-btn" style="border-color:#f44; color:#f44;" onclick="window.allianzVerlassen(\'' + allianz.id + '\')">' + (isOwner && otherMembers.length > 0 ? 'ALLIANZ VERLASSEN' : (isOwner ? 'ALLIANZ AUFLÖSEN' : 'ALLIANZ VERLASSEN')) + '</button>' +
             '</div>';
     }
 
@@ -297,15 +309,53 @@
             if (!snap.exists()) return;
             const data = snap.data();
             const restMitglieder = (data.mitglieder || []).filter(s => s !== mySlug);
+            const amOwner = (data.ownerSlug === mySlug);
+
             if (restMitglieder.length === 0) {
                 await window.deleteDoc(ref);
-            } else {
-                await window.setDoc(ref, { mitglieder: restMitglieder }, { merge: true });
+                renderAllianz();
+                return;
             }
+
+            if (!amOwner) {
+                await window.setDoc(ref, { mitglieder: restMitglieder }, { merge: true });
+                renderAllianz();
+                return;
+            }
+
+            // Ich bin Besitzer und verlasse die Allianz - manuelle Auswahl hat Vorrang vor dem
+            // Algorithmus.
+            const selectEl = document.getElementById('allianz-nachfolger-select');
+            const manualChoice = selectEl ? selectEl.value : '';
+            const newOwner = manualChoice || await waehleNachfolger(restMitglieder);
+
+            await window.setDoc(ref, { mitglieder: restMitglieder, ownerSlug: newOwner }, { merge: true });
             renderAllianz();
         } catch (e) {
             console.error(e);
             alert('Aktion fehlgeschlagen.');
         }
     };
+
+    // Nachfolge-Algorithmus (nur wenn der Besitzer verlässt, OHNE selbst einen Nachfolger zu
+    // bestimmen): betrachtet die ERSTEN 10 beigetretenen Mitglieder (Array-Reihenfolge = exakte
+    // Beitrittsreihenfolge, da neue Mitglieder immer nur ans Ende angehängt werden). Von diesen
+    // wird per kombiniertem Punktwert aus Level (stärker gewichtet) und Aktivitätstagen der
+    // letzten 10 Tage der/die Beste ausgewählt.
+    async function waehleNachfolger(restMitglieder) {
+        const kandidaten = restMitglieder.slice(0, 10);
+        let bester = kandidaten[0];
+        let besterScore = -1;
+        for (const slug of kandidaten) {
+            try {
+                const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
+                const d = snap.exists() ? snap.data() : {};
+                const lvl = d.lvl || 1;
+                const aktiveTage = Array.isArray(d.activeDays) ? d.activeDays.length : 0;
+                const score = lvl * 10 + aktiveTage;
+                if (score > besterScore) { besterScore = score; bester = slug; }
+            } catch (e) {}
+        }
+        return bester;
+    }
 })();
