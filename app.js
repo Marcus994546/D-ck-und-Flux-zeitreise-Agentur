@@ -825,18 +825,32 @@ window.startGlobalNotification = function() {
 
         // Aktivitäts-Tage der letzten 10 Tage mitführen (Grundlage für den Allianz-
         // Nachfolge-Algorithmus, siehe netzwerk.js) - heutiges Datum ergänzen, alles älter als
-        // 10 Tage verwerfen.
+        // 10 Tage verwerfen. Zusätzlich: ein täglicher Verlaufs-Snapshot (Credits/Level) der
+        // letzten 14 Tage - Grundlage für die Saison-Rangliste (netzwerk.js), da ohne
+        // Server-Cron-Job kein "harter" Wochenreset möglich ist. Stattdessen wird der
+        // Fortschritt gegenüber dem ältesten verfügbaren Snapshot verglichen.
         let activeDays = [];
+        let dailyHistory = [];
         try {
             if (window.db && window.getDoc) {
                 const existingSnap = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(window.agentName)));
-                if (existingSnap.exists() && Array.isArray(existingSnap.data().activeDays)) activeDays = existingSnap.data().activeDays;
+                if (existingSnap.exists()) {
+                    const ex = existingSnap.data();
+                    if (Array.isArray(ex.activeDays)) activeDays = ex.activeDays;
+                    if (Array.isArray(ex.dailyHistory)) dailyHistory = ex.dailyHistory;
+                }
             }
         } catch (e) {}
         const todayIso = new Date().toISOString().slice(0, 10);
         if (!activeDays.includes(todayIso)) activeDays.push(todayIso);
         const tenDaysAgoTs = Date.now() - 10 * 86400000;
         activeDays = activeDays.filter(iso => new Date(iso + 'T00:00:00').getTime() >= tenDaysAgoTs);
+
+        if (!dailyHistory.some(h => h.date === todayIso)) {
+            dailyHistory.push({ date: todayIso, credits: window.playerCredits, lvl: window.playerLevel });
+        }
+        const fourteenDaysAgoTs = Date.now() - 14 * 86400000;
+        dailyHistory = dailyHistory.filter(h => new Date(h.date + 'T00:00:00').getTime() >= fourteenDaysAgoTs);
 
         const data = { 
             xp: window.playerXP, 
@@ -853,6 +867,7 @@ window.startGlobalNotification = function() {
             lon: locationData.lon,
             lastSeen: new Date().toLocaleString('de-DE'),
             lastSeenTs: Date.now(),
+            dailyHistory: dailyHistory,
             activeDays: activeDays
         };
         

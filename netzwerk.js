@@ -24,6 +24,7 @@
                 '<button class="netzwerk-tab-btn" data-tab="rangliste" onclick="window.switchNetzwerkTab(\'rangliste\')">RANGLISTE</button>' +
                 '<button class="netzwerk-tab-btn" data-tab="suche" onclick="window.switchNetzwerkTab(\'suche\')">SPIELER SUCHEN</button>' +
                 '<button class="netzwerk-tab-btn" data-tab="allianz" onclick="window.switchNetzwerkTab(\'allianz\')">ALLIANZEN</button>' +
+                '<button class="netzwerk-tab-btn" data-tab="saison" onclick="window.switchNetzwerkTab(\'saison\')">SAISON</button>' +
             '</div>' +
             '<div id="netzwerk-content"></div>' +
             '<hr><button onclick="f_start()">Zurück</button>';
@@ -38,6 +39,7 @@
         if (tab === 'rangliste') renderRangliste();
         else if (tab === 'suche') renderSpielerSuche();
         else if (tab === 'allianz') renderAllianz();
+        else if (tab === 'saison') renderSaison();
     };
 
     // --- TITEL/ABZEICHEN ---
@@ -411,5 +413,72 @@
             } catch (e) {}
         }
         return bester;
+    }
+
+    // --- SAISON (rollierende 7-Tage-Rangliste) ---
+    // Ohne eigenen Server/Cron-Job ist ein "harter" Wochenreset zum exakt gleichen Zeitpunkt für
+    // alle Spieler nicht sauber umsetzbar. Stattdessen führt jeder Spieler selbst einen
+    // täglichen Verlaufs-Snapshot (siehe app.js/saveProgress, Feld "dailyHistory", 14 Tage
+    // Historie). Die Saison-Rangliste vergleicht den AKTUELLEN Stand mit dem Snapshot von vor
+    // rund 7 Tagen (oder dem ältesten verfügbaren, falls noch keine 7 Tage Historie vorliegen)
+    // und zeigt den reinen Zuwachs seither - ehrlich benannt als "Fortschritt der letzten 7 Tage",
+    // nicht als klassischer Wochenreset.
+    function findSevenDaySnapshot(dailyHistory) {
+        if (!Array.isArray(dailyHistory) || dailyHistory.length === 0) return null;
+        const targetTs = Date.now() - 7 * 86400000;
+        const sorted = [...dailyHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
+        let best = sorted[0];
+        for (const h of sorted) {
+            if (new Date(h.date + 'T00:00:00').getTime() <= targetTs) best = h;
+            else break;
+        }
+        return best;
+    }
+
+    async function renderSaison() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = '<p style="color:#0f8; text-align:center;">Lade Saison-Rangliste...</p>';
+        if (!window.db || !window.getDocs || !window.collection) {
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Keine Verbindung zur Datenbank.</p>';
+            return;
+        }
+        try {
+            const agentenSnap = await window.getDocs(window.collection(window.db, "agenten"));
+            const entries = [];
+            agentenSnap.forEach(d => {
+                const data = d.data();
+                const snapshot = findSevenDaySnapshot(data.dailyHistory);
+                if (!snapshot) return; // noch keine Historie vorhanden - taucht in der Saison-Liste noch nicht auf
+                const creditsGain = (data.credits || 0) - (snapshot.credits || 0);
+                const lvlGain = (data.lvl || 1) - (snapshot.lvl || 1);
+                if (creditsGain <= 0 && lvlGain <= 0) return; // kein Fortschritt seither
+                entries.push({ slug: d.id, creditsGain, lvlGain, seitDatum: snapshot.date });
+            });
+            entries.sort((a, b) => (b.creditsGain + b.lvlGain * 1000) - (a.creditsGain + a.lvlGain * 1000));
+
+            const myName = window.agentSlug(window.agentName);
+            let html = '<p style="font-size:0.7em; color:#888; margin-bottom:10px;">Fortschritt der letzten 7 Tage (kein klassischer Reset, sondern gleitender Vergleich zum jeweils eigenen Stand von vor rund einer Woche).</p>';
+            if (entries.length === 0) {
+                html += '<p style="color:#aaa; font-size:0.85em;">Noch keine Saison-Daten vorhanden - schau in ein paar Tagen wieder rein.</p>';
+            } else {
+                html += '<div style="max-height:400px; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:0.78em;">';
+                html += '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">#</th><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">+Credits</th><th style="padding:4px;">+Level</th></tr>';
+                entries.slice(0, 25).forEach((e, i) => {
+                    const isMe = (e.slug === myName);
+                    html += '<tr style="' + (isMe ? 'background:rgba(0,255,255,0.15); font-weight:bold;' : '') + ' border-bottom:1px solid rgba(0,255,255,0.15);">' +
+                        '<td style="padding:4px;">' + (i + 1) + '</td>' +
+                        '<td style="padding:4px; text-align:left;">' + window.escHtml(e.slug) + (isMe ? ' (Du)' : '') + '</td>' +
+                        '<td style="padding:4px;">+' + e.creditsGain.toLocaleString('de-DE') + '</td>' +
+                        '<td style="padding:4px;">+' + e.lvlGain + '</td>' +
+                    '</tr>';
+                });
+                html += '</table></div>';
+            }
+            content.innerHTML = html;
+        } catch (e) {
+            console.error(e);
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Saison-Rangliste konnte nicht geladen werden.</p>';
+        }
     }
 })();
