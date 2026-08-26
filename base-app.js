@@ -1191,8 +1191,15 @@
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
         if (bunkerElevatorAnimating) {
             // Aufzug gerade beschäftigt - Anfrage einreihen, wird automatisch gestartet, sobald
-            // die aktuell laufende Fahrt fertig ist (siehe finish() unten).
+            // die aktuell laufende Fahrt fertig ist (siehe finish() unten). WICHTIG: der Agent
+            // wird SOFORT beim Einreihen von der normalen Anzeige ausgenommen, nicht erst wenn
+            // seine Fahrt tatsächlich beginnt - sonst würde er in der Wartezeit fälschlich ganz
+            // normal an seinem (im Datenmodell schon aktualisierten) Zielort mitgerendert, obwohl
+            // er "eigentlich" noch auf den Aufzug wartet. Das war die Ursache für gemeldete
+            // Kopien/falsch wandernde Agenten, sobald der Aufzug schon unterwegs war.
+            if (agentId) bunkerAnimatingAgentIds.add(agentId);
             elevatorQueue.push({ oldLocation, newLocation, isStarter, agentId });
+            if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
             return;
         }
         runElevatorRide(oldLocation, newLocation, isStarter, agentId);

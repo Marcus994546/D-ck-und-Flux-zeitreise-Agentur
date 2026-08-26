@@ -49,6 +49,8 @@
     }
     .nz-tab-btn:hover { background: rgba(0,255,255,0.15); }
     .nz-tab-active { background: rgba(0,255,255,0.2)!important; box-shadow: 0 0 14px rgba(0,255,255,0.5); border-color: var(--nz-cyan)!important; }
+    .nz-tab-pulse-green { animation: nzGreenPulse 1.2s ease-in-out infinite; border-color: var(--nz-green)!important; color: var(--nz-green)!important; }
+    @keyframes nzGreenPulse { 0%, 100% { box-shadow: 0 0 6px rgba(0,255,136,0.4); } 50% { box-shadow: 0 0 18px rgba(0,255,136,0.9); } }
 
     #nz-content {
         border: 1px solid rgba(0,255,255,0.3); border-radius: 10px; background: rgba(5,10,15,0.75);
@@ -146,7 +148,7 @@
     </div>
 </div>
 
-<script type="module" src="netzwerk-firebase-init.js?v=20260825a"></script>
-<script src="netzwerk-app.js?v=20260825a"></script>
+<script type="module" src="netzwerk-firebase-init.js?v=20260825b"></script>
+<script src="netzwerk-app.js?v=20260825b"></script>
 </body>
 </html>

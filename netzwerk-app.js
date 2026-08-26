@@ -64,7 +64,32 @@
         } catch (e) { console.error(e); }
 
         window.switchNetzwerkTab(currentNetzwerkTab);
+        starteKommLinkPulsUeberwachung();
     })();
+
+    // Grün pulsierender Komm-Link-Tab, sobald irgendwo eine ungelesene Nachricht ODER ein
+    // offenes, an mich gerichtetes Handelsangebot wartet - unabhängig davon, welcher Tab gerade
+    // aktiv ist.
+    function starteKommLinkPulsUeberwachung() {
+        const mySlug = window.agentSlug(window.agentName);
+        let hatUngelesen = false, hatOffenesAngebot = false;
+        function aktualisierePuls() {
+            const tabBtn = document.querySelector('.nz-tab-btn[data-tab="chat"]');
+            if (!tabBtn) return;
+            tabBtn.classList.toggle('nz-tab-pulse-green', hatUngelesen || hatOffenesAngebot);
+        }
+        const qChat = window.query(window.collection(window.db, "agenten_funk"), window.where("teilnehmer", "array-contains", mySlug));
+        window.onSnapshot(qChat, (snapshot) => {
+            hatUngelesen = false;
+            snapshot.forEach(d => { if (d.data().ungelesen_fuer === mySlug) hatUngelesen = true; });
+            aktualisierePuls();
+        });
+        const qTrade = window.query(window.collection(window.db, "handelsangebote"), window.where("an", "==", mySlug), window.where("status", "==", "offen"));
+        window.onSnapshot(qTrade, (snapshot) => {
+            hatOffenesAngebot = !snapshot.empty;
+            aktualisierePuls();
+        });
+    }
 
     window.switchNetzwerkTab = function(tab) {
         currentNetzwerkTab = tab;
@@ -364,7 +389,6 @@
     const HANDEL_LABEL = { credits: 'Credits', materiezellen: 'Materiezellen', chronoszellen: 'Chronos-Zellen' };
     let handelChatEmpfaenger = null;
 
-    // Aufgerufen vom 💱-Button im aktiven Komm-Link-Chat (siehe app.js/openPrivateChat).
     window.openHandelAusChat = function(targetName) {
         handelChatEmpfaenger = targetName;
         const el = document.getElementById('handel-chat-empfaenger');
@@ -402,52 +426,25 @@
             if (bietetTyp === 'credits') window.playerCredits = meinBestand - bietetMenge;
             else if (bietetTyp === 'materiezellen') window.playerMateriezellen = meinBestand - bietetMenge;
 
+            // Handelsangebote entstehen jetzt genau wie Nachrichten immer innerhalb eines
+            // dauerhaften Chat-Kanals - der Kanal wird also (falls noch nicht vorhanden) hier
+            // ebenfalls angelegt, damit er dauerhaft in "GESPEICHERTE KANÄLE" auftaucht.
+            const channelId = [mySlug, empfaenger].sort().join('_');
+            await window.setDoc(window.doc(window.db, "agenten_funk", channelId), {
+                teilnehmer: [mySlug, empfaenger],
+                ungelesen_fuer: empfaenger,
+                last_ping: Date.now()
+            }, { merge: true });
+
             await window.addDoc(window.collection(window.db, "handelsangebote"), {
                 von: mySlug, an: empfaenger,
                 willTyp, willMenge, bietetTyp, bietetMenge,
                 status: 'offen', createdAt: Date.now()
             });
             document.getElementById('handel-chat-modal').style.display = 'none';
-            window.zeigeInfo('Angebot erstellt.');
-            if (typeof window.renderHandelImChat === 'function') window.renderHandelImChat(empfaenger);
         } catch (e) {
             console.error(e);
             window.zeigeInfo('Angebot konnte nicht erstellt werden.');
-        }
-    };
-
-    // Zeigt offene Handelsangebote zwischen mir und dem aktuellen Chat-Partner an - wird von
-    // app.js/openPrivateChat direkt in den Chat-Bildschirm eingebunden (Container-ID
-    // "handel-im-chat").
-    window.renderHandelImChat = async function(targetName) {
-        const box = document.getElementById('handel-im-chat');
-        if (!box) return;
-        const mySlug = window.agentSlug(window.agentName);
-        try {
-            const q1 = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', mySlug), window.where('an', '==', targetName), window.where('status', '==', 'offen'));
-            const q2 = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', targetName), window.where('an', '==', mySlug), window.where('status', '==', 'offen'));
-            const [snap1, snap2] = await Promise.all([window.getDocs(q1), window.getDocs(q2)]);
-            let html = '';
-            snap2.forEach(d => {
-                const a = { id: d.id, ...d.data() };
-                html += '<div style="border:1px solid rgba(0,255,255,0.4); padding:8px; margin-bottom:6px; font-size:0.75em;">' +
-                    window.escHtml(a.von) + ' will <b>' + a.willMenge + ' ' + HANDEL_LABEL[a.willTyp] + '</b> von dir, bietet dafür <b>' + a.bietetMenge + ' ' + HANDEL_LABEL[a.bietetTyp] + '</b>.' +
-                    '<div style="display:flex; gap:5px; margin-top:6px;">' +
-                        '<button class="modell-btn" style="flex:1; border-color:#0f8; color:#0f8;" onclick="window.handelAnnehmen(\'' + a.id + '\')">ANNEHMEN</button>' +
-                        '<button class="modell-btn" style="flex:1; border-color:#f44; color:#f44;" onclick="window.handelAblehnen(\'' + a.id + '\')">ABLEHNEN</button>' +
-                    '</div>' +
-                '</div>';
-            });
-            snap1.forEach(d => {
-                const a = { id: d.id, ...d.data() };
-                html += '<div style="border:1px solid rgba(0,255,255,0.4); padding:8px; margin-bottom:6px; font-size:0.75em;">' +
-                    'Dein Angebot: willst <b>' + a.willMenge + ' ' + HANDEL_LABEL[a.willTyp] + '</b>, bietest <b>' + a.bietetMenge + ' ' + HANDEL_LABEL[a.bietetTyp] + '</b>.' +
-                    '<button class="modell-btn" style="width:100%; margin-top:6px; border-color:#f44; color:#f44;" onclick="window.handelStornieren(\'' + a.id + '\')">ZURÜCKZIEHEN</button>' +
-                '</div>';
-            });
-            box.innerHTML = html;
-        } catch (e) {
-            console.error(e);
         }
     };
 
@@ -488,7 +485,6 @@
             else if (a.bietetTyp === 'materiezellen') window.playerMateriezellen = (window.playerMateriezellen || 0) + a.bietetMenge;
 
             window.zeigeInfo('Handel abgeschlossen.');
-            if (typeof window.renderHandelImChat === 'function') window.renderHandelImChat(a.von === mySlug ? a.an : a.von);
         } catch (e) {
             console.error(e);
             window.zeigeInfo('Annahme fehlgeschlagen.');
@@ -507,8 +503,6 @@
             const vonBestand = vonSnap.exists() ? (vonSnap.data()[a.bietetTyp] || 0) : 0;
             await window.setDoc(vonRef, { [a.bietetTyp]: vonBestand + a.bietetMenge }, { merge: true });
             await window.setDoc(ref, { status: 'abgelehnt' }, { merge: true });
-            const mySlug = window.agentSlug(window.agentName);
-            if (typeof window.renderHandelImChat === 'function') window.renderHandelImChat(a.von === mySlug ? a.an : a.von);
         } catch (e) {
             console.error(e);
             window.zeigeInfo('Ablehnung fehlgeschlagen.');
@@ -530,7 +524,6 @@
             if (a.bietetTyp === 'credits') window.playerCredits = meinBestand + a.bietetMenge;
             else if (a.bietetTyp === 'materiezellen') window.playerMateriezellen = meinBestand + a.bietetMenge;
             await window.setDoc(ref, { status: 'storniert' }, { merge: true });
-            if (typeof window.renderHandelImChat === 'function') window.renderHandelImChat(a.von === mySlug ? a.an : a.von);
         } catch (e) {
             console.error(e);
             window.zeigeInfo('Stornierung fehlgeschlagen.');
@@ -795,6 +788,62 @@
         window.openPrivateChatNz(target);
     };
 
+    let nzTradeListener = null;
+    let nzLatestMessages = [];
+    let nzLatestTrades = [];
+
+    function renderMergedChat() {
+        const win = document.getElementById('chat-window');
+        if (!win) return;
+        const mySlug = window.agentSlug(window.agentName);
+        const eintraege = [];
+        nzLatestMessages.forEach(m => eintraege.push({ art: 'nachricht', ts: m.ts, data: m }));
+        nzLatestTrades.forEach(t => eintraege.push({ art: 'handel', ts: t.createdAt || 0, data: t }));
+        eintraege.sort((a, b) => a.ts - b.ts);
+
+        win.innerHTML = '';
+        eintraege.forEach(e => {
+            if (e.art === 'nachricht') {
+                const data = e.data;
+                const isMe = (data.absender === window.agentName);
+                const msgDiv = document.createElement('div');
+                msgDiv.style.cssText = isMe ? "color:#aaa; align-self:flex-end; text-align:right;" : "color:#0f8; align-self:flex-start; text-align:left;";
+                const senderEl = document.createElement('b');
+                senderEl.textContent = (isMe ? 'Du' : String(data.absender || '')) + ': ';
+                const textEl = document.createElement('span');
+                textEl.textContent = String(data.text || '');
+                msgDiv.appendChild(senderEl);
+                msgDiv.appendChild(textEl);
+                win.appendChild(msgDiv);
+            } else {
+                const a = e.data;
+                const istEmpfaenger = (a.an === mySlug);
+                const kartenDiv = document.createElement('div');
+                kartenDiv.style.cssText = 'align-self:center; width:90%; border:1px solid #b0f; border-radius:6px; padding:8px; background:rgba(187,0,255,0.08); font-size:0.9em;';
+                let inhaltHtml = '💱 <b>Handelsangebot</b><br>' +
+                    window.escHtml(a.von) + ' will <b>' + a.willMenge + ' ' + HANDEL_LABEL[a.willTyp] + '</b>, bietet dafür <b>' + a.bietetMenge + ' ' + HANDEL_LABEL[a.bietetTyp] + '</b>.';
+                if (a.status === 'offen' && istEmpfaenger) {
+                    inhaltHtml += '<div style="display:flex; gap:5px; margin-top:6px;">' +
+                        '<button class="modell-btn" style="flex:1; border-color:#0f8; color:#0f8;" onclick="window.handelAnnehmen(\'' + a.id + '\')">ANNEHMEN</button>' +
+                        '<button class="modell-btn" style="flex:1; border-color:#f44; color:#f44;" onclick="window.handelAblehnen(\'' + a.id + '\')">ABLEHNEN</button>' +
+                    '</div>';
+                } else if (a.status === 'offen' && !istEmpfaenger) {
+                    inhaltHtml += '<div style="margin-top:6px; opacity:0.8;">Warte auf Antwort...</div>' +
+                        '<button class="modell-btn" style="width:100%; margin-top:6px; border-color:#f44; color:#f44;" onclick="window.handelStornieren(\'' + a.id + '\')">ZURÜCKZIEHEN</button>';
+                } else if (a.status === 'angenommen') {
+                    inhaltHtml += '<div style="margin-top:6px; color:#0f8; font-weight:bold;">✓ Handelsangebot angenommen</div>';
+                } else if (a.status === 'abgelehnt') {
+                    inhaltHtml += '<div style="margin-top:6px; color:#f44; font-weight:bold;">✗ Handelsangebot abgelehnt</div>';
+                } else if (a.status === 'storniert') {
+                    inhaltHtml += '<div style="margin-top:6px; color:#888; font-weight:bold;">Zurückgezogen</div>';
+                }
+                kartenDiv.innerHTML = inhaltHtml;
+                win.appendChild(kartenDiv);
+            }
+        });
+        win.scrollTop = win.scrollHeight;
+    }
+
     window.openPrivateChatNz = function(targetAgentName) {
         const myName = window.agentSlug(window.agentName);
         const targetName = window.agentSlug(targetAgentName);
@@ -810,45 +859,50 @@
         if (!content) return;
         content.innerHTML = `
             <h3 style="color: #0f8; margin-top:0;">[ FUNK: <span id="chat-target-name"></span> ]</h3>
-            <div id="handel-im-chat" style="margin-bottom: 10px;"></div>
-            <div id="chat-window" style="height: 250px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;"></div>
+            <div id="chat-window" style="height: 280px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;"></div>
             <div style="display: flex; gap: 5px;">
                 <button onclick="window.openHandelAusChat && window.openHandelAusChat('${targetName}')" title="Handelsangebot senden" style="background:none; border:1px solid #b0f; color:#b0f; border-radius:4px; cursor:pointer; padding:0 10px; font-size:1.2em;">💱</button>
                 <input type="text" id="msg-input" placeholder="Nachricht..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
                 <button class="modell-btn" id="chat-send-btn" style="margin: 0; width: auto; padding: 0 15px;">SENDEN</button>
             </div>
-            <button class="modell-btn" style="margin-top: 15px; border-style: dashed; width:100%;" onclick="if(window.currentChatListener) window.currentChatListener(); window.switchNetzwerkTab('chat');">FUNK TRENNEN</button>
+            <button class="modell-btn" style="margin-top: 15px; border-style: dashed; width:100%;" onclick="if(window.currentChatListener) window.currentChatListener(); if(window.currentTradeListener) window.currentTradeListener(); window.switchNetzwerkTab('chat');">FUNK TRENNEN</button>
         `;
         document.getElementById('chat-target-name').textContent = targetAgentName.toUpperCase();
         document.getElementById('chat-send-btn').addEventListener('click', () => window.sendMsgNz(channelId, targetName));
         const msgInput = document.getElementById('msg-input');
         if (msgInput) msgInput.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') window.sendMsgNz(channelId, targetName); });
-        if (typeof window.renderHandelImChat === 'function') window.renderHandelImChat(targetName);
+
+        nzLatestMessages = [];
+        nzLatestTrades = [];
 
         if (window.db) {
             if (nzCurrentChatListener) nzCurrentChatListener();
             const q = window.query(window.collection(window.db, "agenten_funk", channelId, "nachrichten"), window.orderBy("zeitstempel", "asc"), window.limit(50));
             nzCurrentChatListener = window.onSnapshot(q, (snapshot) => {
-                const win = document.getElementById('chat-window');
-                if (!win) return;
-                win.innerHTML = "";
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const isMe = (data.absender === window.agentName);
-                    const msgDiv = document.createElement('div');
-                    msgDiv.style.cssText = isMe ? "color:#aaa; align-self:flex-end; text-align:right;" : "color:#0f8; align-self:flex-start; text-align:left;";
-                    const senderEl = document.createElement('b');
-                    senderEl.textContent = (isMe ? 'Du' : String(data.absender || '')) + ': ';
-                    const textEl = document.createElement('span');
-                    textEl.textContent = String(data.text || '');
-                    msgDiv.appendChild(senderEl);
-                    msgDiv.appendChild(textEl);
-                    win.appendChild(msgDiv);
+                nzLatestMessages = snapshot.docs.map(d => {
+                    const data = d.data();
+                    const tsMillis = (data.zeitstempel && typeof data.zeitstempel.toMillis === 'function') ? data.zeitstempel.toMillis() : Date.now();
+                    return { absender: data.absender, text: data.text, ts: tsMillis };
                 });
-                win.scrollTop = win.scrollHeight;
+                renderMergedChat();
             });
+
+            // Handelsangebote zwischen mir und diesem Chat-Partner - ALLE Status (nicht nur
+            // "offen"), damit angenommene/abgelehnte/zurückgezogene Angebote als dauerhafter
+            // Eintrag im Chat-Verlauf stehen bleiben, genau wie eine Nachricht. Firestore erlaubt
+            // nur eine einzige "in"-Klausel pro Abfrage, deshalb zwei getrennte Listener
+            // (einmal pro Richtung), die zusammengeführt werden.
+            if (nzTradeListener) nzTradeListener();
+            let nzTradesAusgehend = [], nzTradesEingehend = [];
+            const mergeTrades = () => { nzLatestTrades = [...nzTradesAusgehend, ...nzTradesEingehend]; renderMergedChat(); };
+            const qAusgehend = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', myName), window.where('an', '==', targetName));
+            const qEingehend = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', targetName), window.where('an', '==', myName));
+            const unsub1 = window.onSnapshot(qAusgehend, (snapshot) => { nzTradesAusgehend = snapshot.docs.map(d => ({ id: d.id, ...d.data() })); mergeTrades(); });
+            const unsub2 = window.onSnapshot(qEingehend, (snapshot) => { nzTradesEingehend = snapshot.docs.map(d => ({ id: d.id, ...d.data() })); mergeTrades(); });
+            nzTradeListener = () => { unsub1(); unsub2(); };
         }
         window.currentChatListener = nzCurrentChatListener;
+        window.currentTradeListener = nzTradeListener;
     };
 
     window.sendMsgNz = async function(channelId, targetName) {
@@ -858,14 +912,21 @@
         inp.value = "";
         try {
             const myName = window.agentSlug(window.agentName);
-            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
-            await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
+            // WICHTIG: Erst den Kanal mit "teilnehmer" versehen, DANN die Nachricht schreiben -
+            // die Sicherheitsregel für /nachrichten prüft, ob der Sender bereits im
+            // "teilnehmer"-Feld des Kanal-Dokuments steht. Bei der allerersten Nachricht eines
+            // neuen Chats existierte dieses Feld vorher noch gar nicht (nur "ungelesen_fuer" aus
+            // dem Platzhalter-Dokument) - der Schreibvorgang wurde dadurch für JEDE erste
+            // Nachricht eines neuen Chats von der Regel abgelehnt, ohne dass das im Interface
+            // sichtbar wurde.
             const channelRef = window.doc(window.db, "agenten_funk", channelId);
             await window.setDoc(channelRef, {
                 teilnehmer: [myName, targetName],
                 ungelesen_fuer: targetName,
                 last_ping: Date.now()
             }, { merge: true });
+            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+            await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
         } catch (e) { console.error(e); }
     };
 

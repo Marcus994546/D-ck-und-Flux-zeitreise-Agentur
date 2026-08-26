@@ -26,7 +26,20 @@
     }
 
     // --- Menü öffnen ---
+    // Frischer GPS-Ping direkt vom Gerät - wird SOFORT beim Öffnen des Dual-Mission-Menüs
+    // angefordert (nicht erst später), damit er bereit ist, sobald der Spieler eine Option
+    // wählt. Ersetzt die vorherige Abhängigkeit vom serverseitig gespeicherten lat/lon (das nur
+    // beim Login per IP-Ortung gesetzt wird und oft fehlt oder veraltet ist).
+    let frischerStandort = null;
+    function holeFrischenStandort() {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition((pos) => {
+            frischerStandort = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        }, () => {}, { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 });
+    }
+
     window.openDualMissionMenu = function() {
+        holeFrischenStandort();
         const modal = document.getElementById('dual-mission-start-modal');
         const inhalt = document.getElementById('dual-mission-start-inhalt');
         if (!modal || !inhalt) return;
@@ -53,7 +66,7 @@
         try {
             const snap = await window.getDoc(window.doc(window.db, "agenten", zielSlug));
             if (!snap.exists()) { status.innerText = 'Kein Agent mit diesem Namen gefunden.'; return; }
-            await erstelleDualMissionEinladung(zielSlug, 'direkt');
+            await erstelleDualMissionEinladung(zielSlug, 'direkt', frischerStandort ? frischerStandort.lat : undefined, frischerStandort ? frischerStandort.lon : undefined);
             status.innerText = 'Einladung an ' + name + ' gesendet.';
         } catch (e) {
             console.error(e);
@@ -62,17 +75,31 @@
     };
 
     // --- Einladung: zufälligen, nächstgelegenen Spieler finden ---
-    // Nutzt den beim letzten Login gespeicherten Näherungs-Standort (lat/lon, IP-basiert) jedes
-    // Agenten, da eine kontinuierliche Live-GPS-Verfolgung ALLER Spieler nicht mitgeführt wird.
+    // Für die EIGENE Position wird jetzt der frische GPS-Ping genutzt (siehe oben), nicht mehr
+    // das ggf. fehlende serverseitige lat/lon. Für ANDERE Spieler bleibt nur deren zuletzt
+    // bekannter Näherungsstandort verfügbar, da keine kontinuierliche Live-GPS-Verfolgung aller
+    // Spieler mitgeführt wird.
     window.dualMissionZufaellig = async function() {
         const status = document.getElementById('dual-mission-start-status');
         status.innerText = 'Suche nächstgelegenen Agenten...';
         const mySlug = window.agentSlug(window.agentName);
         try {
-            const mySnap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
-            const myData = mySnap.exists() ? mySnap.data() : {};
-            if (myData.lat === undefined || myData.lon === undefined) {
-                status.innerText = 'Eigener Standort unbekannt - bitte einmal die Basis öffnen und erneut versuchen.';
+            let meinLat, meinLon;
+            if (frischerStandort) {
+                meinLat = frischerStandort.lat; meinLon = frischerStandort.lon;
+            } else {
+                // Frischer Ping noch nicht eingetroffen - kurz nachfragen, dann auf den
+                // serverseitigen Näherungsstandort als letzten Ausweg zurückfallen.
+                await new Promise(r => setTimeout(r, 1500));
+                if (frischerStandort) { meinLat = frischerStandort.lat; meinLon = frischerStandort.lon; }
+                else {
+                    const mySnap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
+                    const myData = mySnap.exists() ? mySnap.data() : {};
+                    meinLat = myData.lat; meinLon = myData.lon;
+                }
+            }
+            if (meinLat === undefined || meinLat === null || meinLon === undefined || meinLon === null) {
+                status.innerText = 'Standort konnte nicht ermittelt werden - bitte GPS-Zugriff erlauben und erneut versuchen.';
                 return;
             }
             const allSnap = await window.getDocs(window.collection(window.db, "agenten"));
@@ -81,11 +108,11 @@
                 if (d.id === mySlug) return;
                 const data = d.data();
                 if (data.lat === undefined || data.lon === undefined) return;
-                const dist = haversineDM(myData.lat, myData.lon, data.lat, data.lon);
+                const dist = haversineDM(meinLat, meinLon, data.lat, data.lon);
                 if (dist < besteDist) { besteDist = dist; bester = d.id; }
             });
             if (!bester) { status.innerText = 'Kein anderer Agent mit bekanntem Standort gefunden.'; return; }
-            await erstelleDualMissionEinladung(bester, 'zufaellig');
+            await erstelleDualMissionEinladung(bester, 'zufaellig', meinLat, meinLon);
             status.innerText = 'Anfrage an nächstgelegenen Agenten gesendet (' + Math.round(besteDist/1000) + ' km entfernt).';
         } catch (e) {
             console.error(e);
@@ -93,13 +120,20 @@
         }
     };
 
-    async function erstelleDualMissionEinladung(zielSlug, typ) {
+    async function erstelleDualMissionEinladung(zielSlug, typ, meinLatOverride, meinLonOverride) {
         const mySlug = window.agentSlug(window.agentName);
-        const mySnap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
-        const myData = mySnap.exists() ? mySnap.data() : {};
+        let vonLat = meinLatOverride, vonLon = meinLonOverride;
+        if (vonLat === undefined || vonLat === null) {
+            if (frischerStandort) { vonLat = frischerStandort.lat; vonLon = frischerStandort.lon; }
+            else {
+                const mySnap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
+                const myData = mySnap.exists() ? mySnap.data() : {};
+                vonLat = myData.lat; vonLon = myData.lon;
+            }
+        }
         await window.addDoc(window.collection(window.db, "dual_missionen"), {
             von: mySlug, an: zielSlug, typ: typ, status: 'offen',
-            vonLat: myData.lat || null, vonLon: myData.lon || null,
+            vonLat: vonLat || null, vonLon: vonLon || null,
             gescanntVon: [], createdAt: Date.now()
         });
     }
@@ -152,18 +186,18 @@
             const a = snap.data();
             // Zielort anhand des Standorts des Einladenden suchen (echter, öffentlicher Ort).
             const ziel = await sucheOeffentlichenOrt(a.vonLat, a.vonLon);
-            if (!ziel) { alert('Konnte keinen geeigneten öffentlichen Zielort finden. Bitte später erneut versuchen.'); return; }
+            if (!ziel) { window.zeigeInfo('Konnte keinen geeigneten öffentlichen Zielort finden. Bitte später erneut versuchen.'); return; }
             await window.setDoc(ref, { status: 'angenommen', zielLat: ziel.lat, zielLng: ziel.lng }, { merge: true });
             starteDualMissionNavigation(missionId, { ...a, zielLat: ziel.lat, zielLng: ziel.lng });
         } catch (e) {
             console.error(e);
-            alert('Aktion fehlgeschlagen.');
+            window.zeigeInfo('Aktion fehlgeschlagen.');
         }
     };
 
     async function sucheOeffentlichenOrt(lat, lng) {
         if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
-        const radius = 800;
+        const radius = 5000; // 5 km, wie gewünscht
         const query = '[out:json][timeout:15];(way["highway"~"^(primary|secondary|tertiary|unclassified|residential|living_street|pedestrian|service)$"]["access"!~"^(private|no)$"](around:' + radius + ',' + lat + ',' + lng + '););out geom;';
         try {
             const response = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query) });
@@ -342,10 +376,10 @@
             }, { merge: true });
 
             await window.setDoc(ref, { status: 'abgeschlossen' }, { merge: true });
-            alert('🎉 DUAL-MISSION ABGESCHLOSSEN! +8 Level, +10 Materiezellen, +1.500 Credits.');
+            window.zeigeInfo('🎉 DUAL-MISSION ABGESCHLOSSEN! +8 Level, +10 Materiezellen, +1.500 Credits.');
         } catch (e) {
             console.error(e);
-            alert('Belohnung konnte nicht vollständig gutgeschrieben werden - bitte Support kontaktieren.');
+            window.zeigeInfo('Belohnung konnte nicht vollständig gutgeschrieben werden - bitte Support kontaktieren.');
         }
     };
 })();

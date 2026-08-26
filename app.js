@@ -749,14 +749,14 @@ window.openPrivateChat = function(targetAgentName) {
         inp.value = "";
         try {
             const myName = window.agentSlug(window.agentName);
-            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
-            await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
             const channelRef = window.doc(window.db, "agenten_funk", channelId);
             await window.setDoc(channelRef, { 
                 teilnehmer: [myName, targetName], 
                 ungelesen_fuer: targetName,
                 last_ping: Date.now() 
             }, { merge: true });
+            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+            await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
         } catch (e) { console.error(e); }
     };
 
@@ -799,25 +799,35 @@ window.startGlobalNotification = function() {
     const myName = window.agentSlug(window.agentName);
     const q = window.query(window.collection(window.db, "agenten_funk"), window.where("teilnehmer", "array-contains", myName));
 
+    // Komm-Link ist jetzt Teil der eigenständigen Netzwerk-Seite (netzwerk.html) - der
+    // "komm-link-btn" existiert im Hauptterminal nicht mehr. Der Netzwerk-Button im Dashboard
+    // ("netzwerk-nav-btn") übernimmt jetzt genau dieselbe Puls-Funktion: orange, sobald
+    // irgendwo eine ungelesene Nachricht ODER ein offenes, an mich gerichtetes Handelsangebot
+    // wartet.
+    let hasUnreadChat = false;
+    let hasOpenTrade = false;
+    function updateNetzwerkPulse() {
+        const navBtn = document.getElementById('netzwerk-nav-btn');
+        if (!navBtn) return;
+        if (hasUnreadChat || hasOpenTrade) navBtn.classList.add('status-warn-pulse');
+        else navBtn.classList.remove('status-warn-pulse');
+    }
+
     if (window.globalChatListener) window.globalChatListener();
     window.globalChatListener = window.onSnapshot(q, (snapshot) => {
-        let hasUnread = false;
+        hasUnreadChat = false;
         snapshot.forEach((doc) => {
             const data = doc.data();
-            if (data.ungelesen_fuer === myName) {
-                if (document.getElementById('chat-window') && window.currentChatTarget === (data.teilnehmer.find(n => n !== myName))) {
-                    window.setDoc(window.doc(window.db, "agenten_funk", doc.id), { ungelesen_fuer: "" }, { merge: true });
-                } else {
-                    hasUnread = true;
-                }
-            }
+            if (data.ungelesen_fuer === myName) hasUnreadChat = true;
         });
+        updateNetzwerkPulse();
+    });
 
-        const navBtn = document.getElementById('komm-link-btn');
-        if (navBtn) {
-            if (hasUnread) navBtn.classList.add('status-warn-pulse');
-            else navBtn.classList.remove('status-warn-pulse');
-        }
+    if (window.globalTradeListener) window.globalTradeListener();
+    const qTrade = window.query(window.collection(window.db, "handelsangebote"), window.where("an", "==", myName), window.where("status", "==", "offen"));
+    window.globalTradeListener = window.onSnapshot(qTrade, (snapshot) => {
+        hasOpenTrade = !snapshot.empty;
+        updateNetzwerkPulse();
     });
 };
 
