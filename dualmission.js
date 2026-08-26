@@ -1,0 +1,254 @@
+// ============================================================
+// DUAL-MISSION: lokaler GPS-Koop zwischen zwei Spielern.
+// Ersetzt "Galaktische Mission" im Missions-Menü. Zwei Wege, eine Einladung zu starten
+// (direkt per Namenssuche, oder automatisch an den nächstgelegenen Spieler), eine gemeinsame
+// Anomalie an einem echten, öffentlichen Ort, und ein Doppel-Scan-Abschluss mit Belohnung
+// für beide Seiten.
+//
+// Bewusste Vereinfachung gegenüber der Einzelspieler-Mission: Der eigentliche "Scan" läuft
+// hier über einen Button ("ICH BIN DA - SCANNEN"), sobald man GPS-seitig nah genug am Ziel ist -
+// nicht über die volle AR-Kamera-Sequenz der normalen Missionen. Das hätte den Umfang dieser
+// Antwort gesprengt; kann bei Bedarf in einem späteren Schritt nachgezogen werden.
+// ============================================================
+
+(function() {
+    const SCAN_RADIUS_M = 25;
+    let dualMissionWatchId = null;
+    let dualMissionCheckInterval = null;
+    let currentDualMissionId = null;
+    let dualMissionMap = null;
+
+    function haversineDM(lat1, lng1, lat2, lng2) {
+        const R = 6371000;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // --- Menü öffnen ---
+    window.openDualMissionMenu = function() {
+        const modal = document.getElementById('dual-mission-start-modal');
+        const inhalt = document.getElementById('dual-mission-start-inhalt');
+        if (!modal || !inhalt) return;
+        inhalt.innerHTML =
+            '<div style="display:flex; gap:5px; margin-bottom:10px;">' +
+                '<input type="text" id="dual-mission-such-name" placeholder="Spielername..." style="flex-grow:1; background:#000; border:1px solid #b0f; color:#e0c0ff; padding:8px; font-family:inherit;">' +
+                '<button class="modell-btn" style="border-color:#b0f; color:#b0f;" onclick="window.dualMissionEinladenDirekt()">EINLADEN</button>' +
+            '</div>' +
+            '<button class="modell-btn" style="width:100%; border-color:#b0f; color:#b0f;" onclick="window.dualMissionZufaellig()">🎲 ZUFÄLLIGEN SPIELER IN DER NÄHE FINDEN</button>' +
+            '<div id="dual-mission-start-status" style="font-size:0.75em; color:#aaa; margin-top:10px;"></div>';
+        modal.style.display = 'flex';
+    };
+
+    // --- Einladung: direkt per Namenssuche ---
+    window.dualMissionEinladenDirekt = async function() {
+        const input = document.getElementById('dual-mission-such-name');
+        const status = document.getElementById('dual-mission-start-status');
+        const name = input ? input.value.trim() : '';
+        if (!name) return;
+        const zielSlug = window.agentSlug(name);
+        const mySlug = window.agentSlug(window.agentName);
+        if (zielSlug === mySlug) { status.innerText = 'Du kannst nicht dich selbst einladen.'; return; }
+        status.innerText = 'Suche Agent...';
+        try {
+            const snap = await window.getDoc(window.doc(window.db, "agenten", zielSlug));
+            if (!snap.exists()) { status.innerText = 'Kein Agent mit diesem Namen gefunden.'; return; }
+            await erstelleDualMissionEinladung(zielSlug, 'direkt');
+            status.innerText = 'Einladung an ' + name + ' gesendet.';
+        } catch (e) {
+            console.error(e);
+            status.innerText = 'Einladung fehlgeschlagen.';
+        }
+    };
+
+    // --- Einladung: zufälligen, nächstgelegenen Spieler finden ---
+    // Nutzt den beim letzten Login gespeicherten Näherungs-Standort (lat/lon, IP-basiert) jedes
+    // Agenten, da eine kontinuierliche Live-GPS-Verfolgung ALLER Spieler nicht mitgeführt wird.
+    window.dualMissionZufaellig = async function() {
+        const status = document.getElementById('dual-mission-start-status');
+        status.innerText = 'Suche nächstgelegenen Agenten...';
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const mySnap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
+            const myData = mySnap.exists() ? mySnap.data() : {};
+            if (myData.lat === undefined || myData.lon === undefined) {
+                status.innerText = 'Eigener Standort unbekannt - bitte einmal die Basis öffnen und erneut versuchen.';
+                return;
+            }
+            const allSnap = await window.getDocs(window.collection(window.db, "agenten"));
+            let bester = null, besteDist = Infinity;
+            allSnap.forEach(d => {
+                if (d.id === mySlug) return;
+                const data = d.data();
+                if (data.lat === undefined || data.lon === undefined) return;
+                const dist = haversineDM(myData.lat, myData.lon, data.lat, data.lon);
+                if (dist < besteDist) { besteDist = dist; bester = d.id; }
+            });
+            if (!bester) { status.innerText = 'Kein anderer Agent mit bekanntem Standort gefunden.'; return; }
+            await erstelleDualMissionEinladung(bester, 'zufaellig');
+            status.innerText = 'Anfrage an nächstgelegenen Agenten gesendet (' + Math.round(besteDist/1000) + ' km entfernt).';
+        } catch (e) {
+            console.error(e);
+            status.innerText = 'Suche fehlgeschlagen.';
+        }
+    };
+
+    async function erstelleDualMissionEinladung(zielSlug, typ) {
+        const mySlug = window.agentSlug(window.agentName);
+        const mySnap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
+        const myData = mySnap.exists() ? mySnap.data() : {};
+        await window.addDoc(window.collection(window.db, "dual_missionen"), {
+            von: mySlug, an: zielSlug, typ: typ, status: 'offen',
+            vonLat: myData.lat || null, vonLon: myData.lon || null,
+            gescanntVon: [], createdAt: Date.now()
+        });
+    }
+
+    // --- Eingehende Einladungen prüfen (Polling, alle 15s, solange eingeloggt) ---
+    let letzteAngezeigteId = null;
+    function pruefeEingehendeDualMissionen() {
+        if (!window.db || !window.agentName || currentDualMissionId) return;
+        const mySlug = window.agentSlug(window.agentName);
+        window.getDocs(window.query(window.collection(window.db, "dual_missionen"), window.where('an', '==', mySlug), window.where('status', '==', 'offen')))
+            .then(snap => {
+                if (snap.empty) return;
+                const d = snap.docs[0];
+                if (d.id === letzteAngezeigteId) return;
+                letzteAngezeigteId = d.id;
+                const a = d.data();
+                const text = (a.typ === 'direkt')
+                    ? 'Direkte Einladung von ' + a.von
+                    : 'Zufällige Anfrage aus deiner Nähe';
+                const modal = document.getElementById('dual-mission-invite-modal');
+                const textEl = document.getElementById('dual-mission-invite-text');
+                if (modal && textEl) {
+                    textEl.innerText = text;
+                    modal.dataset.missionId = d.id;
+                    modal.style.display = 'flex';
+                }
+            }).catch(() => {});
+        // Auch aktive (angenommene) eigene Missionen prüfen, um nach einem Reload wieder
+        // anzuknüpfen.
+        window.getDocs(window.query(window.collection(window.db, "dual_missionen"), window.where('an', '==', mySlug), window.where('status', '==', 'angenommen')))
+            .then(snap => { if (!snap.empty && !currentDualMissionId) starteDualMissionNavigation(snap.docs[0].id, snap.docs[0].data()); }).catch(() => {});
+        window.getDocs(window.query(window.collection(window.db, "dual_missionen"), window.where('von', '==', mySlug), window.where('status', '==', 'angenommen')))
+            .then(snap => { if (!snap.empty && !currentDualMissionId) starteDualMissionNavigation(snap.docs[0].id, snap.docs[0].data()); }).catch(() => {});
+    }
+    dualMissionCheckInterval = setInterval(pruefeEingehendeDualMissionen, 15000);
+
+    window.dualMissionAntworten = async function(angenommen) {
+        const modal = document.getElementById('dual-mission-invite-modal');
+        const missionId = modal ? modal.dataset.missionId : null;
+        if (modal) modal.style.display = 'none';
+        if (!missionId) return;
+        letzteAngezeigteId = null;
+        try {
+            if (!angenommen) {
+                await window.setDoc(window.doc(window.db, "dual_missionen", missionId), { status: 'abgelehnt' }, { merge: true });
+                return;
+            }
+            const ref = window.doc(window.db, "dual_missionen", missionId);
+            const snap = await window.getDoc(ref);
+            const a = snap.data();
+            // Zielort anhand des Standorts des Einladenden suchen (echter, öffentlicher Ort).
+            const ziel = await sucheOeffentlichenOrt(a.vonLat, a.vonLon);
+            if (!ziel) { alert('Konnte keinen geeigneten öffentlichen Zielort finden. Bitte später erneut versuchen.'); return; }
+            await window.setDoc(ref, { status: 'angenommen', zielLat: ziel.lat, zielLng: ziel.lng }, { merge: true });
+            starteDualMissionNavigation(missionId, { ...a, zielLat: ziel.lat, zielLng: ziel.lng });
+        } catch (e) {
+            console.error(e);
+            alert('Aktion fehlgeschlagen.');
+        }
+    };
+
+    async function sucheOeffentlichenOrt(lat, lng) {
+        if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
+        const radius = 800;
+        const query = '[out:json][timeout:15];(way["highway"~"^(primary|secondary|tertiary|unclassified|residential|living_street|pedestrian|service)$"]["access"!~"^(private|no)$"](around:' + radius + ',' + lat + ',' + lng + '););out geom;';
+        try {
+            const response = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query) });
+            const data = await response.json();
+            const candidates = [];
+            (data.elements || []).forEach(el => {
+                if (el.geometry) el.geometry.forEach(node => candidates.push({ lat: node.lat, lng: node.lon }));
+            });
+            if (candidates.length > 0) return candidates[Math.floor(Math.random() * candidates.length)];
+        } catch (e) {}
+        return null;
+    }
+
+    // --- Navigation zum gemeinsamen Ziel ---
+    function starteDualMissionNavigation(missionId, a) {
+        currentDualMissionId = missionId;
+        const modal = document.getElementById('dual-mission-active-modal');
+        const inhalt = document.getElementById('dual-mission-active-inhalt');
+        if (!modal || !inhalt) return;
+        modal.style.display = 'flex';
+        inhalt.innerHTML =
+            '<div id="dual-mission-map" style="width:100%; height:200px; margin-bottom:10px; border:1px solid #b0f;"></div>' +
+            '<div id="dual-mission-distanz" style="color:#e0c0ff; margin-bottom:10px;">Suche GPS-Signal...</div>' +
+            '<button class="modell-btn" id="dual-mission-scan-btn" style="width:100%; border-color:#0f8; color:#0f8;" disabled onclick="window.dualMissionScannen()">ZU WEIT ENTFERNT</button>';
+
+        if (dualMissionMap) { dualMissionMap.remove(); dualMissionMap = null; }
+        dualMissionMap = L.map('dual-mission-map', { zoomControl: false, attributionControl: false }).setView([a.zielLat, a.zielLng], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 22 }).addTo(dualMissionMap);
+        L.marker([a.zielLat, a.zielLng], { icon: L.divIcon({ className: 'gps-target-marker', iconSize: [18,18] }) }).addTo(dualMissionMap);
+
+        if (dualMissionWatchId !== null) navigator.geolocation.clearWatch(dualMissionWatchId);
+        dualMissionWatchId = navigator.geolocation.watchPosition((pos) => {
+            const dist = haversineDM(pos.coords.latitude, pos.coords.longitude, a.zielLat, a.zielLng);
+            const distEl = document.getElementById('dual-mission-distanz');
+            const btn = document.getElementById('dual-mission-scan-btn');
+            if (distEl) distEl.innerText = 'Entfernung zur Anomalie: ' + Math.round(dist) + ' m';
+            if (btn) {
+                if (dist <= SCAN_RADIUS_M) { btn.disabled = false; btn.innerText = 'ICH BIN DA - SCANNEN'; }
+                else { btn.disabled = true; btn.innerText = 'ZU WEIT ENTFERNT'; }
+            }
+        }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    }
+
+    window.dualMissionScannen = async function() {
+        if (!currentDualMissionId) return;
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "dual_missionen", currentDualMissionId);
+            const snap = await window.getDoc(ref);
+            const a = snap.data();
+            const gescannt = Array.from(new Set([...(a.gescanntVon || []), mySlug]));
+            const beideGescannt = gescannt.includes(a.von) && gescannt.includes(a.an);
+            await window.setDoc(ref, { gescanntVon: gescannt, status: beideGescannt ? 'abgeschlossen' : 'angenommen' }, { merge: true });
+
+            if (!beideGescannt) {
+                alert('Scan gespeichert - warte auf den anderen Spieler.');
+                return;
+            }
+            // Beide haben gescannt: eigene Belohnung direkt, Belohnung für den anderen über die
+            // exakt begrenzte Dual-Mission-Regel.
+            window.playerLevel = (window.playerLevel || 1) + 8;
+            window.playerCredits = (window.playerCredits || 0) + 1500;
+            window.playerMateriezellen = (window.playerMateriezellen || 0) + 10;
+            await window.setDoc(window.doc(window.db, "agenten", mySlug), {
+                lvl: window.playerLevel, credits: window.playerCredits, materiezellen: window.playerMateriezellen
+            }, { merge: true });
+
+            const andererSlug = (a.von === mySlug) ? a.an : a.von;
+            const andererSnap = await window.getDoc(window.doc(window.db, "agenten", andererSlug));
+            const andererData = andererSnap.exists() ? andererSnap.data() : {};
+            await window.setDoc(window.doc(window.db, "agenten", andererSlug), {
+                lvl: (andererData.lvl || 1) + 8,
+                credits: (andererData.credits || 0) + 1500,
+                materiezellen: (andererData.materiezellen || 0) + 10
+            }, { merge: true });
+
+            if (dualMissionWatchId !== null) { navigator.geolocation.clearWatch(dualMissionWatchId); dualMissionWatchId = null; }
+            currentDualMissionId = null;
+            document.getElementById('dual-mission-active-modal').style.display = 'none';
+            alert('🎉 DUAL-MISSION ABGESCHLOSSEN! +8 Level, +10 Materiezellen, +1.500 Credits.');
+            if (typeof f_start === 'function') f_start();
+        } catch (e) {
+            console.error(e);
+            alert('Scan fehlgeschlagen.');
+        }
+    };
+})();

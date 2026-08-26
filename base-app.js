@@ -1211,7 +1211,7 @@
         const starterClass = isStarter ? ' bunker-agent-starter' : '';
 
         const PICKUP_MS = 1800;   // Anfahrt zur Abholung
-        const STAND_MS = 10000;   // Aufzug steht am Zielfloor - genau 10s, wie gewünscht
+        const STAND_MS = 7000;    // Aufzug steht am Zielfloor - genau 7s
         const WALK_MS = 5000;     // Männchen braucht 5s von der Raummitte bis zum Aufzug
         const DEPART_MS = 2600;   // Fahrt zum eigentlichen Ziel
         const ARRIVE_MS = 500;    // kurze Pause nach Ankunft, bevor neu gerendert wird

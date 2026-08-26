@@ -639,3 +639,6 @@ body > *:not(.top-level) {
     padding: 8px 14px; cursor: pointer; font-family: monospace; font-size: 0.8em;
 }
 .netzwerk-tab-active { background: rgba(0,255,255,0.15); border-color: #0ff; box-shadow: 0 0 8px rgba(0,255,255,0.4); }
+
+/* === Dual-Mission: Zielmarker auf der Karte === */
+.gps-target-marker { width: 18px; height: 18px; background: #b0f; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 15px #b0f; }

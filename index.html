@@ -29,7 +29,7 @@
     <meta property="og:description" content="Bereit für den Sprung? Werde Agent im GlobalerAgentur-Sektor und stabilisiere die Zeitlinie.">
     <meta property="og:image" content="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Milchstra%C3%9Fe.jpeg">
     
-    <link rel="stylesheet" href="style.css?v=20260824n">
+    <link rel="stylesheet" href="style.css?v=20260824o">
 </head>
 <body onload="initSystem()">
 
@@ -65,7 +65,7 @@
     <footer>
         <!-- WICHTIG: Diese Versionsnummer muss bei JEDER Änderung an app.js/style.css exakt mit
              dem Cache-Buster-Suffix "?v=..." unten bei den Script- und Link-Einbindungen übereinstimmen. -->
-        &copy; 2026 Dück & Flux Zeitreiseagentur | Version <span id="app-version">20260824n</span>
+        &copy; 2026 Dück & Flux Zeitreiseagentur | Version <span id="app-version">20260824o</span>
     </footer>
 </div>
 
@@ -128,6 +128,33 @@
             <button class="setup-btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('spieler-profil-modal').style.display='none';">SCHLIESSEN</button>
         </div>
     </div>
+
+    <div id="dual-mission-start-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+        <div style="width:100%; max-width:380px; border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); padding:20px; text-align:center;">
+            <h3 style="color:#b0f; margin-top:0;">DUAL MISSION</h3>
+            <div id="dual-mission-start-inhalt"></div>
+            <button class="setup-btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('dual-mission-start-modal').style.display='none';">SCHLIESSEN</button>
+        </div>
+    </div>
+
+    <div id="dual-mission-invite-modal" style="display:none; position:fixed; inset:0; background:rgba(20,0,25,0.92); z-index:65000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+        <div style="width:100%; max-width:380px; border:2px solid #b0f; box-shadow:0 0 30px rgba(187,0,255,0.6); background:rgba(20,0,25,0.95); padding:22px; text-align:center; animation: crashoutPulse 1.4s ease-in-out infinite;">
+            <div style="font-size:1.2em; color:#b0f; text-shadow:0 0 10px #b0f; margin-bottom:10px;">📡 DUAL-MISSION-ANFRAGE</div>
+            <div id="dual-mission-invite-text" style="color:#e0c0ff; margin-bottom:18px;"></div>
+            <div style="display:flex; gap:8px;">
+                <button class="setup-btn" style="flex:1; border-color:#0f8; color:#0f8;" onclick="window.dualMissionAntworten(true)">AKZEPTIEREN</button>
+                <button class="setup-btn" style="flex:1; border-color:#f44; color:#f44;" onclick="window.dualMissionAntworten(false)">ABLEHNEN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dual-mission-active-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+        <div style="width:100%; max-width:400px; border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); padding:20px; text-align:center;">
+            <h3 style="color:#b0f; margin-top:0;">AKTIVE DUAL-MISSION</h3>
+            <div id="dual-mission-active-inhalt"></div>
+            <button class="setup-btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('dual-mission-active-modal').style.display='none';">MINIMIEREN</button>
+        </div>
+    </div>
 </div>
  
   
@@ -146,6 +173,20 @@
 
 <div id="emp-trap" onclick="window.triggerTrap()"></div>
 <div id="emp-flash-overlay"></div>
+
+<div id="crashout-averted-modal" style="display:none; position:fixed; inset:0; background:rgba(20,0,0,0.9); z-index:70000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:380px; border:2px solid #ff8800; box-shadow:0 0 35px rgba(255,136,0,0.6); background:rgba(30,10,0,0.95); padding:22px; text-align:center; animation: crashoutPulse 1.2s ease-in-out infinite;">
+        <div style="font-size:1.3em; color:#ff8800; text-shadow:0 0 10px #ff8800; margin-bottom:10px;">⚠ CRASHOUT ABGEWENDET ⚠</div>
+        <div id="crashout-averted-text" style="color:#ffd8a8; font-size:0.9em; line-height:1.5; margin-bottom:16px;"></div>
+        <button class="setup-btn" style="width:100%; border-color:#ff8800; color:#ff8800;" onclick="document.getElementById('crashout-averted-modal').style.display='none';">VERSTANDEN</button>
+    </div>
+</div>
+<style>
+@keyframes crashoutPulse {
+    0%, 100% { box-shadow: 0 0 35px rgba(255,136,0,0.6); }
+    50% { box-shadow: 0 0 55px rgba(255,136,0,0.95); }
+}
+</style>
 <div id="emp-solid-black"></div>
 
 <div id="emp-boot-layer">
@@ -231,8 +272,9 @@
 
 
 
-<script type="module" src="firebase-init.js?v=20260824n"></script>
-<script src="netzwerk.js?v=20260824n"></script>
-<script src="app.js?v=20260824n"></script>
+<script type="module" src="firebase-init.js?v=20260824o"></script>
+<script src="netzwerk.js?v=20260824o"></script>
+<script src="dualmission.js?v=20260824o"></script>
+<script src="app.js?v=20260824o"></script>
 </body>
 </html>

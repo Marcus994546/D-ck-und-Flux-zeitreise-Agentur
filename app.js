@@ -257,6 +257,29 @@
     setInterval(() => {
         if (crashSequenceActive) return;
         if (currentCoherence < 50.0) {
+            // Letzte Rettung: Server-Hub bekommt HIER (zusätzlich zum früheren Abfangpunkt beim
+            // WARNUNG-Übergang) eine weitere, unabhängige Chance, den bereits unmittelbar
+            // bevorstehenden Crash noch im letzten Moment abzuwenden. Gelingt das, wird der
+            // Crashout komplett abgebrochen, die Kohärenz stabilisiert sich, und der Spieler
+            // bekommt ein auffälliges Popup statt des Absturzes.
+            if (window.passiveRoomEffects && window.passiveRoomEffects.serverHub > 0) {
+                const pct = scaledServerHubPct(window.passiveRoomEffects.serverHub);
+                if (Math.random() * 100 < pct) {
+                    currentCoherence = 55.0 + Math.random() * 10;
+                    const display = document.getElementById('coherence-display');
+                    if (display) display.innerText = currentCoherence.toFixed(1) + "%";
+                    currentLogs.unshift("> Server-Hub hat den Crashout im letzten Moment abgefangen!");
+                    if (currentLogs.length > 5) currentLogs.pop();
+                    if (document.getElementById('log-display')) f_start();
+                    const modal = document.getElementById('crashout-averted-modal');
+                    const textEl = document.getElementById('crashout-averted-text');
+                    if (modal && textEl) {
+                        textEl.innerText = 'Der Server-Hub hat den drohenden System-Absturz in letzter Sekunde abgefangen und die temporale Kohärenz stabilisiert.';
+                        modal.style.display = 'flex';
+                    }
+                    return;
+                }
+            }
             crashSequenceActive = true;
             currentLogs.unshift("> CRASHOUT: Kohärenz unter 50%! Not-Crash erzwungen!");
             if (currentLogs.length > 5) currentLogs.pop();
@@ -2615,20 +2638,25 @@ window.f_showDescription = function(withVoice) {
 
     window.showMissionMenu = function() {
         if (typeof triggerScan === 'function') triggerScan();
-        const types = ['normal', 'fortgeschritten', 'weit', 'galaktisch'];
+        const types = ['normal', 'fortgeschritten', 'weit'];
         let html = '<h3>Missionsauswahl</h3><div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">';
         types.forEach(function(type) {
             const loot = window.missionLootTables[type];
             const color = window.missionColors[type];
             const label = window.missionLabels[type];
             const dist = window.missionDistances[type];
-            const distText = type === 'weit' ? '1 km - 5 km' : (type === 'galaktisch' ? '50 km - 60 km' : (dist[0] + ' m - ' + dist[1] + ' m'));
+            const distText = type === 'weit' ? '1 km - 5 km' : (dist[0] + ' m - ' + dist[1] + ' m');
             html += `
                 <div style="display:flex;align-items:center;gap:10px;border:1px solid ${color};background:rgba(0,0,0,0.3);border-radius:6px;padding:12px;">
                     <button class="modell-btn" style="flex:1;margin:0;border-color:${color};color:${color};text-align:left;padding:12px;" onclick="window.startGpsMission('${type}')">${label}<br><span style="font-size:0.7em;opacity:0.7;">Distanz: ${distText}</span></button>
                     <button onclick="window.showLootPopup('${type}')" style="background:none;border:none;cursor:pointer;padding:5px;font-size:1.8em;" title="Belohnungen ansehen">📦</button>
                 </div>`;
         });
+        // An exakt dieser Stelle (vorher: Galaktische Mission) sitzt jetzt die Dual-Mission.
+        html += `
+            <div style="display:flex;align-items:center;gap:10px;border:1px solid #b0f;background:rgba(0,0,0,0.3);border-radius:6px;padding:12px;">
+                <button class="modell-btn" style="flex:1;margin:0;border-color:#b0f;color:#b0f;text-align:left;padding:12px;" onclick="window.openDualMissionMenu()">Dual Mission<br><span style="font-size:0.7em;opacity:0.7;">Gemeinsam mit einem anderen Spieler vor Ort</span></button>
+            </div>`;
         html += '</div><hr><button onclick="window.f_start()">Zurück</button>';
         document.getElementById('content-body').innerHTML = html;
     };
