@@ -29,7 +29,7 @@
     <meta property="og:description" content="Bereit für den Sprung? Werde Agent im GlobalerAgentur-Sektor und stabilisiere die Zeitlinie.">
     <meta property="og:image" content="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Milchstra%C3%9Fe.jpeg">
     
-    <link rel="stylesheet" href="style.css?v=20260824q">
+    <link rel="stylesheet" href="style.css?v=20260824s">
 </head>
 <body onload="initSystem()">
 
@@ -48,7 +48,6 @@
 <nav>
     <button onclick="f_buchen()">Flux-Kopplung</button>
     <button onclick="window.openNetzwerk()">Netzwerk</button>
-    <button id="komm-link-btn" onclick="window.f_chat()">Komm-Link</button>
     <button id="status-nav-btn" onclick="f_status()">Status</button>
 </nav>
     
@@ -65,7 +64,7 @@
     <footer>
         <!-- WICHTIG: Diese Versionsnummer muss bei JEDER Änderung an app.js/style.css exakt mit
              dem Cache-Buster-Suffix "?v=..." unten bei den Script- und Link-Einbindungen übereinstimmen. -->
-        &copy; 2026 Dück & Flux Zeitreiseagentur | Version <span id="app-version">20260824q</span>
+        &copy; 2026 Dück & Flux Zeitreiseagentur | Version <span id="app-version">20260824s</span>
     </footer>
 </div>
 
@@ -140,14 +139,14 @@
 <div id="emp-trap" onclick="window.triggerTrap()"></div>
 <div id="emp-flash-overlay"></div>
 
-<div id="spieler-profil-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+<div id="spieler-profil-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
     <div style="width:100%; max-width:380px; border:1px solid #0ff; box-shadow:0 0 25px rgba(0,255,255,0.4); background:rgba(0,20,20,0.95); padding:20px;">
         <div id="spieler-profil-inhalt" style="text-align:left; color:#ddd; font-size:0.85em;"><p style="color:#0f8; text-align:center;">Lade...</p></div>
         <button class="setup-btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('spieler-profil-modal').style.display='none';">SCHLIESSEN</button>
     </div>
 </div>
 
-<div id="dual-mission-start-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+<div id="dual-mission-start-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
     <div style="width:100%; max-width:380px; border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); padding:20px; text-align:center;">
         <h3 style="color:#b0f; margin-top:0;">DUAL MISSION</h3>
         <div id="dual-mission-start-inhalt"></div>
@@ -155,7 +154,7 @@
     </div>
 </div>
 
-<div id="dual-mission-invite-modal" style="display:none; position:fixed; inset:0; background:rgba(20,0,25,0.92); z-index:65000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+<div id="dual-mission-invite-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(20,0,25,0.92); z-index:65000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
     <div style="width:100%; max-width:380px; border:2px solid #b0f; box-shadow:0 0 30px rgba(187,0,255,0.6); background:rgba(20,0,25,0.95); padding:22px; text-align:center; animation: crashoutPulse 1.4s ease-in-out infinite;">
         <div style="font-size:1.2em; color:#b0f; text-shadow:0 0 10px #b0f; margin-bottom:10px;">📡 DUAL-MISSION-ANFRAGE</div>
         <div id="dual-mission-invite-text" style="color:#e0c0ff; margin-bottom:18px;"></div>
@@ -166,7 +165,7 @@
     </div>
 </div>
 
-<div id="dual-mission-active-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+<div id="dual-mission-active-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
     <div style="width:100%; max-width:400px; border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); padding:20px; text-align:center;">
         <h3 style="color:#b0f; margin-top:0;">AKTIVE DUAL-MISSION</h3>
         <div id="dual-mission-active-inhalt"></div>
@@ -174,7 +173,50 @@
     </div>
 </div>
 
-<div id="crashout-averted-modal" style="display:none; position:fixed; inset:0; background:rgba(20,0,0,0.9); z-index:70000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+<div id="bestaetigungs-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:70000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:360px; border:1px solid #f44; box-shadow:0 0 25px rgba(255,68,68,0.5); background:rgba(25,0,0,0.95); padding:20px; text-align:center;">
+        <div id="bestaetigungs-modal-text" style="color:#ffd8d8; font-size:0.9em; margin-bottom:18px; line-height:1.5;"></div>
+        <div style="display:flex; gap:8px;">
+            <button class="setup-btn" style="flex:1; border-color:#f44; color:#f44;" id="bestaetigungs-modal-ja">JA</button>
+            <button class="setup-btn" style="flex:1;" onclick="document.getElementById('bestaetigungs-modal').style.display='none';">ABBRECHEN</button>
+        </div>
+    </div>
+</div>
+
+<div id="info-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:70000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:360px; border:1px solid #0ff; box-shadow:0 0 25px rgba(0,255,255,0.5); background:rgba(0,20,20,0.95); padding:20px; text-align:center;">
+        <div id="info-modal-text" style="color:#dfffff; font-size:0.9em; margin-bottom:18px; line-height:1.5;"></div>
+        <button class="setup-btn" style="width:100%;" onclick="document.getElementById('info-modal').style.display='none';">OK</button>
+    </div>
+</div>
+
+<div id="handel-chat-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:65000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:360px; border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); padding:20px; text-align:left;">
+        <h3 style="color:#b0f; margin-top:0; text-align:center;">HANDELSANGEBOT AN <span id="handel-chat-empfaenger"></span></h3>
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
+            <span style="font-size:0.75em; color:#0f8;">ICH WILL</span>
+            <input type="number" id="handel-chat-will-menge" min="1" placeholder="Menge" style="width:70px; background:#000; border:1px solid #0f8; color:#0f8; padding:6px; font-family:inherit;">
+            <select id="handel-chat-will-typ" style="flex:1; background:#000; border:1px solid #0f8; color:#0f8; padding:6px; font-family:inherit;">
+                <option value="credits">Credits (max 1000)</option>
+                <option value="materiezellen">Materiezellen (max 5)</option>
+                <option value="chronoszellen">Chronos-Zellen (max 2)</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+            <span style="font-size:0.75em; color:#ffcc00;">ICH BIETE</span>
+            <input type="number" id="handel-chat-bietet-menge" min="1" placeholder="Menge" style="width:70px; background:#000; border:1px solid #ffcc00; color:#ffcc00; padding:6px; font-family:inherit;">
+            <select id="handel-chat-bietet-typ" style="flex:1; background:#000; border:1px solid #ffcc00; color:#ffcc00; padding:6px; font-family:inherit;">
+                <option value="credits">Credits (max 1000)</option>
+                <option value="materiezellen">Materiezellen (max 5)</option>
+                <option value="chronoszellen">Chronos-Zellen (max 2)</option>
+            </select>
+        </div>
+        <button class="setup-btn" style="width:100%; border-color:#b0f; color:#b0f;" onclick="window.handelAusChatErstellen()">ANGEBOT ERSTELLEN</button>
+        <button class="setup-btn" style="width:100%; margin-top:8px;" onclick="document.getElementById('handel-chat-modal').style.display='none';">ABBRECHEN</button>
+    </div>
+</div>
+
+<div id="crashout-averted-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(20,0,0,0.9); z-index:70000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
     <div style="width:100%; max-width:380px; border:2px solid #ff8800; box-shadow:0 0 35px rgba(255,136,0,0.6); background:rgba(30,10,0,0.95); padding:22px; text-align:center; animation: crashoutPulse 1.2s ease-in-out infinite;">
         <div style="font-size:1.3em; color:#ff8800; text-shadow:0 0 10px #ff8800; margin-bottom:10px;">⚠ CRASHOUT ABGEWENDET ⚠</div>
         <div id="crashout-averted-text" style="color:#ffd8a8; font-size:0.9em; line-height:1.5; margin-bottom:16px;"></div>
@@ -272,9 +314,9 @@
 
 
 
-<script type="module" src="firebase-init.js?v=20260824q"></script>
-<script src="netzwerk.js?v=20260824q"></script>
-<script src="dualmission.js?v=20260824q"></script>
-<script src="app.js?v=20260824q"></script>
+<script type="module" src="firebase-init.js?v=20260824s"></script>
+<script src="netzwerk.js?v=20260824s"></script>
+<script src="dualmission.js?v=20260824s"></script>
+<script src="app.js?v=20260824s"></script>
 </body>
 </html>

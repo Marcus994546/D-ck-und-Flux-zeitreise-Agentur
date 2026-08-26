@@ -12,6 +12,32 @@
         return div.innerHTML;
     };
 
+    // Ersetzt den nativen Browser-confirm()-Dialog durch ein zum Spiel passendes Popup.
+    // Nutzung: window.zeigeBestaetigung('Text', () => { /* bei Ja */ });
+    window.zeigeBestaetigung = function(text, onJa) {
+        const modal = document.getElementById('bestaetigungs-modal');
+        const textEl = document.getElementById('bestaetigungs-modal-text');
+        const jaBtn = document.getElementById('bestaetigungs-modal-ja');
+        if (!modal || !textEl || !jaBtn) { if (confirm(text)) onJa(); return; }
+        textEl.innerText = text;
+        modal.style.display = 'flex';
+        const neuerJaBtn = jaBtn.cloneNode(true);
+        jaBtn.parentNode.replaceChild(neuerJaBtn, jaBtn);
+        neuerJaBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            onJa();
+        });
+    };
+
+    // Ersetzt den nativen Browser-alert()-Dialog durch ein zum Spiel passendes Popup.
+    window.zeigeInfo = function(text) {
+        const modal = document.getElementById('info-modal');
+        const textEl = document.getElementById('info-modal-text');
+        if (!modal || !textEl) { alert(text); return; }
+        textEl.innerText = text;
+        modal.style.display = 'flex';
+    };
+
     // Liest einmalig beim Login, welche PASSIVEN Basis-Räume gebaut wurden (Agentur-Basis,
     // eigene Firestore-Collection "Agent - Base"), und merkt sich JEWEILS DEREN RAUM-LEVEL
     // (0 = nicht gebaut) - Grundlage für alle passiven Raum-Effekte, die sich aufs Hauptterminal
@@ -678,13 +704,16 @@ window.openPrivateChat = function(targetAgentName) {
 
     document.getElementById('content-body').innerHTML = `
         <h3 style="color: #0f8;">[ FUNK: <span id="chat-target-name"></span> ]</h3>
+        <div id="handel-im-chat" style="margin-bottom: 10px;"></div>
         <div id="chat-window" style="height: 250px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;"></div>
         <div style="display: flex; gap: 5px;">
+            <button onclick="window.openHandelAusChat && window.openHandelAusChat('${targetName}')" title="Handelsangebot senden" style="background:none; border:1px solid #b0f; color:#b0f; border-radius:4px; cursor:pointer; padding:0 10px; font-size:1.2em;">💱</button>
             <input type="text" id="msg-input" placeholder="Nachricht..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
             <button class="modell-btn" id="chat-send-btn" style="margin: 0; width: auto; padding: 0 15px;">SENDEN</button>
         </div>
         <button class="modell-btn" style="margin-top: 15px; border-style: dashed;" onclick="if(window.currentChatListener) window.currentChatListener(); window.f_chat();">FUNK TRENNEN</button>
     `;
+    if (typeof window.renderHandelImChat === 'function') window.renderHandelImChat(targetName);
     document.getElementById('chat-target-name').textContent = targetAgentName.toUpperCase();
     document.getElementById('chat-send-btn').addEventListener('click', () => window.sendMsg(channelId, targetName));
 
@@ -731,27 +760,30 @@ window.openPrivateChat = function(targetAgentName) {
         } catch (e) { console.error(e); }
     };
 
-    window.deleteChat = async function(targetName) {
-        if(!confirm(`Kanal mit ${targetName.toUpperCase()} wirklich im Briefkasten löschen?`)) return;
+    window.deleteChat = function(targetName) {
+        const ausfuehren = async () => {
+            const myName = window.agentSlug(window.agentName);
+            const targetNameLow = targetName;
+            const channelId = [myName, targetNameLow].sort().join("_");
 
-        const myName = window.agentSlug(window.agentName);
-        const targetNameLow = targetName;
-        const channelId = [myName, targetNameLow].sort().join("_");
+            if (window.db && window.getDocs && window.deleteDoc) {
+                try {
+                    const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+                    const snapshot = await window.getDocs(msgRef);
+                    const deletePromises = snapshot.docs.map(mDoc => window.deleteDoc(mDoc.ref));
+                    await Promise.all(deletePromises);
 
-        if (window.db && window.getDocs && window.deleteDoc) {
-            try {
-                const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
-                const snapshot = await window.getDocs(msgRef);
-                const deletePromises = snapshot.docs.map(mDoc => window.deleteDoc(mDoc.ref));
-                await Promise.all(deletePromises);
-                
-                const channelRef = window.doc(window.db, "agenten_funk", channelId);
-                await window.deleteDoc(channelRef);
-                
-                console.log("FUNK-KANAL IM BRIEFKASTEN GELEERT");
-            } catch (e) { console.error("FEHLER BEI BRIEFKASTEN-REINIGUNG:", e); }
+                    const channelRef = window.doc(window.db, "agenten_funk", channelId);
+                    await window.deleteDoc(channelRef);
+
+                    console.log("FUNK-KANAL IM BRIEFKASTEN GELEERT");
+                } catch (e) { console.error("FEHLER BEI BRIEFKASTEN-REINIGUNG:", e); }
+            }
+            window.f_chat();
+        };
+        if (typeof window.zeigeBestaetigung === 'function') {
+            window.zeigeBestaetigung(`Kanal mit ${targetName.toUpperCase()} wirklich im Briefkasten löschen?`, ausfuehren);
         }
-        window.f_chat();
     };
 
     window.startDirectFunk = function() {
@@ -1248,7 +1280,7 @@ window.startGlobalNotification = function() {
                 const shareData = { title: 'Dück & Flux Zeitreiseagentur', text: shareText };
                 
                 if (navigator.share) { navigator.share(shareData).catch(console.error); } 
-                else { navigator.clipboard.writeText(shareText).then(() => alert("Signal-Link kopiert. Bereit zur Übertragung.")); }
+                else { navigator.clipboard.writeText(shareText).then(() => window.zeigeInfo("Signal-Link kopiert. Bereit zur Übertragung.")); }
             };
             if (typeof triggerScan === 'function') triggerScan();
             anzeige.innerHTML = `
