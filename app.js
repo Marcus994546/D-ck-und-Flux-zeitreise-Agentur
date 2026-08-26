@@ -2601,21 +2601,24 @@ window.f_showDescription = function(withVoice) {
         normal:       { level: 1,  xp: 50,    credits: 100,  materiezellen: 0 },
         fortgeschritten: { level: 3, xp: 0,     credits: 200,  materiezellen: 2 },
         weit:         { level: 6,  xp: 50,    credits: 500,  materiezellen: 8 },
-        galaktisch:   { level: 25, xp: 0,     credits: 2000, materiezellen: 15 }
+        galaktisch:   { level: 25, xp: 0,     credits: 2000, materiezellen: 15 },
+        dual:         { level: 8,  xp: 0,     credits: 1500, materiezellen: 10 }
     };
 
     window.missionLabels = {
         normal: 'Normale Mission',
         fortgeschritten: 'Fortgeschrittene Mission',
         weit: 'Weit entfernte Mission',
-        galaktisch: 'Galaktische Mission'
+        galaktisch: 'Galaktische Mission',
+        dual: 'Dual Mission'
     };
 
     window.missionColors = {
         normal: '#0f8',
         fortgeschritten: '#ffaa00',
         weit: '#ff8800',
-        galaktisch: '#b0f'
+        galaktisch: '#b0f',
+        dual: '#b0f'
     };
 
     window.missionDistances = {
@@ -2656,6 +2659,7 @@ window.f_showDescription = function(withVoice) {
         html += `
             <div style="display:flex;align-items:center;gap:10px;border:1px solid #b0f;background:rgba(0,0,0,0.3);border-radius:6px;padding:12px;">
                 <button class="modell-btn" style="flex:1;margin:0;border-color:#b0f;color:#b0f;text-align:left;padding:12px;" onclick="window.openDualMissionMenu()">Dual Mission<br><span style="font-size:0.7em;opacity:0.7;">Gemeinsam mit einem anderen Spieler vor Ort</span></button>
+                <button onclick="window.showLootPopup('dual')" style="background:none;border:none;cursor:pointer;padding:5px;font-size:1.8em;" title="Belohnungen ansehen">📦</button>
             </div>`;
         html += '</div><hr><button onclick="window.f_start()">Zurück</button>';
         document.getElementById('content-body').innerHTML = html;

@@ -595,6 +595,7 @@
     };
 
     window.allianzVerlassen = async function(allianzId) {
+        if (!confirm('Willst du die Allianz wirklich verlassen bzw. auflösen?')) return;
         const mySlug = window.agentSlug(window.agentName);
         try {
             const ref = window.doc(window.db, "allianzen", allianzId);
