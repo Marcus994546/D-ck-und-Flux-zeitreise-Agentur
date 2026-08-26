@@ -821,14 +821,14 @@ window.startGlobalNotification = function() {
             if (data.ungelesen_fuer === myName) hasUnreadChat = true;
         });
         updateNetzwerkPulse();
-    });
+    }, (error) => console.error("Globaler Chat-Puls-Listener Fehler:", error));
 
     if (window.globalTradeListener) window.globalTradeListener();
     const qTrade = window.query(window.collection(window.db, "handelsangebote"), window.where("an", "==", myName), window.where("status", "==", "offen"));
     window.globalTradeListener = window.onSnapshot(qTrade, (snapshot) => {
         hasOpenTrade = !snapshot.empty;
         updateNetzwerkPulse();
-    });
+    }, (error) => console.error("Globaler Handels-Puls-Listener Fehler:", error));
 };
 
     window.sendRadarPing = async function() {

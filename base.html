@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260825b">
+    <link rel="stylesheet" href="base-style.css?v=20260825c">
 </head>
 <body>
 
@@ -29,10 +29,12 @@
                     <div class="level-display">AGENTUR-LEVEL: <span id="display-level">1</span></div>
                 </div>
             </div>
-            <div style="display: flex; gap: 15px; align-items: center;">
+            <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
+                    <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
+                </div>
                 <button onclick="showBasisausbaumenu()" class="btn-back" style="border-color:#0af; color:#0af;">🏗 BASISAUSBAUMENÜ</button>
-                <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
-                <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
             </div>
         </div>
         <h2 id="main-title">AKTIVE BASIS</h2>
@@ -69,8 +71,11 @@
                 </div>
                 <button id="btn-cheat-boost" onclick="cheatCredits()" class="btn-cheat">[ + BOOST ]</button>
             </div>
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
+                    <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
+                </div>
                 <button onclick="showAktiveBasis()" class="btn-back" style="border-color:#0af; color:#0af;">ZUR AKTIVEN BASIS</button>
             </div>
         </div>
@@ -403,7 +408,7 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260825b"></script>
-<script src="base-app.js?v=20260825b"></script>
+<script type="module" src="base-firebase-init.js?v=20260825c"></script>
+<script src="base-app.js?v=20260825c"></script>
 </body>
 </html>

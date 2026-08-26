@@ -777,6 +777,13 @@
                     </div>`;
                 });
                 listContainer.innerHTML = html;
+            }, (error) => {
+                // Vorher wurde ein Fehler hier (z.B. fehlende Berechtigung) komplett
+                // stillschweigend verschluckt - der Platzhaltertext "Synchronisiere
+                // Funkwellen..." blieb dann für immer stehen, ohne jeden Hinweis, warum.
+                console.error("Kanal-Liste konnte nicht geladen werden:", error);
+                const listContainer = document.getElementById('active-chat-list');
+                if (listContainer) listContainer.innerHTML = '<div style="color:#f44; font-size:0.8em;">Fehler beim Laden der Kanäle: ' + window.escHtml(error.message || String(error)) + '</div>';
             });
         }
     }
