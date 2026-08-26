@@ -3473,8 +3473,16 @@ window.f_showDescription = function(withVoice) {
             if (!arCharging) return;
             arCharging = false;
             const elapsed = performance.now() - arChargeStart;
-            if (elapsed >= 3000) { completeExtraction(); }
-            else { document.getElementById('ar-extract-bar').style.width = '0%'; }
+            if (elapsed >= 3000) {
+                if (window.activeDualMissionId && typeof window.handleDualExtractionAttempt === 'function') {
+                    window.handleDualExtractionAttempt();
+                } else {
+                    completeExtraction();
+                }
+            } else {
+                document.getElementById('ar-extract-bar').style.width = '0%';
+                if (window.activeDualMissionId && typeof window.dualMissionMarkNotCharging === 'function') window.dualMissionMarkNotCharging();
+            }
         };
         btn.addEventListener('mousedown', startCharge);
         btn.addEventListener('touchstart', startCharge, { passive: false });
@@ -3483,6 +3491,7 @@ window.f_showDescription = function(withVoice) {
         btn.addEventListener('touchend', endCharge);
         btn.addEventListener('touchcancel', endCharge);
     }
+    window.startArMission = startArMission;
 
     function arRenderLoop() {
         updateAnomalyPosition();
@@ -3556,6 +3565,7 @@ window.f_showDescription = function(withVoice) {
                 if (typeof playBeep === 'function') playBeep(200, 0.15);
                 document.getElementById('ar-instructions').innerText = 'Kurzschluss! Anomalie aus dem Fadenkreuz gedriftet.';
                 setTimeout(() => { const inst = document.getElementById('ar-instructions'); if (inst) inst.innerText = 'Drehe dich, um die Anomalie zu finden!'; }, 2000);
+                if (window.activeDualMissionId && typeof window.dualMissionMarkNotCharging === 'function') window.dualMissionMarkNotCharging();
             }
         }
     }
@@ -3582,15 +3592,23 @@ window.f_showDescription = function(withVoice) {
         document.getElementById('mission-return-anim').style.display = 'flex';
         setTimeout(() => { document.getElementById('mission-return-bar').style.width = '100%'; }, 50);
         setTimeout(async () => {
-            const rewardResult = await window.applyMissionRewards(window.currentMissionType);
             document.getElementById('mission-return-anim').style.display = 'none';
             document.getElementById('mission-return-bar').style.width = '0%';
             restoreHomescreen();
             window.missionActive = false;
-            window.f_start();
-            showMissionRewardPopup(rewardResult);
+            if (window.activeDualMissionId) {
+                // Dual-Mission: eigene Belohnungslogik statt des normalen Missions-Loots.
+                if (typeof window.grantDualMissionReward === 'function') await window.grantDualMissionReward();
+                window.activeDualMissionId = null;
+                window.f_start();
+            } else {
+                const rewardResult = await window.applyMissionRewards(window.currentMissionType);
+                window.f_start();
+                showMissionRewardPopup(rewardResult);
+            }
         }, 2200);
     }
+    window._arCompleteExtraction = completeExtraction;
 
     function stopArCamera() {
         if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
