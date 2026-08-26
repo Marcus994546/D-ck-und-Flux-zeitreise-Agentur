@@ -91,6 +91,7 @@
     // ============================================================
     const AGENT_QUARTIERE_HOURS = 1;
     const AGENT_MAX_LEVEL = 10;
+    const ROOM_MAX_LEVEL = 10;
     const ROOM_LEVEL_UP_COST_MZ = 8;
     const ROOM_LEVEL_UP_COST_CREDITS = 1000;
     // Zentrale wird separat behandelt (keine Buttons), Subraum-Nexus darf nicht gelevelt werden.
@@ -1494,6 +1495,7 @@
         if (!room) return;
         const level = room.lvl || 1;
         const nextLevel = level + 1;
+        const amMaxLevel = level >= ROOM_MAX_LEVEL;
         const task = AGENT_TASK_ROOMS[roomType];
         const titleEl = document.getElementById('room-level-title');
         const bodyEl = document.getElementById('room-level-body');
@@ -1501,7 +1503,11 @@
         titleEl.innerText = '[ ' + roomDisplayName(roomType) + ' · LEVEL-UP ]';
 
         let productionHtml = '';
-        if (roomType === 'AGENTEN-QUARTIERE') {
+        if (amMaxLevel) {
+            // Bei Maximallevel gibt es kein "nächstes Level" mehr - keine der Formeln unten
+            // darf hier fälschlich ein Level 11 vorrechnen.
+            productionHtml = '<div style="color:#0f8;">Maximallevel (' + ROOM_MAX_LEVEL + ') bereits erreicht.</div>';
+        } else if (roomType === 'AGENTEN-QUARTIERE') {
             productionHtml = roomLevelTimeHtml(level, nextLevel, scaledQuartiereHours(level) * 60, scaledQuartiereHours(nextLevel) * 60);
         } else if (roomType === 'ARTEFAKT-ARCHIV') {
             productionHtml = roomLevelTimeHtml(level, nextLevel, scaledArchivJourneyMinutes(level), scaledArchivJourneyMinutes(nextLevel));
@@ -1557,7 +1563,17 @@
         bodyEl.innerHTML = productionHtml;
 
         const btn = document.getElementById('room-level-upgrade-btn');
-        if (btn) btn.onclick = () => window.levelUpRoom(roomType);
+        if (btn) {
+            if (amMaxLevel) {
+                btn.disabled = true;
+                btn.innerText = 'MAXIMALLEVEL ERREICHT';
+                btn.onclick = null;
+            } else {
+                btn.disabled = false;
+                btn.innerText = 'LEVEL-UP (1000 C + 8 MZ)';
+                btn.onclick = () => window.levelUpRoom(roomType);
+            }
+        }
     };
     window.showRoomLevelPopup = function(roomType) {
         window.renderRoomLevelPopup(roomType);
@@ -1686,6 +1702,10 @@
     window.levelUpRoom = async function(roomType) {
         const room = gameState.baseData.find(r => r.type === roomType);
         if (!room) return;
+        if ((room.lvl || 1) >= ROOM_MAX_LEVEL) {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Dieser Raum hat bereits das Maximallevel (' + ROOM_MAX_LEVEL + ') erreicht.');
+            return;
+        }
         if (gameState.materieZellen < ROOM_LEVEL_UP_COST_MZ || gameState.credits < ROOM_LEVEL_UP_COST_CREDITS) {
             if (typeof showCustomAlert === 'function') showCustomAlert('System: ' + ROOM_LEVEL_UP_COST_CREDITS + ' Credits + ' + ROOM_LEVEL_UP_COST_MZ + ' Materiezellen benötigt.');
             return;
@@ -4956,8 +4976,11 @@ window.reviveDeadAgent = async function(idx) {
     await saveGameState();
     if (typeof showInfoToast === 'function') showInfoToast('Agent erfolgreich rekonstruiert - fährt mit dem Aufzug zur Zentrale.');
     window.closeBioKapsel();
-    // Wie jeder andere Agent auch: sichtbar über den Aufzug zur Zentrale fahren, statt direkt
-    // dort zu erscheinen.
+    // Zur Aktive-Basis-Übersicht wechseln, BEVOR die Fahrt beginnt - playElevatorAnimation
+    // greift nur, wenn bunkerActive true ist, was innerhalb der Raum-Detailansicht (hier sind
+    // wir gerade, da die Kapsel nur von dort aus geöffnet werden kann) nicht der Fall ist. Ohne
+    // diesen Wechsel lief die komplette Fahrt bisher unsichtbar im Hintergrund ab.
+    if (typeof window.showAktiveBasis === 'function') window.showAktiveBasis();
     if (typeof sendAgentHome === 'function') sendAgentHome(newAgent);
     await saveGameState();
 };
