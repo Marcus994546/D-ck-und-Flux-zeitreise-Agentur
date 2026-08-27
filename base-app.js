@@ -463,7 +463,15 @@
     };
     window.schallplatteAnhoeren = function() {
         const audio = document.getElementById('schallplatte-audio');
-        if (audio) audio.play().catch(e => console.error('Wiedergabe fehlgeschlagen:', e));
+        const status = document.getElementById('schallplatte-status');
+        if (!audio) return;
+        if (status) status.innerText = 'Lade...';
+        audio.play().then(() => {
+            if (status) status.innerText = '';
+        }).catch(e => {
+            console.error('Wiedergabe fehlgeschlagen:', e);
+            if (status) status.innerText = '⚠ Wiedergabe fehlgeschlagen - Audiodatei nicht gefunden oder Format nicht unterstützt.';
+        });
     };
     window.closeArtifactDetail = function() {
         const overlay = document.getElementById('artifact-detail-overlay');
@@ -1280,6 +1288,29 @@
         window.openSammelSystem(); // Liste direkt aktualisiert (jetzt leer) neu anzeigen
     };
 
+    // Verfolgt den Aufzug kontinuierlich per requestAnimationFrame, solange er per CSS-
+    // Transition unterwegs ist - ein einmaliges scrollIntoView() reicht NICHT, weil die Fahrt
+    // über mehrere Sekunden läuft und die Seite dabei sonst zurückbleibt, statt mitzuwandern.
+    let aufzugScrollAktiv = false;
+    function folgeAufzugScroll(durationMs) {
+        aufzugScrollAktiv = true;
+        const startZeit = performance.now();
+        function schritt(jetzt) {
+            if (!aufzugScrollAktiv) return;
+            const car = document.getElementById('bunker-elevator-car');
+            if (car) {
+                const rect = car.getBoundingClientRect();
+                const zielMitte = window.innerHeight / 2;
+                const aktuelleMitte = rect.top + rect.height / 2;
+                const delta = aktuelleMitte - zielMitte;
+                if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+            }
+            if (jetzt - startZeit < durationMs + 200) requestAnimationFrame(schritt);
+            else aufzugScrollAktiv = false;
+        }
+        requestAnimationFrame(schritt);
+    }
+
     function playElevatorAnimation(oldLocation, newLocation, isStarter, agentId) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
         if (bunkerElevatorAnimating) {
@@ -1357,7 +1388,7 @@
             setDuration(DEPART_MS);
             requestAnimationFrame(() => {
                 car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-                car.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                folgeAufzugScroll(DEPART_MS);
             });
             setTimeout(() => setTimeout(disembark, ARRIVE_MS), DEPART_MS);
         }
@@ -1390,7 +1421,7 @@
             setDuration(PICKUP_MS);
             requestAnimationFrame(() => {
                 car.style.top = (oldIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-                car.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                folgeAufzugScroll(PICKUP_MS);
             });
             setTimeout(boardAndWait, PICKUP_MS);
         } else {

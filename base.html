@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260825h">
+    <link rel="stylesheet" href="base-style.css?v=20260825i">
 </head>
 <body>
 
@@ -202,7 +202,8 @@
         <p style="font-size:0.75em; color:#aaa; margin-bottom:0;">Jahr: <b id="artifact-detail-year" style="color:#c060ff;">-</b></p>
         <p id="artifact-detail-story" style="font-size:0.85em; color:#e0c0ff; margin-top:10px; line-height:1.5; font-family:sans-serif;">-</p>
         <button id="btn-schallplatte-anhoeren" style="display:none; width:100%; margin-top:12px; background:#c060ff; color:#000; border:none; padding:10px; font-family:'Orbitron'; font-weight:bold; cursor:pointer;" onclick="window.schallplatteAnhoeren()">🎵 SCHALLPLATTE ANHÖREN</button>
-        <audio id="schallplatte-audio" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/99-luftballons.mp3" preload="none"></audio>
+        <div id="schallplatte-status" style="font-size:0.7em; color:#ff8080; margin-top:6px; font-family:sans-serif;"></div>
+        <audio id="schallplatte-audio" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/99-luftballons.mp3" preload="none" onerror="const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Audiodatei konnte nicht geladen werden (URL prüfen).';"></audio>
         <button class="btn-back" style="width:100%; margin-top:16px;" onclick="window.closeArtifactDetail()">SCHLIESSEN</button>
     </div>
 </div>
@@ -423,8 +424,8 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260825h"></script>
-<script src="protokoll.js?v=20260825h"></script>
-<script src="base-app.js?v=20260825h"></script>
+<script type="module" src="base-firebase-init.js?v=20260825i"></script>
+<script src="protokoll.js?v=20260825i"></script>
+<script src="base-app.js?v=20260825i"></script>
 </body>
 </html>
