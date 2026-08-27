@@ -84,37 +84,10 @@
     let activeAlertTimeout = null; 
     let currentSystemStatus = "STABIL"; 
 
-    let currentLogs = [
-        "> Agent B. Flux: Rückkehr aus Sektor B-4 erfolgreich.",
-        "> System: Flux-Kondensator Kapazität bei 98.4%.",
-        "> Warnung: Temporale Anomalie in Sektor C-9 detektiert.",
-        "> Info: Neue Route nach 'Neo-Berlin' gesperrt."
-    ];
-
-    const logPool = [
-        "> Info: Backup-Server in Sektor E-0 synchronisiert.",
-        "> Scan: Unbekannte Signatur in Sektor D-8 geortet.",
-        "> Agent K. Zero: Sprung in die Kreidezeit eingeleitet.",
-        "> System: Kalibrierung der Zeit-Matrix abgeschlossen.",
-        "> Nachricht: Agent B. Flux benötigt zusätzliche Energiezellen.",
-        "> Scan: Temporale Verschiebung um 0.002s korrigiert.",
-        "> Warnung: Zeitreise-Katze in der Datenleitung entdeckt.",
-        "> Info: Chrono-Synchronisation mit Mars-Stadt erfolgreich.",
-        "> System: Kühlkreislauf des Flux-Moduls bei 88%.",
-        "> Warnung: Temporales Echo im Haupt-Sektor.",
-        "> Agent R. Dück: Artefakt aus dem Jahr 2026 geborgen.",
-        "> Scan: Wurmloch-Stabilität kritisch. Rekalibriere...",
-        "> Info: Paradoxon-Filter auf Stufe 4 erhöht.",
-        "> System: Antimaterie-Reserven bei 94%.",
-        "> Warnung: Unautorisierter Zugriff aus dem 24. Jahrhundert blockiert.",
-        "> Nachricht: Agentin V. Chronos meldet erfolgreiche Exfiltration.",
-        "> Scan: Tachyonen-Strahlung im Normalbereich.",
-        "> Info: Wartung an Chrono-Spule #4 abgeschlossen.",
-        "> Warnung: Riss im Raum-Zeit-Gefüge (Sektor 7) versiegelt.",
-        "> System: Quanten-Verschlüsselung aktualisiert.",
-        "> Scan: Dinosaurier-DNA-Spuren in Modul 2 gefunden. Reinigung läuft.",
-        "> Info: Zeitstrang Beta-9 erfolgreich überschrieben."
-    ];
+    // Das Protokoll zeigt jetzt ausschließlich echte Ereignisse an (siehe protokoll.js,
+    // window.logEreignis) - die vorherigen ausgedachten Platzhalter-Meldungen ("Agent B. Flux:
+    // Rückkehr aus Sektor B-4 erfolgreich" usw.) und der Zufalls-Logpool sind komplett entfernt.
+    let currentLogs = [];
 
     function initSystem() {
         startClock();
@@ -122,7 +95,7 @@
         aktualisiereStatusWerte();
         f_start();
         starteSynchronenZyklus();
-        planeNaechstenLog();
+        if (typeof window.starteProtokollAnzeige === 'function') window.starteProtokollAnzeige();
 
         if (window.isAgentVerified) {
             setTimeout(() => {
@@ -137,8 +110,7 @@
             clearTimeout(activeAlertTimeout);
             if (typeof updateXP === 'function') updateXP(50);
             playBeep(1400, 0.1);
-            currentLogs.unshift("> System: MANUELLER OVERRIDE! +50 XP erhalten.");
-            if (currentLogs.length > 5) currentLogs.pop();
+            window.logEreignis("Manueller Override durchgeführt: +50 XP erhalten.");
             const navBtn = document.getElementById('status-nav-btn');
             if (navBtn) {
                 navBtn.classList.remove('status-warn-pulse');
@@ -147,8 +119,7 @@
             starteSynchronenZyklus();
             if (document.getElementById('log-display')) f_start();
         } else {
-            currentLogs.unshift("> System: Override abgelehnt. Status bereits stabil.");
-            if (currentLogs.length > 5) currentLogs.pop();
+            window.logEreignis("Override abgelehnt - Status bereits stabil.");
             if (document.getElementById('log-display')) f_start();
         }
     };
@@ -167,33 +138,13 @@
         if (currentSystemStatus === "STABIL") {
             clearTimeout(activeAlertTimeout);
             playBeep(400, 0.2); 
-            currentLogs.unshift("> Warnung: MANUELLER EINGRIFF! Stabilität gefährdet.");
-            if (currentLogs.length > 5) currentLogs.pop();
+            window.logEreignis("Manueller Eingriff durchgeführt - Stabilität gefährdet.");
             
             erzeugeWarnSequenz(); 
             
             if (document.getElementById('log-display')) f_start();
         }
     };
-
-    function planeNaechstenLog() {
-        const delay = Math.floor(Math.random() * (600000 - 60000 + 1)) + 60000;
-        setTimeout(() => {
-            neuerLogEintrag();
-            planeNaechstenLog();
-        }, delay);
-    }
-
-    function neuerLogEintrag() {
-        const neuerEintrag = logPool[Math.floor(Math.random() * logPool.length)];
-        currentLogs.unshift(neuerEintrag);
-        if (currentLogs.length > 5) currentLogs.pop();
-        const logContainer = document.getElementById('log-display');
-        if (logContainer) {
-            logContainer.innerHTML = currentLogs.map(l => `<div class="log-entry">${l}</div>`).join('');
-            playBeep(900, 0.02);
-        }
-    }
 
     let coherenceTickerId = null;
     let crashSequenceActive = false;
@@ -227,8 +178,7 @@
                     if (navBtn) navBtn.classList.remove('status-warn-pulse');
                     erzwingeStatus('INSTABIL', 'status-crit', true);
                     if (navBtn) navBtn.classList.add('alert-pulse');
-                    currentLogs.unshift("> KRITISCH: Kohärenz unter 80%! System instabil!");
-                    if (currentLogs.length > 5) currentLogs.pop();
+                    window.logEreignis("System-Reset: Kohärenz unter 80% gefallen, Status INSTABIL.");
                     if (document.getElementById('log-display')) f_start();
                     playBeep(200, 0.3);
                 }
@@ -294,8 +244,7 @@
                     currentCoherence = 55.0 + Math.random() * 10;
                     const display = document.getElementById('coherence-display');
                     if (display) display.innerText = currentCoherence.toFixed(1) + "%";
-                    currentLogs.unshift("> Server-Hub hat den Crashout im letzten Moment abgefangen!");
-                    if (currentLogs.length > 5) currentLogs.pop();
+                    window.logEreignis("Server-Hub hat einen Crashout erfolgreich verhindert.");
                     if (document.getElementById('log-display')) f_start();
                     const modal = document.getElementById('crashout-averted-modal');
                     const textEl = document.getElementById('crashout-averted-text');
@@ -307,8 +256,7 @@
                 }
             }
             crashSequenceActive = true;
-            currentLogs.unshift("> CRASHOUT: Kohärenz unter 50%! Not-Crash erzwungen!");
-            if (currentLogs.length > 5) currentLogs.pop();
+            window.logEreignis("System-Crashout ausgeführt: Kohärenz unter 50% gefallen.");
             if (document.getElementById('log-display')) f_start();
             // Vorher fehlte hier komplett die Sound-/Bildeffekt-Sequenz (Crash-Sound, Hum,
             // Flash, Reboot-Bildschirm) - der Crash kam bisher lautlos und ohne Übergang.
@@ -354,8 +302,7 @@
         currentSystemStatus = "WARNUNG";
         erzwingeStatus('WARNUNG', 'status-warn', true);
         if (navBtn) navBtn.classList.add('status-warn-pulse');
-        currentLogs.unshift("> Warnung: Temporale Kohärenz sinkt! System unter Beobachtung.");
-        if (currentLogs.length > 5) currentLogs.pop();
+        window.logEreignis("Warnung: Temporale Kohärenz sinkt - System unter Beobachtung.");
         if (document.getElementById('log-display')) f_start();
     }
 
@@ -814,12 +761,24 @@ window.startGlobalNotification = function() {
     }
 
     if (window.globalChatListener) window.globalChatListener();
+    let bekannteUngeleseneKanaele = new Set();
     window.globalChatListener = window.onSnapshot(q, (snapshot) => {
         hasUnreadChat = false;
+        const jetztUngelesen = new Set();
         snapshot.forEach((doc) => {
             const data = doc.data();
-            if (data.ungelesen_fuer === myName) hasUnreadChat = true;
+            if (data.ungelesen_fuer === myName) {
+                hasUnreadChat = true;
+                jetztUngelesen.add(doc.id);
+                // Nur beim ÜBERGANG von gelesen -> ungelesen protokollieren, nicht bei jedem
+                // erneuten Auslösen des Listeners für bereits bekannte ungelesene Nachrichten.
+                if (!bekannteUngeleseneKanaele.has(doc.id)) {
+                    const absender = (data.teilnehmer || []).find(n => n !== myName) || '?';
+                    if (typeof window.logEreignis === 'function') window.logEreignis(absender + ': Nachricht bekommen.');
+                }
+            }
         });
+        bekannteUngeleseneKanaele = jetztUngelesen;
         updateNetzwerkPulse();
     }, (error) => console.error("Globaler Chat-Puls-Listener Fehler:", error));
 
@@ -1897,8 +1856,10 @@ document.addEventListener('click', () => {
             if (mode === 2 && finalScore > window.hs3000) { window.hs3000 = finalScore; isNewHigh = true; }
             if (mode === 3 && finalScore > window.hs4400) { window.hs4400 = finalScore; isNewHigh = true; }
             
-            if (isNewHigh && typeof window.saveProgress === 'function') {
-                window.saveProgress(); 
+            if (isNewHigh) {
+                const modellName = mode === 1 ? 'FLUX 1200' : (mode === 2 ? 'FLUX 3000' : 'FLUX 4400');
+                if (typeof window.logEreignis === 'function') window.logEreignis('Neuer Highscore bei ' + modellName + ': ' + finalScore + ' Punkte.');
+                if (typeof window.saveProgress === 'function') window.saveProgress(); 
             }
             return isNewHigh;
         }
@@ -2926,6 +2887,7 @@ window.f_showDescription = function(withVoice) {
         if (typeof playBeep === 'function') playBeep(800, 0.1);
         window.missionActive = true;
         window.currentMissionType = missionType || 'normal';
+        if (typeof window.logEreignis === 'function') window.logEreignis('Mission erfolgreich gestartet (' + (window.missionLabels[window.currentMissionType] || window.currentMissionType) + ').');
 
         if (!navigator.geolocation) {
             document.getElementById('content-body').innerHTML = '<h3 style="color:#f44;">[ GPS OFFLINE ]</h3><p style="color:#aaa;font-size:0.9em;">Dein Gerät unterstützt keine GPS-Navigation.</p><button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>';

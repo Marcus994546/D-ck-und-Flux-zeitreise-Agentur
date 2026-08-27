@@ -569,6 +569,7 @@
                 createdAt: Date.now()
             });
             await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: allianzId }, { merge: true });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + name + '" gegründet.');
             renderAllianz();
         } catch (e) {
             console.error(e);
@@ -586,6 +587,7 @@
             if (Array.isArray(data.mitglieder) && data.mitglieder.includes(mySlug)) return;
             await window.setDoc(ref, { mitglieder: [...(data.mitglieder || []), mySlug] }, { merge: true });
             await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: allianzId }, { merge: true });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + data.name + '" beigetreten.');
             renderAllianz();
         } catch (e) {
             console.error(e);
@@ -607,6 +609,7 @@
                 if (restMitglieder.length === 0) {
                     await window.deleteDoc(ref);
                     await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
+                    if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + data.name + '" aufgelöst.');
                     renderAllianz();
                     return;
                 }
@@ -614,6 +617,7 @@
                 if (!amOwner) {
                     await window.setDoc(ref, { mitglieder: restMitglieder }, { merge: true });
                     await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
+                    if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + data.name + '" verlassen.');
                     renderAllianz();
                     return;
                 }
@@ -626,6 +630,7 @@
 
                 await window.setDoc(ref, { mitglieder: restMitglieder, ownerSlug: newOwner }, { merge: true });
                 await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
+                if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + data.name + '" verlassen.');
                 renderAllianz();
             } catch (e) {
                 console.error(e);

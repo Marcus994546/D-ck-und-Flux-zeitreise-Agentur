@@ -1569,11 +1569,20 @@
         }
         bodyEl.innerHTML = productionHtml;
 
+        const moebelKomplett = roomFurnitureVollstaendig(roomType);
+        if (!moebelKomplett && !amMaxLevel) {
+            bodyEl.innerHTML += '<div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,136,0,0.4); color:#ff8800;">⚠ Dieser Raum muss erst vollständig mit Möbeln ausgestattet sein, bevor er geleveled werden kann.</div>';
+        }
+
         const btn = document.getElementById('room-level-upgrade-btn');
         if (btn) {
             if (amMaxLevel) {
                 btn.disabled = true;
                 btn.innerText = 'MAXIMALLEVEL ERREICHT';
+                btn.onclick = null;
+            } else if (!moebelKomplett) {
+                btn.disabled = true;
+                btn.innerText = 'ERST MÖBEL VERVOLLSTÄNDIGEN';
                 btn.onclick = null;
             } else {
                 btn.disabled = false;
@@ -1706,11 +1715,45 @@
     // Zeigt den aktuellen Anzeigenamen eines Raums - fängt den Fall ab, dass ein bereits vor
     // der Umbenennung gebauter Raum in den gespeicherten Daten noch unter dem alten internen
     // Namen "VAKUUM-SCHMIEDE" geführt wird.
+    // Bildet Raumtyp -> ID des zugehörigen Möbel-Shop-Panels ab. Die meisten folgen dem Muster
+    // "menu-" + kleingeschriebener Raumname, zwei Räume (Archiv, Quartiere) nutzen historisch
+    // verkürzte IDs.
+    function roomShopPanelId(roomType) {
+        const sonderfaelle = {
+            'ARTEFAKT-ARCHIV': 'menu-archiv',
+            'AGENTEN-QUARTIERE': 'menu-quartiere',
+            'TEMPORAL TIME FORGE': 'menu-vakuum-schmiede',
+            'VAKUUM-SCHMIEDE': 'menu-vakuum-schmiede'
+        };
+        if (sonderfaelle[roomType]) return sonderfaelle[roomType];
+        return 'menu-' + roomType.toLowerCase().replace(/"/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    // Ein Raum lässt sich erst leveln, wenn im zugehörigen Möbel-Shop-Panel ALLE Kauf-Buttons
+    // deaktiviert sind (= komplett ausgestattet). Räume ohne eigenes Shop-Panel (z.B.
+    // Subraum-Nexus, dessen 5 Stationen fest zum Raum gehören und nicht einzeln gekauft werden)
+    // gelten automatisch als vollständig.
+    function roomFurnitureVollstaendig(roomType) {
+        // Buttons erst zwangsweise aktualisieren - sie werden sonst nur beim Öffnen des jeweiligen
+        // Raums neu bewertet, ein Level-Klick direkt aus der Übersicht könnte also einen
+        // veralteten (nicht aktualisierten) Zustand vorfinden.
+        if (typeof window.updateAusbauButtons === 'function') window.updateAusbauButtons();
+        const panel = document.getElementById(roomShopPanelId(roomType));
+        if (!panel) return true;
+        const kaufButtons = panel.querySelectorAll('.btn-upgrade-exec');
+        if (kaufButtons.length === 0) return true;
+        return Array.from(kaufButtons).every(btn => btn.disabled);
+    }
+
     window.levelUpRoom = async function(roomType) {
         const room = gameState.baseData.find(r => r.type === roomType);
         if (!room) return;
         if ((room.lvl || 1) >= ROOM_MAX_LEVEL) {
             if (typeof showCustomAlert === 'function') showCustomAlert('Dieser Raum hat bereits das Maximallevel (' + ROOM_MAX_LEVEL + ') erreicht.');
+            return;
+        }
+        if (!roomFurnitureVollstaendig(roomType)) {
+            if (typeof showCustomAlert === 'function') showCustomAlert('Dieser Raum muss erst vollständig mit Möbeln ausgestattet sein, bevor er geleveled werden kann.');
             return;
         }
         if (gameState.materieZellen < ROOM_LEVEL_UP_COST_MZ || gameState.credits < ROOM_LEVEL_UP_COST_CREDITS) {
@@ -1723,6 +1766,7 @@
         updateUI();
         await saveGameState();
         if (typeof showInfoToast === 'function') showInfoToast(roomDisplayName(roomType) + ' auf Level ' + room.lvl + ' hochgestuft.');
+        if (typeof window.logEreignis === 'function') window.logEreignis(roomDisplayName(roomType) + ' auf Level ' + room.lvl + ' hochgestuft.');
         if (typeof window.renderRoomLevelPopup === 'function') window.renderRoomLevelPopup(roomType);
         if (typeof renderBunkerView === 'function') renderBunkerView();
     };

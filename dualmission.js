@@ -136,6 +136,7 @@
             vonLat: vonLat || null, vonLon: vonLon || null,
             gescanntVon: [], createdAt: Date.now()
         });
+        if (typeof window.logEreignis === 'function') window.logEreignis('Dual-Mission gestartet (Einladung an ' + zielSlug + ').');
     }
 
     // --- Eingehende Einladungen prüfen (Polling, alle 15s, solange eingeloggt) ---
