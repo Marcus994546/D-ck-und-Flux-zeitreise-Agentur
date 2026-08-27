@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260825j">
+    <link rel="stylesheet" href="base-style.css?v=20260825k">
 </head>
 <body>
 
@@ -204,6 +204,7 @@
         <button id="btn-schallplatte-anhoeren" style="display:none; width:100%; margin-top:12px; background:#c060ff; color:#000; border:none; padding:10px; font-family:'Orbitron'; font-weight:bold; cursor:pointer;" onclick="window.schallplatteAnhoeren()">🎵 SCHALLPLATTE ANHÖREN</button>
         <div id="schallplatte-status" style="font-size:0.7em; color:#ff8080; margin-top:6px; font-family:sans-serif;"></div>
         <audio id="schallplatte-audio" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/99%20Luftbalogs.mp3" preload="none" onerror="const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Audiodatei konnte nicht geladen werden (URL prüfen).';"></audio>
+        <img id="artifact-schriftrolle-bild" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/AlienSchriftrolle.jpg" alt="Alien-Schriftrolle" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Bild konnte nicht geladen werden (URL prüfen).';">
         <button class="btn-back" style="width:100%; margin-top:16px;" onclick="window.closeArtifactDetail()">SCHLIESSEN</button>
     </div>
 </div>
@@ -424,8 +425,8 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260825j"></script>
-<script src="protokoll.js?v=20260825j"></script>
-<script src="base-app.js?v=20260825j"></script>
+<script type="module" src="base-firebase-init.js?v=20260825k"></script>
+<script src="protokoll.js?v=20260825k"></script>
+<script src="base-app.js?v=20260825k"></script>
 </body>
 </html>

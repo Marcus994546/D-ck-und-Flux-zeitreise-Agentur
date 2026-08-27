@@ -459,6 +459,10 @@
         if (listenBtn) listenBtn.style.display = a.name.includes('Schallplatte') ? 'block' : 'none';
         const audio = document.getElementById('schallplatte-audio');
         if (audio) { audio.pause(); audio.currentTime = 0; }
+        const schriftrolleBild = document.getElementById('artifact-schriftrolle-bild');
+        if (schriftrolleBild) schriftrolleBild.style.display = a.name.includes('Alien-Schriftrolle') ? 'block' : 'none';
+        const status = document.getElementById('schallplatte-status');
+        if (status) status.innerText = '';
         if (overlay) overlay.style.display = 'flex';
     };
     window.schallplatteAnhoeren = function() {
