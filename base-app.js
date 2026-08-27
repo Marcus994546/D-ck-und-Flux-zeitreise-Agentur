@@ -461,6 +461,11 @@
         if (audio) { audio.pause(); audio.currentTime = 0; }
         const schriftrolleBild = document.getElementById('artifact-schriftrolle-bild');
         if (schriftrolleBild) schriftrolleBild.style.display = a.name.includes('Alien-Schriftrolle') ? 'block' : 'none';
+        const datenkristallVideo = document.getElementById('artifact-datenkristall-video');
+        if (datenkristallVideo) {
+            datenkristallVideo.pause();
+            datenkristallVideo.style.display = a.name.includes('Datenkristall') ? 'block' : 'none';
+        }
         const status = document.getElementById('schallplatte-status');
         if (status) status.innerText = '';
         if (overlay) overlay.style.display = 'flex';
@@ -482,6 +487,8 @@
         if (overlay) overlay.style.display = 'none';
         const audio = document.getElementById('schallplatte-audio');
         if (audio) audio.pause();
+        const video = document.getElementById('artifact-datenkristall-video');
+        if (video) video.pause();
     };
 
     // Platziert die gesammelten Artefakt-Icons grafisch in den Regalfächern (.regal-fach) der
