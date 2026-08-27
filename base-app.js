@@ -1294,7 +1294,19 @@
         if (eingesammelt.credits > 0) teile.push(eingesammelt.credits + ' Credits');
         if (eingesammelt.materiezellen > 0) teile.push(eingesammelt.materiezellen + ' Materiezellen');
         if (eingesammelt.chronoszellen > 0) teile.push(eingesammelt.chronoszellen + ' Chronos-Zellen');
-        if (typeof window.logEreignis === 'function') window.logEreignis('Belohnung eingesammelt: ' + teile.join(', ') + '.');
+        // WICHTIG: der Protokoll-Eintrag wird jetzt VOR den restlichen (nicht-kritischen)
+        // Folgeaktionen abgewartet (await), nicht mehr nur "fire and forget" nebenbei
+        // angestoßen. Vorher bestand ein reales Zeitfenster, in dem ein Spieler direkt nach dem
+        // Klick zu einer anderen Seite wechseln konnte, während der Firestore-Schreibvorgang
+        // noch lief - dabei konnte der Eintrag verloren gehen, ohne dass irgendetwas davon
+        // sichtbar war.
+        if (typeof window.logEreignis === 'function') {
+            try {
+                await window.logEreignis('Belohnung eingesammelt: ' + teile.join(', ') + '.');
+            } catch (e) {
+                console.error('Protokoll-Eintrag beim Einsammeln fehlgeschlagen:', e);
+            }
+        }
         if (typeof showInfoToast === 'function') showInfoToast('Belohnung eingesammelt: ' + teile.join(', ') + '.');
         window.openSammelSystem(); // Liste direkt aktualisiert (jetzt leer) neu anzeigen
     };

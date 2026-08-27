@@ -34,6 +34,31 @@
     // Nur relevant auf index.html, aber unschädlich auf den anderen Seiten (findet dort einfach
     // kein #log-display und tut nichts).
     let protokollListener = null;
+    let protokollFallbackInterval = null;
+
+    async function ladeProtokollEinmalig() {
+        if (!window.db || !window.agentName) return;
+        const mySlug = window.agentSlug(window.agentName);
+        const logContainer = document.getElementById('log-display');
+        if (!logContainer) return;
+        try {
+            const q = window.query(
+                window.collection(window.db, "protokolle", mySlug, "eintraege"),
+                window.orderBy("ts", "desc"),
+                window.limit(8)
+            );
+            const snapshot = await window.getDocs(q);
+            if (snapshot.empty) {
+                logContainer.innerHTML = '<div class="log-entry" style="opacity:0.5;">Noch keine Protokoll-Einträge vorhanden.</div>';
+                return;
+            }
+            logContainer.innerHTML = snapshot.docs.map(d => {
+                const data = d.data();
+                return `<div class="log-entry">&gt; ${window.escHtml ? window.escHtml(data.text) : data.text}</div>`;
+            }).join('');
+        } catch (e) { console.error("Protokoll-Sicherheitsauffrischung fehlgeschlagen:", e); }
+    }
+
     window.starteProtokollAnzeige = async function() {
         await wartenAufAgentName();
         const mySlug = window.agentSlug(window.agentName);
@@ -55,6 +80,13 @@
                 return `<div class="log-entry">&gt; ${window.escHtml ? window.escHtml(data.text) : data.text}</div>`;
             }).join('');
         }, (error) => console.error("Protokoll-Anzeige Fehler:", error));
+
+        // Sicherheitsnetz: zusätzlich zum Live-Listener alle 15s einmal frisch nachladen - falls
+        // der Live-Listener aus irgendeinem (bisher nicht eindeutig reproduzierbarem) Grund
+        // stumm hängen bleiben sollte, sorgt das dafür, dass spätestens nach 15s der korrekte
+        // Stand nachgezogen wird, statt dauerhaft veraltet zu bleiben.
+        if (protokollFallbackInterval) clearInterval(protokollFallbackInterval);
+        protokollFallbackInterval = setInterval(ladeProtokollEinmalig, 15000);
     };
 
     // --- Konsolenbefehl "log": listet die komplette Missions-Historie auf ---
