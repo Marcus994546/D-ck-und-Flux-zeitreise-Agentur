@@ -82,7 +82,7 @@
     };
 
     // --- GAME STATE & RÄUME ---
-    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, overdrivePct: 100, deadAgents: [], pendingDrop: null, userLevel: 1, agents: [], agentSystemUnlocked: false };
+    let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, overdrivePct: 100, deadAgents: [], pendingDrop: null, userLevel: 1, agents: [], agentSystemUnlocked: false, pendingRewards: { credits: 0, materiezellen: 0, chronoszellen: 0 } };
 
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
@@ -295,6 +295,12 @@
     const AGENT_UNLOCK_REQUIRED_ROOMS = ['AGENTEN-QUARTIERE', 'SCANNER-PHALANX', 'KI-KERNMATRIX', 'FLUX-REAKTOR', 'MATERIE-DEKOMPRESSOR'];
 
     function ensureAgentsInitialized() {
+        if (!gameState.pendingRewards || typeof gameState.pendingRewards !== 'object') {
+            gameState.pendingRewards = { credits: 0, materiezellen: 0, chronoszellen: 0 };
+        }
+        ['credits', 'materiezellen', 'chronoszellen'].forEach(k => {
+            if (typeof gameState.pendingRewards[k] !== 'number' || isNaN(gameState.pendingRewards[k])) gameState.pendingRewards[k] = 0;
+        });
         if (!Array.isArray(gameState.agents)) gameState.agents = [];
         // Ohne Freischaltung existiert das gesamte Agenten-System nicht - kein automatisches Spawnen.
         if (!gameState.agentSystemUnlocked) return;
@@ -329,12 +335,12 @@
     function applyAgentReward(agent, task) {
         const roomLevel = roomLevelOf(agent.location);
         if (task.effect === 'credits') {
-            gameState.credits += scaledCreditsAmount(task.amount, roomLevel);
+            gameState.pendingRewards.credits += scaledCreditsAmount(task.amount, roomLevel);
         } else if (task.effect === 'materiezelle') {
             // Materie-Dekompressor hat eine eigene, gestufte Formel (Lvl1-4:1, Lvl5-9:2, Lvl10:3),
             // alle anderen Materiezelle-Räume (Oszillations-Kammer, Subraum-Nexus) nutzen weiter
             // die generische "alle zwei Level +1"-Formel.
-            gameState.materieZellen += (agent.location === 'MATERIE-DEKOMPRESSOR')
+            gameState.pendingRewards.materiezellen += (agent.location === 'MATERIE-DEKOMPRESSOR')
                 ? scaledMaterieDekompressor(roomLevel)
                 : scaledMaterieAmount(roomLevel);
         } else if (task.effect === 'level_up') {
@@ -352,6 +358,7 @@
                 taskStartTs: null,
                 taskDurationMs: null
             });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Neuer Agent produziert.');
         } else if (task.effect === 'horizon_mission') {
             if (!Array.isArray(gameState.horizonMissions)) gameState.horizonMissions = [];
             const mission = generateHorizonMission();
@@ -386,7 +393,7 @@
     function resolveArchivReward(agent) {
         if (!Array.isArray(gameState.collectedArtifacts)) gameState.collectedArtifacts = [];
         const chronos = 1 + Math.floor(Math.random() * 5); // 1-5
-        gameState.chronosZellen += chronos;
+        gameState.pendingRewards.chronoszellen += chronos;
 
         let artifactMsg = '';
         const uncollected = ARTEFAKTE.filter(a => !gameState.collectedArtifacts.includes(a.name));
@@ -448,11 +455,21 @@
         if (nameEl) nameEl.innerText = a.name;
         if (yearEl) yearEl.innerText = a.year;
         if (storyEl) storyEl.innerText = a.story;
+        const listenBtn = document.getElementById('btn-schallplatte-anhoeren');
+        if (listenBtn) listenBtn.style.display = a.name.includes('Schallplatte') ? 'block' : 'none';
+        const audio = document.getElementById('schallplatte-audio');
+        if (audio) { audio.pause(); audio.currentTime = 0; }
         if (overlay) overlay.style.display = 'flex';
+    };
+    window.schallplatteAnhoeren = function() {
+        const audio = document.getElementById('schallplatte-audio');
+        if (audio) audio.play().catch(e => console.error('Wiedergabe fehlgeschlagen:', e));
     };
     window.closeArtifactDetail = function() {
         const overlay = document.getElementById('artifact-detail-overlay');
         if (overlay) overlay.style.display = 'none';
+        const audio = document.getElementById('schallplatte-audio');
+        if (audio) audio.pause();
     };
 
     // Platziert die gesammelten Artefakt-Icons grafisch in den Regalfächern (.regal-fach) der
@@ -467,6 +484,14 @@
         const container = document.getElementById(targetId);
         if (!container) return;
         const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
+
+        // WICHTIG: Icons sind NUR in der echten Raum-Detailansicht ('room-area') einzeln
+        // anklickbar. In der kleinen Vorschau innerhalb der Aktive-Basis-Übersicht (targetId
+        // ist dort 'bunker-room-X') soll ein Klick stattdessen ganz normal zum Raum-Slot
+        // durchgereicht werden, damit sich (wie beim VIP-Raum) erst die Raumansicht öffnet -
+        // vorher konnte ein Klick direkt auf ein Artefakt-Icon in der Übersicht das Detail-Popup
+        // öffnen, OHNE dass der Raum überhaupt betreten wurde.
+        const inDetailView = (targetId === 'room-area');
 
         let faecher = container.querySelectorAll('.regal-fach');
         if (!faecher.length) {
@@ -490,7 +515,12 @@
                 icon.style.cssText = 'background:rgba(192,96,255,0.12); border:1px solid rgba(192,96,255,0.4); border-radius:3px; padding:2px 3px;';
                 icon.textContent = a ? a.icon : '❔';
                 icon.title = name;
-                icon.onclick = function(ev) { ev.stopPropagation(); window.showArtifactDetail(name); };
+                if (inDetailView) {
+                    icon.onclick = function(ev) { ev.stopPropagation(); window.showArtifactDetail(name); };
+                } else {
+                    icon.style.cursor = 'default';
+                    icon.style.pointerEvents = 'none';
+                }
                 fallback.appendChild(icon);
             });
             return;
@@ -508,7 +538,12 @@
             icon.className = 'regal-artifact-icon';
             icon.textContent = a ? a.icon : '❔';
             icon.title = name;
-            icon.onclick = function(ev) { ev.stopPropagation(); window.showArtifactDetail(name); };
+            if (inDetailView) {
+                icon.onclick = function(ev) { ev.stopPropagation(); window.showArtifactDetail(name); };
+            } else {
+                icon.style.cursor = 'default';
+                icon.style.pointerEvents = 'none';
+            }
             fach.appendChild(icon);
         });
     }
@@ -670,8 +705,8 @@
                             agent.level = Math.min(AGENT_MAX_LEVEL, agent.level + lvlBonus);
                             const mzGain = scaledImpulsMaterie(roomLvl);
                             const creditsGain = scaledImpulsCredits(roomLvl);
-                            gameState.materieZellen += mzGain;
-                            gameState.credits += creditsGain;
+                            gameState.pendingRewards.materiezellen += mzGain;
+                            gameState.pendingRewards.credits += creditsGain;
                             if (typeof showInfoToast === 'function') showInfoToast('Impuls-Kondensator: Agent hat die Entladung überlebt und ist aufgestiegen! (+' + lvlBonus + ' Agentenlevel, +' + mzGain + ' MZ, +' + creditsGain + ' Credits)');
                             sendAgentHome(agent);
                         } else {
@@ -755,7 +790,7 @@
                 if (!room.lastTick) { room.lastTick = now; changed = true; return; }
                 let safety = 0;
                 while (effectiveElapsed(room.lastTick, now) >= THERMO_KOPPLER_INTERVAL_MS && safety < 1000) {
-                    gameState.credits += scaledThermoCredits(room.lvl || 1);
+                    gameState.pendingRewards.credits += scaledThermoCredits(room.lvl || 1);
                     room.lastTick += THERMO_KOPPLER_INTERVAL_MS;
                     changed = true;
                     safety++;
@@ -764,7 +799,7 @@
                 if (!room.lastTick) { room.lastTick = now; changed = true; return; }
                 let safety = 0;
                 while (effectiveElapsed(room.lastTick, now) >= SUBRAUM_NEXUS_INTERVAL_MS && safety < 1000) {
-                    gameState.credits += 100;
+                    gameState.pendingRewards.credits += 100;
                     room.lastTick += SUBRAUM_NEXUS_INTERVAL_MS;
                     changed = true;
                     safety++;
@@ -885,6 +920,7 @@
                 if (parsed.baseData) gameState.baseData = parsed.baseData;
                 if (Array.isArray(parsed.agents)) gameState.agents = parsed.agents;
                 if (parsed.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
+                if (parsed.pendingRewards) gameState.pendingRewards = parsed.pendingRewards;
             } catch(e) {} 
         }
         ensureAgentsInitialized();
@@ -944,6 +980,7 @@
                     if (data.overdriveStartTs !== undefined) gameState.overdriveStartTs = data.overdriveStartTs;
                     if (data.overdrivePct !== undefined) gameState.overdrivePct = data.overdrivePct;
                     if (data.overdriveEndTs !== undefined) gameState.overdriveEndTs = data.overdriveEndTs;
+                    if (data.pendingRewards) gameState.pendingRewards = data.pendingRewards;
                 }
                 gameState.credits = fusedCredits;
                 gameState.materieZellen = fusedMz;
@@ -1009,6 +1046,7 @@
                     overdriveStartTs: gameState.overdriveStartTs,
                     overdrivePct: gameState.overdrivePct,
                     overdriveEndTs: gameState.overdriveEndTs,
+                    pendingRewards: gameState.pendingRewards,
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -1124,6 +1162,7 @@
                 gameState.chronosZellen -= cost;
                 gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1, lastTick: Date.now()});
                 updateUI(); renderGrid(); hideRoomMenu(); await saveGameState();
+                if (typeof window.logEreignis === 'function') window.logEreignis(roomDisplayName(type) + ' gebaut.');
             } else { hideRoomMenu(); if (typeof showCustomAlert === 'function') showCustomAlert("System: Nicht genügend Chronos-Zellen (75 benötigt)."); }
             return;
         }
@@ -1132,6 +1171,7 @@
             gameState.materieZellen -= buildCost;
             gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1, lastTick: Date.now()});
             updateUI(); renderGrid(); hideRoomMenu(); await saveGameState();
+            if (typeof window.logEreignis === 'function') window.logEreignis(roomDisplayName(type) + ' gebaut.');
         } else { hideRoomMenu(); if (typeof showCustomAlert === 'function') showCustomAlert("System: Nicht genügend Materie-Zellen."); }
     };
 
@@ -1187,6 +1227,59 @@
     // des Agenten, (2) steht dort GENAU 10s lang, während (3) das Männchen sichtbar aus der
     // Raummitte in den Aufzug hineinläuft (dauert 5s, läuft innerhalb der 10s Standzeit ab),
     // (4) erst nach den vollen 10s fährt der Aufzug weiter. Kein Countdown/Timer wird angezeigt.
+    // Kleine anklickbare Lampe im Aufzug - rein kosmetisch, hat keine Spielmechanik-Wirkung.
+    window.toggleElevatorLamp = function() {
+        const lamp = document.getElementById('bunker-elevator-lamp');
+        if (!lamp) return;
+        lamp.classList.toggle('an');
+        playBeepBase(lamp.classList.contains('an') ? 700 : 300, 0.05);
+    };
+
+    // --- SAMMEL-SYSTEM: Boni aus Agenten/passiver Raumproduktion sammeln sich hier an und
+    // werden erst auf Knopfdruck gutgeschrieben. Artefakte sind ausdrücklich ausgenommen und
+    // landen weiterhin direkt im Lager.
+    window.openSammelSystem = function() {
+        const overlay = document.getElementById('sammel-system-overlay');
+        const liste = document.getElementById('sammel-system-liste');
+        const btn = document.getElementById('btn-sammel-einsammeln');
+        if (!overlay || !liste) return;
+        const p = gameState.pendingRewards || { credits: 0, materiezellen: 0, chronoszellen: 0 };
+        const hatEtwas = (p.credits > 0 || p.materiezellen > 0 || p.chronoszellen > 0);
+        if (!hatEtwas) {
+            liste.innerHTML = '<div style="opacity:0.6;">Noch keine Boni angesammelt.</div>';
+        } else {
+            let html = '';
+            if (p.credits > 0) html += '<div>💰 ' + p.credits.toLocaleString('de-DE') + ' Credits</div>';
+            if (p.materiezellen > 0) html += '<div>🧬 ' + p.materiezellen + ' Materiezellen</div>';
+            if (p.chronoszellen > 0) html += '<div>⏳ ' + p.chronoszellen + ' Chronos-Zellen</div>';
+            liste.innerHTML = html;
+        }
+        if (btn) btn.disabled = !hatEtwas;
+        overlay.style.display = 'flex';
+    };
+    window.closeSammelSystem = function() {
+        const overlay = document.getElementById('sammel-system-overlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+    window.belohnungEinsammeln = async function() {
+        const p = gameState.pendingRewards || { credits: 0, materiezellen: 0, chronoszellen: 0 };
+        if (p.credits <= 0 && p.materiezellen <= 0 && p.chronoszellen <= 0) return;
+        const eingesammelt = { credits: p.credits, materiezellen: p.materiezellen, chronoszellen: p.chronoszellen };
+        gameState.credits += p.credits;
+        gameState.materieZellen += p.materiezellen;
+        gameState.chronosZellen += p.chronoszellen;
+        gameState.pendingRewards = { credits: 0, materiezellen: 0, chronoszellen: 0 };
+        updateUI();
+        await saveGameState();
+        const teile = [];
+        if (eingesammelt.credits > 0) teile.push(eingesammelt.credits + ' Credits');
+        if (eingesammelt.materiezellen > 0) teile.push(eingesammelt.materiezellen + ' Materiezellen');
+        if (eingesammelt.chronoszellen > 0) teile.push(eingesammelt.chronoszellen + ' Chronos-Zellen');
+        if (typeof window.logEreignis === 'function') window.logEreignis('Belohnung eingesammelt: ' + teile.join(', ') + '.');
+        if (typeof showInfoToast === 'function') showInfoToast('Belohnung eingesammelt: ' + teile.join(', ') + '.');
+        window.openSammelSystem(); // Liste direkt aktualisiert (jetzt leer) neu anzeigen
+    };
+
     function playElevatorAnimation(oldLocation, newLocation, isStarter, agentId) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
         if (bunkerElevatorAnimating) {
@@ -1264,6 +1357,7 @@
             setDuration(DEPART_MS);
             requestAnimationFrame(() => {
                 car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+                car.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
             setTimeout(() => setTimeout(disembark, ARRIVE_MS), DEPART_MS);
         }
@@ -1296,6 +1390,7 @@
             setDuration(PICKUP_MS);
             requestAnimationFrame(() => {
                 car.style.top = (oldIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
+                car.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
             setTimeout(boardAndWait, PICKUP_MS);
         } else {
@@ -1481,6 +1576,11 @@
     // Baut den "Aktuell vs. nächstes Level"-HTML-Block einheitlich zusammen.
     function roomLevelCompareHtml(level, nextLevel, curVal, nextVal, unitLabel, decimals) {
         const fmt = (v) => decimals ? v.toFixed(decimals) : Math.round(v);
+        if (level === nextLevel) {
+            // Maximallevel: kein "nächstes Level" mehr - nur der aktuelle, tatsächliche Wert.
+            return '<div style="color:#0f8;">Aktuelle Produktion (Level ' + level + ', Maximallevel)</div>' +
+                '<div>' + fmt(curVal) + ' ' + unitLabel + '</div>';
+        }
         const diff = nextVal - curVal;
         return '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
             '<div style="margin-bottom:8px;">' + fmt(curVal) + ' ' + unitLabel + '</div>' +
@@ -1490,6 +1590,10 @@
     // Räume, bei denen die Zeit/Wartedauer SINKT statt eines Produktionswerts zu STEIGEN -
     // eigene Darstellung, da "weniger ist besser" andersrum kommuniziert werden sollte.
     function roomLevelTimeHtml(level, nextLevel, curMin, nextMin) {
+        if (level === nextLevel) {
+            return '<div style="color:#0f8;">Aktuelles Zeitintervall (Level ' + level + ', Maximallevel)</div>' +
+                '<div>' + Math.round(curMin) + ' Minuten</div>';
+        }
         const diff = curMin - nextMin;
         return '<div style="color:#0f8;">Aktuell (Level ' + level + ')</div>' +
             '<div style="margin-bottom:8px;">' + Math.round(curMin) + ' Minuten</div>' +
@@ -1501,8 +1605,8 @@
         const room = gameState.baseData.find(r => r.type === roomType);
         if (!room) return;
         const level = room.lvl || 1;
-        const nextLevel = level + 1;
         const amMaxLevel = level >= ROOM_MAX_LEVEL;
+        const nextLevel = amMaxLevel ? level : level + 1;
         const task = AGENT_TASK_ROOMS[roomType];
         const titleEl = document.getElementById('room-level-title');
         const bodyEl = document.getElementById('room-level-body');
@@ -1510,11 +1614,7 @@
         titleEl.innerText = '[ ' + roomDisplayName(roomType) + ' · LEVEL-UP ]';
 
         let productionHtml = '';
-        if (amMaxLevel) {
-            // Bei Maximallevel gibt es kein "nächstes Level" mehr - keine der Formeln unten
-            // darf hier fälschlich ein Level 11 vorrechnen.
-            productionHtml = '<div style="color:#0f8;">Maximallevel (' + ROOM_MAX_LEVEL + ') bereits erreicht.</div>';
-        } else if (roomType === 'AGENTEN-QUARTIERE') {
+        if (roomType === 'AGENTEN-QUARTIERE') {
             productionHtml = roomLevelTimeHtml(level, nextLevel, scaledQuartiereHours(level) * 60, scaledQuartiereHours(nextLevel) * 60);
         } else if (roomType === 'ARTEFAKT-ARCHIV') {
             productionHtml = roomLevelTimeHtml(level, nextLevel, scaledArchivJourneyMinutes(level), scaledArchivJourneyMinutes(nextLevel));
@@ -1890,9 +1990,9 @@
                         (agentRoomInfoText(room.type) ? '<div class="bunker-floor-info' + roomInfoColorClass(room.type) + '">' + agentRoomInfoText(room.type) + '</div>' : '') +
                         (room.type === 'ZENTRALE' ? '' :
                         '<div class="bunker-floor-buttons">' +
-                            '<button class="bunker-floor-btn" onclick="event.stopPropagation(); window.showRoomInfoPopup(\'' + room.type + '\')">ℹ INFO</button>' +
+                            '<button class="bunker-floor-btn" onclick="event.stopPropagation(); window.showRoomInfoPopup(\'' + room.type.replace(/"/g, '&quot;') + '\')">ℹ INFO</button>' +
                             (NOT_LEVELABLE_ROOMS.includes(room.type) ? '' :
-                            '<button class="bunker-floor-btn bunker-floor-btn-level" onclick="event.stopPropagation(); window.showRoomLevelPopup(\'' + room.type + '\')">⬆ LEVEL</button>') +
+                            '<button class="bunker-floor-btn bunker-floor-btn-level" onclick="event.stopPropagation(); window.showRoomLevelPopup(\'' + room.type.replace(/"/g, '&quot;') + '\')">⬆ LEVEL</button>') +
                         '</div>') +
                     '</div>' +
                 '</div>';
@@ -2186,7 +2286,7 @@
             item.style.top = '15px'; 
         } else if (type === 'regal') {
             item.classList.add('item-regal');
-            item.innerHTML = '<div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div>';
+            item.innerHTML = '<div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div><div class="regal-fach"></div>';
             let offsetL = 45 + ((count - 1) * 32); 
             item.style.left = offsetL + 'px';
             item.style.bottom = '70px'; 
@@ -3465,7 +3565,7 @@ const menuTransStation = `
     <div class="upgrade-card" style="border-color:#4dd0ff;">
         <b style="color:#4dd0ff;">[ ENERGIE-TAUSCH ]</b>
         <p style="font-size:0.7em; color:#aaa;">Wandelt überschüssige Credits direkt in seltene Materiezellen um.</p>
-        <button id="btn-transformator-exchange" onclick="window.exchangeCreditsForMZ()" class="btn-upgrade-exec" style="background:#4dd0ff; color:#000; border:1px solid #4dd0ff;">TAUSCHEN (5000 C → 1 MZ)</button>
+        <button id="btn-transformator-exchange" onclick="window.exchangeCreditsForMZ()" class="btn-action-repeatable" style="background:#4dd0ff; color:#000; border:1px solid #4dd0ff;">TAUSCHEN (5000 C → 1 MZ)</button>
     </div>
     <div class="upgrade-card"><b>[ TEMPORALER ENERGIE-INVERTER ]</b><p style="font-size:0.7em; color:#aaa;">Fetter Kasten mit schwebenden Magnet-Isolatoren.</p><button id="btn-buy-temp-inverter" onclick="window.buyFurniture('temp_inverter', 2800)" class="btn-upgrade-exec" style="background:#c0f; color:#000; border:1px solid #c0f;">KAUFEN (2800 C + 40 MZ)</button></div>
     <div class="upgrade-card"><b>[ CHRONO-VERTEILERKNOTEN ]</b><p style="font-size:0.7em; color:#aaa;">Schlanker Hologramm-Schrank.</p><button id="btn-buy-chrono-knoten" onclick="window.buyFurniture('chrono_knoten', 950)" class="btn-upgrade-exec">KAUFEN (950 C)</button></div>

@@ -784,8 +784,18 @@ window.startGlobalNotification = function() {
 
     if (window.globalTradeListener) window.globalTradeListener();
     const qTrade = window.query(window.collection(window.db, "handelsangebote"), window.where("an", "==", myName), window.where("status", "==", "offen"));
+    let bekannteAngebotIds = new Set();
     window.globalTradeListener = window.onSnapshot(qTrade, (snapshot) => {
         hasOpenTrade = !snapshot.empty;
+        const jetzigeIds = new Set();
+        snapshot.forEach((doc) => {
+            jetzigeIds.add(doc.id);
+            if (!bekannteAngebotIds.has(doc.id)) {
+                const data = doc.data();
+                if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot von ' + data.von + ' bekommen.');
+            }
+        });
+        bekannteAngebotIds = jetzigeIds;
         updateNetzwerkPulse();
     }, (error) => console.error("Globaler Handels-Puls-Listener Fehler:", error));
 };
@@ -1415,6 +1425,13 @@ window.startGlobalNotification = function() {
                     <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em;" onclick="window.showMissionMenu()">MISSIONEN</button>
                     <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em; border-color: #8844ff; color: #8844ff; box-shadow: 0 0 15px rgba(136, 68, 255, 0.2), inset 0 0 10px rgba(136, 68, 255, 0.1); text-shadow: 0 0 10px #8844ff;" onmouseover="this.style.background='#8844ff'; this.style.color='#000'; this.style.textShadow='none'; this.style.boxShadow='0 0 25px #8844ff';" onmouseout="this.style.background='rgba(0, 255, 204, 0.05)'; this.style.color='#8844ff'; this.style.textShadow='0 0 10px #8844ff'; this.style.boxShadow='0 0 15px rgba(136, 68, 255, 0.2), inset 0 0 10px rgba(136, 68, 255, 0.1)';" onclick="window.location.href='base.html'">AGENTUR-BASIS</button>
                 </div>`;
+            // WICHTIG: f_start() erzeugt oben ein KOMPLETT NEUES #log-display-Element bei jedem
+            // Aufruf. Der Firestore-Listener aus protokoll.js wurde aber nur EINMAL beim Login
+            // gestartet und feuert nur bei echten Datenänderungen erneut - nicht bei einem reinen
+            // DOM-Neuaufbau. Ohne diesen erneuten Aufruf blieb das frische Element nach jedem
+            // f_start() (z.B. nach Warnungen, Override, Crashout) leer, bis zufällig die nächste
+            // echte Protokoll-Änderung eintraf. Das war die Ursache für "zeigt manchmal nichts an".
+            if (typeof window.starteProtokollAnzeige === 'function') window.starteProtokollAnzeige();
         } else {
             document.getElementById('content-body').innerHTML = `
                 <h2>Zentral-Terminal</h2>
@@ -2721,7 +2738,7 @@ window.f_showDescription = function(withVoice) {
         // wieder mit dem alten Server-Stand überschreiben - der vermutete Ursprung dafür, dass
         // Belohnungen manchmal scheinbar "verschwunden" sind.
         await window.saveProgress();
-        return {
+        const rewardResult = {
             xp: xp > 0 ? Math.round(xp) : 0,
             credits: credits,
             materiezellen: materiezellen,
@@ -2729,6 +2746,15 @@ window.f_showDescription = function(withVoice) {
             doubled: doubled,
             quantenLaborAktiv: quantenLaborAktiv
         };
+        if (window.db && window.agentName && window.currentMissionHistoryId) {
+            window.setDoc(window.doc(window.db, "protokolle", window.agentSlug(window.agentName), "missionsverlauf", window.currentMissionHistoryId), {
+                status: 'abgeschlossen',
+                endTs: window.serverTimestamp(),
+                belohnung: { credits: rewardResult.credits, materiezellen: rewardResult.materiezellen, xp: rewardResult.xp, levelBonus: rewardResult.levelBonus }
+            }, { merge: true }).catch(e => console.error(e));
+            window.currentMissionHistoryId = null;
+        }
+        return rewardResult;
     };
 
     // Zeigt nach einer abgeschlossenen Mission ein Popup mit der tatsächlich gutgeschriebenen
@@ -2887,7 +2913,15 @@ window.f_showDescription = function(withVoice) {
         if (typeof playBeep === 'function') playBeep(800, 0.1);
         window.missionActive = true;
         window.currentMissionType = missionType || 'normal';
-        if (typeof window.logEreignis === 'function') window.logEreignis('Mission erfolgreich gestartet (' + (window.missionLabels[window.currentMissionType] || window.currentMissionType) + ').');
+        if (typeof window.logEreignis === 'function') window.logEreignis((window.missionLabels[window.currentMissionType] || window.currentMissionType) + ' gestartet.');
+        window.currentMissionHistoryId = null;
+        if (window.db && window.agentName) {
+            window.addDoc(window.collection(window.db, "protokolle", window.agentSlug(window.agentName), "missionsverlauf"), {
+                typ: window.currentMissionType,
+                startTs: window.serverTimestamp(),
+                status: 'gestartet'
+            }).then(ref => { window.currentMissionHistoryId = ref.id; }).catch(e => console.error(e));
+        }
 
         if (!navigator.geolocation) {
             document.getElementById('content-body').innerHTML = '<h3 style="color:#f44;">[ GPS OFFLINE ]</h3><p style="color:#aaa;font-size:0.9em;">Dein Gerät unterstützt keine GPS-Navigation.</p><button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>';
@@ -3077,6 +3111,13 @@ window.f_showDescription = function(withVoice) {
     window.cancelGpsMission = function() {
         if (typeof playBeep === 'function') playBeep(300, 0.15);
         window.missionActive = false;
+        if (window.db && window.agentName && window.currentMissionHistoryId) {
+            window.setDoc(window.doc(window.db, "protokolle", window.agentSlug(window.agentName), "missionsverlauf", window.currentMissionHistoryId), {
+                status: 'abgebrochen',
+                endTs: window.serverTimestamp()
+            }, { merge: true }).catch(e => console.error(e));
+            window.currentMissionHistoryId = null;
+        }
         const popup = document.getElementById('radar-arrival-popup');
         if (popup) popup.style.display = 'none';
         closeGpsOverlay();

@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260825e">
+    <link rel="stylesheet" href="base-style.css?v=20260825h">
 </head>
 <body>
 
@@ -35,6 +35,7 @@
                     <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
                 </div>
                 <button onclick="showBasisausbaumenu()" class="btn-back" style="border-color:#0af; color:#0af;">🏗 BASISAUSBAUMENÜ</button>
+                <button onclick="window.openSammelSystem()" class="btn-back" style="border-color:#ffcc00; color:#ffcc00;">📦 SAMMEL-SYSTEM</button>
             </div>
         </div>
         <h2 id="main-title">AKTIVE BASIS</h2>
@@ -47,11 +48,12 @@
     <div id="bunker-view">
         <div id="bunker-shaft">
             <div id="bunker-shaft-track"></div>
-            <div id="bunker-elevator-car">
+            <div id="bunker-elevator-car" onclick="window.toggleElevatorLamp()">
                 <div class="bunker-elevator-strut left"></div>
                 <div class="bunker-elevator-strut right"></div>
                 <div class="bunker-elevator-window"></div>
                 <div class="bunker-elevator-panel"></div>
+                <div id="bunker-elevator-lamp"></div>
                 <div id="bunker-elevator-rider-slot"><div class="bunker-figure"></div></div>
             </div>
         </div>
@@ -77,6 +79,7 @@
                     <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
                 </div>
                 <button onclick="showAktiveBasis()" class="btn-back" style="border-color:#0af; color:#0af;">ZUR AKTIVEN BASIS</button>
+                <button onclick="window.openSammelSystem()" class="btn-back" style="border-color:#ffcc00; color:#ffcc00;">📦 SAMMEL-SYSTEM</button>
             </div>
         </div>
         <h2>AGENTUR-STRUKTUR</h2>
@@ -183,11 +186,23 @@
 
 <div id="paradox-warp-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.75); align-items:center; justify-content:center; flex-direction:column;"></div>
 
+<div id="sammel-system-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+    <div style="background:#141005; border:1px solid #ffcc00; box-shadow:0 0 30px rgba(255,204,0,0.5); border-radius:6px; padding:20px; width:min(380px, 90vw); font-family:'Orbitron', monospace;">
+        <h3 style="color:#ffcc00; text-shadow:0 0 10px #ffcc00; margin-top:0;">[ SAMMEL-SYSTEM ]</h3>
+        <p style="font-size:0.75em; color:#aaa; margin-bottom:16px; font-family:sans-serif;">Boni aus aktiven Agenten und passiver Raumproduktion sammeln sich hier an und müssen erst eingesammelt werden, bevor sie auf deinem Konto landen.</p>
+        <div id="sammel-system-liste" style="font-size:0.9em; color:#ddd; margin-bottom:18px; font-family:sans-serif; line-height:1.8;"></div>
+        <button class="btn-back" id="btn-sammel-einsammeln" style="width:100%; border-color:#ffcc00; color:#ffcc00; margin-bottom:10px;" onclick="window.belohnungEinsammeln()">BELOHNUNG EINSAMMELN</button>
+        <button class="btn-back" style="width:100%;" onclick="window.closeSammelSystem()">SCHLIESSEN</button>
+    </div>
+</div>
+
 <div id="artifact-detail-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
     <div style="background:#0a0514; border:1px solid #c060ff; box-shadow:0 0 30px rgba(192,96,255,0.5); border-radius:6px; padding:20px; width:min(380px, 90vw); font-family:'Orbitron', monospace;">
         <h3 id="artifact-detail-name" style="color:#c060ff; text-shadow:0 0 10px #c060ff; margin-top:0; font-size:1em;">-</h3>
         <p style="font-size:0.75em; color:#aaa; margin-bottom:0;">Jahr: <b id="artifact-detail-year" style="color:#c060ff;">-</b></p>
         <p id="artifact-detail-story" style="font-size:0.85em; color:#e0c0ff; margin-top:10px; line-height:1.5; font-family:sans-serif;">-</p>
+        <button id="btn-schallplatte-anhoeren" style="display:none; width:100%; margin-top:12px; background:#c060ff; color:#000; border:none; padding:10px; font-family:'Orbitron'; font-weight:bold; cursor:pointer;" onclick="window.schallplatteAnhoeren()">🎵 SCHALLPLATTE ANHÖREN</button>
+        <audio id="schallplatte-audio" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/99-luftballons.mp3" preload="none"></audio>
         <button class="btn-back" style="width:100%; margin-top:16px;" onclick="window.closeArtifactDetail()">SCHLIESSEN</button>
     </div>
 </div>
@@ -408,8 +423,8 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260825e"></script>
-<script src="protokoll.js?v=20260825e"></script>
-<script src="base-app.js?v=20260825e"></script>
+<script type="module" src="base-firebase-init.js?v=20260825h"></script>
+<script src="protokoll.js?v=20260825h"></script>
+<script src="base-app.js?v=20260825h"></script>
 </body>
 </html>

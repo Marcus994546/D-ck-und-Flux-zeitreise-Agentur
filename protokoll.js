@@ -56,4 +56,45 @@
             }).join('');
         }, (error) => console.error("Protokoll-Anzeige Fehler:", error));
     };
+
+    // --- Konsolenbefehl "log": listet die komplette Missions-Historie auf ---
+    // Aufruf einfach als log() in der Browser-Konsole (F12).
+    window.log = async function() {
+        await wartenAufAgentName();
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const q = window.query(
+                window.collection(window.db, "protokolle", mySlug, "missionsverlauf"),
+                window.orderBy("startTs", "desc"),
+                window.limit(50)
+            );
+            const snapshot = await window.getDocs(q);
+            if (snapshot.empty) {
+                console.log("Keine Missionen im Verlauf gefunden.");
+                return;
+            }
+            const statusLabel = { gestartet: 'LÄUFT/ABGEBROCHEN', abgeschlossen: 'ERFOLGREICH ABGESCHLOSSEN', abgebrochen: 'ABGEBROCHEN' };
+            const typLabel = { normal: 'Normale Mission', fortgeschritten: 'Fortgeschrittene Mission', weit: 'Weit entfernte Mission', galaktisch: 'Galaktische Mission' };
+            const zeilen = snapshot.docs.map(d => {
+                const a = d.data();
+                const start = (a.startTs && typeof a.startTs.toDate === 'function') ? a.startTs.toDate().toLocaleString('de-DE') : '(Zeitstempel unbekannt)';
+                const status = statusLabel[a.status] || a.status || 'unbekannt';
+                const typ = typLabel[a.typ] || a.typ || 'unbekannt';
+                let belohnungText = '-';
+                if (a.belohnung) {
+                    const teile = [];
+                    if (a.belohnung.credits > 0) teile.push(a.belohnung.credits + ' Credits');
+                    if (a.belohnung.materiezellen > 0) teile.push(a.belohnung.materiezellen + ' Materiezellen');
+                    if (a.belohnung.xp > 0) teile.push(a.belohnung.xp + ' XP');
+                    if (a.belohnung.levelBonus > 0) teile.push('+' + a.belohnung.levelBonus + ' Level');
+                    belohnungText = teile.length > 0 ? teile.join(', ') : 'keine';
+                }
+                return { Start: start, Status: status, Missionstyp: typ, Belohnung: belohnungText };
+            });
+            console.table(zeilen);
+            return zeilen;
+        } catch (e) {
+            console.error("Missions-Historie konnte nicht geladen werden:", e);
+        }
+    };
 })();
