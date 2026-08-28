@@ -2540,6 +2540,7 @@ window.f_showDescription = function(withVoice) {
                     titel: 'ANOMALIE EXTRAHIERT',
                     untertitel: window.missionLabels[window.currentMissionType] || window.currentMissionType,
                     icon: '⏱',
+                    agentName: window.agentName,
                     belohnungZeilen: lines,
                     lat: gpsTargetLat || null,
                     lng: gpsTargetLng || null,

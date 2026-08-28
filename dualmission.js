@@ -402,6 +402,7 @@
                         titel: 'DUAL-MISSION ERFOLGREICH',
                         untertitel: 'Gemeinsam mit ' + andererSlug + ' abgeschlossen',
                         icon: '🤝',
+                        agentName: window.agentName,
                         belohnungZeilen: ['1.500 Credits', '10 Materiezellen', '+8 Level'],
                         lat: a.zielLat || null,
                         lng: a.zielLng || null,

@@ -337,6 +337,7 @@
                         titel: 'ARCHIV VOLLSTÄNDIG',
                         untertitel: 'Alle 40 Artefakte geborgen - das Archiv ist die Botschaft.',
                         icon: '📜',
+                        agentName: currentAgentName,
                         belohnungZeilen: [],
                         dateiname: 'archiv-vollstaendig'
                     });
@@ -653,7 +654,9 @@
             titel: 'ARTEFAKT GEBORGEN',
             untertitel: aktuellOffenesArtefakt.name.replace(/^\S+\s/, ''), // Icon-Zeichen am Anfang entfernen
             icon: aktuellOffenesArtefakt.icon,
-            belohnungZeilen: ['Jahr: ' + aktuellOffenesArtefakt.year],
+            agentName: currentAgentName,
+            belohnungZeilen: [aktuellOffenesArtefakt.year],
+            boxLabel: 'JAHR',
             dateiname: 'artefakt-' + aktuellOffenesArtefakt.name.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
         });
     };

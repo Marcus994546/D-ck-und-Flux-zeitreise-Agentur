@@ -95,7 +95,7 @@
             ctx.strokeRect(190, boxY, 700, boxH);
             ctx.fillStyle = '#0f8';
             ctx.font = '700 28px sans-serif';
-            ctx.fillText('BELOHNUNG', 540, boxY + 44);
+            ctx.fillText(optionen.boxLabel || 'BELOHNUNG', 540, boxY + 44);
             ctx.font = '400 30px sans-serif';
             ctx.fillStyle = '#dfffef';
             optionen.belohnungZeilen.forEach((zeile, i) => {
@@ -179,6 +179,7 @@
                 icon: optionen.icon,
                 agentName: optionen.agentName || window.agentName || 'AGENT',
                 belohnungZeilen: optionen.belohnungZeilen || [],
+                boxLabel: optionen.boxLabel,
                 ort: ort,
                 datum: datum
             });
