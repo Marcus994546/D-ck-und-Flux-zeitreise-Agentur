@@ -1036,6 +1036,8 @@
         return { alsMentor, alsMentee };
     }
 
+    const MENTOR_COOLDOWN_MS = 90 * 86400000; // ca. drei Monate zwischen zwei Mentorschaften
+
     window.renderMentorenTab = async function() {
         const content = document.getElementById('netzwerk-content');
         if (!content) return;
@@ -1048,17 +1050,26 @@
 
             // Keine aktive Rolle - Berechtigung prüfen und passende Ansicht zeigen.
             const meineDaten = (window.playerLevel || 1);
-            let html = '<div style="text-align:left;">';
-            html += '<p style="font-size:0.8em; color:#aaa; margin-bottom:15px;">Erfahrene Agenten (Level ' + MENTOR_MIN_LEVEL + '+) können neue Spieler (Level unter ' + MENTEE_MAX_LEVEL + ', noch ohne eigenen Mentor) unter ihre Fittiche nehmen. Beide profitieren.</p>';
+            const mySlug = window.agentSlug(window.agentName);
+            const meinSnap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
+            const meinData = meinSnap.exists() ? meinSnap.data() : {};
+            const letzterStart = meinData.letzterMentorStart || 0;
+            const abwarten = letzterStart ? Math.max(0, MENTOR_COOLDOWN_MS - (Date.now() - letzterStart)) : 0;
+            const gesperrtBis = abwarten > 0 ? new Date(letzterStart + MENTOR_COOLDOWN_MS) : null;
 
-            if (meineDaten >= MENTOR_MIN_LEVEL) {
+            let html = '<div style="text-align:left;">';
+            html += '<p style="font-size:0.8em; color:#aaa; margin-bottom:15px;">Erfahrene Agenten (Level ' + MENTOR_MIN_LEVEL + '+) können neue Spieler (Level unter ' + MENTEE_MAX_LEVEL + ', noch ohne eigenen Mentor) unter ihre Fittiche nehmen. Beide profitieren. Man kann höchstens einmal alle drei Monate eine neue Mentorschaft beginnen.</p>';
+
+            if (meineDaten < MENTOR_MIN_LEVEL) {
+                html += '<p style="font-size:0.8em; color:#888;">Du erreichst die Mentor-Berechtigung ab Level ' + MENTOR_MIN_LEVEL + ' (aktuell: Level ' + meineDaten + ').</p>';
+            } else if (gesperrtBis) {
+                html += '<p style="font-size:0.8em; color:#888;">Du warst zuletzt Mentor - eine neue Mentorschaft ist erst wieder ab <b>' + gesperrtBis.toLocaleDateString('de-DE') + '</b> möglich.</p>';
+            } else {
                 html += '<b style="color:#0ff; font-size:0.85em;">NEUEN MENTEE EINLADEN</b>' +
                     '<div style="display:flex; gap:5px; margin-top:6px;">' +
                         '<input type="text" id="mentor-such-input" placeholder="Spielername..." style="flex-grow:1; background:#000; border:1px solid #0ff; color:#0ff; padding:8px; font-family:inherit;">' +
                         '<button class="modell-btn" style="margin:0; width:auto; padding:0 15px;" onclick="window.mentorEinladen()">EINLADEN</button>' +
                     '</div><div id="mentor-such-status" style="font-size:0.75em; color:#aaa; margin-top:6px;"></div>';
-            } else {
-                html += '<p style="font-size:0.8em; color:#888;">Du erreichst die Mentor-Berechtigung ab Level ' + MENTOR_MIN_LEVEL + ' (aktuell: Level ' + meineDaten + ').</p>';
             }
             html += '</div>';
             content.innerHTML = html;
@@ -1109,9 +1120,13 @@
 
         // Aktive Mentorschaft: einmalig protokollieren, sobald der Mentor das selbst zum ersten
         // Mal sieht (die Mentee-Seite kann nicht direkt ins Mentor-eigene Protokoll schreiben).
+        // Im selben Moment wird auch die Drei-Monats-Sperre auf dem eigenen Konto gestartet -
+        // eigenes Dokument, daher uneingeschränkt erlaubt (im Gegensatz zu einem Schreibzugriff
+        // durch den Mentee).
         if (!m.mentorBenachrichtigt) {
             if (typeof window.logEreignis === 'function') window.logEreignis('Mentor geworden für ' + m.menteeSlug + '.');
             window.setDoc(window.doc(window.db, "mentorships", m.id), { mentorBenachrichtigt: true }, { merge: true }).catch(() => {});
+            window.setDoc(window.doc(window.db, "agenten", window.agentSlug(window.agentName)), { letzterMentorStart: Date.now() }, { merge: true }).catch(() => {});
         }
 
         let menteeLevel = 1, menteeName = m.menteeSlug;
