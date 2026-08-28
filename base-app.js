@@ -21,6 +21,7 @@
         const user = await authPromise;
         if (!user) { window.location.href = 'index.html'; return; }
         currentAgentName = user.displayName || (user.email || '').split('@')[0];
+        window.agentName = currentAgentName;
         if (!currentAgentName) { window.location.href = 'index.html'; return; }
 
         try {
@@ -809,6 +810,20 @@
         let changed = false;
 
         gameState.agents.forEach(agent => {
+            // WICHTIG: Vorher wurde pro Aufruf nur EIN einziger Zustandsübergang pro Agent
+            // verarbeitet (einfaches if/else-if ohne Schleife). Nach längerer Abwesenheit reichte
+            // die seit dem letzten Tick vergangene Zeit aber oft für MEHRERE aufeinanderfolgende
+            // Schritte (z.B. warten -> arbeiten -> fertig mit Belohnung) - der Agent blieb dann
+            // mitten in der Kette hängen, bis der Spieler die Seite mehrfach neu lädt oder lange
+            // genug offen lässt, damit der 15s-Intervall-Tick nachzieht. Jetzt wird pro Agent so
+            // oft weiterverarbeitet, wie in diesem einen Aufruf noch echte Fortschritte möglich
+            // sind - eine Sicherheitsgrenze verhindert eine Endlosschleife bei einem Logikfehler.
+            let sicherheitszaehler = 0;
+            let weiterePruefungNoetig = true;
+            while (weiterePruefungNoetig && sicherheitszaehler < 50) {
+                weiterePruefungNoetig = false;
+                sicherheitszaehler++;
+
             if (agent.state === 'waiting_in_quartiere') {
                 if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
                     const oldLocation = agent.location;
@@ -855,6 +870,7 @@
                         agent.taskDurationMs = null;
                     }
                     changed = true;
+                    weiterePruefungNoetig = true;
                 }
             } else if (agent.state === 'journey_mission') {
                 // 8h Zeitreise-Mission - Agent gilt als "unterwegs" (siehe renderAgentPanel/
@@ -864,6 +880,7 @@
                     agent.taskStartTs = now;
                     agent.taskDurationMs = Math.round(FORGE_RETURN_MS * adminTimeFactor()); // genau 1 Minute, bewusst NICHT level-skaliert
                     changed = true;
+                    weiterePruefungNoetig = true;
                 }
             } else if (agent.state === 'journey_forge_return') {
                 if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
@@ -874,6 +891,7 @@
                     agent.taskDurationMs = Math.round(scaledDekontamMinutes(roomLevelOf('DEKONTAMINATIONS-SCHLEUSE')) * 60000 * adminTimeFactor());
                     if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter, agent.id);
                     changed = true;
+                    weiterePruefungNoetig = true;
                 }
             } else if (agent.state === 'journey_dekontam') {
                 if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
@@ -884,6 +902,7 @@
                     agent.taskDurationMs = Math.round(scaledArchivJourneyMinutes(roomLevelOf('ARTEFAKT-ARCHIV')) * 60000 * adminTimeFactor());
                     if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, agent.location, agent.isStarter, agent.id);
                     changed = true;
+                    weiterePruefungNoetig = true;
                 }
             } else if (agent.state === 'journey_archiv') {
                 if (effectiveElapsed(agent.taskStartTs, now) >= agent.taskDurationMs) {
@@ -893,6 +912,7 @@
                     // (kein Umweg über die Zentrale zwischen den einzelnen Stationen).
                     sendAgentHome(agent);
                     changed = true;
+                    weiterePruefungNoetig = true;
                 }
             } else if (agent.state === 'working') {
                 const task = AGENT_TASK_ROOMS[agent.location];
@@ -973,8 +993,10 @@
                         }
                         changed = true;
                     }
+                    weiterePruefungNoetig = true;
                 }
             }
+            } // Ende der while-Schleife (mehrere Zustandsübergänge pro Aufruf)
         });
 
         if (changed) { updateUI(); try { saveGameState(); } catch(e) {} }
@@ -1752,7 +1774,13 @@
             if (wartetInSchlange) {
                 const queueEintrag = elevatorQueue.find(q => q.agentId === agent.id);
                 if (queueEintrag) { anzeigeOrt = queueEintrag.oldLocation; wartetAufAufzug = true; }
-                else return; // Zwischen Einreihen und tatsächlichem Start, kein sicherer Ort bekannt.
+                // WICHTIG: Vorher wurde der Agent hier komplett unsichtbar (return), wenn sein
+                // Warteschlangen-Eintrag aus irgendeinem Grund nicht mehr auffindbar war (z.B.
+                // knapper zeitlicher Übergang zwischen Warteschlange und Fahrtstart). Jetzt gibt
+                // es KEINEN Fall mehr, in dem ein Agent komplett spurlos verschwindet - im
+                // Zweifel wird er an seinem aktuellen bekannten Standort gezeigt, mit demselben
+                // Warte-Hinweis, statt gar nicht.
+                else { wartetAufAufzug = true; }
             }
 
             const idx = bunkerFloorIndexForType(anzeigeOrt);
@@ -2382,6 +2410,7 @@
         const user = await authPromise;
         if (!user) return; // guardBaseAccess leitet in diesem Fall bereits zu index.html um
         currentAgentName = currentAgentName || user.displayName || (user.email || '').split('@')[0];
+        window.agentName = currentAgentName;
         let isM = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
         if (isM) { document.addEventListener('click', () => { document.getElementById('bg-music-base').play().catch(e=>{}); }, {once: true}); }
         await loadGameState();
