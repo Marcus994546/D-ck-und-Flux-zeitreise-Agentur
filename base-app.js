@@ -256,6 +256,99 @@
         { icon: '🌀', name: '🌀 Kristallisierte Zeitschleife', year: 'unbekannt', story: 'Ein eingefrorener Splitter einer Kausalitätsschleife, mitten in der Wiederholung erstarrt. Laut Etikett nur mit Handschuhen anfassen.' },
         { icon: '🪙', name: '🪙 Uraltes Münzstück mit unbekanntem Symbol', year: 'unbekannt', story: 'Trägt ein Symbol, das älter ist als jedes bekannte Schriftsystem - dabei ist das Metall kaum zehn Jahre alt.' }
     ];
+
+    // --- ARCHIV DER MENSCHHEIT: Meilenstein-Geschichte ---
+    // Verbindet Motive, die schon in den 40 einzelnen Artefakt-Texten stecken (Objekte, die
+    // ihrer eigenen Entstehung widersprechen; der "Wächter der Zeit" aus dem
+    // Kanopen-Fragment; wiederkehrende Signale/Botschaften quer durch die Zeit) zu einer
+    // durchgehenden Erzählung über vier Stufen.
+    const ARCHIV_MEILENSTEINE = {
+        10: {
+            titel: 'MUSTER IM RAUSCHEN',
+            text: 'Zehn Fundstücke, verteilt über Jahrtausende - und doch beginnt sich etwas abzuzeichnen. Eine Taschenuhr, die von einer "Zeitverwerfung" berichtet. Ein Logbuch, dessen letzter Eintrag mitten im Wort abbricht. Eine Münze, geprägt mit einem Datum, das zum Zeitpunkt der Prägung noch gar nicht existierte. Diese Objekte wurden nicht zufällig gefunden. Sie wurden zurückgelassen - und zwar absichtlich.',
+            belohnung: { credits: 500, materiezellen: 3, chronoszellen: 0 }
+        },
+        20: {
+            titel: 'DER WÄCHTER',
+            text: 'Ein Hieroglyphen-Fragment aus dem Neuen Reich erwähnt einen "Wächter der Zeit" - eine Figur, für die sonst keine einzige Aufzeichnung existiert. Und doch: eine selbstschreibende Feder, ein neuronales Erinnerungsfragment, ein Echo-Modul, das seit Jahrzehnten dasselbe Notsignal wiederholt. Alle scheinen Bruchstücke derselben Botschaft zu tragen, gesendet von derselben Quelle, durch zwanzig verschiedene Jahrhunderte hindurch. Jemand - oder etwas - versucht seit sehr langer Zeit, mit uns zu sprechen.',
+            belohnung: { credits: 1500, materiezellen: 8, chronoszellen: 0 }
+        },
+        30: {
+            titel: 'DIE KONVERGENZ',
+            text: 'Eine Stimmgabel, die erklingt, bevor sie angeschlagen wird. Ein Ring, der einen Countdown zu einem Ereignis mitzählt, über das niemand je gesprochen hat. Eine Sanduhr, deren Sand rückwärts läuft. Dreißig Fundstücke reichen aus, um es zu erkennen: All diese Anomalien zählen zum selben Zeitpunkt hin - oder von ihm weg. Ein einzelnes Ereignis, dessen Echo sich rückwärts UND vorwärts durch die gesamte Geschichte ausbreitet. Die Zeitlinie kennt bereits ihren eigenen Bruchpunkt. Die Frage ist nur noch: wann.',
+            belohnung: { credits: 3000, materiezellen: 15, chronoszellen: 3 }
+        },
+        40: {
+            titel: 'DAS ARCHIV IST DIE BOTSCHAFT',
+            text: 'Vierzig Fundstücke, vollständig. Und mit dem letzten Stück fügt sich das Bild zusammen, das die ganze Zeit sichtbar war: Der "Wächter der Zeit" ist keine fremde Macht. Er ist eine spätere Version dieser Agentur selbst - Agenten, die weit genug in der Zeitlinie voraus operieren, um zu wissen, welches Ereignis sie zu verhindern versuchen. Sie konnten keine Nachricht senden, die die Gegenwart direkt verändert hätte. Also haben sie etwas anderes getan: Sie haben vierzig Beweisstücke über die gesamte Geschichte verstreut - in dem Wissen, dass eine zukünftige Agentur, die geduldig genug ist, sie alle zu bergen und zu archivieren, genau dadurch die Zeitlinie stabilisiert. Das Sammeln selbst war nie ein Nebenschauplatz. Das Archiv war die Mission.',
+            belohnung: { credits: 6000, materiezellen: 25, chronoszellen: 8 }
+        }
+    };
+
+    // Wird nach JEDEM neu gesammelten Artefakt aufgerufen (Journey-Belohnung, Impuls-Kondensator,
+    // Schattensyndikat-Kauf) - prüft, ob dadurch ein neuer Meilenstein erreicht wurde, und zeigt
+    // ihn genau EINMAL automatisch an (danach nur noch über "Nochmal ansehen" in der Zeitachse).
+    async function pruefeArchivMeilenstein() {
+        const anzahl = gameState.collectedArtifacts.length;
+        const meilenstein = ARCHIV_MEILENSTEINE[anzahl];
+        if (!meilenstein) return;
+        if (!Array.isArray(gameState.archivMeilensteineGezeigt)) gameState.archivMeilensteineGezeigt = [];
+        if (gameState.archivMeilensteineGezeigt.includes(anzahl)) return;
+        gameState.archivMeilensteineGezeigt.push(anzahl);
+
+        const b = meilenstein.belohnung;
+        gameState.credits += b.credits;
+        gameState.materieZellen += b.materiezellen;
+        gameState.chronosZellen += b.chronoszellen;
+        await saveGameState();
+        updateUI();
+
+        if (typeof window.logEreignis === 'function') {
+            window.logEreignis('Archiv-Meilenstein erreicht: ' + anzahl + '/40 Artefakte - "' + meilenstein.titel + '".');
+        }
+        window.zeigeArchivMeilenstein(anzahl, true);
+    }
+
+    window.zeigeArchivMeilenstein = function(stufe, istNeu) {
+        const m = ARCHIV_MEILENSTEINE[stufe];
+        if (!m) return;
+        const b = m.belohnung;
+        const belohnungZeilen = [];
+        if (b.credits > 0) belohnungZeilen.push(b.credits + ' Credits');
+        if (b.materiezellen > 0) belohnungZeilen.push(b.materiezellen + ' Materiezellen');
+        if (b.chronoszellen > 0) belohnungZeilen.push(b.chronoszellen + ' Chronos-Zellen');
+
+        const overlay = document.getElementById('archiv-meilenstein-overlay');
+        if (!overlay) return;
+        document.getElementById('archiv-meilenstein-zahl').innerText = stufe + '/40';
+        document.getElementById('archiv-meilenstein-titel').innerText = m.titel;
+        document.getElementById('archiv-meilenstein-text').innerText = m.text;
+        const belohnungEl = document.getElementById('archiv-meilenstein-belohnung');
+        belohnungEl.innerHTML = istNeu && belohnungZeilen.length > 0
+            ? '<div style="color:#0f8; margin-top:10px;">Belohnung: ' + belohnungZeilen.join(', ') + '</div>'
+            : '';
+        const shareBtn = document.getElementById('archiv-meilenstein-share-btn');
+        if (shareBtn) {
+            shareBtn.style.display = (stufe === 40) ? 'block' : 'none';
+            shareBtn.onclick = function() {
+                if (typeof window.zeigeShareKarte === 'function') {
+                    window.zeigeShareKarte({
+                        titel: 'ARCHIV VOLLSTÄNDIG',
+                        untertitel: 'Alle 40 Artefakte geborgen - das Archiv ist die Botschaft.',
+                        icon: '📜',
+                        belohnungZeilen: [],
+                        dateiname: 'archiv-vollstaendig'
+                    });
+                }
+            };
+        }
+        overlay.style.display = 'flex';
+    };
+    window.closeArchivMeilenstein = function() {
+        const overlay = document.getElementById('archiv-meilenstein-overlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+
     const FORGE_MISSION_HOURS = 8;
     const FORGE_RETURN_MS = 60000;        // genau 1 Minute
     const DEKONTAM_JOURNEY_MS = 3600000;  // genau 1 Stunde
@@ -405,6 +498,7 @@
                 const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
                 gameState.collectedArtifacts.push(picked.name);
                 artifactMsg = ' + Artefakt geborgen: ' + picked.name;
+                pruefeArchivMeilenstein();
             } else {
                 // Berechtigt, aber die Sammlung ist bereits vollständig (alle 40) - das war
                 // vorher unsichtbar, jetzt wird es explizit gemeldet statt stillschweigend
@@ -429,8 +523,9 @@
         const box = document.getElementById('artifact-collection-display');
         if (!box) return;
         const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
-        let html = '<div style="font-size:0.7em; color:#aaa; margin-bottom:8px;">' + collected.length + ' / ' + ARTEFAKTE.length + ' gesammelt' +
-            (collected.length >= ARTEFAKTE.length ? ' · Sammlung vollständig!' : '') + '</div>';
+        let html = '<div style="font-size:0.75em; color:#c060ff; margin-bottom:4px; font-weight:bold;">' + collected.length + ' / ' + ARTEFAKTE.length +
+            (collected.length >= ARTEFAKTE.length ? ' — Das Archiv ist vollständig' : ' — Die Geschichte der Zeitlinie setzt sich langsam zusammen') + '</div>' +
+            '<button class="btn-back" style="font-size:0.7em; padding:4px 10px; margin-bottom:8px; border-color:#c060ff; color:#c060ff;" onclick="window.zeigeArchivZeitachse()">🕐 ZEITACHSE ANSEHEN</button><br>';
         if (collected.length === 0) {
             html += '<div style="font-size:0.7em; color:#666; font-style:italic;">Noch keine Artefakte geborgen.</div>';
         } else {
@@ -444,10 +539,78 @@
         if (typeof placeArtifactsInShelves === 'function') placeArtifactsInShelves();
     }
 
+    // Extrahiert eine sortierbare Jahreszahl aus dem "year"-Feld eines Artefakts - die Angaben
+    // sind uneinheitlich formatiert ("79 n. Chr.", "1300 v. Chr.", "12.000 v. Chr.", "vor 40 Mio.
+    // Jahren", "unbekannt", "2500er") und werden hier auf eine einzige Zeitachse (negativ = v.
+    // Chr., positiv = n. Chr.) übersetzt, damit eine echte chronologische Sortierung möglich ist.
+    function jahrAlsZahl(jahrStr) {
+        if (!jahrStr || jahrStr === 'unbekannt') return null;
+        if (jahrStr.includes('Mio. Jahren')) {
+            const zahl = parseInt(jahrStr.replace(/\D/g, ''), 10);
+            return -(zahl * 1000000);
+        }
+        if (jahrStr.includes('v. Chr')) {
+            const zahl = parseInt(jahrStr.replace(/[^\d]/g, ''), 10);
+            return -zahl;
+        }
+        if (jahrStr.includes('n. Chr')) {
+            return parseInt(jahrStr.replace(/[^\d]/g, ''), 10);
+        }
+        const zahl = parseInt(jahrStr.replace(/[^\d]/g, ''), 10);
+        return isNaN(zahl) ? null : zahl;
+    }
+
+    window.zeigeArchivZeitachse = function() {
+        const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
+        const sortiert = [...ARTEFAKTE].sort((a, b) => {
+            const ja = jahrAlsZahl(a.year), jb = jahrAlsZahl(b.year);
+            if (ja === null && jb === null) return 0;
+            if (ja === null) return 1; // Unbekannte Jahre ans Ende
+            if (jb === null) return -1;
+            return ja - jb;
+        });
+
+        let html = '<div style="max-height:65vh; overflow-y:auto; text-align:left;">';
+        sortiert.forEach(a => {
+            const istGesammelt = collected.includes(a.name);
+            if (istGesammelt) {
+                html += '<div style="display:flex; gap:10px; align-items:center; padding:8px; border-left:3px solid #c060ff; margin-bottom:4px; cursor:pointer;" onclick="window.showArtifactDetail(\'' + a.name.replace(/'/g, "\\'") + '\')">' +
+                    '<span style="font-size:1.4em;">' + a.icon + '</span>' +
+                    '<div><div style="color:#c060ff; font-size:0.8em; font-weight:bold;">' + a.year + '</div><div style="color:#ddd; font-size:0.75em;">' + a.name.replace(/^\S+\s/, '') + '</div></div>' +
+                '</div>';
+            } else {
+                html += '<div style="display:flex; gap:10px; align-items:center; padding:8px; border-left:3px solid #333; margin-bottom:4px; opacity:0.5;">' +
+                    '<span style="font-size:1.4em;">❔</span>' +
+                    '<div><div style="color:#666; font-size:0.8em; font-weight:bold;">???</div><div style="color:#666; font-size:0.75em;">Noch nicht geborgen</div></div>' +
+                '</div>';
+            }
+        });
+        html += '</div>';
+
+        const gezeigt = Array.isArray(gameState.archivMeilensteineGezeigt) ? gameState.archivMeilensteineGezeigt : [];
+        html += '<div style="display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; justify-content:center;">';
+        [10, 20, 30, 40].forEach(stufe => {
+            if (collected.length >= stufe) {
+                html += '<button class="btn-back" style="font-size:0.7em; padding:5px 10px; border-color:#c060ff; color:#c060ff;" onclick="window.zeigeArchivMeilenstein(' + stufe + ', false)">Meilenstein ' + stufe + ' ansehen</button>';
+            }
+        });
+        html += '</div>';
+
+        const overlay = document.getElementById('archiv-zeitachse-overlay');
+        const inhalt = document.getElementById('archiv-zeitachse-inhalt');
+        if (overlay && inhalt) { inhalt.innerHTML = html; overlay.style.display = 'flex'; }
+    };
+    window.closeArchivZeitachse = function() {
+        const overlay = document.getElementById('archiv-zeitachse-overlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+
     // Zeigt Name, Jahr und Story eines gesammelten Artefakts in einem Popup.
+    let aktuellOffenesArtefakt = null;
     window.showArtifactDetail = function(name) {
         const a = findArtefaktByName(name);
         if (!a) return;
+        aktuellOffenesArtefakt = a;
         const overlay = document.getElementById('artifact-detail-overlay');
         const nameEl = document.getElementById('artifact-detail-name');
         const yearEl = document.getElementById('artifact-detail-year');
@@ -469,6 +632,18 @@
         const status = document.getElementById('schallplatte-status');
         if (status) status.innerText = '';
         if (overlay) overlay.style.display = 'flex';
+    };
+    // Artefakte sind nicht an einen GPS-Standort gebunden (im Gegensatz zu Missionen) - die
+    // Karte zeigt deshalb bewusst keinen Ort an.
+    window.artefaktTeilen = function() {
+        if (!aktuellOffenesArtefakt || typeof window.zeigeShareKarte !== 'function') return;
+        window.zeigeShareKarte({
+            titel: 'ARTEFAKT GEBORGEN',
+            untertitel: aktuellOffenesArtefakt.name.replace(/^\S+\s/, ''), // Icon-Zeichen am Anfang entfernen
+            icon: aktuellOffenesArtefakt.icon,
+            belohnungZeilen: ['Jahr: ' + aktuellOffenesArtefakt.year],
+            dateiname: 'artefakt-' + aktuellOffenesArtefakt.name.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
+        });
     };
     window.schallplatteAnhoeren = function() {
         const audio = document.getElementById('schallplatte-audio');
@@ -752,6 +927,7 @@
                         if (success) {
                             const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
                             gameState.collectedArtifacts.push(picked.name);
+                            pruefeArchivMeilenstein();
                             if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
                         }
                         if (typeof triggerParadoxWarpEffect === 'function') triggerParadoxWarpEffect(success);
@@ -940,6 +1116,7 @@
                 if (Array.isArray(parsed.agents)) gameState.agents = parsed.agents;
                 if (parsed.agentSystemUnlocked) gameState.agentSystemUnlocked = true;
                 if (parsed.pendingRewards) gameState.pendingRewards = parsed.pendingRewards;
+                if (Array.isArray(parsed.archivMeilensteineGezeigt)) gameState.archivMeilensteineGezeigt = parsed.archivMeilensteineGezeigt;
             } catch(e) {} 
         }
         ensureAgentsInitialized();
@@ -1000,6 +1177,7 @@
                     if (data.overdrivePct !== undefined) gameState.overdrivePct = data.overdrivePct;
                     if (data.overdriveEndTs !== undefined) gameState.overdriveEndTs = data.overdriveEndTs;
                     if (data.pendingRewards) gameState.pendingRewards = data.pendingRewards;
+                    if (Array.isArray(data.archivMeilensteineGezeigt)) gameState.archivMeilensteineGezeigt = data.archivMeilensteineGezeigt;
                 }
                 gameState.credits = fusedCredits;
                 gameState.materieZellen = fusedMz;
@@ -1066,6 +1244,7 @@
                     overdrivePct: gameState.overdrivePct,
                     overdriveEndTs: gameState.overdriveEndTs,
                     pendingRewards: gameState.pendingRewards,
+                    archivMeilensteineGezeigt: gameState.archivMeilensteineGezeigt || [],
                     letztesUpdate: new Date().toISOString()
                 }, { merge: true });
             } catch (e) { console.error("Cloud-Speicherfehler:", e); }
@@ -5274,6 +5453,7 @@ window.buyBlackMarketArtifact = async function(name) {
     gameState.collectedArtifacts.push(name);
     updateUI();
     await saveGameState();
+    await pruefeArchivMeilenstein();
     if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
     if (typeof showInfoToast === 'function') showInfoToast('Artefakt vom Schwarzmarkt erworben: ' + name);
     window.openSchattensyndikat(); // Liste neu aufbauen (Artefakt jetzt raus)

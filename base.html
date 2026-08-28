@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260825o">
+    <link rel="stylesheet" href="base-style.css?v=20260826c">
 </head>
 <body>
 
@@ -186,6 +186,25 @@
 
 <div id="paradox-warp-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.75); align-items:center; justify-content:center; flex-direction:column;"></div>
 
+<div id="archiv-meilenstein-overlay" style="display:none; position:fixed; inset:0; z-index:10500; background:rgba(5,0,10,0.92); align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="background:#0a0514; border:2px solid #c060ff; box-shadow:0 0 35px rgba(192,96,255,0.6); border-radius:8px; padding:24px; width:min(400px, 92vw); font-family:'Orbitron', monospace; text-align:center;">
+        <div id="archiv-meilenstein-zahl" style="color:#c060ff; font-size:0.85em; opacity:0.8; margin-bottom:6px;">-</div>
+        <h3 id="archiv-meilenstein-titel" style="color:#c060ff; text-shadow:0 0 12px #c060ff; margin:0 0 14px;">-</h3>
+        <p id="archiv-meilenstein-text" style="color:#e0c0ff; font-size:0.85em; line-height:1.6; font-family:sans-serif; text-align:left;">-</p>
+        <div id="archiv-meilenstein-belohnung" style="font-family:sans-serif; font-size:0.85em;"></div>
+        <button id="archiv-meilenstein-share-btn" style="display:none; width:100%; margin-top:16px; background:none; border:1px solid #0ff; color:#0ff; padding:10px; font-family:monospace; cursor:pointer; border-radius:4px;">📤 KARTE TEILEN</button>
+        <button class="btn-back" style="width:100%; margin-top:10px;" onclick="window.closeArchivMeilenstein()">SCHLIESSEN</button>
+    </div>
+</div>
+
+<div id="archiv-zeitachse-overlay" style="display:none; position:fixed; inset:0; z-index:10400; background:rgba(0,0,0,0.9); align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="background:#0a0514; border:1px solid #c060ff; box-shadow:0 0 25px rgba(192,96,255,0.4); border-radius:8px; padding:20px; width:min(420px, 92vw); font-family:'Orbitron', monospace;">
+        <h3 style="color:#c060ff; margin-top:0; text-align:center;">🕐 ZEITACHSE DES ARCHIVS</h3>
+        <div id="archiv-zeitachse-inhalt"></div>
+        <button class="btn-back" style="width:100%; margin-top:14px;" onclick="window.closeArchivZeitachse()">SCHLIESSEN</button>
+    </div>
+</div>
+
 <div id="sammel-system-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
     <div style="background:#141005; border:1px solid #ffcc00; box-shadow:0 0 30px rgba(255,204,0,0.5); border-radius:6px; padding:20px; width:min(380px, 90vw); font-family:'Orbitron', monospace;">
         <h3 style="color:#ffcc00; text-shadow:0 0 10px #ffcc00; margin-top:0;">[ SAMMEL-SYSTEM ]</h3>
@@ -206,7 +225,8 @@
         <audio id="schallplatte-audio" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/99%20Luftbalogs.mp3" preload="none" onerror="const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Audiodatei konnte nicht geladen werden (URL prüfen).';"></audio>
         <img id="artifact-schriftrolle-bild" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/AlienSchriftrolle.jpg" alt="Alien-Schriftrolle" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Bild konnte nicht geladen werden (URL prüfen).';">
         <video id="artifact-datenkristall-video" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" controls preload="none" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/%C3%9Cbertragung.mp4" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Video konnte nicht geladen werden (URL prüfen).';"></video>
-        <button class="btn-back" style="width:100%; margin-top:16px;" onclick="window.closeArtifactDetail()">SCHLIESSEN</button>
+        <button id="btn-artifact-teilen" style="width:100%; margin-top:16px; background:none; border:1px solid #0ff; color:#0ff; padding:10px; font-family:monospace; cursor:pointer; border-radius:4px;" onclick="window.artefaktTeilen()">📤 TEILEN</button>
+        <button class="btn-back" style="width:100%; margin-top:8px;" onclick="window.closeArtifactDetail()">SCHLIESSEN</button>
     </div>
 </div>
 
@@ -426,8 +446,9 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260825o"></script>
-<script src="protokoll.js?v=20260825o"></script>
-<script src="base-app.js?v=20260825o"></script>
+<script type="module" src="base-firebase-init.js?v=20260826c"></script>
+<script src="protokoll.js?v=20260826c"></script>
+<script src="sharecard.js?v=20260826c"></script>
+<script src="base-app.js?v=20260826c"></script>
 </body>
 </html>
