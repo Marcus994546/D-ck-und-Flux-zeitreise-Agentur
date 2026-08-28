@@ -2580,7 +2580,14 @@ window.spawnFurniture = (type, count) => {
         }
     };
     setTimeout(window.updateAusbauButtons, 1000);
-    setInterval(window.updateAusbauButtons, 2000);
+    // Vorher lief das bedingungslos alle 2s im Hintergrund weiter, auch während der Spieler
+    // längst in der Aktive-Basis-Übersicht war und gar kein Möbel-Shop sichtbar ist - das ruft
+    // die komplette 20-stufige Update-Kette unnötig auf. Jetzt nur noch, wenn das Ausbaumenü
+    // tatsächlich sichtbar ist.
+    setInterval(() => {
+        const ausbauView = document.getElementById('view-ausbaumenu');
+        if (ausbauView && ausbauView.style.display !== 'none') window.updateAusbauButtons();
+    }, 2000);
 
     // 3. Raumwechsel patchen
     const oldOpenRoomB4 = window.openRoom;
