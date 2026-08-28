@@ -1235,6 +1235,10 @@
     // normal sichtbar. Vorher hat ein einziges globales Flag ALLE Agenten ausgeblendet, sobald
     // irgendeiner unterwegs war.
     let bunkerAnimatingAgentIds = new Set();
+    // Nur der EINE Agent, der GERADE aktiv die Aufzug-Animation durchläuft (nicht die, die noch
+    // in der Warteschlange stehen) - wichtig, um wartende Agenten weiterhin sichtbar an ihrem
+    // ALTEN Standort darzustellen, statt sie komplett verschwinden zu lassen.
+    let currentlyRidingAgentId = null;
     // Warteschlange für Aufzug-Fahrten: es gibt nur EINEN Aufzug im DOM - schickt man zwei
     // Agenten kurz hintereinander los, haben sich bisher beide Animationen denselben Aufzug
     // geteilt und sich gegenseitig überschrieben (der zweite Agent wirkte dadurch, als wäre er
@@ -1314,6 +1318,22 @@
     // Verfolgt den Aufzug kontinuierlich per requestAnimationFrame, solange er per CSS-
     // Transition unterwegs ist - ein einmaliges scrollIntoView() reicht NICHT, weil die Fahrt
     // über mehrere Sekunden läuft und die Seite dabei sonst zurückbleibt, statt mitzuwandern.
+    // WICHTIG: Nicht das Browser-Fenster scrollt hier, sondern ein verschachtelter Container
+    // (.base-view, overflow-y:auto) - window.scrollBy() lief deshalb komplett ins Leere. Der
+    // tatsächlich scrollende Vorfahre wird jetzt dynamisch gesucht (statt hart auf .base-view
+    // zu vertrauen, falls sich die Struktur mal ändert).
+    function findeScrollbarenVorfahren(el) {
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+            const style = window.getComputedStyle(node);
+            if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+                return node;
+            }
+            node = node.parentElement;
+        }
+        return document.scrollingElement || document.documentElement;
+    }
+
     let aufzugScrollAktiv = false;
     function folgeAufzugScroll(durationMs) {
         aufzugScrollAktiv = true;
@@ -1322,11 +1342,15 @@
             if (!aufzugScrollAktiv) return;
             const car = document.getElementById('bunker-elevator-car');
             if (car) {
+                const scrollContainer = findeScrollbarenVorfahren(car);
                 const rect = car.getBoundingClientRect();
-                const zielMitte = window.innerHeight / 2;
+                const containerRect = (scrollContainer === document.scrollingElement || scrollContainer === document.documentElement)
+                    ? { top: 0, height: window.innerHeight }
+                    : scrollContainer.getBoundingClientRect();
+                const zielMitte = containerRect.top + containerRect.height / 2;
                 const aktuelleMitte = rect.top + rect.height / 2;
                 const delta = aktuelleMitte - zielMitte;
-                if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+                if (Math.abs(delta) > 1) scrollContainer.scrollTop += delta;
             }
             if (jetzt - startZeit < durationMs + 200) requestAnimationFrame(schritt);
             else aufzugScrollAktiv = false;
@@ -1373,6 +1397,7 @@
 
         bunkerElevatorAnimating = true;
         if (agentId) bunkerAnimatingAgentIds.add(agentId);
+        currentlyRidingAgentId = agentId || null;
         document.querySelectorAll('.bunker-agent-figure').forEach(el => el.remove());
         if (riderSlot) riderSlot.innerHTML = '';
 
@@ -1381,6 +1406,7 @@
         function finish() {
             bunkerElevatorAnimating = false;
             if (agentId) bunkerAnimatingAgentIds.delete(agentId);
+            currentlyRidingAgentId = null;
             if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
             // Nächste wartende Fahrt automatisch starten, falls vorhanden.
             if (elevatorQueue.length > 0) {
@@ -1470,12 +1496,24 @@
 
         const agentsPerRoomCount = {};
         gameState.agents.forEach(agent => {
-            // NUR der/die gerade animierende(n) Agent(en) werden hier übersprungen - deren
-            // Darstellung übernimmt vollständig die laufende Aufzug-Animation. Alle ANDEREN
-            // Agenten bleiben normal sichtbar (vorher hat ein einziges globales Flag ALLE
-            // Agenten ausgeblendet, sobald irgendeiner unterwegs war).
-            if (bunkerAnimatingAgentIds.has(agent.id)) return;
-            const idx = bunkerFloorIndexForType(agent.location);
+            // Nur der GERADE aktiv fahrende Agent wird hier komplett übersprungen - seine
+            // Darstellung übernimmt vollständig die laufende Aufzug-Animation. Agenten, die noch
+            // in der Warteschlange auf den Aufzug warten, bleiben dagegen sichtbar - an ihrem
+            // ALTEN Standort (nicht am bereits im Datenmodell gesetzten Zielort), mit einem
+            // Warte-Hinweis. Vorher wurden alle wartenden Agenten komplett unsichtbar, sobald der
+            // Aufzug mit jemand anderem beschäftigt war.
+            if (agent.id === currentlyRidingAgentId) return;
+
+            const wartetInSchlange = bunkerAnimatingAgentIds.has(agent.id) && agent.id !== currentlyRidingAgentId;
+            let anzeigeOrt = agent.location;
+            let wartetAufAufzug = false;
+            if (wartetInSchlange) {
+                const queueEintrag = elevatorQueue.find(q => q.agentId === agent.id);
+                if (queueEintrag) { anzeigeOrt = queueEintrag.oldLocation; wartetAufAufzug = true; }
+                else return; // Zwischen Einreihen und tatsächlichem Start, kein sicherer Ort bekannt.
+            }
+
+            const idx = bunkerFloorIndexForType(anzeigeOrt);
             if (idx < 0) return;
             const preview = document.getElementById('bunker-room-' + idx);
             if (!preview) return;
@@ -1499,7 +1537,9 @@
             if (agent.id === window.selectedAgentId) wrap.classList.add('bunker-agent-figure-selected');
             const countdown = formatAgentCountdown(agent);
             let statusLabel = '';
-            if (agent.state === 'waiting_in_quartiere') {
+            if (wartetAufAufzug) {
+                statusLabel = '<div class="bunker-agent-wait" style="color:#0af;">wartet auf Aufzug...</div>';
+            } else if (agent.state === 'waiting_in_quartiere') {
                 statusLabel = '<div class="bunker-agent-wait">wartet · ' + countdown + '</div>';
             } else if (agent.state === 'working' && countdown) {
                 statusLabel = '<div class="bunker-agent-timer">⏱ ' + countdown + '</div>';

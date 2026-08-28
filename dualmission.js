@@ -285,10 +285,20 @@
 
     // Zwischenspeicher der letzten eigenen Position (für den periodischen Firestore-Schreiber
     // oben, ohne einen zweiten watchPosition zu benötigen).
+    // WICHTIG: Der Standort-Zugriff darf NICHT schon beim reinen Laden der Seite angefragt
+    // werden - das schreckt Spieler ab, die noch gar nicht eingeloggt sind und den Eindruck
+    // bekommen könnten, geortet zu werden, bevor sie überhaupt im Spiel sind. Erst NACH
+    // erfolgreichem Login (window.isAgentVerified) startet die Anfrage, per Polling geprüft.
     let gpsLetzterStand = null;
-    navigator.geolocation && navigator.geolocation.watchPosition((pos) => {
-        gpsLetzterStand = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    }, () => {}, { enableHighAccuracy: false, maximumAge: 10000 });
+    (function warteAufLoginFuerStandort() {
+        if (window.isAgentVerified && navigator.geolocation) {
+            navigator.geolocation.watchPosition((pos) => {
+                gpsLetzterStand = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            }, () => {}, { enableHighAccuracy: false, maximumAge: 10000 });
+        } else {
+            setTimeout(warteAufLoginFuerStandort, 1000);
+        }
+    })();
 
     window.dualMissionRadarStarten = function() {
         if (dualMissionMeineDistanz > SCAN_RADIUS_M) {
