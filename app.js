@@ -876,7 +876,8 @@ window.startGlobalNotification = function() {
     document.body.appendChild(overlay);
 
     let mStartTime;
-    let missionHistory = [];
+    // missionHistory (leere, nie befüllte lokale Variable) entfernt - der 'log'-Befehl nutzt
+    // jetzt die echte, in Firestore geführte Missions-Historie (siehe unten).
 
     function missionSpeak(text) {
         window.speechSynthesis.cancel();
@@ -986,7 +987,7 @@ window.startGlobalNotification = function() {
         if (typeof f_start === 'function') setTimeout(f_start, 50);
     };
   
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', async function(e) {
         const field = document.getElementById('terminal-input-field');
         if (!field || e.target !== field || e.key !== 'Enter') return;
         const cmd = field.value.toLowerCase().trim();
@@ -1075,10 +1076,12 @@ window.startGlobalNotification = function() {
                 </div>
             `;
         } else if (cmd === 'log') {
-            let logH = '<div style="color:#0f8; padding:20px;"><h3>Missions-Log</h3>';
-            if(missionHistory.length === 0) logH += "> Keine Einträge vorhanden.<br>";
-            missionHistory.forEach(m => { logH += `> [${m.date}] ${m.status}<br>`; });
-            anzeige.innerHTML = logH + "</div>";
+            anzeige.innerHTML = '<div style="color:#0f8; padding:20px;">[ MISSIONS-LOG ]<br>&gt; Lade Historie...</div>';
+            if (typeof window.zeigeMissionsLog === 'function') {
+                await window.zeigeMissionsLog(anzeige);
+            } else {
+                anzeige.innerHTML = '<div style="color:#f44; padding:20px;">[ FEHLER ]<br>&gt; Missions-Log-Modul nicht geladen.</div>';
+            }
         } else {
             anzeige.innerHTML = `<p style="color:#f44; padding:20px;">UNBEKANNT: ${cmd}</p>`;
         }
@@ -1226,7 +1229,7 @@ window.startGlobalNotification = function() {
                     </div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-                    <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em;" onclick="window.showMissionMenu()">MISSIONEN</button>
+                    <button id="missionen-nav-btn" class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em;" onclick="window.showMissionMenu()">MISSIONEN</button>
                     <button class="mission-master-btn" style="margin: 0; padding: 10px; font-size: 1em; border-color: #8844ff; color: #8844ff; box-shadow: 0 0 15px rgba(136, 68, 255, 0.2), inset 0 0 10px rgba(136, 68, 255, 0.1); text-shadow: 0 0 10px #8844ff;" onmouseover="this.style.background='#8844ff'; this.style.color='#000'; this.style.textShadow='none'; this.style.boxShadow='0 0 25px #8844ff';" onmouseout="this.style.background='rgba(0, 255, 204, 0.05)'; this.style.color='#8844ff'; this.style.textShadow='0 0 10px #8844ff'; this.style.boxShadow='0 0 15px rgba(136, 68, 255, 0.2), inset 0 0 10px rgba(136, 68, 255, 0.1)';" onclick="window.location.href='base.html'">AGENTUR-BASIS</button>
                 </div>`;
             // WICHTIG: f_start() erzeugt oben ein KOMPLETT NEUES #log-display-Element bei jedem
@@ -2313,7 +2316,10 @@ window.f_showDescription = function(withVoice) {
         fortgeschritten: { level: 3, xp: 0,     credits: 200,  materiezellen: 2 },
         weit:         { level: 6,  xp: 50,    credits: 500,  materiezellen: 8 },
         galaktisch:   { level: 25, xp: 0,     credits: 2000, materiezellen: 15 },
-        dual:         { level: 8,  xp: 0,     credits: 1500, materiezellen: 10 }
+        dual:         { level: 8,  xp: 0,     credits: 1500, materiezellen: 10 },
+        // Wird täglich dynamisch von dailyanomaly.js befüllt (Belohnung steigt mit der Streak) -
+        // dieser Platzhalter verhindert nur, dass ein Zugriff vor dem ersten Setzen crasht.
+        taeglich:     { level: 0,  xp: 0,     credits: 0,    materiezellen: 0 }
     };
 
     window.missionLabels = {
@@ -2321,7 +2327,8 @@ window.f_showDescription = function(withVoice) {
         fortgeschritten: 'Fortgeschrittene Mission',
         weit: 'Weit entfernte Mission',
         galaktisch: 'Galaktische Mission',
-        dual: 'Dual Mission'
+        dual: 'Dual Mission',
+        taeglich: 'Tägliche Zeitanomalie'
     };
 
     window.missionColors = {
@@ -2329,14 +2336,16 @@ window.f_showDescription = function(withVoice) {
         fortgeschritten: '#ffaa00',
         weit: '#ff8800',
         galaktisch: '#b0f',
-        dual: '#b0f'
+        dual: '#b0f',
+        taeglich: '#ffe066'
     };
 
     window.missionDistances = {
         normal: [50, 100],
         fortgeschritten: [300, 500],
         weit: [1000, 5000],
-        galaktisch: [50000, 60000]
+        galaktisch: [50000, 60000],
+        taeglich: [300, 800]
     };
 
     // Wie nah man dem Zielpunkt kommen muss, damit die Mission als "erreicht" gilt. Bei
@@ -2347,11 +2356,14 @@ window.f_showDescription = function(withVoice) {
         normal: 10,
         fortgeschritten: 10,
         weit: 10,
-        galaktisch: 100
+        galaktisch: 100,
+        taeglich: 10
     };
 
     window.showMissionMenu = function() {
         if (typeof triggerScan === 'function') triggerScan();
+        const navBtn = document.getElementById('missionen-nav-btn');
+        if (navBtn) navBtn.classList.remove('status-warn-pulse');
         const types = ['normal', 'fortgeschritten', 'weit'];
         let html = '<h3>Missionsauswahl</h3><div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">';
         types.forEach(function(type) {
@@ -2372,8 +2384,10 @@ window.f_showDescription = function(withVoice) {
                 <button class="modell-btn" style="flex:1;margin:0;border-color:#b0f;color:#b0f;text-align:left;padding:12px;" onclick="window.openDualMissionMenu()">Dual Mission<br><span style="font-size:0.7em;opacity:0.7;">Gemeinsam mit einem anderen Spieler vor Ort</span></button>
                 <button onclick="window.showLootPopup('dual')" style="background:none;border:none;cursor:pointer;padding:5px;font-size:1.8em;" title="Belohnungen ansehen">📦</button>
             </div>`;
+        html += '<div id="taegliche-anomalie-eintrag"></div>';
         html += '</div><hr><button onclick="window.f_start()">Zurück</button>';
         document.getElementById('content-body').innerHTML = html;
+        if (typeof window.renderTaeglicheAnomalieEintrag === 'function') window.renderTaeglicheAnomalieEintrag();
     };
 
     window.showLootPopup = function(type) {
@@ -2441,7 +2455,9 @@ window.f_showDescription = function(withVoice) {
             window.setDoc(window.doc(window.db, "protokolle", window.agentSlug(window.agentName), "missionsverlauf", window.currentMissionHistoryId), {
                 status: 'abgeschlossen',
                 endTs: window.serverTimestamp(),
-                belohnung: { credits: rewardResult.credits, materiezellen: rewardResult.materiezellen, xp: rewardResult.xp, levelBonus: rewardResult.levelBonus }
+                belohnung: { credits: rewardResult.credits, materiezellen: rewardResult.materiezellen, xp: rewardResult.xp, levelBonus: rewardResult.levelBonus },
+                lat: gpsTargetLat || null,
+                lng: gpsTargetLng || null
             }, { merge: true }).catch(e => console.error(e));
             window.currentMissionHistoryId = null;
         }
@@ -2462,13 +2478,32 @@ window.f_showDescription = function(withVoice) {
         el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(0,20,15,0.96); color:#0f8; border:1px solid #0f8; box-shadow:0 0 20px rgba(0,255,136,0.4); padding:14px 22px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
         el.innerHTML = (result.doubled ? '<div style="color:#ffcc00; font-weight:bold; margin-bottom:6px;">⚡ RESONANZ-KAMMER: DOPPELTER LOOT!</div>' : '') +
             '<div><b>Mission abgeschlossen</b></div>' +
-            (lines.length > 0 ? '<div style="margin-top:4px;">Erhalten: ' + lines.join(' · ') + '</div>' : '<div style="margin-top:4px; opacity:0.7;">Keine Belohnung für diese Mission.</div>');
+            (lines.length > 0 ? '<div style="margin-top:4px;">Erhalten: ' + lines.join(' · ') + '</div>' : '<div style="margin-top:4px; opacity:0.7;">Keine Belohnung für diese Mission.</div>') +
+            '<button id="mission-share-btn" style="margin-top:8px; width:100%; background:none; border:1px solid #0ff; color:#0ff; padding:6px; border-radius:4px; cursor:pointer; font-family:monospace;">📤 KARTE TEILEN</button>';
         document.body.appendChild(el);
-        setTimeout(() => {
+
+        const shareBtn = el.querySelector('#mission-share-btn');
+        if (shareBtn && typeof window.zeigeShareKarte === 'function') {
+            shareBtn.onclick = () => {
+                clearTimeout(fadeTimer);
+                window.zeigeShareKarte({
+                    titel: 'ANOMALIE EXTRAHIERT',
+                    untertitel: window.missionLabels[window.currentMissionType] || window.currentMissionType,
+                    icon: '⏱',
+                    belohnungZeilen: lines,
+                    lat: gpsTargetLat || null,
+                    lng: gpsTargetLng || null,
+                    dateiname: 'mission-erfolg'
+                });
+                el.remove();
+            };
+        }
+
+        const fadeTimer = setTimeout(() => {
             el.style.transition = 'opacity 1s ease-out';
             el.style.opacity = '0';
             setTimeout(() => el.remove(), 1000);
-        }, 4500);
+        }, 6500);
     }
 
 
@@ -2686,6 +2721,21 @@ window.f_showDescription = function(withVoice) {
         gpsTargetReady = false;
         document.getElementById('gps-status').innerText = 'Suche erreichbare Wege...';
 
+        // Tägliche Zeitanomalie: fester, einmal am Tag generierter Zielpunkt (siehe
+        // dailyanomaly.js) statt eines neu ausgewürfelten Ziels bei jedem Versuch.
+        if (window.currentMissionType === 'taeglich') {
+            if (window.dailyAnomalyLat && window.dailyAnomalyLng) {
+                gpsTargetLat = window.dailyAnomalyLat;
+                gpsTargetLng = window.dailyAnomalyLng;
+                gpsTargetReady = true;
+                document.getElementById('gps-status').innerText = 'Anomalie geortet. Navigation per Meter-Anzeige.';
+            } else {
+                document.getElementById('gps-status').innerText = 'Heutige Anomalie nicht verfügbar. Bitte erneut versuchen.';
+                setTimeout(closeGpsOverlay, 2500);
+            }
+            return;
+        }
+
         const distRange = window.missionDistances[window.currentMissionType] || [50, 100];
         const targetDist = distRange[0] + Math.random() * (distRange[1] - distRange[0]);
 
@@ -2799,7 +2849,7 @@ window.f_showDescription = function(withVoice) {
         startArMission();
     };
 
-    window.cancelGpsMission = function() {
+    function fuehreGpsMissionAbbruchAus() {
         if (typeof playBeep === 'function') playBeep(300, 0.15);
         window.missionActive = false;
         if (window.db && window.agentName && window.currentMissionHistoryId) {
@@ -2809,10 +2859,24 @@ window.f_showDescription = function(withVoice) {
             }, { merge: true }).catch(e => console.error(e));
             window.currentMissionHistoryId = null;
         }
+        if (window.currentMissionType === 'taeglich' && typeof window.taeglicheAnomalieAbgebrochen === 'function') {
+            window.taeglicheAnomalieAbgebrochen();
+        }
         const popup = document.getElementById('radar-arrival-popup');
         if (popup) popup.style.display = 'none';
         closeGpsOverlay();
         window.f_start();
+    }
+
+    window.cancelGpsMission = function() {
+        // Bei der Täglichen Zeitanomalie ist ein Abbruch endgültig (heute nicht wiederholbar) -
+        // deshalb hier eine explizite Bestätigung, bei allen anderen Missionstypen bricht
+        // "ABBRECHEN" wie gewohnt sofort ab.
+        if (window.currentMissionType === 'taeglich' && typeof window.zeigeBestaetigung === 'function') {
+            window.zeigeBestaetigung('Willst du diese Mission wirklich abbrechen? Die Tägliche Zeitanomalie kann heute danach nicht mehr wiederholt werden.', fuehreGpsMissionAbbruchAus);
+        } else {
+            fuehreGpsMissionAbbruchAus();
+        }
     };
 
     let arStream = null;
@@ -3343,6 +3407,9 @@ window.f_showDescription = function(withVoice) {
                 window.f_start();
             } else {
                 const rewardResult = await window.applyMissionRewards(window.currentMissionType);
+                if (window.currentMissionType === 'taeglich' && typeof window.taeglicheAnomalieAbgeschlossen === 'function') {
+                    await window.taeglicheAnomalieAbgeschlossen();
+                }
                 window.f_start();
                 showMissionRewardPopup(rewardResult);
             }
