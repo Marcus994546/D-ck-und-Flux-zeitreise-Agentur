@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260826c">
+    <link rel="stylesheet" href="base-style.css?v=20260826f">
 </head>
 <body>
 
@@ -34,7 +34,6 @@
                     <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
                     <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
                 </div>
-                <button onclick="showBasisausbaumenu()" class="btn-back" style="border-color:#0af; color:#0af;">🏗 BASISAUSBAUMENÜ</button>
                 <button onclick="window.openSammelSystem()" class="btn-back" style="border-color:#ffcc00; color:#ffcc00;">📦 SAMMEL-SYSTEM</button>
             </div>
         </div>
@@ -192,7 +191,7 @@
         <h3 id="archiv-meilenstein-titel" style="color:#c060ff; text-shadow:0 0 12px #c060ff; margin:0 0 14px;">-</h3>
         <p id="archiv-meilenstein-text" style="color:#e0c0ff; font-size:0.85em; line-height:1.6; font-family:sans-serif; text-align:left;">-</p>
         <div id="archiv-meilenstein-belohnung" style="font-family:sans-serif; font-size:0.85em;"></div>
-        <button id="archiv-meilenstein-share-btn" style="display:none; width:100%; margin-top:16px; background:none; border:1px solid #0ff; color:#0ff; padding:10px; font-family:monospace; cursor:pointer; border-radius:4px;">📤 KARTE TEILEN</button>
+        <button id="archiv-meilenstein-share-btn" style="display:none; width:100%; margin-top:16px; background:none; border:1px solid #0ff; color:#0ff; padding:10px; font-family:monospace; cursor:pointer; border-radius:4px;">📤 KARTE ÖFFNEN</button>
         <button class="btn-back" style="width:100%; margin-top:10px;" onclick="window.closeArchivMeilenstein()">SCHLIESSEN</button>
     </div>
 </div>
@@ -225,7 +224,7 @@
         <audio id="schallplatte-audio" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/99%20Luftbalogs.mp3" preload="none" onerror="const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Audiodatei konnte nicht geladen werden (URL prüfen).';"></audio>
         <img id="artifact-schriftrolle-bild" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/AlienSchriftrolle.jpg" alt="Alien-Schriftrolle" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Bild konnte nicht geladen werden (URL prüfen).';">
         <video id="artifact-datenkristall-video" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" controls preload="none" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/%C3%9Cbertragung.mp4" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Video konnte nicht geladen werden (URL prüfen).';"></video>
-        <button id="btn-artifact-teilen" style="width:100%; margin-top:16px; background:none; border:1px solid #0ff; color:#0ff; padding:10px; font-family:monospace; cursor:pointer; border-radius:4px;" onclick="window.artefaktTeilen()">📤 TEILEN</button>
+        <button id="btn-artifact-teilen" style="width:100%; margin-top:16px; background:none; border:1px solid #0ff; color:#0ff; padding:10px; font-family:monospace; cursor:pointer; border-radius:4px;" onclick="window.artefaktTeilen()">📤 KARTE ÖFFNEN</button>
         <button class="btn-back" style="width:100%; margin-top:8px;" onclick="window.closeArtifactDetail()">SCHLIESSEN</button>
     </div>
 </div>
@@ -319,6 +318,20 @@
         <h3 id="room-info-title" style="color:#0ff; text-shadow:0 0 10px #0ff; margin-top:0;">-</h3>
         <div id="room-info-body" style="font-size:0.82em; color:#ddd; line-height:1.7; font-family:sans-serif;"></div>
         <button class="btn-back" style="width:100%; margin-top:16px;" onclick="window.closeRoomInfoPopup()">SCHLIESSEN</button>
+    </div>
+</div>
+
+<div id="room-build-detail-overlay" style="display:none; position:fixed; inset:0; z-index:10600; background:rgba(0,0,0,0.88); align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="background:#0a0f14; border:1px solid #0ff; box-shadow:0 0 30px rgba(0,255,255,0.5); border-radius:6px; padding:20px; width:min(400px, 90vw); max-height:85vh; overflow-y:auto; font-family:'Orbitron', monospace;">
+        <h3 id="room-build-detail-titel" style="text-shadow:0 0 10px currentColor; margin-top:0;">-</h3>
+        <div id="room-build-detail-kategorie" style="font-size:0.8em; font-weight:bold; margin-bottom:10px;">-</div>
+        <div id="room-build-detail-beschreibung" style="font-size:0.82em; color:#ddd; line-height:1.6; font-family:sans-serif; margin-bottom:14px;">-</div>
+        <div style="border-top:1px solid rgba(0,255,255,0.25); padding-top:10px; font-size:0.8em; font-family:sans-serif;">
+            <div><span style="color:#0f8;">Baukosten:</span> <span id="room-build-detail-kosten">-</span></div>
+            <div style="margin-top:4px;"><span style="color:#0f8;">Ausstattung:</span> <span id="room-build-detail-ausstattung">-</span></div>
+        </div>
+        <button id="room-build-detail-bauen-btn" class="btn-back" style="width:100%; margin-top:16px; border-color:#0f8; color:#0f8;">✓ RAUM BAUEN</button>
+        <button class="btn-back" style="width:100%; margin-top:8px;" onclick="window.closeRoomBuildDetailPopup()">ABBRECHEN</button>
     </div>
 </div>
 
@@ -446,9 +459,9 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260826c"></script>
-<script src="protokoll.js?v=20260826c"></script>
-<script src="sharecard.js?v=20260826c"></script>
-<script src="base-app.js?v=20260826c"></script>
+<script type="module" src="base-firebase-init.js?v=20260826f"></script>
+<script src="protokoll.js?v=20260826f"></script>
+<script src="sharecard.js?v=20260826f"></script>
+<script src="base-app.js?v=20260826f"></script>
 </body>
 </html>

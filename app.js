@@ -2529,7 +2529,7 @@ window.f_showDescription = function(withVoice) {
             (result.mentorBonusAktiv ? '<div style="color:#0ff; font-size:0.85em; margin-bottom:4px;">🎓 Mentee-Bonus: +20% angewendet</div>' : '') +
             '<div><b>Mission abgeschlossen</b></div>' +
             (lines.length > 0 ? '<div style="margin-top:4px;">Erhalten: ' + lines.join(' · ') + '</div>' : '<div style="margin-top:4px; opacity:0.7;">Keine Belohnung für diese Mission.</div>') +
-            '<button id="mission-share-btn" style="margin-top:8px; width:100%; background:none; border:1px solid #0ff; color:#0ff; padding:6px; border-radius:4px; cursor:pointer; font-family:monospace;">📤 KARTE TEILEN</button>';
+            '<button id="mission-share-btn" style="margin-top:8px; width:100%; background:none; border:1px solid #0ff; color:#0ff; padding:6px; border-radius:4px; cursor:pointer; font-family:monospace;">📤 KARTE ÖFFNEN</button>';
         document.body.appendChild(el);
 
         const shareBtn = el.querySelector('#mission-share-btn');

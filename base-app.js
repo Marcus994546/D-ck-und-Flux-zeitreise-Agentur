@@ -385,7 +385,18 @@
     const AGENT_UNLOCK_COST_CREDITS = 13000;
     const AGENT_UNLOCK_COST_MZ = 50;
     const AGENT_UNLOCK_REQUIRED_LEVEL = 50;
-    const AGENT_UNLOCK_REQUIRED_ROOMS = ['AGENTEN-QUARTIERE', 'SCANNER-PHALANX', 'KI-KERNMATRIX', 'FLUX-REAKTOR', 'MATERIE-DEKOMPRESSOR'];
+    // Diese Liste war seit Einführung des Agenten-Systems nicht mehr aktualisiert worden -
+    // inzwischen sind viele weitere Räume mit eigenen Agenten-Aufgaben dazugekommen (siehe
+    // AGENT_TASK_ROOMS) sowie der komplette Zeitreise-Kreislauf (Forge/Dekontamination/Archiv).
+    // Jetzt: alle "echten" Agenten-Aufgaben-Räume + die drei Kreislauf-Räume. SUBRAUM-NEXUS ist
+    // bewusst ausgenommen, da der seinerseits ALLE anderen Räume voraussetzt (zirkuläre
+    // Abhängigkeit) und ohnehin erst weit nach der Agenten-Freischaltung baubar ist.
+    const AGENT_UNLOCK_REQUIRED_ROOMS = [
+        'AGENTEN-QUARTIERE', 'SCANNER-PHALANX', 'KI-KERNMATRIX', 'FLUX-REAKTOR', 'MATERIE-DEKOMPRESSOR',
+        'KINETIK-LABOR', 'IMPULS-KONDENSATOR', 'OSZILLATIONS-KAMMER', 'FUNK-RELAIS "HORIZONT"',
+        'HOCHSPANNUNGS-VERTEILER', 'PARADOXON-FILTER',
+        'TEMPORAL TIME FORGE', 'DEKONTAMINATIONS-SCHLEUSE', 'ARTEFAKT-ARCHIV'
+    ];
 
     function ensureAgentsInitialized() {
         if (!gameState.pendingRewards || typeof gameState.pendingRewards !== 'object') {
@@ -1262,6 +1273,21 @@
         const l2 = document.getElementById('display-level-2'); if (l2) l2.innerText = gameState.userLevel;
     }
 
+    // Findet die erste freie, an einen bestehenden Raum angrenzende Gitterzelle - unabhängig
+    // davon, ob das (Grid-)Ausbaumenü gerade gerendert ist. Wird vom neuen "+"-Eintrag am Ende
+    // der Aktive-Basis-Raumliste genutzt, der das Ausbaumenü als eigene Ansicht komplett ersetzt.
+    function findeNaechstesBaufeld() {
+        for (let y = 0; y < 7; y++) {
+            for (let x = 0; x < 7; x++) {
+                const belegt = gameState.baseData.some(r => r.x === x && r.y === y);
+                if (belegt) continue;
+                const isNeighbor = gameState.baseData.some(r => (Math.abs(r.x - x) === 1 && r.y === y) || (Math.abs(r.y - y) === 1 && r.x === x));
+                if (isNeighbor) return { x, y };
+            }
+        }
+        return null;
+    }
+
     function renderGrid() {
         // Absicherung: eine komplett leere baseData würde ein leeres, nicht mehr bedienbares
         // Gitter ergeben (kein Raum, kein "+"-Button zum Bauen). Zentrale wird notfalls wieder
@@ -1323,6 +1349,9 @@
             const isNexus = room.n === 'SUBRAUM-NEXUS';
             const nexusLocked = isNexus && missingRooms.length > 0;
             const item = document.createElement('div'); item.className = 'selection-item';
+            const kategorie = roomEffectCategory(room.n);
+            const kategorieFarbe = { passive: '#4dd0ff', danger: '#ff8800', journey: '#c060ff', quantum: '#00fff2', active: '#0f8' }[kategorie] || '#888';
+            item.style.borderLeft = '3px solid ' + kategorieFarbe;
             if (isNexus) item.style.border = '1px solid #ffd700';
             if (built || gameState.userLevel < reqLvl) { item.style.opacity = '0.3'; item.style.pointerEvents = 'none'; }
             else if (nexusLocked) {
@@ -1331,17 +1360,51 @@
                 item.style.opacity = '0.55'; item.style.cursor = 'pointer';
                 item.onclick = () => { if (typeof showCustomAlert === 'function') showCustomAlert('Subraum-Nexus benötigt zuerst alle anderen Räume (noch ' + missingRooms.length + ' fehlend).'); };
             }
-            else { item.onclick = () => confirmRoomSelection(room.n); }
+            else { item.onclick = () => window.showRoomBuildDetailPopup(room.n); }
             const priceLabel = isNexus
                 ? '<span style="float:right; color:#c060ff; font-weight:bold;">' + SUBRAUM_NEXUS_COST_CHRONOS + ' Chronos-Zellen</span>'
                 : '<span style="float:right; color:#0f8; font-weight:bold;">' + buildCost + ' MZ</span>';
-            const nameLabel = isNexus ? '<b style="color:#ffd700; text-shadow:0 0 6px rgba(255,215,0,0.6);">[ ' + room.n + ' ]</b>' : `<b>[ ${room.n} ]</b>`;
+            const nameLabel = isNexus ? '<b style="color:#ffd700; text-shadow:0 0 6px rgba(255,215,0,0.6);">[ ' + room.n + ' ]</b>' : `<b style="color:${kategorieFarbe};">[ ${room.n} ]</b>`;
             const lockHint = (gameState.userLevel < reqLvl && !built) ? '<span class="level-lock-hint">Benötigt Lvl '+reqLvl+'</span>'
                 : (nexusLocked ? '<div style="font-size:0.65em; color:#ff8800; margin-top:4px;">Benötigt zuerst alle ' + otherRoomTypes.length + ' anderen Räume (noch ' + missingRooms.length + ' fehlend)</div>' : '');
             item.innerHTML = `${nameLabel} ${priceLabel}<br><small>${room.d}</small>${lockHint}`;
             list.appendChild(item);
         });
         document.getElementById('room-selection-overlay').style.display = 'flex';
+    };
+
+    // Zeigt vor dem eigentlichen Bau ein Detail-Popup: Beschreibung (identisch zum
+    // Info-Button-Text), Kategorie (aktiv/passiv/Zeitkreislauf/gefährlich/instabil) mit
+    // passender Farbe, und eine grobe Einordnung, wie teuer der Raum in der Ausstattung wird
+    // (Baukosten selbst sind für alle Räume gleich hoch - die Möbelkosten variieren aber stark).
+    window.showRoomBuildDetailPopup = function(roomType) {
+        const overlay = document.getElementById('room-build-detail-overlay');
+        if (!overlay) return;
+        const kategorie = roomEffectCategory(roomType);
+        const kategorieLabel = { active: 'Aktiver Raum (Agent nötig)', passive: 'Passiver Raum (läuft automatisch)', danger: 'Hochrisiko-Raum', journey: 'Teil des Zeitreise-Kreislaufs', quantum: 'Instabile Quanten-Alternative' }[kategorie] || 'Dekorativer Raum';
+        const kategorieFarbe = { passive: '#4dd0ff', danger: '#ff8800', journey: '#c060ff', quantum: '#00fff2', active: '#0f8' }[kategorie] || '#888';
+
+        const panel = document.getElementById(roomShopPanelId(roomType));
+        const moebelAnzahl = panel ? panel.querySelectorAll('.btn-upgrade-exec, .btn-action-repeatable').length : 0;
+        const ausstattungTier = moebelAnzahl >= 3 ? 'Teuer in der Vollausstattung (' + moebelAnzahl + ' Möbelstücke)' : (moebelAnzahl > 0 ? 'Günstig in der Vollausstattung (' + moebelAnzahl + ' Möbelstück' + (moebelAnzahl === 1 ? '' : 'e') + ')' : 'Keine zusätzlichen Möbel nötig');
+
+        const isNexus = roomType === 'SUBRAUM-NEXUS';
+        const buildCost = getRoomBuildCostMZ();
+        const detail = ROOM_DETAILED_INFO[roomType] || 'Für diesen Raum ist noch keine ausführliche Beschreibung hinterlegt.';
+
+        document.getElementById('room-build-detail-titel').innerText = roomType;
+        document.getElementById('room-build-detail-titel').style.color = isNexus ? '#ffd700' : kategorieFarbe;
+        document.getElementById('room-build-detail-kategorie').innerText = kategorieLabel;
+        document.getElementById('room-build-detail-kategorie').style.color = kategorieFarbe;
+        document.getElementById('room-build-detail-beschreibung').innerText = detail;
+        document.getElementById('room-build-detail-kosten').innerText = isNexus ? '75 Chronos-Zellen (Baukosten)' : (buildCost + ' Materiezellen (Baukosten)');
+        document.getElementById('room-build-detail-ausstattung').innerText = ausstattungTier;
+        document.getElementById('room-build-detail-bauen-btn').onclick = () => { window.confirmRoomSelection(roomType); window.closeRoomBuildDetailPopup(); };
+        overlay.style.display = 'flex';
+    };
+    window.closeRoomBuildDetailPopup = function() {
+        const overlay = document.getElementById('room-build-detail-overlay');
+        if (overlay) overlay.style.display = 'none';
     };
 
     window.hideRoomMenu = () => { playBeepBase(600, 0.05); document.getElementById('room-selection-overlay').style.display = 'none'; };
@@ -1977,7 +2040,10 @@
     function getAgentUnlockRequirementStatus() {
         const roomsBuilt = AGENT_UNLOCK_REQUIRED_ROOMS.map(type => ({
             type,
-            ok: gameState.baseData.some(r => r.type === type)
+            // Der Forge-Raum wird je nach Bauzeitpunkt unter zwei verschiedenen internen Namen
+            // gespeichert (isForgeRoom deckt beide ab) - für alle anderen Räume reicht der
+            // einfache exakte Abgleich.
+            ok: gameState.baseData.some(r => type === 'TEMPORAL TIME FORGE' ? isForgeRoom(r.type) : r.type === type)
         }));
         return {
             rooms: roomsBuilt,
@@ -2271,6 +2337,27 @@
                 '</div>';
             floorsEl.appendChild(floor);
         });
+
+        // Ersetzt das frühere separate "Ausbaumenü": ein "+"-Feld direkt unter dem letzten Raum,
+        // optisch analog zu den früheren Baufeldern im Gitter. Öffnet dieselbe
+        // Raumtyp-Auswahlliste wie zuvor, nur ohne den Umweg über eine eigene Ansicht.
+        const naechstesFeld = findeNaechstesBaufeld();
+        if (naechstesFeld) {
+            const bauFloor = document.createElement('div');
+            bauFloor.className = 'bunker-floor';
+            bauFloor.onclick = () => { playBeepBase(900, 0.05); window.buyRoom(naechstesFeld.x, naechstesFeld.y); };
+            bauFloor.innerHTML =
+                '<div class="bunker-floor-inner">' +
+                    '<div class="bunker-room-preview-wrap" style="background:#0a0a0a; border:2px dashed rgba(0,255,204,0.4); display:flex; align-items:center; justify-content:center;">' +
+                        '<span style="font-size:2.5em; color:#0f8; text-shadow:0 0 12px #0f8;">+</span>' +
+                    '</div>' +
+                    '<div class="bunker-floor-sidebar">' +
+                        '<div class="bunker-floor-label"><b style="color:#0f8;">NEUEN RAUM BAUEN</b></div>' +
+                        '<div class="bunker-floor-info" style="color:#0f8; opacity:0.7;">Öffnet die Raumauswahl</div>' +
+                    '</div>' +
+                '</div>';
+            floorsEl.appendChild(bauFloor);
+        }
 
         const track = document.getElementById('bunker-shaft-track');
         if (track) track.style.height = (bunkerFloorsData.length * BUNKER_FLOOR_HEIGHT) + 'px';

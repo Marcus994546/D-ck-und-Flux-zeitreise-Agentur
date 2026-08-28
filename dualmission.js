@@ -387,7 +387,34 @@
             }, { merge: true });
 
             await window.setDoc(ref, { status: 'abgeschlossen' }, { merge: true });
-            window.zeigeInfo('🎉 DUAL-MISSION ABGESCHLOSSEN! +8 Level, +10 Materiezellen, +1.500 Credits.');
+
+            const el = document.createElement('div');
+            el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(20,0,25,0.96); color:#e0c0ff; border:1px solid #b0f; box-shadow:0 0 20px rgba(187,0,255,0.5); padding:14px 22px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
+            el.innerHTML = '<div><b>🎉 DUAL-MISSION ABGESCHLOSSEN!</b></div>' +
+                '<div style="margin-top:4px;">+8 Level, +10 Materiezellen, +1.500 Credits</div>' +
+                '<button id="dual-mission-share-btn" style="margin-top:8px; width:100%; background:none; border:1px solid #b0f; color:#b0f; padding:6px; border-radius:4px; cursor:pointer; font-family:monospace;">📤 KARTE ÖFFNEN</button>';
+            document.body.appendChild(el);
+            const shareBtn = el.querySelector('#dual-mission-share-btn');
+            if (shareBtn && typeof window.zeigeShareKarte === 'function') {
+                shareBtn.onclick = () => {
+                    clearTimeout(fadeTimer);
+                    window.zeigeShareKarte({
+                        titel: 'DUAL-MISSION ERFOLGREICH',
+                        untertitel: 'Gemeinsam mit ' + andererSlug + ' abgeschlossen',
+                        icon: '🤝',
+                        belohnungZeilen: ['1.500 Credits', '10 Materiezellen', '+8 Level'],
+                        lat: a.zielLat || null,
+                        lng: a.zielLng || null,
+                        dateiname: 'dual-mission-erfolg'
+                    });
+                    el.remove();
+                };
+            }
+            const fadeTimer = setTimeout(() => {
+                el.style.transition = 'opacity 1s ease-out';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 1000);
+            }, 6500);
         } catch (e) {
             console.error(e);
             window.zeigeInfo('Belohnung konnte nicht vollständig gutgeschrieben werden - bitte Support kontaktieren.');
