@@ -2427,6 +2427,27 @@ window.f_showDescription = function(withVoice) {
             const pct = scaledResonanzPct(window.passiveRoomEffects.resonanzKammer);
             if (Math.random() * 100 < pct) { xp *= 2; credits *= 2; materiezellen *= 2; doubled = true; }
         }
+
+        // Mentorenprogramm: aktiver Mentee bekommt +20% auf Credits/MZ/XP dieser Mission. Läuft
+        // hier komplett eigenständig (Netzwerk-Seite lädt dieses Modul nicht), fragt direkt
+        // Firestore nach einer aktiven Mentorschaft, in der man selbst der Mentee ist.
+        let mentorBonusAktiv = false;
+        let mentorshipDoc = null;
+        if (window.db && window.agentName) {
+            try {
+                const mySlug = window.agentSlug(window.agentName);
+                const q = window.query(window.collection(window.db, "mentorships"), window.where('menteeSlug', '==', mySlug), window.where('status', '==', 'aktiv'));
+                const snap = await window.getDocs(q);
+                if (!snap.empty) {
+                    mentorshipDoc = { id: snap.docs[0].id, ...snap.docs[0].data() };
+                    mentorBonusAktiv = true;
+                    xp = Math.round(xp * 1.2);
+                    credits = Math.round(credits * 1.2);
+                    materiezellen = Math.round(materiezellen * 1.2);
+                }
+            } catch (e) { console.error('Mentee-Bonus-Prüfung fehlgeschlagen:', e); }
+        }
+
         const quantenLaborAktiv = !!(window.passiveRoomEffects && window.passiveRoomEffects.quantenLabor > 0 && xp > 0);
         if (xp > 0 && typeof window.updateXP === 'function') window.updateXP(xp);
         if (loot.level > 0) {
@@ -2443,13 +2464,41 @@ window.f_showDescription = function(withVoice) {
         // wieder mit dem alten Server-Stand überschreiben - der vermutete Ursprung dafür, dass
         // Belohnungen manchmal scheinbar "verschwunden" sind.
         await window.saveProgress();
+
+        // Mentor-Trickle-Belohnung + Graduierungs-Check, NACH dem eigenen saveProgress, damit die
+        // eigene Belohnung sicher zuerst steht.
+        if (mentorshipDoc) {
+            try {
+                await window.setDoc(window.doc(window.db, "mentorships", mentorshipDoc.id), {
+                    missionsAbgeschlossen: (mentorshipDoc.missionsAbgeschlossen || 0) + 1
+                }, { merge: true });
+                const mentorRef = window.doc(window.db, "agenten", mentorshipDoc.mentorSlug);
+                const mentorSnap = await window.getDoc(mentorRef);
+                const mentorCredits = mentorSnap.exists() ? (mentorSnap.data().credits || 0) : 0;
+                await window.setDoc(mentorRef, { credits: mentorCredits + 20 }, { merge: true });
+
+                // Graduierung: 30 Tage vergangen ODER Mentee hat Level 10 erreicht.
+                const tageVergangen = (Date.now() - (mentorshipDoc.erstelltAm || Date.now())) / 86400000;
+                if (tageVergangen >= 30 || window.playerLevel >= 10) {
+                    await window.setDoc(window.doc(window.db, "mentorships", mentorshipDoc.id), { status: 'graduiert' }, { merge: true });
+                    window.playerCredits += 300;
+                    await window.saveProgress();
+                    const mentorSnap2 = await window.getDoc(mentorRef);
+                    const mentorCredits2 = mentorSnap2.exists() ? (mentorSnap2.data().credits || 0) : 0;
+                    await window.setDoc(mentorRef, { credits: mentorCredits2 + 800 }, { merge: true });
+                    if (typeof window.logEreignis === 'function') window.logEreignis('Mentorschaft erfolgreich abgeschlossen (graduiert) - Abschlussbonus erhalten.');
+                }
+            } catch (e) { console.error('Mentor-Belohnung/Graduierung fehlgeschlagen:', e); }
+        }
+
         const rewardResult = {
             xp: xp > 0 ? Math.round(xp) : 0,
             credits: credits,
             materiezellen: materiezellen,
             levelBonus: loot.level > 0 ? loot.level : 0,
             doubled: doubled,
-            quantenLaborAktiv: quantenLaborAktiv
+            quantenLaborAktiv: quantenLaborAktiv,
+            mentorBonusAktiv: mentorBonusAktiv
         };
         if (window.db && window.agentName && window.currentMissionHistoryId) {
             window.setDoc(window.doc(window.db, "protokolle", window.agentSlug(window.agentName), "missionsverlauf", window.currentMissionHistoryId), {
@@ -2477,6 +2526,7 @@ window.f_showDescription = function(withVoice) {
         const el = document.createElement('div');
         el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(0,20,15,0.96); color:#0f8; border:1px solid #0f8; box-shadow:0 0 20px rgba(0,255,136,0.4); padding:14px 22px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
         el.innerHTML = (result.doubled ? '<div style="color:#ffcc00; font-weight:bold; margin-bottom:6px;">⚡ RESONANZ-KAMMER: DOPPELTER LOOT!</div>' : '') +
+            (result.mentorBonusAktiv ? '<div style="color:#0ff; font-size:0.85em; margin-bottom:4px;">🎓 Mentee-Bonus: +20% angewendet</div>' : '') +
             '<div><b>Mission abgeschlossen</b></div>' +
             (lines.length > 0 ? '<div style="margin-top:4px;">Erhalten: ' + lines.join(' · ') + '</div>' : '<div style="margin-top:4px; opacity:0.7;">Keine Belohnung für diese Mission.</div>') +
             '<button id="mission-share-btn" style="margin-top:8px; width:100%; background:none; border:1px solid #0ff; color:#0ff; padding:6px; border-radius:4px; cursor:pointer; font-family:monospace;">📤 KARTE TEILEN</button>';

@@ -85,8 +85,18 @@
             aktualisierePuls();
         });
         const qTrade = window.query(window.collection(window.db, "handelsangebote"), window.where("an", "==", mySlug), window.where("status", "==", "offen"));
+        let bekannteOffeneAngebote = new Set();
         window.onSnapshot(qTrade, (snapshot) => {
             hatOffenesAngebot = !snapshot.empty;
+            const jetztOffen = new Set();
+            snapshot.forEach(d => {
+                jetztOffen.add(d.id);
+                if (!bekannteOffeneAngebote.has(d.id)) {
+                    const a = d.data();
+                    if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot von ' + a.von + ' bekommen.');
+                }
+            });
+            bekannteOffeneAngebote = jetztOffen;
             aktualisierePuls();
         });
     }
@@ -101,6 +111,7 @@
         else if (tab === 'allianz') renderAllianz();
         else if (tab === 'saison') renderSaison();
         else if (tab === 'chat') renderKommLinkUebersicht();
+        else if (tab === 'mentoren') renderMentorenTab();
     };
 
 
@@ -441,6 +452,7 @@
                 willTyp, willMenge, bietetTyp, bietetMenge,
                 status: 'offen', createdAt: Date.now()
             });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot an ' + empfaenger + ' erstellt.');
             document.getElementById('handel-chat-modal').style.display = 'none';
         } catch (e) {
             console.error(e);
@@ -485,6 +497,7 @@
             else if (a.bietetTyp === 'materiezellen') window.playerMateriezellen = (window.playerMateriezellen || 0) + a.bietetMenge;
 
             window.zeigeInfo('Handel abgeschlossen.');
+            if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot von ' + a.von + ' angenommen.');
         } catch (e) {
             console.error(e);
             window.zeigeInfo('Annahme fehlgeschlagen.');
@@ -503,6 +516,7 @@
             const vonBestand = vonSnap.exists() ? (vonSnap.data()[a.bietetTyp] || 0) : 0;
             await window.setDoc(vonRef, { [a.bietetTyp]: vonBestand + a.bietetMenge }, { merge: true });
             await window.setDoc(ref, { status: 'abgelehnt' }, { merge: true });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot von ' + a.von + ' abgelehnt.');
         } catch (e) {
             console.error(e);
             window.zeigeInfo('Ablehnung fehlgeschlagen.');
@@ -524,6 +538,7 @@
             if (a.bietetTyp === 'credits') window.playerCredits = meinBestand + a.bietetMenge;
             else if (a.bietetTyp === 'materiezellen') window.playerMateriezellen = meinBestand + a.bietetMenge;
             await window.setDoc(ref, { status: 'storniert' }, { merge: true });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot an ' + a.an + ' zurückgenommen.');
         } catch (e) {
             console.error(e);
             window.zeigeInfo('Stornierung fehlgeschlagen.');
@@ -998,6 +1013,208 @@
             });
             if (listEl) listEl.innerHTML = count > 0 ? htmlList : '<div style="color:#555; font-size:0.8em;">Keine Agenten im Sektor...</div>';
             if (radarAgents) radarAgents.innerHTML = htmlRadar;
+        });
+    };
+
+    // --- MENTORENPROGRAMM ---
+    const MENTOR_MIN_LEVEL = 15;
+    const MENTEE_MAX_LEVEL = 5;
+    const MENTEE_WILLKOMMEN = { credits: 500, materiezellen: 5 };
+    const MENTOR_TRICKLE_CREDITS = 20;
+    const GRADUATION_MENTOR = { credits: 800, materiezellen: 0 };
+    const GRADUATION_MENTEE = { credits: 300, materiezellen: 0 };
+    const MENTORSHIP_TAGE = 30;
+    const MENTEE_GRADUATE_LEVEL = 10;
+
+    async function findeEigeneMentorschaft() {
+        const mySlug = window.agentSlug(window.agentName);
+        const qAlsMentor = window.query(window.collection(window.db, "mentorships"), window.where('mentorSlug', '==', mySlug), window.where('status', 'in', ['offen', 'aktiv']));
+        const qAlsMentee = window.query(window.collection(window.db, "mentorships"), window.where('menteeSlug', '==', mySlug), window.where('status', 'in', ['offen', 'aktiv']));
+        const [snapMentor, snapMentee] = await Promise.all([window.getDocs(qAlsMentor), window.getDocs(qAlsMentee)]);
+        const alsMentor = snapMentor.empty ? null : { id: snapMentor.docs[0].id, ...snapMentor.docs[0].data() };
+        const alsMentee = snapMentee.empty ? null : { id: snapMentee.docs[0].id, ...snapMentee.docs[0].data() };
+        return { alsMentor, alsMentee };
+    }
+
+    window.renderMentorenTab = async function() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = '<p style="color:#0f8; text-align:center;">Lade Mentorenprogramm...</p>';
+        try {
+            const { alsMentor, alsMentee } = await findeEigeneMentorschaft();
+
+            if (alsMentor) { await renderMentorDashboard(alsMentor); return; }
+            if (alsMentee) { renderMenteeDashboard(alsMentee); return; }
+
+            // Keine aktive Rolle - Berechtigung prüfen und passende Ansicht zeigen.
+            const meineDaten = (window.playerLevel || 1);
+            let html = '<div style="text-align:left;">';
+            html += '<p style="font-size:0.8em; color:#aaa; margin-bottom:15px;">Erfahrene Agenten (Level ' + MENTOR_MIN_LEVEL + '+) können neue Spieler (Level unter ' + MENTEE_MAX_LEVEL + ', noch ohne eigenen Mentor) unter ihre Fittiche nehmen. Beide profitieren.</p>';
+
+            if (meineDaten >= MENTOR_MIN_LEVEL) {
+                html += '<b style="color:#0ff; font-size:0.85em;">NEUEN MENTEE EINLADEN</b>' +
+                    '<div style="display:flex; gap:5px; margin-top:6px;">' +
+                        '<input type="text" id="mentor-such-input" placeholder="Spielername..." style="flex-grow:1; background:#000; border:1px solid #0ff; color:#0ff; padding:8px; font-family:inherit;">' +
+                        '<button class="modell-btn" style="margin:0; width:auto; padding:0 15px;" onclick="window.mentorEinladen()">EINLADEN</button>' +
+                    '</div><div id="mentor-such-status" style="font-size:0.75em; color:#aaa; margin-top:6px;"></div>';
+            } else {
+                html += '<p style="font-size:0.8em; color:#888;">Du erreichst die Mentor-Berechtigung ab Level ' + MENTOR_MIN_LEVEL + ' (aktuell: Level ' + meineDaten + ').</p>';
+            }
+            html += '</div>';
+            content.innerHTML = html;
+        } catch (e) {
+            console.error(e);
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Mentorenprogramm konnte nicht geladen werden.</p>';
+        }
+    };
+
+    window.mentorEinladen = async function() {
+        const input = document.getElementById('mentor-such-input');
+        const status = document.getElementById('mentor-such-status');
+        const name = input ? input.value.trim() : '';
+        if (!name) return;
+        const menteeSlug = window.agentSlug(name);
+        const mySlug = window.agentSlug(window.agentName);
+        if (menteeSlug === mySlug) { status.innerText = 'Du kannst nicht dich selbst einladen.'; return; }
+        status.innerText = 'Prüfe Berechtigung...';
+        try {
+            const snap = await window.getDoc(window.doc(window.db, "agenten", menteeSlug));
+            if (!snap.exists()) { status.innerText = 'Kein Agent mit diesem Namen gefunden.'; return; }
+            const data = snap.data();
+            if (data.hatteMentor) { status.innerText = 'Dieser Spieler hatte bereits einen Mentor.'; return; }
+            if ((data.lvl || 1) >= MENTEE_MAX_LEVEL) { status.innerText = 'Dieser Spieler ist bereits zu erfahren (Level ' + MENTEE_MAX_LEVEL + '+ ) für das Mentorenprogramm.'; return; }
+            const mentorshipId = mySlug + '_' + menteeSlug;
+            await window.setDoc(window.doc(window.db, "mentorships", mentorshipId), {
+                mentorSlug: mySlug, menteeSlug: menteeSlug, status: 'offen',
+                missionsAbgeschlossen: 0, erstelltAm: Date.now()
+            });
+            status.innerText = 'Einladung an ' + name + ' gesendet.';
+        } catch (e) {
+            console.error(e);
+            status.innerText = 'Einladung fehlgeschlagen.';
+        }
+    };
+
+    async function renderMentorDashboard(m) {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+
+        if (m.status === 'offen') {
+            content.innerHTML = '<div style="text-align:center; padding:20px;">' +
+                '<p style="color:#0ff;">Einladung an <b>' + window.escHtml(m.menteeSlug) + '</b> wartet auf Antwort.</p>' +
+                '<button class="modell-btn" style="border-color:#f44; color:#f44; margin-top:10px;" onclick="window.mentorschaftZuruecknehmen(\'' + m.id + '\')">EINLADUNG ZURÜCKZIEHEN</button>' +
+            '</div>';
+            return;
+        }
+
+        // Aktive Mentorschaft: einmalig protokollieren, sobald der Mentor das selbst zum ersten
+        // Mal sieht (die Mentee-Seite kann nicht direkt ins Mentor-eigene Protokoll schreiben).
+        if (!m.mentorBenachrichtigt) {
+            if (typeof window.logEreignis === 'function') window.logEreignis('Mentor geworden für ' + m.menteeSlug + '.');
+            window.setDoc(window.doc(window.db, "mentorships", m.id), { mentorBenachrichtigt: true }, { merge: true }).catch(() => {});
+        }
+
+        let menteeLevel = 1, menteeName = m.menteeSlug;
+        try {
+            const snap = await window.getDoc(window.doc(window.db, "agenten", m.menteeSlug));
+            if (snap.exists()) menteeLevel = snap.data().lvl || 1;
+        } catch (e) {}
+
+        const tageVergangen = Math.floor((Date.now() - (m.erstelltAm || Date.now())) / 86400000);
+        const tageUebrig = Math.max(0, MENTORSHIP_TAGE - tageVergangen);
+        const missionen = m.missionsAbgeschlossen || 0;
+        const verdient = missionen * MENTOR_TRICKLE_CREDITS;
+
+        content.innerHTML = `
+            <div style="text-align:left;">
+                <h4 style="color:#0ff; margin-top:0;">👨‍🏫 MEIN MENTEE</h4>
+                <div style="border:1px solid rgba(0,255,255,0.4); border-radius:6px; padding:12px; margin-bottom:12px;">
+                    <div style="font-size:1em; color:#0ff; font-weight:bold;">${window.escHtml(menteeName)}</div>
+                    <div style="font-size:0.8em; color:#ccc; margin-top:4px;">Aktuelles Level: ${menteeLevel} / ${MENTEE_GRADUATE_LEVEL} (Ziel)</div>
+                    <div style="font-size:0.8em; color:#ccc;">Noch ${tageUebrig} Tage bis zum automatischen Ablauf</div>
+                </div>
+                <b style="color:#0ff; font-size:0.85em;">MEINE BELOHNUNGEN ALS MENTOR</b>
+                <div style="border:1px solid rgba(0,255,204,0.3); border-radius:6px; padding:12px; margin-top:6px; font-size:0.85em;">
+                    <div>${missionen} Mission${missionen === 1 ? '' : 'en'} des Mentees abgeschlossen</div>
+                    <div style="color:#0f8; margin-top:4px;">Bisher verdient: ${verdient} Credits (${MENTOR_TRICKLE_CREDITS} pro Mission)</div>
+                    <div style="opacity:0.7; margin-top:4px; font-size:0.85em;">+ Abschlussbonus von ${GRADUATION_MENTOR.credits} Credits, sobald der Mentee graduiert</div>
+                </div>
+                <button class="modell-btn" style="border-color:#f44; color:#f44; margin-top:14px; width:100%;" onclick="window.mentorschaftBeenden('${m.id}')">MENTORSCHAFT BEENDEN</button>
+            </div>
+        `;
+    }
+
+    function renderMenteeDashboard(m) {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+
+        if (m.status === 'offen') {
+            content.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <p style="color:#0ff;">📨 Mentoren-Einladung von <b>${window.escHtml(m.mentorSlug)}</b></p>
+                    <div style="display:flex; gap:8px; margin-top:14px;">
+                        <button class="modell-btn" style="flex:1; border-color:#0f8; color:#0f8;" onclick="window.menteeAntworten('${m.id}', true)">ANNEHMEN</button>
+                        <button class="modell-btn" style="flex:1; border-color:#f44; color:#f44;" onclick="window.menteeAntworten('${m.id}', false)">ABLEHNEN</button>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        const tageVergangen = Math.floor((Date.now() - (m.erstelltAm || Date.now())) / 86400000);
+        const tageUebrig = Math.max(0, MENTORSHIP_TAGE - tageVergangen);
+        content.innerHTML = `
+            <div style="text-align:left;">
+                <h4 style="color:#0ff; margin-top:0;">🎓 MEIN MENTOR</h4>
+                <div style="border:1px solid rgba(0,255,255,0.4); border-radius:6px; padding:12px;">
+                    <div style="font-size:1em; color:#0ff; font-weight:bold;">${window.escHtml(m.mentorSlug)}</div>
+                    <div style="font-size:0.8em; color:#0f8; margin-top:4px;">+20% Bonus auf alle Missions-Belohnungen aktiv</div>
+                    <div style="font-size:0.8em; color:#ccc;">Noch ${tageUebrig} Tage, oder bis Level ${MENTEE_GRADUATE_LEVEL}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    window.menteeAntworten = async function(mentorshipId, angenommen) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "mentorships", mentorshipId);
+            if (!angenommen) {
+                await window.setDoc(ref, { status: 'abgelehnt' }, { merge: true });
+                window.renderMentorenTab();
+                return;
+            }
+            await window.setDoc(ref, { status: 'aktiv', erstelltAm: Date.now() }, { merge: true });
+            // Einmaliges Willkommensgeschenk + Markierung "hatte schon einen Mentor" (verhindert
+            // ein erneutes Mentorenprogramm für denselben Account).
+            const meinRef = window.doc(window.db, "agenten", mySlug);
+            const meinSnap = await window.getDoc(meinRef);
+            const meinData = meinSnap.exists() ? meinSnap.data() : {};
+            const neueCredits = (meinData.credits || 0) + MENTEE_WILLKOMMEN.credits;
+            const neueMZ = (meinData.materiezellen || 0) + MENTEE_WILLKOMMEN.materiezellen;
+            await window.setDoc(meinRef, { credits: neueCredits, materiezellen: neueMZ, hatteMentor: true }, { merge: true });
+            window.playerCredits = neueCredits;
+            window.playerMateriezellen = neueMZ;
+            window.zeigeInfo('Mentorschaft angenommen! Willkommensgeschenk: ' + MENTEE_WILLKOMMEN.credits + ' Credits, ' + MENTEE_WILLKOMMEN.materiezellen + ' Materiezellen.');
+            window.renderMentorenTab();
+        } catch (e) {
+            console.error(e);
+            window.zeigeInfo('Antwort fehlgeschlagen.');
+        }
+    };
+
+    window.mentorschaftZuruecknehmen = async function(mentorshipId) {
+        try {
+            await window.deleteDoc(window.doc(window.db, "mentorships", mentorshipId));
+            window.renderMentorenTab();
+        } catch (e) { console.error(e); }
+    };
+
+    window.mentorschaftBeenden = function(mentorshipId) {
+        window.zeigeBestaetigung('Mentorschaft wirklich vorzeitig beenden? Der Abschlussbonus entfällt dann.', async () => {
+            try {
+                await window.setDoc(window.doc(window.db, "mentorships", mentorshipId), { status: 'beendet' }, { merge: true });
+                window.renderMentorenTab();
+            } catch (e) { console.error(e); }
         });
     };
 })();
