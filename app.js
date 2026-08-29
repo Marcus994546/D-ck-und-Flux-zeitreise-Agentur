@@ -793,7 +793,10 @@ window.startGlobalNotification = function() {
 
     window.updateUI = function() {
         const xpV = document.getElementById('xp-val'), lvlV = document.getElementById('lvl-val'), xpF = document.getElementById('xp-bar-fill');  
-        if (xpV) xpV.innerText = window.playerXP;
+        // Angezeigt wird nur die abgerundete Ganzzahl (z.B. 99 statt 99.98) - der echte,
+        // exakte Kommawert bleibt im Hintergrund bestehen und bestimmt weiterhin sowohl den
+        // Levelaufstieg als auch die tatsächliche Füllbreite der Leiste.
+        if (xpV) xpV.innerText = Math.floor(window.playerXP);
         if (lvlV) lvlV.innerText = window.playerLevel;
         if (xpF) xpF.style.width = window.playerXP + "%";
     };

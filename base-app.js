@@ -184,8 +184,20 @@
         const pct = (gameState.overdrivePct !== undefined && gameState.overdrivePct !== null) ? gameState.overdrivePct : 100;
         return Math.max(0, overlapEnd - overlapStart) * (pct / 100);
     }
+    // Oszillations-Kammer: solange der Starter-Agent (★) dort aktiv arbeitet, bekommen ALLE
+    // Agenten (inklusive ihm selbst) einen zusätzlichen Zeit-Boost - 5% auf Level 1, +0,5% pro
+    // weiterem Level. Läuft nach demselben Prinzip wie der Hochspannungs-Verteiler-Overdrive
+    // oben, nur mit einer eigenen, unabhängigen Quelle (beide können gleichzeitig aktiv sein).
+    function oszillationsBoostPct() {
+        const starter = gameState.agents.find(a => a.isStarter && a.location === 'OSZILLATIONS-KAMMER' && a.state === 'working');
+        if (!starter) return 0;
+        return 5 + (starter.level - 1) * 0.5;
+    }
     function effectiveElapsed(taskStartTs, now) {
-        return (now - taskStartTs) + overdriveBonusMs(taskStartTs, now);
+        const basis = now - taskStartTs;
+        const oszPct = oszillationsBoostPct();
+        const oszBonus = oszPct > 0 ? basis * (oszPct / 100) : 0;
+        return basis + overdriveBonusMs(taskStartTs, now) + oszBonus;
     }
 
     // Kreative Sci-Fi-Aufträge für das Funk-Relais "Horizont" - kombiniert mit einem Zieljahr,
@@ -1095,6 +1107,7 @@
         // Kurze, rein optische Aufzug-Fahrt vom alten Standort zu den Quartieren. Die eigentliche
         // Wartezeit wird danach durch den Agenten sichtbar IN den Quartieren dargestellt, nicht im
         // Aufzug selbst (siehe renderBunkerAgentVisuals).
+        _naechsteFahrtMitKamera = true; // Spieler hat gerade selbst diesen Agenten zugewiesen
         if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE', agent.isStarter, agent.id);
 
         if (typeof showInfoToast === 'function') showInfoToast('Agent bewegt sich in die Agenten-Quartiere.');
@@ -1640,8 +1653,18 @@
         requestAnimationFrame(schritt);
     }
 
+    // Wird NUR unmittelbar vor einer Fahrt gesetzt, die direkt durch eine bewusste Spieler-Aktion
+    // ausgelöst wurde (Agent manuell zuweisen, Agent wiederbeleben) - alle automatischen
+    // Zustandsübergänge im Hintergrund (tickAgents, alle 15s) setzen dieses Flag NICHT. So folgt
+    // die Kamera nur noch Fahrten, die der Spieler gerade selbst verursacht hat, statt bei jeder
+    // beliebigen automatischen Hintergrund-Fahrt ungefragt mitzuspringen - genau das wurde als
+    // störend gemeldet.
+    let _naechsteFahrtMitKamera = false;
+
     function playElevatorAnimation(oldLocation, newLocation, isStarter, agentId) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
+        const folgeKamera = _naechsteFahrtMitKamera;
+        _naechsteFahrtMitKamera = false; // sofort konsumieren - gilt nur für GENAU diese eine Fahrt
         if (bunkerElevatorAnimating) {
             // Aufzug gerade beschäftigt - Anfrage einreihen, wird automatisch gestartet, sobald
             // die aktuell laufende Fahrt fertig ist (siehe finish() unten). WICHTIG: der Agent
@@ -1651,14 +1674,14 @@
             // er "eigentlich" noch auf den Aufzug wartet. Das war die Ursache für gemeldete
             // Kopien/falsch wandernde Agenten, sobald der Aufzug schon unterwegs war.
             if (agentId) bunkerAnimatingAgentIds.add(agentId);
-            elevatorQueue.push({ oldLocation, newLocation, isStarter, agentId });
+            elevatorQueue.push({ oldLocation, newLocation, isStarter, agentId, folgeKamera });
             if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
             return;
         }
-        runElevatorRide(oldLocation, newLocation, isStarter, agentId);
+        runElevatorRide(oldLocation, newLocation, isStarter, agentId, folgeKamera);
     }
 
-    function runElevatorRide(oldLocation, newLocation, isStarter, agentId) {
+    function runElevatorRide(oldLocation, newLocation, isStarter, agentId, folgeKamera) {
         const car = document.getElementById('bunker-elevator-car');
         const riderSlot = document.getElementById('bunker-elevator-rider-slot');
         const newIdx = bunkerFloorIndexForType(newLocation);
@@ -1666,7 +1689,7 @@
         if (!car || newIdx < 0) {
             // Auch bei einem übersprungenen Versuch weiter mit der nächsten Warteschlangen-
             // Anfrage, sonst bliebe die Schlange stecken.
-            if (elevatorQueue.length > 0) { const next = elevatorQueue.shift(); runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId); }
+            if (elevatorQueue.length > 0) { const next = elevatorQueue.shift(); runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId, next.folgeKamera); }
             return;
         }
         const starterClass = isStarter ? ' bunker-agent-starter' : '';
@@ -1693,7 +1716,7 @@
             // Nächste wartende Fahrt automatisch starten, falls vorhanden.
             if (elevatorQueue.length > 0) {
                 const next = elevatorQueue.shift();
-                runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId);
+                runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId, next.folgeKamera);
             }
         }
 
@@ -1719,7 +1742,7 @@
             setDuration(DEPART_MS);
             requestAnimationFrame(() => {
                 car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-                folgeAufzugScroll(DEPART_MS);
+                if (folgeKamera) folgeAufzugScroll(DEPART_MS);
             });
             setTimeout(() => setTimeout(disembark, ARRIVE_MS), DEPART_MS);
         }
@@ -1752,7 +1775,7 @@
             setDuration(PICKUP_MS);
             requestAnimationFrame(() => {
                 car.style.top = (oldIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-                folgeAufzugScroll(PICKUP_MS);
+                if (folgeKamera) folgeAufzugScroll(PICKUP_MS);
             });
             setTimeout(boardAndWait, PICKUP_MS);
         } else {
@@ -1917,7 +1940,7 @@
         'MATERIE-DEKOMPRESSOR': 'Zerlegt geborgene Fundstücke in nutzbare Materiezellen. Ein Zyklus dauert 8 Stunden. Die Ausbeute steigt nicht gleichmäßig, sondern in Stufen: bis Level 4 gibt es 1 Materiezelle pro Zyklus, ab Level 5 sind es 2, ab Level 10 schließlich 3.',
         'KINETIK-LABOR': 'Wandelt die Bewegungsenergie eines arbeitenden Agenten in Spieler-Erfahrungspunkte um - hilft also nicht dem Agenten, sondern deinem eigenen Spieler-Fortschritt. Die XP-Ausbeute pro Zyklus wächst linear mit dem Raum-Level.',
         'IMPULS-KONDENSATOR': 'Ein Hochrisiko-Raum: Der zugewiesene Agent hat nur eine 50/50-Chance, die Entladung zu überstehen. Überlebt er, steigt er im Level auf (ab Raum-Level 5 gleich um zwei Stufen, ab Level 10 um drei) und bringt Credits sowie Materiezellen mit, die ebenfalls mit dem Raum-Level wachsen. Stirbt er, ist er dauerhaft verloren - landet aber im Friedhof des Subraum-Nexus und kann dort gegen Chronos-Zellen wiederbelebt werden. Der Starter-Agent (★) darf diesen Raum aus Sicherheitsgründen nie betreten.',
-        'OSZILLATIONS-KAMMER': 'Ein exklusiver Raum, der ausschließlich vom allerersten Agenten (★) betreten werden darf. Ein Zyklus dauert 15 Stunden und liefert Materiezellen nach der generischen Zwei-Level-Formel.',
+        'OSZILLATIONS-KAMMER': 'Ein exklusiver Raum, der ausschließlich vom allerersten Agenten (★) betreten werden darf. Ein Zyklus dauert 15 Stunden und liefert Materiezellen nach der generischen Zwei-Level-Formel. Solange der Starter-Agent hier aktiv arbeitet, bekommen ZUSÄTZLICH alle Agenten in der Basis einen Zeit-Boost: 5% auf Level 1, +0,5% pro weiterem Level - unabhängig von einem eventuell laufenden Hochspannungs-Verteiler-Overdrive, beide können gleichzeitig aktiv sein.',
         'FUNK-RELAIS "HORIZONT"': 'Empfängt sci-fi-artige Zeitreise-Aufträge mit einem konkreten Zieljahr. Mehrere Aufträge können gleichzeitig aktiv sein. Wird in der TEMPORAL TIME FORGE exakt dieses Jahr eingegeben, gilt die Reise als artefakt-berechtigt. Die Zeit bis zum Empfang eines neuen Auftrags sinkt mit dem Raum-Level.',
         'HOCHSPANNUNGS-VERTEILER': 'Aktiviert beim Start sofort einen System-Overdrive: Für die Dauer des Zyklus laufen alle ANDEREN Agenten-Timer in der Basis beschleunigt. Der Beschleunigungsfaktor selbst wächst mit dem Raum-Level (von 50% auf Level 1 bis 90% auf Level 10). Der zugewiesene Agent selbst riskiert dabei sein Leben (50% Sterberisiko) und profitiert nicht vom eigenen Overdrive. Der Starter-Agent ist aus Sicherheitsgründen ausgeschlossen.',
         'PARADOXON-FILTER': 'Ein instabiler Quanten-Warp-Versuch, der in nur 5 Minuten direkt ein Artefakt ins Archiv holen kann - vorausgesetzt, es liegt gerade ein aktiver Horizont-Auftrag vor (der beim Start sofort verbraucht wird, unabhängig vom Ausgang). Die Erfolgschance ist an das Raum-Level gekoppelt: 30% auf Level 1, steigend bis 75% auf Level 10. Chronos-Zellen gibt es über diesen Weg nie.',
@@ -2307,7 +2330,9 @@
             return '<b style="color:#ffcc00;">⚡ Interaktiver Raum</b> · Abschluss des Zeitreise-Kreislaufs · 30min · 1-5 Chronos-Zellen, Artefakt nur bei korrektem Horizont-Zieljahr';
         }
         if (roomType === 'OSZILLATIONS-KAMMER') {
-            return 'Nur Agent #1 (Starter) · 15h · Belohnung: 1 Materiezelle';
+            const starter = gameState.agents.find(a => a.isStarter);
+            const boostPreview = starter ? (5 + (starter.level - 1) * 0.5) : 5;
+            return 'Nur Agent #1 (Starter) · 15h · Belohnung: 1 Materiezelle · <b style="color:#c060ff;">Während aktiv: +' + boostPreview.toFixed(1).replace('.0', '') + '% Zeit-Boost für alle Agenten</b>';
         }
         if (roomType === 'SUBRAUM-NEXUS') {
             return 'VIP-Raum · immer 100 Credits/h passiv · mit Agent zusätzlich alle 3h 1 Materiezelle · Detailansicht mit 5 Interaktionen';
@@ -2586,18 +2611,6 @@
             document.getElementById('menu-platzhalter').style.display = 'none';
             reloadFurniture(type); 
             if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
-            // Zeitachsen-Terminal: fest zum Raum gehörendes, immer vorhandenes interaktives
-            // Objekt (kein käufliches Möbelstück) - öffnet die Zeitachsen-Übersicht.
-            const archivRaum = document.getElementById(window._roomAreaTargetId || 'room-area');
-            if (archivRaum && !archivRaum.querySelector('.item-zeitachsen-terminal')) {
-                const terminal = document.createElement('div');
-                terminal.className = 'fixed-item item-zeitachsen-terminal';
-                terminal.style.cssText = 'position:absolute; right:20px; bottom:70px; width:36px; height:60px; cursor:pointer; z-index:3;';
-                terminal.title = 'Zeitachse ansehen';
-                terminal.onclick = () => window.zeigeArchivZeitachse();
-                terminal.innerHTML = '<div style="width:100%; height:75%; background:linear-gradient(180deg,#1a0a2a,#0a0515); border:1px solid #c060ff; border-radius:2px; box-shadow:0 0 8px rgba(192,96,255,0.5);"><div style="width:80%; height:40%; margin:15% auto 0; background:repeating-linear-gradient(90deg,#c060ff,#c060ff 2px,transparent 2px,transparent 5px); opacity:0.8;"></div></div><div style="width:60%; height:25%; margin:0 auto; background:#151515; border:1px solid #333;"></div>';
-                archivRaum.appendChild(terminal);
-            }
             // Zusätzlicher, leicht verzögerter Aufruf als Sicherheitsnetz - falls die Regal-Fächer
             // durch einen Reflow/Timing-Effekt beim ersten (synchronen) Versuch noch nicht bereit
             // waren, greift dieser zweite Versuch nach dem nächsten Render-Tick.
@@ -2660,6 +2673,13 @@
         } else if (type === 'ARTEFAKT-ARCHIV') {
             if (inventory.lampe_archiv > 0) spawnFurniture('lampe_archiv', 1);
             for (let i = 1; i <= inventory.regal; i++) spawnFurniture('regal', i);
+            // Zeitachsen-Terminal: kein käufliches Möbelstück, gehört immer fest zum Raum -
+            // deshalb unbedingt (nicht an ein inventory-Zählwerk gekoppelt) mit erzeugt, über
+            // denselben zuverlässigen spawnFurniture-Mechanismus wie alle anderen Möbel. Vorher
+            // wurde das Terminal direkt in openRoom erzeugt und dabei von einem erneuten
+            // clearRoom() (Teil von reloadFurniture) wieder gelöscht, ohne dass es über diesen
+            // Weg automatisch neu entstanden wäre.
+            spawnFurniture('zeitachsen_terminal', 1);
         } else if (type === 'AGENTEN-QUARTIERE') {
             if (inventory.lampe_quartier > 0) spawnFurniture('lampe_quartier', 1);
             for (let i = 1; i <= inventory.bett; i++) spawnFurniture('bett', i);
@@ -2728,6 +2748,15 @@
             item.style.left = offsetL + 'px';
             item.style.bottom = '70px'; 
             item.style.zIndex = '2'; 
+        } else if (type === 'zeitachsen_terminal') {
+            item.classList.add('item-zeitachsen-terminal');
+            item.style.cssText = 'position:absolute; right:20px; bottom:70px; width:36px; height:60px; z-index:3;';
+            if (window._roomAreaTargetId === 'room-area') {
+                item.style.cursor = 'pointer';
+                item.title = 'Zeitachse ansehen';
+                item.onclick = () => window.zeigeArchivZeitachse();
+            }
+            item.innerHTML = '<div style="width:100%; height:75%; background:linear-gradient(180deg,#1a0a2a,#0a0515); border:1px solid #c060ff; border-radius:2px; box-shadow:0 0 8px rgba(192,96,255,0.5);"><div style="width:80%; height:40%; margin:15% auto 0; background:repeating-linear-gradient(90deg,#c060ff,#c060ff 2px,transparent 2px,transparent 5px); opacity:0.8;"></div></div><div style="width:60%; height:25%; margin:0 auto; background:#151515; border:1px solid #333;"></div>';
         }
         // QUARTIERE
         else if (type === 'lampe_quartier') {
@@ -4075,9 +4104,11 @@ window.spawnFurniture = (type, count) => {
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'temp_inverter') {
         item.classList.add('item-temp-inverter');
-        item.style.cursor = 'pointer';
-        item.title = 'Energie-Tausch öffnen';
-        item.onclick = () => window.openTransformatorPopup();
+        if (window._roomAreaTargetId === 'room-area') {
+            item.style.cursor = 'pointer';
+            item.title = 'Energie-Tausch öffnen';
+            item.onclick = () => window.openTransformatorPopup();
+        }
         item.innerHTML = '<div class="ti-casing"><div class="ti-magnet"><div class="ti-bolt"></div></div><div class="ti-magnet"><div class="ti-bolt" style="animation-delay:0.7s;"></div></div><div class="ti-led l1"></div><div class="ti-led l2"></div></div><div class="ti-base"></div>';
     } else if (type === 'chrono_knoten') {
         item.classList.add('item-chrono-knoten');
@@ -4172,9 +4203,11 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="sk-anvil"><div class="sk-led"></div></div><div class="sk-base"></div>';
     } else if (type === 'nullpunkt_cluster') {
         item.classList.add('item-nullpunkt-cluster');
-        item.style.cursor = 'pointer';
-        item.title = 'Chronos-Zellen verkaufen';
-        item.onclick = () => window.openRenaissancePopup();
+        if (window._roomAreaTargetId === 'room-area') {
+            item.style.cursor = 'pointer';
+            item.title = 'Chronos-Zellen verkaufen';
+            item.onclick = () => window.openRenaissancePopup();
+        }
         item.innerHTML = '<div class="np-cube"></div><div class="np-cube"></div><div class="np-cube"></div><div class="np-cube"></div>';
     } else if (type === 'lampe_ren') {
         item.classList.add('item-lampe-ren');
@@ -5297,9 +5330,11 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="lf-pole"></div><div class="lf-light"></div>';
     } else if (type === 'parabol_antenne') {
         item.classList.add('item-parabol-antenne');
-        item.style.cursor = 'pointer';
-        item.title = 'Bericht anzeigen';
-        item.onclick = () => window.showHorizonBriefing();
+        if (window._roomAreaTargetId === 'room-area') {
+            item.style.cursor = 'pointer';
+            item.title = 'Bericht anzeigen';
+            item.onclick = () => window.showHorizonBriefing();
+        }
         item.innerHTML = '<div class="pa-dish"><div class="pa-emitter"></div></div><div class="pa-wave"></div><div class="pa-wave w2"></div><div class="pa-stand"></div>';
     } else if (type === 'subraum_modulator') {
         item.classList.add('item-subraum-modulator');
@@ -5591,6 +5626,7 @@ window.reviveDeadAgent = async function(idx) {
     // wir gerade, da die Kapsel nur von dort aus geöffnet werden kann) nicht der Fall ist. Ohne
     // diesen Wechsel lief die komplette Fahrt bisher unsichtbar im Hintergrund ab.
     if (typeof window.showAktiveBasis === 'function') window.showAktiveBasis();
+    _naechsteFahrtMitKamera = true; // Spieler hat gerade selbst wiederbelebt
     if (typeof sendAgentHome === 'function') sendAgentHome(newAgent);
     await saveGameState();
 };
