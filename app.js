@@ -278,6 +278,7 @@
     // größeren Modal-/Alert-Systemen an anderer Stelle im Code.
     function showPassiveRoomPopup(msg) {
         const el = document.createElement('div');
+        el.className = 'top-level';
         el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(0,20,25,0.95); color:#0ff; border:1px solid #0ff; box-shadow:0 0 20px rgba(0,255,255,0.4); padding:14px 22px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
         el.innerText = msg;
         document.body.appendChild(el);
@@ -560,14 +561,15 @@ window.startGlobalNotification = function() {
     // Komm-Link ist jetzt Teil der eigenständigen Netzwerk-Seite (netzwerk.html) - der
     // "komm-link-btn" existiert im Hauptterminal nicht mehr. Der Netzwerk-Button im Dashboard
     // ("netzwerk-nav-btn") übernimmt jetzt genau dieselbe Puls-Funktion: orange, sobald
-    // irgendwo eine ungelesene Nachricht ODER ein offenes, an mich gerichtetes Handelsangebot
-    // wartet.
+    // irgendwo eine ungelesene Nachricht, ein offenes Handelsangebot ODER eine offene
+    // Mentoren-Anfrage wartet.
     let hasUnreadChat = false;
     let hasOpenTrade = false;
+    let hasOpenMentorRequest = false;
     function updateNetzwerkPulse() {
         const navBtn = document.getElementById('netzwerk-nav-btn');
         if (!navBtn) return;
-        if (hasUnreadChat || hasOpenTrade) navBtn.classList.add('status-warn-pulse');
+        if (hasUnreadChat || hasOpenTrade || hasOpenMentorRequest) navBtn.classList.add('status-warn-pulse');
         else navBtn.classList.remove('status-warn-pulse');
     }
 
@@ -609,6 +611,13 @@ window.startGlobalNotification = function() {
         bekannteAngebotIds = jetzigeIds;
         updateNetzwerkPulse();
     }, (error) => console.error("Globaler Handels-Puls-Listener Fehler:", error));
+
+    if (window.globalMentorListener) window.globalMentorListener();
+    const qMentor = window.query(window.collection(window.db, "mentorships"), window.where("menteeSlug", "==", myName), window.where("status", "==", "offen"));
+    window.globalMentorListener = window.onSnapshot(qMentor, (snapshot) => {
+        hasOpenMentorRequest = !snapshot.empty;
+        updateNetzwerkPulse();
+    }, (error) => console.error("Globaler Mentoren-Puls-Listener Fehler:", error));
 };
 
     window.sendRadarPing = async function() {
@@ -2524,6 +2533,7 @@ window.f_showDescription = function(withVoice) {
         if (result.levelBonus > 0) lines.push('+' + result.levelBonus + ' Level');
 
         const el = document.createElement('div');
+        el.className = 'top-level';
         el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(0,20,15,0.96); color:#0f8; border:1px solid #0f8; box-shadow:0 0 20px rgba(0,255,136,0.4); padding:14px 22px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
         el.innerHTML = (result.doubled ? '<div style="color:#ffcc00; font-weight:bold; margin-bottom:6px;">⚡ RESONANZ-KAMMER: DOPPELTER LOOT!</div>' : '') +
             (result.mentorBonusAktiv ? '<div style="color:#0ff; font-size:0.85em; margin-bottom:4px;">🎓 Mentee-Bonus: +20% angewendet</div>' : '') +

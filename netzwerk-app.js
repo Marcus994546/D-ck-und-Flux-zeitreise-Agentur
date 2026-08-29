@@ -65,6 +65,7 @@
 
         window.switchNetzwerkTab(currentNetzwerkTab);
         starteKommLinkPulsUeberwachung();
+        starteMentorenPulsUeberwachung();
     })();
 
     // Grün pulsierender Komm-Link-Tab, sobald irgendwo eine ungelesene Nachricht ODER ein
@@ -98,6 +99,17 @@
             });
             bekannteOffeneAngebote = jetztOffen;
             aktualisierePuls();
+        });
+    }
+
+    // Grün pulsierender Mentoren-Tab, sobald eine offene Mentoren-Anfrage an mich wartet -
+    // separat vom Komm-Link-Tab, wie gewünscht ("nicht Komm-Link, sondern Mentoren").
+    function starteMentorenPulsUeberwachung() {
+        const mySlug = window.agentSlug(window.agentName);
+        const q = window.query(window.collection(window.db, "mentorships"), window.where("menteeSlug", "==", mySlug), window.where("status", "==", "offen"));
+        window.onSnapshot(q, (snapshot) => {
+            const tabBtn = document.querySelector('.nz-tab-btn[data-tab="mentoren"]');
+            if (tabBtn) tabBtn.classList.toggle('nz-tab-pulse-green', !snapshot.empty);
         });
     }
 

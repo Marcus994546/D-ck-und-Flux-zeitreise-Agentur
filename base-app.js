@@ -536,9 +536,9 @@
         const box = document.getElementById('artifact-collection-display');
         if (!box) return;
         const collected = Array.isArray(gameState.collectedArtifacts) ? gameState.collectedArtifacts : [];
-        let html = '<div style="font-size:0.75em; color:#c060ff; margin-bottom:4px; font-weight:bold;">' + collected.length + ' / ' + ARTEFAKTE.length +
-            (collected.length >= ARTEFAKTE.length ? ' — Das Archiv ist vollständig' : ' — Die Geschichte der Zeitlinie setzt sich langsam zusammen') + '</div>' +
-            '<button class="btn-back" style="font-size:0.7em; padding:4px 10px; margin-bottom:8px; border-color:#c060ff; color:#c060ff;" onclick="window.zeigeArchivZeitachse()">🕐 ZEITACHSE ANSEHEN</button><br>';
+        let html = '<div style="font-size:0.75em; color:#c060ff; margin-bottom:8px; font-weight:bold;">' + collected.length + ' / ' + ARTEFAKTE.length +
+            (collected.length >= ARTEFAKTE.length ? ' — Das Archiv ist vollständig' : ' — Die Geschichte der Zeitlinie setzt sich langsam zusammen') +
+            '<span style="display:block; font-weight:normal; opacity:0.7; font-size:0.9em;">(Zeitachsen-Terminal im Raum anklicken)</span></div>';
         if (collected.length === 0) {
             html += '<div style="font-size:0.7em; color:#666; font-style:italic;">Noch keine Artefakte geborgen.</div>';
         } else {
@@ -1220,9 +1220,14 @@
                 gameState.chronosZellen = fusedChronos;
                 ensureAgentsInitialized();
                 // Reale, seit dem letzten Speichern vergangene Zeit sofort nachholen (auch wenn
-                // die Seite zwischenzeitlich Stunden geschlossen war).
+                // die Seite zwischenzeitlich Stunden geschlossen war). Das Mitscrollen wird dabei
+                // bewusst unterdrückt - sonst würde die Seite beim bloßen Laden ungewollt
+                // herumspringen, wenn dabei mehrere nachgeholte Aufzugfahrten hintereinander
+                // ablaufen, bevor der Spieler die Ansicht überhaupt gesehen hat.
+                window._unterdrueckeAufzugScroll = true;
                 tickAgents();
                 tickPassiveRooms();
+                setTimeout(() => { window._unterdrueckeAufzugScroll = false; }, 500);
 
                 // Fusionierten Stand sofort zurück in die kanonische Quelle ("agenten") schreiben.
                 try {
@@ -1602,9 +1607,17 @@
     }
 
     let aufzugScrollAktiv = false;
+    let aufzugScrollSicherheitsTimer = null;
     function folgeAufzugScroll(durationMs) {
+        if (window._unterdrueckeAufzugScroll) return;
         aufzugScrollAktiv = true;
         const startZeit = performance.now();
+        // Hartes Sicherheitsnetz, unabhängig von der eigentlichen rAF-Schleife unten - falls
+        // diese aus irgendeinem Grund nicht sauber terminiert (z.B. ein Fehler mitten in einem
+        // Frame), garantiert dieser Timer trotzdem ein Ende. Das war vermutlich die Ursache dafür,
+        // dass die Ansicht auch dann noch mitgescrollt ist, wenn gar keine Fahrt mehr lief.
+        if (aufzugScrollSicherheitsTimer) clearTimeout(aufzugScrollSicherheitsTimer);
+        aufzugScrollSicherheitsTimer = setTimeout(() => { aufzugScrollAktiv = false; }, durationMs + 500);
         function schritt(jetzt) {
             if (!aufzugScrollAktiv) return;
             const car = document.getElementById('bunker-elevator-car');
@@ -2282,7 +2295,7 @@
             return 'Zwischenstation im Zeitreise-Kreislauf · Agent verbleibt hier genau 1h zur temporalen Reinigung';
         }
         if (roomType === 'ARTEFAKT-ARCHIV') {
-            return 'Abschluss des Zeitreise-Kreislaufs · 30min · 1-5 Chronos-Zellen, Artefakt nur bei korrektem Horizont-Zieljahr';
+            return '<b style="color:#ffcc00;">⚡ Interaktiver Raum</b> · Abschluss des Zeitreise-Kreislaufs · 30min · 1-5 Chronos-Zellen, Artefakt nur bei korrektem Horizont-Zieljahr';
         }
         if (roomType === 'OSZILLATIONS-KAMMER') {
             return 'Nur Agent #1 (Starter) · 15h · Belohnung: 1 Materiezelle';
@@ -2291,8 +2304,7 @@
             return 'VIP-Raum · immer 100 Credits/h passiv · mit Agent zusätzlich alle 3h 1 Materiezelle · Detailansicht mit 5 Interaktionen';
         }
         if (roomType === 'FUNK-RELAIS "HORIZONT"') {
-            return 'Agent 30min zugewiesen · erzeugt einen Zeitreise-Auftrag (Ziel-Jahr) für die TEMPORAL TIME FORGE' +
-                ' <button onclick="event.stopPropagation(); window.showHorizonBriefing();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#c060ff; color:#000; border:1px solid #c060ff; border-radius:3px; cursor:pointer; font-family:inherit;">📡 BERICHTE</button>';
+            return '<b style="color:#ffcc00;">⚡ Interaktiver Raum</b> · Agent 30min zugewiesen · erzeugt einen Zeitreise-Auftrag (Ziel-Jahr) für die TEMPORAL TIME FORGE';
         }
         if (roomType === 'HOCHSPANNUNGS-VERTEILER') {
             return '⚠ Regulärer Agent (nicht #1) · 1h · Alle Timer laufen währenddessen ' + Math.round(scaledOverdrivePct(roomLevelOf('HOCHSPANNUNGS-VERTEILER'))) + '% schneller · 50% Todesrisiko danach';
@@ -2301,12 +2313,21 @@
             return 'Agent 5min · versucht per Quanten-Warp ein Artefakt direkt ins Archiv zu holen · ' + Math.round(scaledQuantumWarpChancePct(roomLevelOf('PARADOXON-FILTER'))) + '% Erfolgschance';
         }
         if (roomType === 'TRANSFORMATOREN-STATION') {
-            return PASSIVE_ROOMS[roomType].text +
-                ' <button onclick="event.stopPropagation(); window.openTransformatorPopup();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#4dd0ff; color:#000; border:1px solid #4dd0ff; border-radius:3px; cursor:pointer; font-family:inherit;">⇄ TAUSCHEN</button>';
+            // Fallback-Button nur solange der Temporale Energie-Inverter (jetzt klickbar) noch
+            // nicht gekauft wurde - sonst hätten Spieler ohne dieses Möbelstück keinen Zugriff
+            // mehr auf den Tausch.
+            const hatInverter = typeof inventory !== 'undefined' && (parseInt(inventory.temp_inverter) || 0) > 0;
+            return '<b style="color:#ffcc00;">⚡ Interaktiver Raum</b> · ' + PASSIVE_ROOMS[roomType].text +
+                (hatInverter ? ' <span style="opacity:0.7;">(Inverter im Raum anklicken)</span>'
+                    : ' <button onclick="event.stopPropagation(); window.openTransformatorPopup();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#4dd0ff; color:#000; border:1px solid #4dd0ff; border-radius:3px; cursor:pointer; font-family:inherit;">⇄ TAUSCHEN</button>');
         }
         if (roomType === 'RENAISSANCE-GENERATOR') {
-            return PASSIVE_ROOMS[roomType].text +
-                ' <button onclick="event.stopPropagation(); window.openRenaissancePopup();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#4dd0ff; color:#000; border:1px solid #4dd0ff; border-radius:3px; cursor:pointer; font-family:inherit;">⇄ TAUSCHEN</button>';
+            // Gleiches Prinzip: Fallback nur, solange der Nullpunkt-Zellen-Cluster (jetzt
+            // klickbar) noch nicht gekauft wurde.
+            const hatCluster = typeof inventory !== 'undefined' && (parseInt(inventory.nullpunkt_cluster) || 0) > 0;
+            return '<b style="color:#ffcc00;">⚡ Interaktiver Raum</b> · ' + PASSIVE_ROOMS[roomType].text +
+                (hatCluster ? ' <span style="opacity:0.7;">(Cluster im Raum anklicken)</span>'
+                    : ' <button onclick="event.stopPropagation(); window.openRenaissancePopup();" style="margin-left:6px; padding:1px 8px; font-size:0.85em; background:#4dd0ff; color:#000; border:1px solid #4dd0ff; border-radius:3px; cursor:pointer; font-family:inherit;">⇄ TAUSCHEN</button>');
         }
         if (PASSIVE_ROOMS[roomType]) {
             return PASSIVE_ROOMS[roomType].text;
@@ -2372,7 +2393,10 @@
         // Ersetzt das frühere separate "Ausbaumenü": ein "+"-Feld direkt unter dem letzten Raum,
         // optisch analog zu den früheren Baufeldern im Gitter. Öffnet dieselbe
         // Raumtyp-Auswahlliste wie zuvor, nur ohne den Umweg über eine eigene Ansicht.
-        const naechstesFeld = findeNaechstesBaufeld();
+        // Sobald der Subraum-Nexus (VIP-Raum) gebaut ist, gibt es nichts mehr zu bauen - der ist
+        // immer der letzte Raum, da er selbst alle anderen voraussetzt.
+        const subraumNexusGebaut = gameState.baseData.some(r => r.type === 'SUBRAUM-NEXUS');
+        const naechstesFeld = subraumNexusGebaut ? null : findeNaechstesBaufeld();
         if (naechstesFeld) {
             const bauFloor = document.createElement('div');
             bauFloor.className = 'bunker-floor';
@@ -2553,6 +2577,18 @@
             document.getElementById('menu-platzhalter').style.display = 'none';
             reloadFurniture(type); 
             if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
+            // Zeitachsen-Terminal: fest zum Raum gehörendes, immer vorhandenes interaktives
+            // Objekt (kein käufliches Möbelstück) - öffnet die Zeitachsen-Übersicht.
+            const archivRaum = document.getElementById(window._roomAreaTargetId || 'room-area');
+            if (archivRaum && !archivRaum.querySelector('.item-zeitachsen-terminal')) {
+                const terminal = document.createElement('div');
+                terminal.className = 'fixed-item item-zeitachsen-terminal';
+                terminal.style.cssText = 'position:absolute; right:20px; bottom:70px; width:36px; height:60px; cursor:pointer; z-index:3;';
+                terminal.title = 'Zeitachse ansehen';
+                terminal.onclick = () => window.zeigeArchivZeitachse();
+                terminal.innerHTML = '<div style="width:100%; height:75%; background:linear-gradient(180deg,#1a0a2a,#0a0515); border:1px solid #c060ff; border-radius:2px; box-shadow:0 0 8px rgba(192,96,255,0.5);"><div style="width:80%; height:40%; margin:15% auto 0; background:repeating-linear-gradient(90deg,#c060ff,#c060ff 2px,transparent 2px,transparent 5px); opacity:0.8;"></div></div><div style="width:60%; height:25%; margin:0 auto; background:#151515; border:1px solid #333;"></div>';
+                archivRaum.appendChild(terminal);
+            }
             // Zusätzlicher, leicht verzögerter Aufruf als Sicherheitsnetz - falls die Regal-Fächer
             // durch einen Reflow/Timing-Effekt beim ersten (synchronen) Versuch noch nicht bereit
             // waren, greift dieser zweite Versuch nach dem nächsten Render-Tick.
@@ -4030,6 +4066,9 @@ window.spawnFurniture = (type, count) => {
     const item = document.createElement('div'); item.classList.add('fixed-item');
     if (type === 'temp_inverter') {
         item.classList.add('item-temp-inverter');
+        item.style.cursor = 'pointer';
+        item.title = 'Energie-Tausch öffnen';
+        item.onclick = () => window.openTransformatorPopup();
         item.innerHTML = '<div class="ti-casing"><div class="ti-magnet"><div class="ti-bolt"></div></div><div class="ti-magnet"><div class="ti-bolt" style="animation-delay:0.7s;"></div></div><div class="ti-led l1"></div><div class="ti-led l2"></div></div><div class="ti-base"></div>';
     } else if (type === 'chrono_knoten') {
         item.classList.add('item-chrono-knoten');
@@ -4124,6 +4163,9 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="sk-anvil"><div class="sk-led"></div></div><div class="sk-base"></div>';
     } else if (type === 'nullpunkt_cluster') {
         item.classList.add('item-nullpunkt-cluster');
+        item.style.cursor = 'pointer';
+        item.title = 'Chronos-Zellen verkaufen';
+        item.onclick = () => window.openRenaissancePopup();
         item.innerHTML = '<div class="np-cube"></div><div class="np-cube"></div><div class="np-cube"></div><div class="np-cube"></div>';
     } else if (type === 'lampe_ren') {
         item.classList.add('item-lampe-ren');
@@ -5187,7 +5229,7 @@ function renderHorizonStatus() {
     const missions = Array.isArray(gameState.horizonMissions) ? gameState.horizonMissions : [];
     if (missions.length > 0) {
         box.innerHTML = missions.length + ' aktive' + (missions.length === 1 ? 'r Auftrag' : ' Aufträge') + '<br>' +
-            '<button class="btn-upgrade-exec" style="margin-top:8px; background:#c060ff; color:#000; border:1px solid #c060ff;" onclick="window.showHorizonBriefing()">📡 BRIEFINGS ANZEIGEN</button>';
+            '<span style="opacity:0.7;">Antenne im Raum anklicken, um die Berichte anzuzeigen.</span>';
     } else {
         box.innerHTML = 'Kein aktiver Auftrag. Weise einen Agenten für 30min zu, um einen neuen Zeitreise-Auftrag zu empfangen.';
     }
@@ -5246,6 +5288,9 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="lf-pole"></div><div class="lf-light"></div>';
     } else if (type === 'parabol_antenne') {
         item.classList.add('item-parabol-antenne');
+        item.style.cursor = 'pointer';
+        item.title = 'Bericht anzeigen';
+        item.onclick = () => window.showHorizonBriefing();
         item.innerHTML = '<div class="pa-dish"><div class="pa-emitter"></div></div><div class="pa-wave"></div><div class="pa-wave w2"></div><div class="pa-stand"></div>';
     } else if (type === 'subraum_modulator') {
         item.classList.add('item-subraum-modulator');
