@@ -1453,6 +1453,7 @@
                 gameState.chronosZellen -= cost;
                 gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1, lastTick: Date.now()});
                 updateUI(); renderGrid(); hideRoomMenu(); await saveGameState();
+                if (typeof renderBunkerView === 'function') renderBunkerView();
                 if (typeof window.logEreignis === 'function') window.logEreignis(roomDisplayName(type) + ' gebaut.');
             } else { hideRoomMenu(); if (typeof showCustomAlert === 'function') showCustomAlert("System: Nicht genügend Chronos-Zellen (75 benötigt)."); }
             return;
@@ -1462,6 +1463,7 @@
             gameState.materieZellen -= buildCost;
             gameState.baseData.push({x: pendingCoords.x, y: pendingCoords.y, type: type, lvl: 1, lastTick: Date.now()});
             updateUI(); renderGrid(); hideRoomMenu(); await saveGameState();
+            if (typeof renderBunkerView === 'function') renderBunkerView();
             if (typeof window.logEreignis === 'function') window.logEreignis(roomDisplayName(type) + ' gebaut.');
         } else { hideRoomMenu(); if (typeof showCustomAlert === 'function') showCustomAlert("System: Nicht genügend Materie-Zellen."); }
     };
@@ -1843,11 +1845,6 @@
             wrap.innerHTML = '<div class="bunker-agent-level">' + (agent.isStarter ? '★ ' : '') + 'Lvl ' + agent.level + '</div><div class="bunker-figure"></div>' + statusLabel;
             wrap.onclick = (ev) => {
                 ev.stopPropagation();
-                if (agent.state === 'waiting_in_quartiere') {
-                    playBeepBase(300, 0.1);
-                    if (typeof showCustomAlert === 'function') showCustomAlert('Agent wartet in den Quartieren und kann gerade nicht ausgewählt werden.');
-                    return;
-                }
                 if (agent.state === 'journey_mission' || agent.state === 'journey_forge_return' || agent.state === 'journey_dekontam' || agent.state === 'journey_archiv') {
                     playBeepBase(300, 0.1);
                     if (typeof showCustomAlert === 'function') showCustomAlert('Agent befindet sich im Zeitreise-Kreislauf und kann gerade nicht ausgewählt werden.');
@@ -1891,6 +1888,18 @@
             if (typeof showInfoToast === 'function') showInfoToast('Agent ausgewählt (Lvl ' + agent.level + '). Ziel-Stockwerk antippen.');
             window.closeAgentInfoPopup();
         };
+
+        // Während der Agent in den Quartieren wartet, kann er nicht umgeleitet werden - das
+        // Popup öffnet sich trotzdem ganz normal (vorher wurde der Klick auf den Agenten
+        // komplett blockiert), nur der Zuweisen-Button selbst ist währenddessen deaktiviert.
+        if (agent.state === 'waiting_in_quartiere') {
+            assignBtn.disabled = true;
+            assignBtn.innerText = 'Agent schläft';
+            assignBtn.onclick = null;
+        } else {
+            assignBtn.disabled = false;
+            assignBtn.innerText = 'AGENT ZUWEISEN';
+        }
 
         overlay.style.display = 'flex';
     };
@@ -5571,6 +5580,12 @@ window.reviveDeadAgent = async function(idx) {
     await saveGameState();
     if (typeof showInfoToast === 'function') showInfoToast('Agent erfolgreich rekonstruiert - fährt mit dem Aufzug zur Zentrale.');
     window.closeBioKapsel();
+    // WICHTIG: die Raum-Detailansicht selbst (#interior-screen) muss explizit versteckt werden,
+    // bevor zur Aktive-Basis-Übersicht gewechselt wird - genau das übernimmt normalerweise
+    // window.closeRoom(). Ohne diese Zeile blieb die Subraum-Nexus-Detailansicht sichtbar im
+    // Hintergrund hängen und überlagerte die neue Ansicht am Bildschirmrand.
+    const interiorScreen = document.getElementById('interior-screen');
+    if (interiorScreen) interiorScreen.style.display = 'none';
     // Zur Aktive-Basis-Übersicht wechseln, BEVOR die Fahrt beginnt - playElevatorAnimation
     // greift nur, wenn bunkerActive true ist, was innerhalb der Raum-Detailansicht (hier sind
     // wir gerade, da die Kapsel nur von dort aus geöffnet werden kann) nicht der Fall ist. Ohne
