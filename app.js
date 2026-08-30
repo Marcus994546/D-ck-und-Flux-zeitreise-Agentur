@@ -471,6 +471,14 @@
                 SPIELBESCHREIBUNG
             </button>
 
+            <button class="modell-btn" style="border-color: #c060ff; color: #c060ff;" onclick="window.open('datenschutz.html', '_blank')">
+                DATENSCHUTZERKLÄRUNG
+            </button>
+
+            <button class="modell-btn" style="border-color: #c060ff; color: #c060ff;" onclick="window.f_kontakt()">
+                KONTAKT
+            </button>
+
             <button class="modell-btn" style="border-color: #0af; color: #0af; margin-top: 15px;" onclick="window.f_changePasswordStep1()">
                 PASSWORT ÄNDERN
             </button>
@@ -489,7 +497,19 @@
         `;
     };
 
-    // --- Passwort ändern ---
+    // --- Kontakt ---
+    window.f_kontakt = function() {
+        if (typeof triggerScan === 'function') triggerScan();
+        document.getElementById('content-body').innerHTML = `
+            <h3 style="color:#c060ff;">[ KONTAKT ]</h3>
+            <div style="border: 1px solid rgba(192, 96, 255, 0.3); background: rgba(192, 96, 255, 0.05); padding: 20px; margin-bottom: 20px; border-radius: 4px; text-align:left; font-size: 0.9em; line-height: 2;">
+                <div><span style="color:#c060ff; opacity:0.8;">E-Mail:</span> <a href="mailto:dueck.flux.zentrale@outlook.com" style="color:#0ff;">dueck.flux.zentrale@outlook.com</a></div>
+                <div><span style="color:#c060ff; opacity:0.8;">Instagram:</span> <a href="https://www.instagram.com/dueck.flux.zeitreiseagentur" target="_blank" rel="noopener" style="color:#0ff;">@dueck.flux.zeitreiseagentur</a></div>
+            </div>
+            <button class="modell-btn" onclick="window.f_einstellungen()">ZURÜCK</button>
+        `;
+    };
+
     window.f_changePasswordStep1 = function() {
         if (typeof triggerScan === 'function') triggerScan();
         document.getElementById('content-body').innerHTML = `
@@ -1367,7 +1387,10 @@ document.addEventListener('click', () => {
         Jeder Agent behält die Kontrolle über seine Daten:<br>
         - Kanal-Reinigung: Kommunikationsverläufe können manuell im Komm-Link-Menü aus dem Zentral-Server gelöscht werden.<br>
         - Zugangsdaten-Verwaltung: Passwort und Wiederherstellungsdaten können jederzeit selbst über das Einstellungs-Menü geändert werden.<br>
-        - Profil-Terminierung: Über das Einstellungs-Menü kann das gesamte Agenten-Profil inklusive aller Daten (Fortschritt, Basis, Zugangsdaten) sowie der Login-Zugang selbst jederzeit unwiderruflich und ohne Rücksprache vollständig gelöscht werden.
+        - Profil-Terminierung: Über das Einstellungs-Menü kann das gesamte Agenten-Profil inklusive aller Daten (Fortschritt, Basis, Zugangsdaten) sowie der Login-Zugang selbst jederzeit unwiderruflich und ohne Rücksprache vollständig gelöscht werden.<br><br>
+
+        <b>§5 Ausführliche Datenschutzerklärung</b><br>
+        Eine vollständige, formelle Datenschutzerklärung mit allen Details zur Datenverarbeitung (u. a. zu Firebase/Google als technischem Dienstleister) findest du jederzeit über das Einstellungs-Menü.
     `;
 
     window.f_showAuthMain = function() {
