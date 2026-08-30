@@ -945,6 +945,13 @@
                     return { absender: data.absender, text: data.text, ts: tsMillis };
                 });
                 renderMergedChat();
+            }, (error) => {
+                // Vorher wurde ein Fehler hier komplett stillschweigend verschluckt - das
+                // Chat-Fenster blieb dann einfach leer, obwohl das Senden selbst funktioniert
+                // haben könnte, ohne jeden sichtbaren Hinweis auf den eigentlichen Grund.
+                console.error('[Komm-Link] Nachrichten-Liste fehlgeschlagen. Code: ' + (error && error.code) + ' Nachricht: ' + (error && error.message), error);
+                const win = document.getElementById('chat-window');
+                if (win) win.innerHTML = '<div style="color:#f44; font-size:0.85em;">Fehler beim Laden der Nachrichten: ' + window.escHtml((error && error.code) || '') + ' ' + window.escHtml((error && error.message) || String(error)) + '</div>';
             });
 
             // Handelsangebote zwischen mir und diesem Chat-Partner - ALLE Status (nicht nur
