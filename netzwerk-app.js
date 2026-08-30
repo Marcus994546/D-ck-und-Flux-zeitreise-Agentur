@@ -783,44 +783,62 @@
                 </div>
             </div>
             <div style="text-align: left; margin-bottom: 15px;">
-                <div style="font-size: 0.6em; opacity: 0.6; margin-bottom: 5px;">GESPEICHERTE KANÄLE:</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <span style="font-size: 0.6em; opacity: 0.6;">GESPEICHERTE KANÄLE:</span>
+                    <span style="font-size: 0.7em; color:#0f8; cursor:pointer;" onclick="window.renderKommLinkUebersichtNz()">🔄 AKTUALISIEREN</span>
+                </div>
                 <div id="active-chat-list"><div style="color:#0f8; font-size: 0.8em; margin: 10px 0;">Synchronisiere Funkwellen...</div></div>
             </div>
             <button class="modell-btn" style="border-color: #ffcc00; color: #ffcc00; width:100%;" onclick="window.renderRadarViewNz()">📡 RADAR AKTIVIEREN</button>
         `;
 
+        const mySlug = window.agentSlug(window.agentName);
+        console.log('[Komm-Link] Lade Kanäle für Teilnehmer-Wert:', JSON.stringify(mySlug));
+
+        function renderKanalListe(docs) {
+            const listContainer = document.getElementById('active-chat-list');
+            if (!listContainer) return;
+            if (docs.length === 0) {
+                listContainer.innerHTML = '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
+                return;
+            }
+            let html = "";
+            docs.forEach(data => {
+                const other = data.teilnehmer.find(n => n !== mySlug) || mySlug;
+                const style = (data.ungelesen_fuer === mySlug) ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
+                html += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
+                    <span style="cursor: pointer; flex-grow: 1; ${style}" onclick="window.openPrivateChatNz('${other}')">> AGENT: ${window.escHtml(other.toUpperCase())}${data.ungelesen_fuer === mySlug ? " [NEUE NACHRICHT]" : ""}</span>
+                    <span style="cursor: pointer; color: #f44; padding: 0 10px;" onclick="window.deleteChatNz('${other}')">🗑️</span>
+                </div>`;
+            });
+            listContainer.innerHTML = html;
+        }
+
+        function zeigeKanalFehler(quelle, error) {
+            console.error('[Komm-Link] Kanal-Liste (' + quelle + ') fehlgeschlagen. Code: ' + (error && error.code) + ' Nachricht: ' + (error && error.message), error);
+            const listContainer = document.getElementById('active-chat-list');
+            if (listContainer) listContainer.innerHTML = '<div style="color:#f44; font-size:0.8em;">Fehler beim Laden der Kanäle (' + quelle + '): ' + window.escHtml((error && error.code) || '') + ' ' + window.escHtml((error && error.message) || String(error)) + '</div>';
+        }
+
         if (window.db) {
             if (nzChatListListener) nzChatListListener();
             const funkRef = window.collection(window.db, "agenten_funk");
-            const q = window.query(funkRef, window.where("teilnehmer", "array-contains", window.agentSlug(window.agentName)));
+            const q = window.query(funkRef, window.where("teilnehmer", "array-contains", mySlug));
+
+            // Einmaliger Direktabruf ZUSÄTZLICH zum Live-Listener - falls der Live-Listener aus
+            // irgendeinem Grund (noch) nicht feuert oder fehlschlägt, füllt dieser Fallback die
+            // Liste trotzdem, und die Konsole zeigt, ob EINER von beiden Wegen funktioniert.
+            window.getDocs(q).then(snap => {
+                console.log('[Komm-Link] Einmaliger Direktabruf erfolgreich, Kanäle gefunden:', snap.size);
+            }).catch(err => zeigeKanalFehler('Direktabruf', err));
+
             nzChatListListener = window.onSnapshot(q, (snapshot) => {
-                const listContainer = document.getElementById('active-chat-list');
-                if (!listContainer) return;
-                if (snapshot.empty) {
-                    listContainer.innerHTML = '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
-                    return;
-                }
-                let html = "";
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const other = data.teilnehmer.find(n => n !== window.agentSlug(window.agentName)) || window.agentSlug(window.agentName);
-                    const style = (data.ungelesen_fuer === window.agentSlug(window.agentName)) ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
-                    html += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
-                        <span style="cursor: pointer; flex-grow: 1; ${style}" onclick="window.openPrivateChatNz('${other}')">> AGENT: ${window.escHtml(other.toUpperCase())}${data.ungelesen_fuer === window.agentSlug(window.agentName) ? " [NEUE NACHRICHT]" : ""}</span>
-                        <span style="cursor: pointer; color: #f44; padding: 0 10px;" onclick="window.deleteChatNz('${other}')">🗑️</span>
-                    </div>`;
-                });
-                listContainer.innerHTML = html;
-            }, (error) => {
-                // Vorher wurde ein Fehler hier (z.B. fehlende Berechtigung) komplett
-                // stillschweigend verschluckt - der Platzhaltertext "Synchronisiere
-                // Funkwellen..." blieb dann für immer stehen, ohne jeden Hinweis, warum.
-                console.error("Kanal-Liste konnte nicht geladen werden:", error);
-                const listContainer = document.getElementById('active-chat-list');
-                if (listContainer) listContainer.innerHTML = '<div style="color:#f44; font-size:0.8em;">Fehler beim Laden der Kanäle: ' + window.escHtml(error.message || String(error)) + '</div>';
-            });
+                console.log('[Komm-Link] Live-Listener aktualisiert, Kanäle:', snapshot.size);
+                renderKanalListe(snapshot.docs.map(d => d.data()));
+            }, (error) => zeigeKanalFehler('Live-Listener', error));
         }
     }
+    window.renderKommLinkUebersichtNz = renderKommLinkUebersicht;
 
     window.startDirectFunkNz = function() {
         const input = document.getElementById('chat-target-input');

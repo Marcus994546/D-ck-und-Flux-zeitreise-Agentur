@@ -1248,7 +1248,7 @@
 .lki-mount { width: 22px; height: 6px; background: #222; margin: 0 auto; border-radius: 2px; }
 .lki-bulb { width: 18px; height: 18px; border-radius: 50%; margin: 2px auto 0; animation: lki-hue-cycle 4s linear infinite; }
 
-.item-holo-netz { width: 130px; height: 175px; position: absolute; z-index: 3; right: 12px; bottom: 70px; }
+.item-holo-netz { width: 140px; height: 135px; position: absolute; z-index: 3; right: 10px; bottom: 90px; }
 
 /* Echtes Punkt-Raster-Gesicht (Referenzbild: Punktwolke in Gesichtsform, dichter in der Mitte,
    ausfransend an den Rändern) - gerendert als SVG (siehe spawnFurniture/ki_holoprojektor).

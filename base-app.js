@@ -5390,12 +5390,13 @@ window.spawnFurniture = (type, count) => {
 // ============================================================
 function generateHoloFaceSVG() {
     const CX = 100;
-    // Gesichtsbreite (halbe Breite) entlang der Höhe Y - definiert die gesamte Kontur von der
-    // Stirn über Augenbrauen/Wangenknochen/Kiefer bis zum Kinn, dann Hals/Schulter-Ansatz.
+    // Gesichtsbreite (halbe Breite) entlang der Höhe Y - deutlich kürzerer Hals/Schulter-Ansatz
+    // als in der ersten Fassung (endet bei Y=180 statt 280), damit die Proportionen menschlich
+    // wirken statt einen unnatürlich langen Hals zu zeigen.
     const widthAnchors = [
-        [15, 26], [30, 37], [50, 47], [68, 51], [95, 55], [115, 50],
-        [135, 40], [150, 27], [165, 15], [178, 7],
-        [190, 12], [205, 16], [225, 19], [250, 22], [280, 26]
+        [10, 23], [25, 35], [42, 45], [58, 50], [80, 55], [98, 51],
+        [112, 42], [124, 29], [136, 16], [146, 6],
+        [154, 12], [164, 18], [180, 24]
     ];
     function halfWidthAt(y) {
         for (let i = 0; i < widthAnchors.length - 1; i++) {
@@ -5411,44 +5412,61 @@ function generateHoloFaceSVG() {
         const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
         return t * t * (3 - 2 * t);
     }
+    // Simuliert eine Lichtquelle von schräg oben-vorne - Punkte oben/mittig heller, Punkte an
+    // den seitlichen/unteren Rändern dunkler. Reiner Optik-Trick für mehr Tiefenwirkung, wie im
+    // Referenzbild (die Punktwolke wirkt dort spürbar "beleuchtet", nicht flach).
+    function lightFactor(x, y, edgeRatio) {
+        const vertical = 1 - smoothstep(20, 140, y) * 0.35;
+        const horizontal = 1 - Math.min(1, edgeRatio) * 0.4;
+        return Math.max(0.25, vertical * horizontal);
+    }
 
     const points = [];
 
-    // --- Allgemeine Füll-Punktwolke: Rejection-Sampling innerhalb der Kontur, mit Ausfransung
-    // zum Rand hin und dünnerer Besetzung am Haaransatz/Hals-Bereich. ---
-    const TARGET_FILL = 430;
-    let attempts = 0;
-    while (points.length < TARGET_FILL && attempts < TARGET_FILL * 15) {
-        attempts++;
-        const y = 15 + Math.random() * (280 - 15);
+    // --- Haupt-Mesh: ECHTES Gitter (Zeilen x Spalten), das der Kopfkontur folgt - kein
+    // Zufallsstreuen. Jede Zeile liegt auf einer festen Y-Höhe, Punkte darin auf festen
+    // X-Abständen innerhalb der Kontur an dieser Höhe. Genau das erzeugt den "3D-Scan-Wireframe"
+    // -Look aus dem Referenzbild statt einer diffusen Punktwolke. Rand wird durch abnehmende
+    // Übernahme-Wahrscheinlichkeit organisch ausgefranst, nicht hart abgeschnitten.
+    const ROW_STEP = 3.4, COL_STEP = 3.4;
+    for (let y = 10; y <= 178; y += ROW_STEP) {
         const w = halfWidthAt(y);
-        const x = CX + (Math.random() * 2 - 1) * w * 1.15;
-        const edgeRatio = Math.abs(x - CX) / w;
-        let keep = 1 - smoothstep(0.70, 1.10, edgeRatio);
-        if (y > 178) keep *= 0.5;
-        if (y < 30) keep *= 0.65;
-        if (Math.random() > keep) continue;
-        const centerCloseness = 1 - Math.min(1, edgeRatio);
-        const r = 0.5 + Math.random() * 0.5 + centerCloseness * 0.35;
-        const op = 0.3 + Math.random() * 0.4 + centerCloseness * 0.25;
-        points.push({ x, y, r: Math.min(r, 1.7), op: Math.min(op, 1), feature: false });
+        const rowJitterY = Math.random() * 0.7 - 0.35;
+        const inNeck = y > 146;
+        for (let x = CX - w * 1.06; x <= CX + w * 1.06; x += COL_STEP) {
+            const edgeRatio = Math.abs(x - CX) / w;
+            let keep = 1 - smoothstep(0.80, 1.06, edgeRatio);
+            if (inNeck) keep *= 0.62; // Hals/Schulter-Bereich bewusst dünner besetzt
+            if (y < 22) keep *= 0.7;  // Haaransatz oben dünner
+            if (Math.random() > keep) continue;
+            const lf = lightFactor(x, y, edgeRatio);
+            const centerCloseness = 1 - Math.min(1, edgeRatio);
+            points.push({
+                x: x + (Math.random() * 1 - 0.5),
+                y: y + rowJitterY + (Math.random() * 0.6 - 0.3),
+                r: (0.45 + centerCloseness * 0.25 + Math.random() * 0.25) * lf,
+                op: Math.min(1, (0.4 + centerCloseness * 0.3 + Math.random() * 0.2) * lf + 0.15),
+                feature: false
+            });
+        }
     }
 
-    // --- Gesichtsmerkmale: gezielte Punkt-Cluster für klar erkennbare Züge ---
+    // --- Gesichtsmerkmale: gezielte, dichtere Punkt-Cluster für klar erkennbare Züge - deutlich
+    // ausgeprägter als reines Hintergrund-Mesh, damit Augen/Nase/Mund sofort erkennbar sind. ---
     function ring(cx, cy, rx, ry, count, rBase, opBase) {
         for (let i = 0; i < count; i++) {
             const a = (i / count) * Math.PI * 2;
             points.push({
-                x: cx + Math.cos(a) * rx + (Math.random() * 1.1 - 0.55),
-                y: cy + Math.sin(a) * ry + (Math.random() * 1.1 - 0.55),
-                r: rBase + Math.random() * 0.3, op: opBase + Math.random() * 0.15, feature: true
+                x: cx + Math.cos(a) * rx + (Math.random() * 0.9 - 0.45),
+                y: cy + Math.sin(a) * ry + (Math.random() * 0.9 - 0.45),
+                r: rBase + Math.random() * 0.25, op: opBase + Math.random() * 0.15, feature: true
             });
         }
     }
     function cluster(cx, cy, spread, count, rBase, opBase) {
         for (let i = 0; i < count; i++) {
             const a = Math.random() * Math.PI * 2, d = Math.random() * spread;
-            points.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, r: rBase + Math.random() * 0.3, op: opBase + Math.random() * 0.15, feature: true });
+            points.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, r: rBase + Math.random() * 0.25, op: opBase + Math.random() * 0.15, feature: true });
         }
     }
     function curve(anchors, count, rBase, opBase) {
@@ -5459,49 +5477,60 @@ function generateHoloFaceSVG() {
             const lt = t - seg;
             const p0 = anchors[seg], p1 = anchors[seg + 1];
             points.push({
-                x: p0[0] + (p1[0] - p0[0]) * lt + (Math.random() * 0.8 - 0.4),
-                y: p0[1] + (p1[1] - p0[1]) * lt + (Math.random() * 0.8 - 0.4),
+                x: p0[0] + (p1[0] - p0[0]) * lt + (Math.random() * 0.7 - 0.35),
+                y: p0[1] + (p1[1] - p0[1]) * lt + (Math.random() * 0.7 - 0.35),
                 r: rBase + Math.random() * 0.25, op: opBase + Math.random() * 0.15, feature: true
             });
         }
     }
+    // Mehrreihige Konturlinien (statt einer einzelnen Kurve) für dickere, deutlicher lesbare
+    // Gesichtszüge - simuliert mehrere "Höhenlinien" wie bei einem echten 3D-Scan.
+    function contourBand(anchors, rows, spread, countPerRow, rBase, opBase) {
+        for (let r2 = 0; r2 < rows; r2++) {
+            const offset = (r2 - (rows - 1) / 2) * (spread / rows);
+            curve(anchors.map(p => [p[0], p[1] + offset]), countPerRow, rBase, opBase);
+        }
+    }
 
-    curve([[64, 64], [72, 60], [82, 60], [92, 64]], 10, 0.9, 0.75);          // linke Augenbraue
-    curve([[108, 64], [118, 60], [128, 60], [136, 64]], 10, 0.9, 0.75);      // rechte Augenbraue
-    ring(78, 86, 11, 5.5, 18, 0.8, 0.8);                                     // linkes Auge (Lidkontur)
-    ring(122, 86, 11, 5.5, 18, 0.8, 0.8);                                    // rechtes Auge
-    cluster(78, 86, 2.2, 7, 1.1, 0.95);                                      // linke Iris
-    cluster(122, 86, 2.2, 7, 1.1, 0.95);                                     // rechte Iris
-    curve([[100, 88], [99, 105], [100, 122]], 14, 0.7, 0.55);                // Nasenrücken
-    cluster(93, 129, 2.6, 6, 0.85, 0.7);                                     // linker Nasenflügel
-    cluster(107, 129, 2.6, 6, 0.85, 0.7);                                    // rechter Nasenflügel
-    curve([[83, 150], [92, 147], [100, 148], [108, 147], [117, 150]], 16, 0.85, 0.85); // Oberlippe
-    curve([[86, 157], [100, 161], [114, 157]], 12, 0.85, 0.75);              // Unterlippe
-    curve([[148, 95], [144, 120], [133, 142], [118, 160], [100, 178]], 16, 0.75, 0.6); // Kieferlinie rechts
-    curve([[52, 95], [56, 120], [67, 142], [82, 160], [100, 178]], 16, 0.75, 0.6);     // Kieferlinie links
-    cluster(60, 100, 6, 10, 0.7, 0.5);                                       // linker Wangenknochen
-    cluster(140, 100, 6, 10, 0.7, 0.5);                                      // rechter Wangenknochen
+    contourBand([[62, 46], [71, 41], [82, 41], [92, 46]], 2, 3, 8, 0.85, 0.8);          // linke Augenbraue
+    contourBand([[108, 46], [118, 41], [129, 41], [138, 46]], 2, 3, 8, 0.85, 0.8);      // rechte Augenbraue
+    ring(78, 64, 12, 6.5, 22, 0.85, 0.85);                                              // linkes Auge (Lidkontur)
+    ring(122, 64, 12, 6.5, 22, 0.85, 0.85);                                             // rechtes Auge
+    ring(78, 64, 6, 4, 10, 0.75, 0.7);                                                  // linke Iris-Kontur
+    ring(122, 64, 6, 4, 10, 0.75, 0.7);                                                 // rechte Iris-Kontur
+    cluster(78, 64, 2, 6, 1.15, 1);                                                     // linke Pupille (hell)
+    cluster(122, 64, 2, 6, 1.15, 1);                                                    // rechte Pupille (hell)
+    contourBand([[100, 66], [99.3, 78], [99, 90], [100, 100]], 3, 3, 12, 0.7, 0.55);    // Nasenrücken (breiter Grat)
+    cluster(93, 103, 2.8, 8, 0.85, 0.7);                                                // linker Nasenflügel
+    cluster(107, 103, 2.8, 8, 0.85, 0.7);                                               // rechter Nasenflügel
+    contourBand([[80, 116], [90, 112], [100, 113], [110, 112], [120, 116]], 2, 3, 18, 0.85, 0.85); // Oberlippe
+    contourBand([[84, 123], [100, 128], [116, 123]], 2, 3, 14, 0.85, 0.75);             // Unterlippe
+    contourBand([[152, 62], [147, 90], [136, 112], [118, 130], [100, 146]], 2, 4, 20, 0.75, 0.6);  // Kieferlinie rechts
+    contourBand([[48, 62], [53, 90], [64, 112], [82, 130], [100, 146]], 2, 4, 20, 0.75, 0.6);      // Kieferlinie links
+    cluster(58, 78, 7, 14, 0.7, 0.5);                                                   // linker Wangenknochen
+    cluster(142, 78, 7, 14, 0.7, 0.5);                                                  // rechter Wangenknochen
+    cluster(100, 30, 10, 12, 0.55, 0.4);                                                // Stirn-Highlight-Zentrum
 
     let circlesSVG = '';
     points.forEach(p => {
-        const color = p.feature ? '#eafeff' : '#7ff5ff';
-        circlesSVG += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + p.r.toFixed(2) + '" fill="' + color + '" opacity="' + p.op.toFixed(2) + '"/>';
+        const color = p.feature ? '#f2ffff' : '#7ff5ff';
+        circlesSVG += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + Math.max(0.2, p.r).toFixed(2) + '" fill="' + color + '" opacity="' + Math.max(0.1, Math.min(1, p.op)).toFixed(2) + '"/>';
     });
 
     // --- Abdriftende Partikel: lösen sich seitlich/oben von der Silhouette und verblassen -
     // genau der Effekt aus dem Referenzbild. ---
     let particlesSVG = '';
-    const PARTICLE_COUNT = 30;
+    const PARTICLE_COUNT = 34;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
-        const y = 20 + Math.random() * 160;
+        const y = 15 + Math.random() * 130;
         const w = halfWidthAt(y);
         const side = Math.random() < 0.5 ? -1 : 1;
         const startX = CX + side * (w * (0.82 + Math.random() * 0.35));
-        const driftX = side * (18 + Math.random() * 40);
-        const driftY = (Math.random() * 34 - 17);
+        const driftX = side * (16 + Math.random() * 38);
+        const driftY = (Math.random() * 30 - 15);
         const dur = (2.6 + Math.random() * 3.2).toFixed(2);
         const delay = (Math.random() * 4.5).toFixed(2);
-        const r = (0.6 + Math.random() * 0.9).toFixed(2);
+        const r = (0.55 + Math.random() * 0.85).toFixed(2);
         particlesSVG += '<circle class="hn-particle" cx="' + startX.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r + '" fill="#9ffcff" style="--dx:' + driftX.toFixed(1) + 'px; --dy:' + driftY.toFixed(1) + 'px; animation-duration:' + dur + 's; animation-delay:' + delay + 's;"/>';
     }
 
@@ -5577,7 +5606,7 @@ window.spawnFurniture = (type, count) => {
     } else if (type === 'ki_holoprojektor') {
         item.classList.add('item-holo-netz');
         item.innerHTML = `
-            <svg class="hn-face-svg" viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg">
+            <svg class="hn-face-svg" viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg">
                 ${generateHoloFaceSVG()}
             </svg>
             <div class="hn-face-glow"></div>`;
