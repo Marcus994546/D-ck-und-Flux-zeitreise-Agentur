@@ -124,6 +124,11 @@
     }
 
     window.switchNetzwerkTab = function(tab) {
+        // Radar läuft als eigene Unteransicht innerhalb von "chat" (siehe renderRadarViewNz) und
+        // ist in dieser Tab-Liste nicht enthalten - ohne diese Abschaltung würde ein per
+        // Intervall laufendes Radar beim direkten Wechsel zu einem anderen Haupt-Tab (statt über
+        // den eigenen "RADAR DEAKTIVIEREN"-Button) unbemerkt im Hintergrund weiterlaufen.
+        if (window.currentRadarListenerNz) { window.currentRadarListenerNz(); window.currentRadarListenerNz = null; }
         currentNetzwerkTab = tab;
         document.querySelectorAll('.nz-tab-btn').forEach(btn => {
             btn.classList.toggle('nz-tab-active', btn.dataset.tab === tab);
@@ -1207,29 +1212,74 @@
 
         // WICHTIG: Vorher ein Live-Listener auf die KOMPLETTE, ungefilterte "agenten"-Collection -
         // jede Änderung IRGENDEINES Spielers weltweit hat bei JEDEM offenen Radar eine erneute
-        // Vollübertragung ausgelöst. Bei wachsender Spielerzahl der mit Abstand teuerste und am
-        // häufigsten neu ausgelöste Lesevorgang der ganzen App. Jetzt serverseitig auf kürzlich
-        // aktive Spieler vorgefiltert (großzügiges 5-Minuten-Fenster als Sicherheitsabstand) - die
-        // genaue 2-Minuten-Frische-Prüfung bleibt zusätzlich im Client bestehen, nur die Grundmenge
-        // an überhaupt abonnierten Dokumenten wird drastisch kleiner.
+        // Vollübertragung ausgelöst. Ein "wer ist gerade online"-Radar kann (anders als die
+        // Rangliste) nicht einfach auf einen Tages-Stand umgestellt werden, ohne seinen Zweck zu
+        // verlieren - aber es braucht auch keine Sekunden-Aktualität. Statt eines Live-Listeners
+        // jetzt ein einfacher, fester Abruf-Rhythmus (alle 60 Sekunden): der Lesevorgang ist
+        // dadurch komplett unabhängig davon, wie viel fremde Aktivität anderswo im Spiel gerade
+        // passiert - vorher konnte JEDE Änderung irgendeines Spielers weltweit einen erneuten
+        // Abruf auslösen, jetzt maximal einmal pro Minute, unabhängig von der Gesamtaktivität.
         const agentRef = window.collection(window.db, "agenten");
-        const radarQuery = window.query(agentRef, window.where("last_ping", ">", Date.now() - 300000));
-        window.currentRadarListenerNz = window.onSnapshot(radarQuery, (snapshot) => {
-            const now = Date.now();
-            let htmlList = "", htmlRadar = "", count = 0;
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                if (data.isAdmin) return; // Admin soll im Radar komplett unsichtbar sein
-                if (data.last_ping && (now - data.last_ping < 120000) && doc.id !== window.agentSlug(window.agentName)) {
-                    count++;
+
+        // Haversine-Formel für die Entfernung zwischen zwei Punkten (in Metern) - dieselbe
+        // Berechnung wie im Hauptterminal für GPS-Missionen, hier lokal nachgebaut, da
+        // netzwerk-app.js ein eigenständiges Skript ist und app.js auf dieser Seite nicht lädt.
+        function radarHaversine(lat1, lng1, lat2, lng2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2) * Math.sin(dLng/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        async function radarAbrufen() {
+            try {
+                const snapshot = await window.getDocs(window.query(agentRef, window.where("last_ping", ">", Date.now() - 300000)));
+                const now = Date.now();
+
+                // Eigene Position bestimmen (bereits gespeichert über die ungefähre
+                // IP-Standortermittlung aus window.saveProgress - keine zusätzliche Datenerhebung
+                // nötig, dieselben Felder werden hier lediglich wiederverwendet).
+                const mySlug = window.agentSlug(window.agentName);
+                let meinLat = 0, meinLon = 0;
+                snapshot.forEach((doc) => {
+                    if (doc.id === mySlug) { meinLat = doc.data().lat || 0; meinLon = doc.data().lon || 0; }
+                });
+
+                const kandidaten = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.isAdmin) return; // Admin soll im Radar komplett unsichtbar sein
+                    if (data.last_ping && (now - data.last_ping < 120000) && doc.id !== mySlug) {
+                        // Entfernung nur berechnen, wenn für BEIDE Seiten eine ungefähre Position
+                        // bekannt ist (0/0 bedeutet: IP-Standortermittlung ist fehlgeschlagen oder
+                        // noch nie gelaufen) - solche Kandidaten ans Ende sortieren, statt sie
+                        // fälschlich als "Entfernung 0" ganz oben erscheinen zu lassen.
+                        const hatPosition = (meinLat !== 0 || meinLon !== 0) && (data.lat || data.lon);
+                        const distanz = hatPosition ? radarHaversine(meinLat, meinLon, data.lat || 0, data.lon || 0) : Infinity;
+                        kandidaten.push({ slug: doc.id, distanz });
+                    }
+                });
+                // Nur die 40 nächsten Spieler (nach ungefährer, aus der IP abgeleiteter Position) -
+                // reduziert sowohl die übertragene Menge als auch die Relevanz der Anzeige, statt
+                // einfach alle kürzlich aktiven Spieler ungeordnet anzuzeigen.
+                kandidaten.sort((a, b) => a.distanz - b.distanz);
+                const naechste40 = kandidaten.slice(0, 40);
+
+                let htmlList = "", htmlRadar = "";
+                naechste40.forEach(k => {
                     const top = Math.floor(Math.random() * 70) + 15, left = Math.floor(Math.random() * 70) + 15;
                     htmlRadar += `<div style="position: absolute; top:${top}%; left:${left}%; width:6px; height:6px; background:#0f8; border-radius:50%; box-shadow:0 0 5px #0f8;"></div>`;
-                    htmlList += `<div style="color:#0f8; cursor:pointer; padding:3px 0;" onclick="window.openPrivateChatNz('${doc.id.toUpperCase()}')">> ${window.escHtml(doc.id.toUpperCase())} (Online)</div>`;
-                }
-            });
-            if (listEl) listEl.innerHTML = count > 0 ? htmlList : '<div style="color:#555; font-size:0.8em;">Keine Agenten im Sektor...</div>';
-            if (radarAgents) radarAgents.innerHTML = htmlRadar;
-        });
+                    htmlList += `<div style="color:#0f8; cursor:pointer; padding:3px 0;" onclick="window.openPrivateChatNz('${k.slug.toUpperCase()}')">> ${window.escHtml(k.slug.toUpperCase())} (Online)</div>`;
+                });
+                if (listEl) listEl.innerHTML = naechste40.length > 0 ? htmlList : '<div style="color:#555; font-size:0.8em;">Keine Agenten im Sektor...</div>';
+                if (radarAgents) radarAgents.innerHTML = htmlRadar;
+            } catch (e) { console.error('Radar-Abruf fehlgeschlagen:', e); }
+        }
+
+        radarAbrufen(); // Sofortiger erster Abruf, nicht erst nach 60 Sekunden warten
+        const radarIntervall = setInterval(radarAbrufen, 60000);
+        window.currentRadarListenerNz = () => clearInterval(radarIntervall);
     };
 
     // --- MENTORENPROGRAMM ---
