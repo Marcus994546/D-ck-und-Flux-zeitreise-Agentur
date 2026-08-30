@@ -15,6 +15,12 @@
     <meta name="apple-mobile-web-app-title" content="Dück & Flux">
     <meta name="theme-color" content="#000000">
 
+    <!-- PWA-Grundlagen für die spätere Play-Store-Veröffentlichung (TWA) -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -320,5 +326,16 @@
 <script src="dualmission.js?v=20260827q"></script>
 <script src="dailyanomaly.js?v=20260827q"></script>
 <script src="app.js?v=20260827q"></script>
+<script>
+    // Service-Worker-Registrierung für PWA-Installierbarkeit (Voraussetzung für die spätere
+    // Android-TWA-Verpackung). Bewusst mit leerem try/catch - falls die Registrierung aus
+    // irgendeinem Grund fehlschlägt (z.B. älterer Browser ohne Unterstützung), soll das Spiel
+    // ganz normal weiterlaufen, nur eben ohne PWA-Installierbarkeit.
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(e => console.error('Service Worker Registrierung fehlgeschlagen:', e));
+        });
+    }
+</script>
 </body>
 </html>

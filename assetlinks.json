@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "PLATZHALTER_PAKETNAME_HIER_EINTRAGEN",
+      "sha256_cert_fingerprints": [
+        "PLATZHALTER_SHA256_FINGERABDRUCK_HIER_EINTRAGEN"
+      ]
+    }
+  }
+]
