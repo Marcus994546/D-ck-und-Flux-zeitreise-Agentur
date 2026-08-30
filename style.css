@@ -52,7 +52,19 @@ body > *:not(.top-level) {
         .portal-container {
             position: relative; z-index: 2;
             background: var(--bg-dark); border: 2px solid var(--neon-color); border-radius: 15px;
-            width: 95%; max-width: 420px; min-height: 560px;
+            width: 95%; max-width: 420px;
+            /* WICHTIG: Der Container hatte bisher KEIN display:flex - sein Inhalt (Header, Nav,
+               #anzeige, Eingabezeile, Footer) ist einfach über min-height (560px) hinausgewachsen
+               und wurde beim vertikalen Zentrieren in body oben UND unten gleichermaßen vom
+               Viewport abgeschnitten, sobald die Bildschirmhöhe (v.a. iPhone mit Safari-UI)
+               knapper war. Genau das hat Einstellungen oben und Versionsnummer unten verdeckt.
+               Jetzt: feste Flex-Spalte, die garantiert nie höher als der verfügbare Bereich
+               (abzüglich Safe-Area) wird - #anzeige (der variable Hauptinhalt) übernimmt bei
+               Bedarf intern das Scrollen, Header/Nav/Eingabe/Footer bleiben immer komplett
+               sichtbar und anklickbar. */
+            display: flex; flex-direction: column;
+            max-height: calc(100vh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+            max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
             overflow: hidden; color: var(--neon-color); text-align: center;
             box-shadow: 0 0 25px rgba(0, 255, 204, 0.3), var(--glow);
         }
@@ -98,7 +110,8 @@ body > *:not(.top-level) {
             100% { box-shadow: 0 0 2px rgba(255, 136, 0, 0.2); background: transparent; }
         }
 
-        #anzeige { padding: 20px; line-height: 1.5; min-height: 320px; position: relative; }
+        #anzeige { padding: 20px; line-height: 1.5; min-height: 200px; position: relative; flex: 1 1 auto; overflow-y: auto; }
+        header, nav, #terminal-input-area, footer { flex-shrink: 0; }
 
         .scanline {
             width: 100%; height: 2px; background: var(--neon-color);

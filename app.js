@@ -910,6 +910,7 @@ window.startGlobalNotification = function() {
 
         if (isAutoCrash) {
             if (typeof updateXP === 'function') updateXP(-200);
+            if (typeof window.logEreignis === 'function') window.logEreignis('Systemabsturz (Crashout) - Level-Verlust verzeichnet.');
             window.speechSynthesis.cancel();
             const msg = new SpeechSynthesisUtterance("Fehler kritisch. System hat sich eigenständig stabilisiert. Levelverlust verzeichnet.");
             msg.lang = 'de-DE';
@@ -1062,7 +1063,7 @@ window.startGlobalNotification = function() {
         if (cmd === 'flux-reset') {
             startResetSequence(); 
         } else if (cmd === 'help') {
-            let helpText = '<div style="color:#0f8; padding:20px;">[ BEFEHLE ]<br>> help<br>> log<br>> flux-reset<br>> rekrutieren';
+            let helpText = '<div style="color:#0f8; padding:20px;">[ BEFEHLE ]<br>> help<br>> log<br>> protokoll<br>> flux-reset<br>> rekrutieren';
             if (window.adminMerkerAktiv) {
                 helpText += '<br><br>[ ADMIN BEFEHLE ]<br>> /flux-boost<br>> /flux-test<br>> /flux-override<br>> /flux-loeschen<br>> control';
             }

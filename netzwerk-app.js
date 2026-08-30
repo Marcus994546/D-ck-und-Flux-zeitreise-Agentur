@@ -892,7 +892,8 @@
         window.currentChatTarget = targetName;
 
         if (window.db) {
-            window.setDoc(window.doc(window.db, "agenten_funk", channelId), { ungelesen_fuer: "" }, { merge: true });
+            window.setDoc(window.doc(window.db, "agenten_funk", channelId), { ungelesen_fuer: "" }, { merge: true })
+                .catch(e => console.error('Kanal-Platzhalter konnte nicht angelegt werden:', e));
         }
         if (nzChatListListener) { nzChatListListener(); nzChatListListener = null; }
 
@@ -968,7 +969,11 @@
             }, { merge: true });
             const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
             await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error('Nachricht konnte nicht gesendet werden:', e);
+            inp.value = text; // Getippten Text nicht verlieren, wenn das Senden fehlschlägt
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Nachricht konnte nicht gesendet werden: ' + (e && e.message ? e.message : 'unbekannter Fehler'));
+        }
     };
 
     window.deleteChatNz = function(targetName) {

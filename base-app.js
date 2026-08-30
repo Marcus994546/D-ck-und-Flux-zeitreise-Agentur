@@ -2622,6 +2622,7 @@
             document.getElementById('menu-platzhalter').style.display = 'none';
             reloadFurniture(type); 
             if (typeof renderArtifactCollection === 'function') renderArtifactCollection();
+            if (typeof window.updateAusbauButtons === 'function') window.updateAusbauButtons();
             // Zusätzlicher, leicht verzögerter Aufruf als Sicherheitsnetz - falls die Regal-Fächer
             // durch einen Reflow/Timing-Effekt beim ersten (synchronen) Versuch noch nicht bereit
             // waren, greift dieser zweite Versuch nach dem nächsten Render-Tick.
@@ -5093,7 +5094,7 @@ const oldUpdateAusbau_AD = window.updateAusbauButtons;
 window.updateAusbauButtons = function() {
     if (typeof oldUpdateAusbau_AD === 'function') oldUpdateAusbau_AD();
     if (typeof inventory === 'undefined') return;
-    const limitsAD = { lampe_anomalie:1, risz_scanner:1, chronon_kristall:1 };
+    const limitsAD = { lampe_anomalie:1, risz_scanner:1, chronon_kristall:1, tachyonen_resonator:1, gravitations_kompass:1 };
     for (let k in limitsAD) {
         let max = limitsAD[k], current = parseInt(inventory[k])||0;
         let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
@@ -5385,7 +5386,7 @@ window.spawnFurniture = (type, count) => {
 const menuKiKern = `
 <div id="menu-ki-kernmatrix" style="display:none; flex-direction:column; gap:15px;">
     <div class="upgrade-card"><b>[ NEURONALE STATUSLAMPE ]</b><p style="font-size:0.7em; color:#aaa;">Farbwechselnde Lampe im Takt neuronaler Pulse.</p><button id="btn-buy-lampe-ki" onclick="window.buyFurniture('lampe_ki', 160)" class="btn-upgrade-exec">KAUFEN (160 C)</button></div>
-    <div class="upgrade-card"><b>[ HOLO-NEURONALES NETZ ]</b><p style="font-size:0.7em; color:#aaa;">Schwebende Drahtgitter-Kugel mit pulsierenden Knoten.</p><button id="btn-buy-holo-netz" onclick="window.buyFurniture('holo_netz', 1050)" class="btn-upgrade-exec">KAUFEN (1050 C)</button></div>
+    <div class="upgrade-card"><b>[ HOLOPROJEKTOR (NEURONALES NETZ) ]</b><p style="font-size:0.7em; color:#aaa;">Schwebende Drahtgitter-Kugel mit pulsierenden Knoten - projiziert ein waches KI-Gesicht in die Mitte.</p><button id="btn-buy-holo-netz" onclick="window.buyFurniture('holo_netz', 1050)" class="btn-upgrade-exec">KAUFEN (1050 C)</button></div>
     <div class="upgrade-card"><b>[ QUANTEN-DATENKERN ]</b><p style="font-size:0.7em; color:#aaa;">Rotierender Zylinder mit durchlaufenden Datenströmen.</p><button id="btn-buy-daten-kern" onclick="window.buyFurniture('daten_kern', 3300)" class="btn-upgrade-exec" style="background:#0fc; color:#000; border:1px solid #0fc;">KAUFEN (3300 C + 50 MZ)</button></div>
 </div>`;
 if (!document.getElementById('menu-ki-kernmatrix')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuKiKern);
@@ -5906,5 +5907,25 @@ window.sendHoloMsg = async function() {
     } catch (e) {
         console.error(e);
         if (typeof showCustomAlert === 'function') showCustomAlert('Nachricht konnte nicht gesendet werden.');
+    }
+};
+
+// Eigene Button-Zustands-Verwaltung für das Artefaktarchiv - fehlte bisher komplett (im
+// Gegensatz zu Kryo-Depot/Funk-Relais/Anomalie-Detektor, die alle eine eigene
+// updateAusbauButtons-Erweiterung mit limitsXX-Objekt haben). Ohne das blieb der
+// Zeitachsen-Terminal-Button nach dem Kauf inkonsistent, statt sauber auf "BEREITS INSTALLIERT"
+// umzuschalten.
+const oldUpdateAusbau_Archiv = window.updateAusbauButtons;
+window.updateAusbauButtons = function() {
+    if (typeof oldUpdateAusbau_Archiv === 'function') oldUpdateAusbau_Archiv();
+    if (typeof inventory === 'undefined') return;
+    const limitsArchiv = { lampe_archiv: 1, zeitachsen_terminal: 1 };
+    for (let k in limitsArchiv) {
+        let max = limitsArchiv[k], current = parseInt(inventory[k]) || 0;
+        let btn = document.getElementById('btn-buy-' + k.replace(/_/g, '-'));
+        if (btn) {
+            if (current >= max) { btn.innerText = "[ BEREITS INSTALLIERT ]"; btn.disabled = true; btn.style.setProperty('background', '#333', 'important'); btn.style.setProperty('color', '#555', 'important'); btn.style.setProperty('border', '1px solid #333', 'important'); btn.style.setProperty('cursor', 'not-allowed', 'important'); }
+            else { btn.disabled = false; btn.style.background = ""; btn.style.color = ""; btn.style.border = ""; btn.style.cursor = "pointer"; }
+        }
     }
 };

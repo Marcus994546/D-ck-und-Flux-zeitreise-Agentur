@@ -1127,7 +1127,7 @@
 
 /* Tachyonen-Resonator: dünner Mast mit pulsierender, funkensprühender Spitze - lokalisiert
    Zeitverzerrungen (Anomaliedetektor). */
-.item-tachyonen-resonator { width: 30px; height: 130px; position: absolute; z-index: 3; left: 30%; bottom: 70px; }
+.item-tachyonen-resonator { width: 30px; height: 130px; position: absolute; z-index: 3; left: 15%; bottom: 70px; }
 .tr-mast { position: absolute; bottom: 20px; left: 50%; width: 4px; height: 90px; background: linear-gradient(180deg, #666, #222); transform: translateX(-50%); }
 .tr-tip { position: absolute; top: 0; left: 50%; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, #fff, #c0f 60%, transparent); transform: translateX(-50%); animation: tr-tip-pulse 1.6s ease-in-out infinite; box-shadow: 0 0 20px #c0f; }
 .tr-spark { position: absolute; top: -6px; left: 50%; width: 2px; height: 2px; background: #fff; transform: translateX(-50%); animation: tr-spark-fly 1.6s linear infinite; }
@@ -1179,7 +1179,7 @@
 
 /* Stasis-Kühlmittel-Kanister: beschlagener Metallkanister, tropft langsam Kühlmittel -
    stabilisiert die Kammern (Kryo-Depot). */
-.item-kuehlmittel-kanister { width: 46px; height: 90px; position: absolute; z-index: 2; left: 25%; bottom: 70px; }
+.item-kuehlmittel-kanister { width: 46px; height: 90px; position: absolute; z-index: 2; left: 12%; bottom: 70px; }
 .kmk-body { position: absolute; bottom: 14px; left: 0; width: 46px; height: 66px; background: linear-gradient(90deg, #445, #223 50%, #445); border: 1px solid #667; border-radius: 6px 6px 3px 3px; overflow: hidden; box-shadow: 0 0 12px rgba(100,200,255,0.3); }
 .kmk-frost { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(150,220,255,0.15) 0px, rgba(150,220,255,0.15) 3px, transparent 3px, transparent 8px); animation: kmk-frost-shift 6s linear infinite; }
 .kmk-drip { position: absolute; bottom: 4px; left: 50%; width: 3px; height: 10px; background: #9adfff; border-radius: 0 0 3px 3px; transform: translateX(-50%); animation: pr-drip-fall 3.4s infinite; }
@@ -1188,7 +1188,7 @@
 
 /* Biometrischer Vitalsensor: kleines Wandpanel mit durchlaufender Herzfrequenz-Linie -
    überwacht den Kryo-Zustand (Kryo-Depot). */
-.item-vitalsensor { width: 70px; height: 36px; position: absolute; z-index: 2; right: 20px; top: 45px; }
+.item-vitalsensor { width: 70px; height: 36px; position: absolute; z-index: 2; right: 35px; bottom: 78px; }
 .vs-panel { width: 100%; height: 100%; background: #0a1418; border: 1px solid #0ff; border-radius: 3px; overflow: hidden; box-shadow: 0 0 10px rgba(0,255,255,0.4); position: relative; }
 .vs-line { position: absolute; top: 50%; left: -100%; width: 200%; height: 2px; background: linear-gradient(90deg, transparent 0%, transparent 40%, #0ff 42%, #fff 45%, #0ff 48%, transparent 50%, transparent 100%); animation: vs-line-scroll 2.2s linear infinite; }
 @keyframes vs-line-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(50%); } }
@@ -1234,7 +1234,7 @@
 
 /* Verschlüsselter Signal-Decoder: kleines Wandpanel mit durchlaufendem Zeichensalat, der sich
    periodisch "entschlüsselt" (Funk-Relais "Horizont"). */
-.item-signal-decoder { width: 76px; height: 40px; position: absolute; z-index: 2; right: 18px; top: 50px; }
+.item-signal-decoder { width: 76px; height: 40px; position: absolute; z-index: 2; right: 32px; top: 62px; }
 .sd-panel { width: 100%; height: 100%; background: #0a1220; border: 1px solid #4af; border-radius: 3px; box-shadow: 0 0 10px rgba(70,170,255,0.4); overflow: hidden; padding: 4px; box-sizing: border-box; font-size: 8px; font-family: monospace; color: #4af; }
 .sd-text { white-space: nowrap; animation: sd-text-glitch 2.6s steps(1) infinite; }
 .sd-text.sd-t2 { color: #0f8; opacity: 0; animation-delay: 1.3s; }
@@ -1649,9 +1649,9 @@
 }
 
 /* 4. Temporale Rohrpost - wandmontierte Station mit Rohr, das nach oben zur Decke führt.
-   Blinkt blau, sobald eine Admin-Sendung wartet (siehe .sn-rohrpost-pending). Container reicht
-   bewusst bis zur tatsächlichen Raumdecke (.room-box ist 250px hoch, Sockel bei bottom:65px -
-   also 185px Container-Höhe, damit das Rohr lückenlos bis oben reicht). */
+   Blinkt auffällig gelb, sobald eine Admin-Sendung wartet (siehe .sn-rohrpost-pending). Container
+   reicht bewusst bis zur tatsächlichen Raumdecke (.room-box ist 250px hoch, Sockel bei
+   bottom:65px - also 185px Container-Höhe, damit das Rohr lückenlos bis oben reicht). */
 .item-sn-rohrpost { width: 32px; height: 185px; position: absolute; z-index: 3; bottom: 65px; right: 4px; cursor: pointer; }
 .sn-rohrpost-pipe {
     position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 137px;
@@ -1677,9 +1677,9 @@
     box-shadow: inset 0 0 6px rgba(0,136,255,0.5);
 }
 .sn-rohrpost-light { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 7px; height: 7px; border-radius: 50%; background: #234; }
-.item-sn-rohrpost.sn-rohrpost-pending .sn-rohrpost-light { background: #08f; box-shadow: 0 0 10px #08f; animation: sn80-flicker 1s steps(1) infinite; }
+.item-sn-rohrpost.sn-rohrpost-pending .sn-rohrpost-light { width: 11px; height: 11px; background: #ffe600; box-shadow: 0 0 8px #ffe600, 0 0 18px #ffe600, 0 0 30px rgba(255,230,0,0.6); animation: sn80-flicker 0.6s steps(1) infinite; }
 .item-sn-rohrpost.sn-rohrpost-pending .sn-rohrpost-box { animation: sn-rohrpost-pending-pulse 1.4s ease-in-out infinite; }
-@keyframes sn-rohrpost-pending-pulse { 0%, 100% { box-shadow: 0 0 15px rgba(0,136,255,0.35); } 50% { box-shadow: 0 0 30px rgba(0,136,255,0.8); } }
+@keyframes sn-rohrpost-pending-pulse { 0%, 100% { box-shadow: 0 0 15px rgba(255,230,0,0.4); } 50% { box-shadow: 0 0 35px rgba(255,230,0,0.9); } }
 
 /* 5. Infostand - kleines holografisches Info-Terminal */
 .item-sn-infostand { width: 30px; height: 50px; position: absolute; z-index: 2; bottom: 65px; left: 78px; cursor: pointer; text-align: center; }
