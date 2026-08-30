@@ -5386,19 +5386,19 @@ window.spawnFurniture = (type, count) => {
 const menuKiKern = `
 <div id="menu-ki-kernmatrix" style="display:none; flex-direction:column; gap:15px;">
     <div class="upgrade-card"><b>[ NEURONALE STATUSLAMPE ]</b><p style="font-size:0.7em; color:#aaa;">Farbwechselnde Lampe im Takt neuronaler Pulse.</p><button id="btn-buy-lampe-ki" onclick="window.buyFurniture('lampe_ki', 160)" class="btn-upgrade-exec">KAUFEN (160 C)</button></div>
-    <div class="upgrade-card"><b>[ HOLOPROJEKTOR (NEURONALES NETZ) ]</b><p style="font-size:0.7em; color:#aaa;">Schwebende Drahtgitter-Kugel mit pulsierenden Knoten - projiziert ein waches KI-Gesicht in die Mitte.</p><button id="btn-buy-holo-netz" onclick="window.buyFurniture('holo_netz', 1050)" class="btn-upgrade-exec">KAUFEN (1050 C)</button></div>
+    <div class="upgrade-card"><b>[ HOLOPROJEKTOR (NEURONALES NETZ) ]</b><p style="font-size:0.7em; color:#aaa;">Schwebende Drahtgitter-Kugel mit pulsierenden Knoten - projiziert ein waches KI-Gesicht in die Mitte.</p><button id="btn-buy-ki-holoprojektor" onclick="window.buyFurniture('ki_holoprojektor', 1050)" class="btn-upgrade-exec">KAUFEN (1050 C)</button></div>
     <div class="upgrade-card"><b>[ QUANTEN-DATENKERN ]</b><p style="font-size:0.7em; color:#aaa;">Rotierender Zylinder mit durchlaufenden Datenströmen.</p><button id="btn-buy-daten-kern" onclick="window.buyFurniture('daten_kern', 3300)" class="btn-upgrade-exec" style="background:#0fc; color:#000; border:1px solid #0fc;">KAUFEN (3300 C + 50 MZ)</button></div>
 </div>`;
 if (!document.getElementById('menu-ki-kernmatrix')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuKiKern);
 
-const itemsKiKern = ['lampe_ki','holo_netz','daten_kern'];
+const itemsKiKern = ['lampe_ki','ki_holoprojektor','daten_kern'];
 itemsKiKern.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
 const oldUpdateAusbau_KI = window.updateAusbauButtons;
 window.updateAusbauButtons = function() {
     if (typeof oldUpdateAusbau_KI === 'function') oldUpdateAusbau_KI();
     if (typeof inventory === 'undefined') return;
-    const limitsKI = { lampe_ki:1, holo_netz:1, daten_kern:1 };
+    const limitsKI = { lampe_ki:1, ki_holoprojektor:1, daten_kern:1 };
     for (let k in limitsKI) {
         let max = limitsKI[k], current = parseInt(inventory[k])||0;
         let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
@@ -5435,7 +5435,7 @@ window.reloadFurniture = (type) => {
     if (oldReload_KI) oldReload_KI(type);
     if (type === 'KI-KERNMATRIX') {
         if (inventory.lampe_ki > 0) window.spawnFurniture('lampe_ki', 1);
-        if (inventory.holo_netz > 0) window.spawnFurniture('holo_netz', 1);
+        if (inventory.ki_holoprojektor > 0) window.spawnFurniture('ki_holoprojektor', 1);
         if (inventory.daten_kern > 0) window.spawnFurniture('daten_kern', 1);
     }
 };
@@ -5448,7 +5448,7 @@ window.spawnFurniture = (type, count) => {
     if (type === 'lampe_ki') {
         item.classList.add('item-lampe-ki');
         item.innerHTML = '<div class="lki-mount"></div><div class="lki-bulb"></div>';
-    } else if (type === 'holo_netz') {
+    } else if (type === 'ki_holoprojektor') {
         item.classList.add('item-holo-netz');
         item.innerHTML = '<div class="hn-sphere"><div class="hn-ring"></div><div class="hn-ring hn-r2"></div><div class="hn-ring hn-r3"></div><div class="hn-node"></div><div class="hn-node hn-n2"></div><div class="hn-node hn-n3"></div>' +
             // Projiziertes KI-Gesicht: zwei pulsierende "Augen" und ein Scan-Balken, der über das
