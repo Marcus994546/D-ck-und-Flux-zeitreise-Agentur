@@ -5381,8 +5381,134 @@ window.spawnFurniture = (type, count) => {
     room.appendChild(item);
 };
 
+// ============================================================
+// PROZEDURALES PUNKTWOLKEN-GESICHT (Holoprojektor, KI-Kernmatrix)
+// Erzeugt ein detailliertes Gesicht aus hunderten einzeln platzierten Punkten entlang echter
+// Gesichtskonturen (Stirn, Augenbrauen, Augen, Nase, Lippen, Kieferlinie, Wangenknochen), mit
+// Punktwolken-Ausfransung am Rand und abdriftenden Partikeln - orientiert am vom Nutzer
+// bereitgestellten Referenzbild einer 3D-Gesichtsscan-Punktwolke.
+// ============================================================
+function generateHoloFaceSVG() {
+    const CX = 100;
+    // Gesichtsbreite (halbe Breite) entlang der Höhe Y - definiert die gesamte Kontur von der
+    // Stirn über Augenbrauen/Wangenknochen/Kiefer bis zum Kinn, dann Hals/Schulter-Ansatz.
+    const widthAnchors = [
+        [15, 26], [30, 37], [50, 47], [68, 51], [95, 55], [115, 50],
+        [135, 40], [150, 27], [165, 15], [178, 7],
+        [190, 12], [205, 16], [225, 19], [250, 22], [280, 26]
+    ];
+    function halfWidthAt(y) {
+        for (let i = 0; i < widthAnchors.length - 1; i++) {
+            const a = widthAnchors[i], b = widthAnchors[i + 1];
+            if (y >= a[0] && y <= b[0]) {
+                const t = (y - a[0]) / (b[0] - a[0]);
+                return a[1] + (b[1] - a[1]) * t;
+            }
+        }
+        return widthAnchors[widthAnchors.length - 1][1];
+    }
+    function smoothstep(e0, e1, x) {
+        const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+        return t * t * (3 - 2 * t);
+    }
 
-// === KI-KERNMATRIX ===
+    const points = [];
+
+    // --- Allgemeine Füll-Punktwolke: Rejection-Sampling innerhalb der Kontur, mit Ausfransung
+    // zum Rand hin und dünnerer Besetzung am Haaransatz/Hals-Bereich. ---
+    const TARGET_FILL = 430;
+    let attempts = 0;
+    while (points.length < TARGET_FILL && attempts < TARGET_FILL * 15) {
+        attempts++;
+        const y = 15 + Math.random() * (280 - 15);
+        const w = halfWidthAt(y);
+        const x = CX + (Math.random() * 2 - 1) * w * 1.15;
+        const edgeRatio = Math.abs(x - CX) / w;
+        let keep = 1 - smoothstep(0.70, 1.10, edgeRatio);
+        if (y > 178) keep *= 0.5;
+        if (y < 30) keep *= 0.65;
+        if (Math.random() > keep) continue;
+        const centerCloseness = 1 - Math.min(1, edgeRatio);
+        const r = 0.5 + Math.random() * 0.5 + centerCloseness * 0.35;
+        const op = 0.3 + Math.random() * 0.4 + centerCloseness * 0.25;
+        points.push({ x, y, r: Math.min(r, 1.7), op: Math.min(op, 1), feature: false });
+    }
+
+    // --- Gesichtsmerkmale: gezielte Punkt-Cluster für klar erkennbare Züge ---
+    function ring(cx, cy, rx, ry, count, rBase, opBase) {
+        for (let i = 0; i < count; i++) {
+            const a = (i / count) * Math.PI * 2;
+            points.push({
+                x: cx + Math.cos(a) * rx + (Math.random() * 1.1 - 0.55),
+                y: cy + Math.sin(a) * ry + (Math.random() * 1.1 - 0.55),
+                r: rBase + Math.random() * 0.3, op: opBase + Math.random() * 0.15, feature: true
+            });
+        }
+    }
+    function cluster(cx, cy, spread, count, rBase, opBase) {
+        for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2, d = Math.random() * spread;
+            points.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, r: rBase + Math.random() * 0.3, op: opBase + Math.random() * 0.15, feature: true });
+        }
+    }
+    function curve(anchors, count, rBase, opBase) {
+        const segs = anchors.length - 1;
+        for (let i = 0; i < count; i++) {
+            const t = (i / (count - 1)) * segs;
+            const seg = Math.min(Math.floor(t), segs - 1);
+            const lt = t - seg;
+            const p0 = anchors[seg], p1 = anchors[seg + 1];
+            points.push({
+                x: p0[0] + (p1[0] - p0[0]) * lt + (Math.random() * 0.8 - 0.4),
+                y: p0[1] + (p1[1] - p0[1]) * lt + (Math.random() * 0.8 - 0.4),
+                r: rBase + Math.random() * 0.25, op: opBase + Math.random() * 0.15, feature: true
+            });
+        }
+    }
+
+    curve([[64, 64], [72, 60], [82, 60], [92, 64]], 10, 0.9, 0.75);          // linke Augenbraue
+    curve([[108, 64], [118, 60], [128, 60], [136, 64]], 10, 0.9, 0.75);      // rechte Augenbraue
+    ring(78, 86, 11, 5.5, 18, 0.8, 0.8);                                     // linkes Auge (Lidkontur)
+    ring(122, 86, 11, 5.5, 18, 0.8, 0.8);                                    // rechtes Auge
+    cluster(78, 86, 2.2, 7, 1.1, 0.95);                                      // linke Iris
+    cluster(122, 86, 2.2, 7, 1.1, 0.95);                                     // rechte Iris
+    curve([[100, 88], [99, 105], [100, 122]], 14, 0.7, 0.55);                // Nasenrücken
+    cluster(93, 129, 2.6, 6, 0.85, 0.7);                                     // linker Nasenflügel
+    cluster(107, 129, 2.6, 6, 0.85, 0.7);                                    // rechter Nasenflügel
+    curve([[83, 150], [92, 147], [100, 148], [108, 147], [117, 150]], 16, 0.85, 0.85); // Oberlippe
+    curve([[86, 157], [100, 161], [114, 157]], 12, 0.85, 0.75);              // Unterlippe
+    curve([[148, 95], [144, 120], [133, 142], [118, 160], [100, 178]], 16, 0.75, 0.6); // Kieferlinie rechts
+    curve([[52, 95], [56, 120], [67, 142], [82, 160], [100, 178]], 16, 0.75, 0.6);     // Kieferlinie links
+    cluster(60, 100, 6, 10, 0.7, 0.5);                                       // linker Wangenknochen
+    cluster(140, 100, 6, 10, 0.7, 0.5);                                      // rechter Wangenknochen
+
+    let circlesSVG = '';
+    points.forEach(p => {
+        const color = p.feature ? '#eafeff' : '#7ff5ff';
+        circlesSVG += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + p.r.toFixed(2) + '" fill="' + color + '" opacity="' + p.op.toFixed(2) + '"/>';
+    });
+
+    // --- Abdriftende Partikel: lösen sich seitlich/oben von der Silhouette und verblassen -
+    // genau der Effekt aus dem Referenzbild. ---
+    let particlesSVG = '';
+    const PARTICLE_COUNT = 30;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const y = 20 + Math.random() * 160;
+        const w = halfWidthAt(y);
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const startX = CX + side * (w * (0.82 + Math.random() * 0.35));
+        const driftX = side * (18 + Math.random() * 40);
+        const driftY = (Math.random() * 34 - 17);
+        const dur = (2.6 + Math.random() * 3.2).toFixed(2);
+        const delay = (Math.random() * 4.5).toFixed(2);
+        const r = (0.6 + Math.random() * 0.9).toFixed(2);
+        particlesSVG += '<circle class="hn-particle" cx="' + startX.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r + '" fill="#9ffcff" style="--dx:' + driftX.toFixed(1) + 'px; --dy:' + driftY.toFixed(1) + 'px; animation-duration:' + dur + 's; animation-delay:' + delay + 's;"/>';
+    }
+
+    return circlesSVG + particlesSVG;
+}
+
+
 const menuKiKern = `
 <div id="menu-ki-kernmatrix" style="display:none; flex-direction:column; gap:15px;">
     <div class="upgrade-card"><b>[ NEURONALE STATUSLAMPE ]</b><p style="font-size:0.7em; color:#aaa;">Farbwechselnde Lampe im Takt neuronaler Pulse.</p><button id="btn-buy-lampe-ki" onclick="window.buyFurniture('lampe_ki', 160)" class="btn-upgrade-exec">KAUFEN (160 C)</button></div>
@@ -5450,38 +5576,9 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="lki-mount"></div><div class="lki-bulb"></div>';
     } else if (type === 'ki_holoprojektor') {
         item.classList.add('item-holo-netz');
-        // Echtes Punkt-Raster-Gesicht (SVG): ein Punktmuster wird durch eine Gesichtssilhouette
-        // maskiert (inkl. Augenhöhlen/Mund als Aussparung), mit einem radialen Helligkeitsverlauf
-        // für dichtere Punkte in der Mitte und ausfransenden Rändern - genau wie im
-        // Referenzbild, statt eines simplen Wireframes.
         item.innerHTML = `
-            <svg class="hn-face-svg" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <pattern id="hnDots-${count}" patternUnits="userSpaceOnUse" width="3" height="3">
-                        <circle cx="1.5" cy="1.5" r="0.65" fill="#7ff5ff"/>
-                    </pattern>
-                    <radialGradient id="hnFade-${count}" cx="50%" cy="38%" r="62%">
-                        <stop offset="0%" stop-color="#fff"/>
-                        <stop offset="70%" stop-color="#fff"/>
-                        <stop offset="100%" stop-color="#222"/>
-                    </radialGradient>
-                    <mask id="hnMask-${count}">
-                        <path d="M50,8 C72,8 85,22 87,42 C89,58 85,72 78,85 C73,95 65,104 58,114 L54,132 L46,132 L42,114 C35,104 27,95 22,85 C15,72 11,58 13,42 C15,22 28,8 50,8 Z" fill="url(#hnFade-${count})"/>
-                        <ellipse cx="36" cy="55" rx="6.5" ry="4.5" fill="#000"/>
-                        <ellipse cx="64" cy="55" rx="6.5" ry="4.5" fill="#000"/>
-                        <ellipse cx="50" cy="98" rx="10" ry="4" fill="#000"/>
-                    </mask>
-                </defs>
-                <rect x="0" y="0" width="100" height="150" fill="url(#hnDots-${count})" mask="url(#hnMask-${count})" class="hn-dotlayer"/>
-                <g class="hn-eye-detail">
-                    <circle cx="36" cy="55" r="4.2" fill="none" stroke="#eafeff" stroke-width="0.8"/>
-                    <circle cx="36" cy="55" r="1.6" fill="#0ff"/>
-                    <circle cx="64" cy="55" r="4.2" fill="none" stroke="#eafeff" stroke-width="0.8"/>
-                    <circle cx="64" cy="55" r="1.6" fill="#0ff"/>
-                </g>
-                <line x1="50" y1="58" x2="50" y2="82" stroke="#7ff5ff" stroke-width="0.5" opacity="0.5"/>
-                <path class="hn-mouth-line" d="M42,98 Q50,102 58,98" fill="none" stroke="#eafeff" stroke-width="1.1" stroke-linecap="round"/>
-                <rect class="hn-scan-rect" x="0" y="0" width="100" height="3" fill="rgba(120,245,255,0.55)"/>
+            <svg class="hn-face-svg" viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg">
+                ${generateHoloFaceSVG()}
             </svg>
             <div class="hn-face-glow"></div>`;
     } else if (type === 'daten_kern') {

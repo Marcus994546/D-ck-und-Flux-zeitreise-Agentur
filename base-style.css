@@ -1248,22 +1248,16 @@
 .lki-mount { width: 22px; height: 6px; background: #222; margin: 0 auto; border-radius: 2px; }
 .lki-bulb { width: 18px; height: 18px; border-radius: 50%; margin: 2px auto 0; animation: lki-hue-cycle 4s linear infinite; }
 
-.item-holo-netz { width: 110px; height: 150px; position: absolute; z-index: 3; right: 15px; bottom: 70px; }
+.item-holo-netz { width: 130px; height: 175px; position: absolute; z-index: 3; right: 12px; bottom: 70px; }
 
 /* Echtes Punkt-Raster-Gesicht (Referenzbild: Punktwolke in Gesichtsform, dichter in der Mitte,
    ausfransend an den Rändern) - gerendert als SVG (siehe spawnFurniture/ki_holoprojektor).
    Rein dekorativ, KI-Kernmatrix. */
 .hn-face-svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 10px rgba(120,245,255,0.5)); animation: hn-float 4s ease-in-out infinite; overflow: visible; }
-.hn-dotlayer { animation: hn-dot-shimmer 3s ease-in-out infinite; }
-.hn-eye-detail circle { animation: hn-eye-glow 3.2s ease-in-out infinite; }
-.hn-mouth-line { animation: hn-mouth-glow 4s ease-in-out infinite; }
-.hn-scan-rect { animation: hn-scan-sweep 3.6s linear infinite; }
 .hn-face-glow { position: absolute; inset: 10%; border-radius: 50%; background: radial-gradient(circle, rgba(120,245,255,0.12), transparent 70%); pointer-events: none; z-index: -1; }
+.hn-particle { transform-box: fill-box; transform-origin: center; animation-name: hn-particle-drift; animation-timing-function: ease-out; animation-iteration-count: infinite; }
 @keyframes hn-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-@keyframes hn-dot-shimmer { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
-@keyframes hn-eye-glow { 0%, 100% { opacity: 0.9; } 50% { opacity: 1; } }
-@keyframes hn-mouth-glow { 0%, 40%, 100% { opacity: 0.8; } 20% { opacity: 1; } }
-@keyframes hn-scan-sweep { 0% { transform: translateY(8px); opacity: 0; } 8% { opacity: 0.9; } 92% { opacity: 0.9; } 100% { transform: translateY(140px); opacity: 0; } }
+@keyframes hn-particle-drift { 0% { transform: translate(0,0); opacity: 0; } 12% { opacity: 0.9; } 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
 
 @keyframes dk-cyl-rotate { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
 @keyframes dk-stream-flow { 0% { background-position: 0 200%; } 100% { background-position: 0 -200%; } }
