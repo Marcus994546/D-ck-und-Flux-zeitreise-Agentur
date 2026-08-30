@@ -1454,7 +1454,7 @@ document.addEventListener('click', () => {
             
             <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.7em; color: #aaa; margin-bottom: 15px; cursor: pointer; text-align: left;">
                 <input type="checkbox" id="auth-agb" style="margin-top: 2px;">
-                <span>Ich akzeptiere den Agentur-Kodex und den Haftungsausschluss.</span>
+                <span>Ich akzeptiere den Agentur-Kodex und die <a href="datenschutz.html" target="_blank" rel="noopener" style="color:#0ff;">Datenschutzerklärung</a>.</span>
             </label>
 
             <div id="auth-error" style="color: #f44; font-size: 0.8em; margin-bottom: 10px; text-align: center; height: 15px;"></div>
