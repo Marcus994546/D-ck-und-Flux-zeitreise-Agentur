@@ -248,7 +248,7 @@
             }
             const statusLabel = { gestartet: 'LÄUFT/ABGEBROCHEN', abgeschlossen: 'ERFOLGREICH', abgebrochen: 'ABGEBROCHEN' };
             const statusColor = { gestartet: '#ffcc00', abgeschlossen: '#0f8', abgebrochen: '#f44' };
-            const typLabel = { normal: 'Normale Mission', fortgeschritten: 'Fortgeschrittene Mission', weit: 'Weit entfernte Mission', galaktisch: 'Galaktische Mission' };
+            const typLabel = { normal: 'Normale Mission', fortgeschritten: 'Fortgeschrittene Mission', weit: 'Weit entfernte Mission', galaktisch: 'Galaktische Mission', taeglich: 'Tägliche Zeitanomalie' };
 
             let html = '<div style="color:#0f8; padding:15px; text-align:left; max-height:70vh; overflow-y:auto;">[ MISSIONS-LOG ]<br><br>';
             snapshot.docs.forEach(d => {

@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260827n">
+    <link rel="stylesheet" href="base-style.css?v=20260827q">
 </head>
 <body>
 
@@ -31,7 +31,6 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
                 <div style="display: flex; gap: 15px; align-items: center;">
-                    <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
                     <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
                 </div>
                 <button onclick="window.openSammelSystem()" class="btn-back" style="border-color:#ffcc00; color:#ffcc00;">📦 SAMMEL-SYSTEM</button>
@@ -74,7 +73,6 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
                 <div style="display: flex; gap: 15px; align-items: center;">
-                    <div onclick="openSettings()" style="font-size: 24px; cursor: pointer; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
                     <button onclick="location.href='index.html'" class="btn-back">ZURÜCK</button>
                 </div>
                 <button onclick="showAktiveBasis()" class="btn-back" style="border-color:#0af; color:#0af;">ZUR AKTIVEN BASIS</button>
@@ -102,16 +100,6 @@
     <div class="selection-list" id="selection-list-container">
     </div>
     <button class="btn-back" style="margin-top: 15px; width: 100%; max-width: 450px;" onclick="hideRoomMenu()">ABBRECHEN</button>
-</div>
-
-<div id="settings-overlay">
-    <h3 style="color: var(--neon-color); margin-bottom: 5px;">[ SYSTEM-EINSTELLUNGEN ]</h3>
-    <div class="neon-divider" style="margin-bottom: 20px;"></div>
-    <div class="selection-list" style="align-items: center; max-height: none;">
-        <button id="btn-toggle-music" onclick="toggleBaseMusic()" style="width: 100%; max-width: 300px; padding: 15px; font-size: 1em; font-family: 'Orbitron'; font-weight: bold; background: transparent; border: 1px solid #0f8; color: #0f8; cursor: pointer;">MUSIK: LÄDT...</button>
-        <button id="btn-toggle-sound" onclick="toggleBaseSound()" style="width: 100%; max-width: 300px; padding: 15px; font-size: 1em; font-family: 'Orbitron'; font-weight: bold; background: transparent; border: 1px solid #0f8; color: #0f8; cursor: pointer; margin-top: 15px;">KLICK-SOUND: LÄDT...</button>
-    </div>
-    <button class="btn-back" style="margin-top: 30px; width: 100%; max-width: 300px; padding: 15px;" onclick="closeSettings()">SCHLIESSEN</button>
 </div>
 
 <div id="agent-unlock-overlay">
@@ -464,9 +452,9 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260827n"></script>
-<script src="protokoll.js?v=20260827n"></script>
-<script src="sharecard.js?v=20260827n"></script>
-<script src="base-app.js?v=20260827n"></script>
+<script type="module" src="base-firebase-init.js?v=20260827q"></script>
+<script src="protokoll.js?v=20260827q"></script>
+<script src="sharecard.js?v=20260827q"></script>
+<script src="base-app.js?v=20260827q"></script>
 </body>
 </html>

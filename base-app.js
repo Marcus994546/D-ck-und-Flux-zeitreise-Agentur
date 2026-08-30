@@ -37,7 +37,10 @@
         window.dispatchEvent(new Event('flux-base-ready'));
     })();
 
-    // --- AUDIO & EINSTELLUNGEN ---
+    // --- AUDIO ---
+    // Einstellungen (Musik/Klick-Sound) gibt es nur noch im Hauptterminal - die Basis übernimmt
+    // hier lediglich den dort gespeicherten Wert (dieselben localStorage-Schlüssel), hat aber
+    // keinen eigenen Einstellungen-Button mehr.
 
     window.playBeepBase = function(freq = 800, duration = 0.05) {
         if (window.klickTonAktiv === false) return; 
@@ -54,32 +57,6 @@
             osc.start();
             osc.stop(audioCtx.currentTime + duration);
         } catch(e) {}
-    };
-
-    window.openSettings = () => { playBeepBase(1000, 0.05); document.getElementById('settings-overlay').style.display = 'flex'; updateSettingsUI(); };
-    window.closeSettings = () => { playBeepBase(800, 0.05); document.getElementById('settings-overlay').style.display = 'none'; };
-
-    window.updateSettingsUI = () => {
-        let isMusicOn = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
-        let isSoundOn = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
-        const btnM = document.getElementById('btn-toggle-music');
-        const btnS = document.getElementById('btn-toggle-sound');
-        if(btnM) { btnM.innerText = isMusicOn ? "MUSIK: AN" : "MUSIK: AUS"; btnM.style.color = isMusicOn ? "#0f8" : "#f44"; }
-        if(btnS) { btnS.innerText = isSoundOn ? "KLICK-SOUND: AN" : "KLICK-SOUND: AUS"; btnS.style.color = isSoundOn ? "#0f8" : "#f44"; }
-    };
-
-    window.toggleBaseMusic = () => {
-        let isM = localStorage.getItem('flux_music_' + currentAgentName.toLowerCase()) === 'true';
-        isM = !isM; localStorage.setItem('flux_music_' + currentAgentName.toLowerCase(), isM);
-        const bgm = document.getElementById('bg-music-base');
-        if (isM) bgm.play().catch(e => {}); else bgm.pause();
-        updateSettingsUI();
-    };
-
-    window.toggleBaseSound = () => {
-        let isS = localStorage.getItem('flux_sound_' + currentAgentName.toLowerCase()) !== 'false';
-        isS = !isS; localStorage.setItem('flux_sound_' + currentAgentName.toLowerCase(), isS);
-        window.klickTonAktiv = isS; playBeepBase(1200, 0.05); updateSettingsUI();
     };
 
     // --- GAME STATE & RÄUME ---
