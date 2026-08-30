@@ -5453,7 +5453,15 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="hn-sphere"><div class="hn-ring"></div><div class="hn-ring hn-r2"></div><div class="hn-ring hn-r3"></div><div class="hn-node"></div><div class="hn-node hn-n2"></div><div class="hn-node hn-n3"></div>' +
             // Projiziertes KI-Gesicht: zwei pulsierende "Augen" und ein Scan-Balken, der über das
             // Gesicht wandert - rein dekorativ, keine eigene Funktion.
-            '<div class="hn-face"><div class="hn-eye hn-eye-l"></div><div class="hn-eye hn-eye-r"></div><div class="hn-scanline"></div></div>' +
+            '<div class="hn-face">' +
+                '<div class="hn-face-outline"></div>' +
+                '<div class="hn-brow hn-brow-l"></div><div class="hn-brow hn-brow-r"></div>' +
+                '<div class="hn-eye hn-eye-l"><div class="hn-pupil"></div></div>' +
+                '<div class="hn-eye hn-eye-r"><div class="hn-pupil"></div></div>' +
+                '<div class="hn-nose"></div>' +
+                '<div class="hn-mouth"></div>' +
+                '<div class="hn-scanline"></div>' +
+            '</div>' +
             '</div><div class="hn-stand"></div>';
     } else if (type === 'daten_kern') {
         item.classList.add('item-daten-kern');

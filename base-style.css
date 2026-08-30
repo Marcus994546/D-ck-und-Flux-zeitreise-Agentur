@@ -1251,7 +1251,7 @@
 @keyframes hn-sphere-float { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-10px); } }
 @keyframes hn-ring-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @keyframes hn-node-pulse { 0%, 100% { opacity: 0.4; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.3); box-shadow: 0 0 18px #0ff; } }
-.item-holo-netz { width: 110px; height: 150px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); }
+.item-holo-netz { width: 110px; height: 150px; position: absolute; z-index: 3; right: 15px; bottom: 70px; }
 .hn-sphere { position: absolute; left: 50%; bottom: 90px; width: 90px; height: 90px; transform: translateX(-50%); animation: hn-sphere-float 3.5s ease-in-out infinite; }
 .hn-ring { position: absolute; inset: 0; border: 1px solid rgba(0,255,255,0.5); border-radius: 50%; animation: hn-ring-spin 6s linear infinite; }
 .hn-ring.hn-r2 { transform: rotateX(65deg); animation-duration: 4s; animation-direction: reverse; border-color: rgba(255,0,255,0.4); }
@@ -1261,14 +1261,24 @@
 .hn-node.hn-n3 { top: 60%; left: 78%; animation-delay: 1.2s; background: #0f8; }
 .hn-stand { width: 18px; height: 60px; background: linear-gradient(180deg, #222, #000); border: 1px solid #345; margin: 0 auto; box-shadow: 0 10px 20px rgba(0,0,0,0.8); }
 
-/* Projiziertes KI-Gesicht innerhalb der Holo-Kugel - zwei pulsierende Augen und ein
-   durchlaufender Scan-Balken, rein dekorativ (siehe Holoprojektor-Feature KI-Kernmatrix). */
-.hn-face { position: absolute; inset: 22%; border-radius: 50%; overflow: hidden; }
-.hn-eye { position: absolute; top: 38%; width: 10px; height: 4px; border-radius: 2px; background: #0ff; box-shadow: 0 0 8px #0ff; animation: hn-eye-blink 3s ease-in-out infinite; }
-.hn-eye-l { left: 22%; }
-.hn-eye-r { right: 22%; animation-delay: 0.15s; }
+/* Projiziertes KI-Gesicht innerhalb der Holo-Kugel - detailliertes Wireframe-Gesicht mit
+   Gesichtskontur, Augenbrauen, Augen mit Pupillen, Nasenlinie, animiertem Mund und
+   durchlaufendem Scan-Balken. Rein dekorativ (Holoprojektor-Feature, KI-Kernmatrix). */
+.hn-face { position: absolute; inset: 14%; border-radius: 50%; overflow: hidden; }
+.hn-face-outline { position: absolute; inset: 6%; border: 1px solid rgba(0,255,255,0.55); border-radius: 48% 48% 55% 55%; box-shadow: inset 0 0 12px rgba(0,255,255,0.3); }
+.hn-brow { position: absolute; top: 30%; width: 13px; height: 2px; background: #0ff; box-shadow: 0 0 5px #0ff; border-radius: 1px; }
+.hn-brow-l { left: 18%; transform: rotate(-8deg); }
+.hn-brow-r { right: 18%; transform: rotate(8deg); }
+.hn-eye { position: absolute; top: 38%; width: 14px; height: 10px; border: 1px solid #0ff; border-radius: 50%; background: rgba(0,255,255,0.08); box-shadow: 0 0 8px rgba(0,255,255,0.6); animation: hn-eye-blink 3.5s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
+.hn-eye-l { left: 17%; }
+.hn-eye-r { right: 17%; animation-delay: 0.1s; }
+.hn-pupil { width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px #0ff; animation: hn-pupil-shift 5s ease-in-out infinite; }
+.hn-nose { position: absolute; top: 50%; left: 50%; width: 1px; height: 12px; background: rgba(0,255,255,0.4); transform: translateX(-50%); }
+.hn-mouth { position: absolute; top: 68%; left: 50%; width: 22px; height: 3px; border-radius: 2px; background: #0ff; box-shadow: 0 0 6px #0ff; transform: translateX(-50%); animation: hn-mouth-talk 2.2s ease-in-out infinite; }
 .hn-scanline { position: absolute; left: 0; width: 100%; height: 2px; background: rgba(0,255,255,0.7); box-shadow: 0 0 6px rgba(0,255,255,0.8); animation: hn-scan-move 2.4s linear infinite; }
-@keyframes hn-eye-blink { 0%, 88%, 100% { transform: scaleY(1); opacity: 1; } 92% { transform: scaleY(0.15); opacity: 0.6; } }
+@keyframes hn-eye-blink { 0%, 88%, 100% { transform: scaleY(1); } 92% { transform: scaleY(0.15); } }
+@keyframes hn-pupil-shift { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 60% { transform: translateX(2px); } 80% { transform: translateX(0); } }
+@keyframes hn-mouth-talk { 0%, 100% { width: 22px; height: 3px; } 30% { width: 14px; height: 7px; border-radius: 50%; } 55% { width: 20px; height: 3px; } 75% { width: 12px; height: 6px; border-radius: 50%; } }
 @keyframes hn-scan-move { 0% { top: 0%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 96%; opacity: 0; } }
 
 @keyframes dk-cyl-rotate { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
