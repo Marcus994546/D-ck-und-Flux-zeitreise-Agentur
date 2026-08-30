@@ -919,22 +919,61 @@
         win.scrollTop = win.scrollHeight;
     }
 
-    window.openPrivateChatNz = function(targetAgentName) {
+    window.openPrivateChatNz = async function(targetAgentName) {
         const myName = window.agentSlug(window.agentName);
         const targetName = window.agentSlug(targetAgentName);
 
-        // Normale Spieler erreichen die Administration NUR über den Holoprojektor im VIP-Raum,
-        // nie über den normalen Komm-Link - die Administration selbst ist von dieser Sperre
-        // ausgenommen und kann jederzeit normal über Komm-Link schreiben (z.B. um jemanden ohne
-        // VIP-Raum zu kontaktieren).
-        if (!window.istAdminNz && window.adminSlugNz && targetName === window.adminSlugNz) {
-            if (typeof window.zeigeInfo === 'function') {
-                window.zeigeInfo('Die Administration ist über den normalen Komm-Link nicht erreichbar. Schalte den VIP-Raum frei und nutze den Holoprojektor dort.');
-            }
+        // Existenzprüfung: verhindert, dass Nachrichten an nicht existierende Agentennamen
+        // geschickt werden können (führte vorher zu Verwirrung - ein "Kanal" konnte mit JEDEM
+        // beliebigen Text als Ziel angelegt werden, auch wenn niemand mit diesem Namen existiert).
+        let targetSnap;
+        try {
+            targetSnap = await window.getDoc(window.doc(window.db, "agenten", targetName));
+        } catch (e) { console.error('Ziel-Existenzprüfung fehlgeschlagen:', e); }
+        if (!targetSnap || !targetSnap.exists()) {
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Kein Agent mit diesem Namen gefunden.');
             return;
         }
 
+        // Frischer Direkt-Check statt sich auf window.istAdminNz zu verlassen - das wurde nur
+        // EINMAL beim Laden der Seite gesetzt und könnte durch eine Race Condition noch nicht
+        // bereitgestanden haben, wenn sehr schnell geklickt wird.
+        let binIchAdmin = window.istAdminNz;
+        if (binIchAdmin === undefined) {
+            try {
+                const snap = await window.getDoc(window.doc(window.db, "agenten", myName));
+                binIchAdmin = snap.exists() && !!snap.data().isAdmin;
+                window.istAdminNz = binIchAdmin;
+            } catch (e) { console.error('Admin-Status-Check fehlgeschlagen:', e); binIchAdmin = false; }
+        }
+
         const channelId = [myName, targetName].sort().join("_");
+
+        // WICHTIG: Die Sperre "Administration nur über VIP-Raum erreichbar" darf NICHT greifen,
+        // wenn die Administration selbst den Kontakt schon normal über Komm-Link begonnen hat -
+        // vorher wurde JEDER Chat mit der Administration blockiert, sobald man selbst nicht Admin
+        // war, unabhängig davon, wer ihn begonnen hatte. Das hat fälschlich auch admin-seitig
+        // begonnene, normale Unterhaltungen für den Empfänger komplett unerreichbar gemacht.
+        // Jetzt: nur blockieren, wenn entweder noch GAR KEIN Kanal existiert (ein Spieler
+        // versucht selbst, den Kontakt zu initiieren) ODER der bestehende Kanal ausdrücklich als
+        // VIP-exklusiv markiert ist (kam über den Holoprojektor zustande).
+        if (!binIchAdmin && window.adminSlugNz && targetName === window.adminSlugNz) {
+            let bestehenderKanal = null;
+            try {
+                const kanalSnap = await window.getDoc(window.doc(window.db, "agenten_funk", channelId));
+                if (kanalSnap.exists()) bestehenderKanal = kanalSnap.data();
+            } catch (e) { console.error('Kanal-Check fehlgeschlagen:', e); }
+
+            if (!bestehenderKanal || bestehenderKanal.viaVip) {
+                if (typeof window.zeigeInfo === 'function') {
+                    window.zeigeInfo('Die Administration ist über den normalen Komm-Link nicht erreichbar. Schalte den VIP-Raum frei und nutze den Holoprojektor dort.');
+                }
+                return;
+            }
+            // Sonst: ein normaler, von der Administration selbst begonnener Kanal - ganz normal
+            // weiter öffnen lassen.
+        }
+
         window.currentChatTarget = targetName;
 
         if (window.db) {
@@ -1039,7 +1078,17 @@
                     const snapshot = await window.getDocs(msgRef);
                     await Promise.all(snapshot.docs.map(mDoc => window.deleteDoc(mDoc.ref)));
                     await window.deleteDoc(window.doc(window.db, "agenten_funk", channelId));
-                } catch (e) { console.error(e); }
+
+                    // WICHTIG: Vorher blieben Handelsangebote zwischen den beiden Beteiligten
+                    // beim Löschen eines Kanals bestehen - öffnete man den Chat später erneut
+                    // (z.B. weil der andere wieder schreibt), tauchten alte, längst
+                    // abgeschlossene Angebote (angenommen/abgelehnt) wieder auf. Jetzt werden
+                    // beide Richtungen mitgelöscht.
+                    const qAusgehend = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', myName), window.where('an', '==', targetName));
+                    const qEingehend = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', targetName), window.where('an', '==', myName));
+                    const [snapAus, snapEin] = await Promise.all([window.getDocs(qAusgehend), window.getDocs(qEingehend)]);
+                    await Promise.all([...snapAus.docs, ...snapEin.docs].map(d => window.deleteDoc(d.ref)));
+                } catch (e) { console.error('Kanal-Löschung fehlgeschlagen:', e); }
             }
             renderKommLinkUebersicht();
         });
