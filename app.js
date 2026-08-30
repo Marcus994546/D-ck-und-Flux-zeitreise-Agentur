@@ -438,6 +438,16 @@
         document.getElementById('status-werte').innerHTML = statusCache;
     }
 
+    // Eigenständiger Auslöser NUR für das Zahnrad-Icon (siehe backnav.js-Registrierung unten in
+    // index.html) - f_einstellungen() selbst wird an 10 weiteren Stellen genutzt, um NACH einem
+    // internen Vorgang (z.B. Passwort geändert) zur Einstellungs-Ansicht zurückzukehren. Würde
+    // f_einstellungen() direkt als "öffnen"-Ziel registriert, würde JEDER dieser 10 Rücksprünge
+    // fälschlich einen weiteren History-Eintrag anhäufen, statt einfach dieselbe Ansicht erneut
+    // anzuzeigen - genau dasselbe Prinzip wie bei window.closeMissionsmenuUeberZurueck.
+    window.openEinstellungenUeberIcon = function() {
+        window.f_einstellungen();
+    };
+
     window.f_einstellungen = function() {
         if (typeof triggerScan === 'function') triggerScan();
 
@@ -493,8 +503,16 @@
             
             <hr style="border-color: rgba(0, 255, 204, 0.2); margin: 20px 0;">
             
-            <button class="modell-btn" onclick="window.f_start()">ZURÜCK</button>
+            <button class="modell-btn" onclick="window.closeEinstellungenUeberZurueck()">ZURÜCK</button>
         `;
+    };
+
+    // Eigenständige "Schließen"-Funktion nur für die Zurück-Navigation (siehe backnav.js) -
+    // ruft intern f_start() auf, ist aber selbst NICHT dasselbe wie f_start() (das an 27+
+    // anderen Stellen für ganz andere Zwecke aufgerufen wird - siehe closeMissionsmenuUeberZurueck
+    // weiter oben für dieselbe Überlegung).
+    window.closeEinstellungenUeberZurueck = function() {
+        window.f_start();
     };
 
     // --- Kontakt ---
@@ -506,8 +524,19 @@
                 <div><span style="color:#c060ff; opacity:0.8;">E-Mail:</span> <a href="mailto:dueck.flux.zentrale@outlook.com" style="color:#0ff;">dueck.flux.zentrale@outlook.com</a></div>
                 <div><span style="color:#c060ff; opacity:0.8;">Instagram:</span> <a href="https://www.instagram.com/dueck.flux.zeitreiseagentur" target="_blank" rel="noopener" style="color:#0ff;">@dueck.flux.zeitreiseagentur</a></div>
             </div>
-            <button class="modell-btn" onclick="window.f_einstellungen()">ZURÜCK</button>
+            <button class="modell-btn" onclick="window.closeKontaktUeberZurueck()">ZURÜCK</button>
         `;
+    };
+
+    // Eigenständige "Schließen"-Funktion für Kontakt: Kontakt liegt EINE Ebene UNTER
+    // Einstellungen (Terminal -> Einstellungen -> Kontakt) - "Zurück" muss deshalb zur
+    // Einstellungen-ANSICHT zurückkehren, OHNE dabei selbst einen NEUEN History-Eintrag zu
+    // erzeugen. Würde hier einfach window.f_einstellungen() aufgerufen, würde das die (durch
+    // registerBackable) GEWRAPPTE Version treffen und fälschlich einen zusätzlichen Eintrag
+    // pushen - deshalb wird bewusst die ungewrappte "_roh"-Variante genutzt (siehe backnav.js).
+    window.closeKontaktUeberZurueck = function() {
+        if (typeof window.f_einstellungen_roh === 'function') window.f_einstellungen_roh();
+        else window.f_einstellungen();
     };
 
     window.f_changePasswordStep1 = function() {
