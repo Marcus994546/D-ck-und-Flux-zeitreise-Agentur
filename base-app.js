@@ -302,6 +302,7 @@
     window.zeigeArchivMeilenstein = function(stufe, istNeu) {
         const m = ARCHIV_MEILENSTEINE[stufe];
         if (!m) return;
+        if (istNeu && typeof window.vibriere === 'function') window.vibriere([80, 60, 80, 60, 80, 60, 200]);
         const b = m.belohnung;
         const belohnungZeilen = [];
         if (b.credits > 0) belohnungZeilen.push(b.credits + ' Credits');
@@ -500,6 +501,7 @@
                 const picked = uncollected[Math.floor(Math.random() * uncollected.length)];
                 gameState.collectedArtifacts.push(picked.name);
                 artifactMsg = ' + Artefakt geborgen: ' + picked.name;
+                if (typeof window.vibriere === 'function') window.vibriere([70, 50, 70, 50, 150]);
                 pruefeArchivMeilenstein();
             } else {
                 // Berechtigt, aber die Sammlung ist bereits vollständig (alle 40) - das war

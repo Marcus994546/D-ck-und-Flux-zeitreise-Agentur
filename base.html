@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260827q">
+    <link rel="stylesheet" href="base-style.css?v=20260827r">
 </head>
 <body>
 
@@ -452,9 +452,34 @@
 
 
 
-<script type="module" src="base-firebase-init.js?v=20260827q"></script>
-<script src="protokoll.js?v=20260827q"></script>
-<script src="sharecard.js?v=20260827q"></script>
-<script src="base-app.js?v=20260827q"></script>
+<script type="module" src="base-firebase-init.js?v=20260827r"></script>
+<script src="protokoll.js?v=20260827r"></script>
+<script src="sharecard.js?v=20260827r"></script>
+<script src="base-app.js?v=20260827r"></script>
+<script src="backnav.js?v=20260827r"></script>
+<script>
+    // Zurück-Taste/-Geste (Android TWA): registriert alle Raum-/Popup-Paare der Basis.
+    if (typeof window.registerBackable === 'function') {
+        window.registerBackable('openRoom', 'closeRoom');
+        window.registerBackable('showRoomInfoPopup', 'closeRoomInfoPopup');
+        window.registerBackable('showRoomLevelPopup', 'closeRoomLevelPopup');
+        window.registerBackable('showAgentInfoPopup', 'closeAgentInfoPopup');
+        window.registerBackable('openAgentUnlockPopup', 'closeAgentUnlockPopup');
+        window.registerBackable('openTransformatorPopup', 'closeTransformatorPopup');
+        window.registerBackable('openRenaissancePopup', 'closeRenaissancePopup');
+        window.registerBackable('openBioKapsel', 'closeBioKapsel');
+        window.registerBackable('openSchattensyndikat', 'closeSchattensyndikat');
+        window.registerBackable('openSubraumInfo', 'closeSubraumInfo');
+        window.registerBackable('openHoloprojektor', 'closeHoloprojektor');
+        window.registerBackable('openRohrpost', 'closeRohrpostAdmin');
+        window.registerBackable('openForgeTerminal', 'closeForgeTerminal');
+        window.registerBackable('openSammelSystem', 'closeSammelSystem');
+        window.registerBackable('zeigeArchivZeitachse', 'closeArchivZeitachse');
+        window.registerBackable('zeigeArchivMeilenstein', 'closeArchivMeilenstein');
+        window.registerBackable('showRoomBuildDetailPopup', 'closeRoomBuildDetailPopup');
+        window.registerBackable('showArtifactDetail', 'closeArtifactDetail');
+        window.registerBackable('showHorizonBriefing', 'closeHorizonBriefing');
+    }
+</script>
 </body>
 </html>

@@ -2405,9 +2405,18 @@ window.f_showDescription = function(withVoice) {
                 <button onclick="window.showLootPopup('dual')" style="background:none;border:none;cursor:pointer;padding:5px;font-size:1.8em;" title="Belohnungen ansehen">📦</button>
             </div>`;
         html += '<div id="taegliche-anomalie-eintrag"></div>';
-        html += '</div><hr><button onclick="window.f_start()">Zurück</button>';
+        html += '</div><hr><button onclick="window.closeMissionsmenuUeberZurueck()">Zurück</button>';
         document.getElementById('content-body').innerHTML = html;
         if (typeof window.renderTaeglicheAnomalieEintrag === 'function') window.renderTaeglicheAnomalieEintrag();
+    };
+
+    // Eigenständige "Schließen"-Funktion nur für die Zurück-Navigation (siehe backnav.js) -
+    // ruft intern f_start() auf, ist aber selbst NICHT dasselbe wie f_start(). f_start() wird an
+    // 27 weiteren Stellen im Code für ganz andere Zwecke aufgerufen; würde man f_start() direkt
+    // als "Schließen"-Ziel registrieren, könnte das an anderer Stelle unbeabsichtigt einen
+    // History-Eintrag konsolidieren, der gar nichts mit dem Missionsmenü zu tun hat.
+    window.closeMissionsmenuUeberZurueck = function() {
+        window.f_start();
     };
 
     window.showLootPopup = function(type) {
@@ -2537,6 +2546,7 @@ window.f_showDescription = function(withVoice) {
     // Belohnung an - inkl. Hinweis, falls die Resonanz-Kammer den Loot verdoppelt hat.
     function showMissionRewardPopup(result) {
         if (!result) return;
+        if (typeof window.vibriere === 'function') window.vibriere(result.doubled ? [60, 40, 60, 40, 120] : [60, 40, 100]);
         const lines = [];
         if (result.credits > 0) lines.push(result.credits + ' Credits');
         if (result.materiezellen > 0) lines.push(result.materiezellen + ' Materiezelle' + (result.materiezellen === 1 ? '' : 'n'));

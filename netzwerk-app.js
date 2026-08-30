@@ -919,6 +919,22 @@
         win.scrollTop = win.scrollHeight;
     }
 
+    // Eigenständige "Schließen"-Funktion für den offenen Chat - wird sowohl vom "FUNK
+    // TRENNEN"-Button als auch (indirekt über den Zurück-Stack, siehe backnav.js) von der
+    // Android-Zurück-Taste genutzt, damit beide Wege synchron bleiben.
+    window.closeChatNzUeberZurueck = function() {
+        if (window.currentChatListener) window.currentChatListener();
+        if (window.currentTradeListener) window.currentTradeListener();
+        // Falls über die Zurück-Taste geschlossen (Stack-Eintrag noch vorhanden), diesen
+        // konsolidieren - über dieselbe öffentliche Schnittstelle wie in backnav.js.
+        if (typeof window._backStack !== 'undefined' && window._backStack.length > 0 && window._backStack[window._backStack.length - 1] === 'closeChatNzUeberZurueck') {
+            window._backStack.pop();
+            if (typeof window._unterdrueckeNaechstesPopstate === 'function') window._unterdrueckeNaechstesPopstate();
+            history.back();
+        }
+        window.switchNetzwerkTab('chat');
+    };
+
     window.openPrivateChatNz = async function(targetAgentName) {
         const myName = window.agentSlug(window.agentName);
         const targetName = window.agentSlug(targetAgentName);
@@ -975,6 +991,14 @@
         }
 
         window.currentChatTarget = targetName;
+        // Zurück-Taste/-Geste (Android TWA): erst HIER (nach allen möglichen Early-Returns oben -
+        // Ziel existiert nicht, VIP-Sperre) einen History-Eintrag setzen, da der Chat ab dieser
+        // Stelle GARANTIERT tatsächlich geöffnet wird. Ein generischer Wrapper um die ganze
+        // Funktion hätte auch bei einem abgebrochenen Öffnen fälschlich einen Eintrag gesetzt.
+        if (typeof window._backStack !== 'undefined') {
+            window._backStack.push('closeChatNzUeberZurueck');
+            history.pushState({ zurueckTiefe: window._backStack.length }, '', location.href);
+        }
 
         if (window.db) {
             window.setDoc(window.doc(window.db, "agenten_funk", channelId), { ungelesen_fuer: "" }, { merge: true })
@@ -992,7 +1016,7 @@
                 <input type="text" id="msg-input" placeholder="Nachricht..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
                 <button class="modell-btn" id="chat-send-btn" style="margin: 0; width: auto; padding: 0 15px;">SENDEN</button>
             </div>
-            <button class="modell-btn" style="margin-top: 15px; border-style: dashed; width:100%;" onclick="if(window.currentChatListener) window.currentChatListener(); if(window.currentTradeListener) window.currentTradeListener(); window.switchNetzwerkTab('chat');">FUNK TRENNEN</button>
+            <button class="modell-btn" style="margin-top: 15px; border-style: dashed; width:100%;" onclick="window.closeChatNzUeberZurueck()">FUNK TRENNEN</button>
         `;
         document.getElementById('chat-target-name').textContent = targetAgentName.toUpperCase();
         document.getElementById('chat-send-btn').addEventListener('click', () => window.sendMsgNz(channelId, targetName));

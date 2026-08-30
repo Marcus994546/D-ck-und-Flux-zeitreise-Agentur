@@ -199,4 +199,17 @@
         aktuellesProtokollDatum = neu;
         await ladeUndZeigeProtokollTag(document.getElementById('anzeige'));
     };
+
+    // ============================================================
+    // VIBRATIONSFEEDBACK (Android)
+    // ============================================================
+    // navigator.vibrate() gibt es NUR unter Android/Chrome - iOS Safari unterstützt die
+    // Vibration API grundsätzlich nicht (Plattform-Einschränkung von Apple, kein Bug hier).
+    // Feature-Detection über "typeof" statt einfachem falsy-Check, da manche Browser die
+    // Eigenschaft zwar kennen, aber beim Aufruf leise scheitern - try/catch fängt das zusätzlich
+    // ab, damit niemals etwas abstürzt, egal auf welchem Gerät gespielt wird.
+    window.vibriere = function(muster) {
+        if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+        try { navigator.vibrate(muster); } catch (e) { /* stillschweigend ignorieren */ }
+    };
 })();

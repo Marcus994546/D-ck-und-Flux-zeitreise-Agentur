@@ -322,6 +322,7 @@
 
     function zeigeKleineInfo(text) {
         const el = document.createElement('div');
+        el.className = 'top-level';
         el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(30,0,40,0.95); color:#e0c0ff; border:1px solid #b0f; box-shadow:0 0 20px rgba(187,0,255,0.5); padding:12px 20px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
         el.innerText = text;
         document.body.appendChild(el);
@@ -387,8 +388,10 @@
             }, { merge: true });
 
             await window.setDoc(ref, { status: 'abgeschlossen' }, { merge: true });
+            if (typeof window.vibriere === 'function') window.vibriere([60, 40, 60, 40, 120]);
 
             const el = document.createElement('div');
+            el.className = 'top-level';
             el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(20,0,25,0.96); color:#e0c0ff; border:1px solid #b0f; box-shadow:0 0 20px rgba(187,0,255,0.5); padding:14px 22px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
             el.innerHTML = '<div><b>🎉 DUAL-MISSION ABGESCHLOSSEN!</b></div>' +
                 '<div style="margin-top:4px;">+8 Level, +10 Materiezellen, +1.500 Credits</div>' +
