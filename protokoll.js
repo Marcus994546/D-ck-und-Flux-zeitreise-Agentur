@@ -129,4 +129,74 @@
             console.error("Missions-Historie konnte nicht geladen werden:", e);
         }
     };
+
+    // --- Terminal-Befehl "protokoll": Tagesansicht mit Datums-Navigation ---
+    let aktuellesProtokollDatum = new Date(); // Startet immer beim heutigen Tag
+    function datumAlsString(d) {
+        return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    function tagesGrenzen(d) {
+        const start = new Date(d); start.setHours(0, 0, 0, 0);
+        const ende = new Date(d); ende.setHours(23, 59, 59, 999);
+        return { start, ende };
+    }
+
+    async function ladeUndZeigeProtokollTag(container) {
+        if (!window.db || !window.agentName) return;
+        const { start, ende } = tagesGrenzen(aktuellesProtokollDatum);
+        const kopf = document.getElementById('protokoll-panel-kopf');
+        const liste = document.getElementById('protokoll-panel-liste');
+        if (kopf) kopf.innerText = datumAlsString(aktuellesProtokollDatum);
+        if (liste) liste.innerHTML = '<div style="opacity:0.6;">Lade...</div>';
+        try {
+            const mySlug = window.agentSlug(window.agentName);
+            const q = window.query(
+                window.collection(window.db, "protokolle", mySlug, "eintraege"),
+                window.orderBy("ts", "asc")
+            );
+            const snapshot = await window.getDocs(q);
+            const startMs = start.getTime(), endeMs = ende.getTime();
+            const zeilen = [];
+            snapshot.forEach(d => {
+                const data = d.data();
+                if (!data.ts || typeof data.ts.toMillis !== 'function') return;
+                const ms = data.ts.toMillis();
+                if (ms >= startMs && ms <= endeMs) {
+                    zeilen.push({ zeit: data.ts.toDate().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }), text: data.text });
+                }
+            });
+            if (liste) {
+                liste.innerHTML = zeilen.length === 0
+                    ? '<div style="opacity:0.5; font-style:italic;">Keine Protokoll-Einträge für diesen Tag.</div>'
+                    : zeilen.map(z => '<div class="log-entry" style="margin-bottom:4px;"><span style="opacity:0.6;">[' + z.zeit + ']</span> &gt; ' + (window.escHtml ? window.escHtml(z.text) : z.text) + '</div>').join('');
+            }
+        } catch (e) {
+            console.error('Protokoll-Tag konnte nicht geladen werden:', e);
+            if (liste) liste.innerHTML = '<div style="color:#f44;">Fehler beim Laden: ' + (e && e.message ? e.message : 'unbekannt') + '</div>';
+        }
+    }
+
+    window.zeigeProtokollPanel = async function(container) {
+        aktuellesProtokollDatum = new Date();
+        container.innerHTML = `
+            <div style="padding:15px; text-align:left;">
+                <div style="display:flex; align-items:center; justify-content:center; gap:12px; color:#0f8; margin-bottom:12px;">
+                    <button onclick="window.protokollTagWechseln(-1)" style="background:none; border:1px solid #0f8; color:#0f8; padding:4px 12px; cursor:pointer; border-radius:3px; font-family:monospace;">◀</button>
+                    <span id="protokoll-panel-kopf" style="font-weight:bold; min-width:110px; text-align:center;">-</span>
+                    <button onclick="window.protokollTagWechseln(1)" style="background:none; border:1px solid #0f8; color:#0f8; padding:4px 12px; cursor:pointer; border-radius:3px; font-family:monospace;">▶</button>
+                </div>
+                <div id="protokoll-panel-liste" style="max-height:55vh; overflow-y:auto; font-size:0.85em; color:#0f8;"></div>
+            </div>
+        `;
+        await ladeUndZeigeProtokollTag(container);
+    };
+
+    window.protokollTagWechseln = async function(delta) {
+        const neu = new Date(aktuellesProtokollDatum);
+        neu.setDate(neu.getDate() + delta);
+        // Kein Navigieren in die Zukunft über heute hinaus.
+        if (neu.getTime() > Date.now()) return;
+        aktuellesProtokollDatum = neu;
+        await ladeUndZeigeProtokollTag(document.getElementById('anzeige'));
+    };
 })();

@@ -1073,7 +1073,7 @@ window.startGlobalNotification = function() {
                 const webLink = "https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/"; 
                 const videoLink = "https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Flux%20Agentur%20Werbung.mp4";
                 const shareText = "Die Realität, die du kennst, ist fehlerhaft. Sieh dir diese geleakte Übertragung an:\n" + videoLink + "\n\nWir brauchen fähige Agenten. Klinke dich in das Terminal ein und stabilisiere die Zeitlinie:\n" + webLink;
-                const shareData = { title: 'Dück & Flux Zeitreiseagentur', text: shareText };
+                const shareData = { title: 'Dück & Flux Zeitreise-Agentur', text: shareText };
                 
                 if (navigator.share) { navigator.share(shareData).catch(console.error); } 
                 else { navigator.clipboard.writeText(shareText).then(() => window.zeigeInfo("Signal-Link kopiert. Bereit zur Übertragung.")); }
@@ -1093,6 +1093,13 @@ window.startGlobalNotification = function() {
                 await window.zeigeMissionsLog(anzeige);
             } else {
                 anzeige.innerHTML = '<div style="color:#f44; padding:20px;">[ FEHLER ]<br>&gt; Missions-Log-Modul nicht geladen.</div>';
+            }
+        } else if (cmd === 'protokoll') {
+            anzeige.innerHTML = '<div style="color:#0f8; padding:20px;">[ PROTOKOLL ]<br>&gt; Lade Einträge...</div>';
+            if (typeof window.zeigeProtokollPanel === 'function') {
+                await window.zeigeProtokollPanel(anzeige);
+            } else {
+                anzeige.innerHTML = '<div style="color:#f44; padding:20px;">[ FEHLER ]<br>&gt; Protokoll-Modul nicht geladen.</div>';
             }
         } else {
             anzeige.innerHTML = `<p style="color:#f44; padding:20px;">UNBEKANNT: ${cmd}</p>`;

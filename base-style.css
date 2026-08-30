@@ -4,6 +4,15 @@
             background-color: #000; color: var(--neon-color);
             font-family: 'Orbitron', sans-serif; margin: 0; padding: 0;
             display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden;
+            /* iPhone Safe-Area: die Basis füllt den Bildschirm randlos aus - ohne diesen Puffer
+               könnten das obere Einstellungen-Icon hinter der Notch/Dynamic Island bzw. untere
+               Elemente hinter der Home-Indicator-Leiste verschwinden. env() liefert auf allen
+               anderen Geräten 0, ist also unschädlich. */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            box-sizing: border-box;
         }
         
         /* UI Kopfzeile */
@@ -1115,6 +1124,24 @@
 @keyframes ck-orbit-spin { 0% { transform: translateX(-50%) rotateX(70deg) rotateZ(0deg); } 100% { transform: translateX(-50%) rotateX(70deg) rotateZ(360deg); } }
 .item-chronon-kristall { width: 100px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); }
 .ck-crystal { position: absolute; left: 50%; bottom: 70px; width: 34px; height: 50px; background: linear-gradient(160deg, #e8c0ff, #8020c0 60%, #400a70); clip-path: polygon(50% 0%, 100% 30%, 80% 100%, 20% 100%, 0% 30%); transform: translateX(-50%); animation: ck-crystal-float 4s ease-in-out infinite, ck-crystal-glow 2.5s ease-in-out infinite; box-shadow: 0 0 40px #c0f; }
+
+/* Tachyonen-Resonator: dünner Mast mit pulsierender, funkensprühender Spitze - lokalisiert
+   Zeitverzerrungen (Anomaliedetektor). */
+.item-tachyonen-resonator { width: 30px; height: 130px; position: absolute; z-index: 3; left: 30%; bottom: 70px; }
+.tr-mast { position: absolute; bottom: 20px; left: 50%; width: 4px; height: 90px; background: linear-gradient(180deg, #666, #222); transform: translateX(-50%); }
+.tr-tip { position: absolute; top: 0; left: 50%; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, #fff, #c0f 60%, transparent); transform: translateX(-50%); animation: tr-tip-pulse 1.6s ease-in-out infinite; box-shadow: 0 0 20px #c0f; }
+.tr-spark { position: absolute; top: -6px; left: 50%; width: 2px; height: 2px; background: #fff; transform: translateX(-50%); animation: tr-spark-fly 1.6s linear infinite; }
+.tr-base { position: absolute; bottom: 0; left: 50%; width: 26px; height: 20px; background: #222; border: 1px solid #555; border-radius: 3px; transform: translateX(-50%); }
+@keyframes tr-tip-pulse { 0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(0.85); } 50% { opacity: 1; transform: translateX(-50%) scale(1.2); } }
+@keyframes tr-spark-fly { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(calc(-50% + 15px), -25px) scale(0); opacity: 0; } }
+
+/* Gravitations-Kompass: Bodenplatte mit einer unruhig ausschlagenden Nadel - zeigt Anomalien im
+   Schwerefeld an (Anomaliedetektor). */
+.item-gravitations-kompass { width: 60px; height: 45px; position: absolute; z-index: 3; right: 25%; bottom: 70px; }
+.gk-plate { position: absolute; bottom: 8px; left: 50%; width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle, #1a0a2a, #0a0510); border: 2px solid #c0f; transform: translateX(-50%) rotateX(60deg); box-shadow: 0 0 15px rgba(192,0,255,0.5); }
+.gk-needle { position: absolute; top: 50%; left: 50%; width: 3px; height: 22px; background: linear-gradient(180deg, #f0f, #600a90); transform-origin: bottom center; transform: translate(-50%, -100%); animation: gk-needle-swing 3.2s ease-in-out infinite; }
+.gk-pedestal { position: absolute; bottom: 0; left: 50%; width: 20px; height: 14px; background: #222; border: 1px solid #555; transform: translateX(-50%); }
+@keyframes gk-needle-swing { 0%, 100% { transform: translate(-50%, -100%) rotate(-25deg); } 30% { transform: translate(-50%, -100%) rotate(15deg); } 55% { transform: translate(-50%, -100%) rotate(-10deg); } 80% { transform: translate(-50%, -100%) rotate(20deg); } }
 .ck-orbit { position: absolute; left: 50%; bottom: 95px; width: 90px; height: 90px; animation: ck-orbit-spin 6s linear infinite; }
 .ck-orbit.ck-o2 { width: 65px; height: 65px; animation-duration: 4s; animation-direction: reverse; }
 .ck-particle { position: absolute; top: 0; left: 50%; width: 6px; height: 6px; border-radius: 50%; background: #f0f; box-shadow: 0 0 12px #f0f; transform: translateX(-50%); }
@@ -1150,6 +1177,22 @@
 .pr-sample:nth-child(3) { animation-delay: 2s; }
 .pr-drip { position: absolute; top: 20px; left: 40%; width: 3px; height: 6px; background: #6adfff; border-radius: 50%; animation: pr-drip-fall 2.5s infinite; }
 
+/* Stasis-Kühlmittel-Kanister: beschlagener Metallkanister, tropft langsam Kühlmittel -
+   stabilisiert die Kammern (Kryo-Depot). */
+.item-kuehlmittel-kanister { width: 46px; height: 90px; position: absolute; z-index: 2; left: 25%; bottom: 70px; }
+.kmk-body { position: absolute; bottom: 14px; left: 0; width: 46px; height: 66px; background: linear-gradient(90deg, #445, #223 50%, #445); border: 1px solid #667; border-radius: 6px 6px 3px 3px; overflow: hidden; box-shadow: 0 0 12px rgba(100,200,255,0.3); }
+.kmk-frost { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(150,220,255,0.15) 0px, rgba(150,220,255,0.15) 3px, transparent 3px, transparent 8px); animation: kmk-frost-shift 6s linear infinite; }
+.kmk-drip { position: absolute; bottom: 4px; left: 50%; width: 3px; height: 10px; background: #9adfff; border-radius: 0 0 3px 3px; transform: translateX(-50%); animation: pr-drip-fall 3.4s infinite; }
+.kmk-base { position: absolute; bottom: 0; left: 50%; width: 34px; height: 14px; background: #222; border: 1px solid #555; border-radius: 3px; transform: translateX(-50%); }
+@keyframes kmk-frost-shift { 0% { background-position: 0 0; } 100% { background-position: 40px 40px; } }
+
+/* Biometrischer Vitalsensor: kleines Wandpanel mit durchlaufender Herzfrequenz-Linie -
+   überwacht den Kryo-Zustand (Kryo-Depot). */
+.item-vitalsensor { width: 70px; height: 36px; position: absolute; z-index: 2; right: 20px; top: 45px; }
+.vs-panel { width: 100%; height: 100%; background: #0a1418; border: 1px solid #0ff; border-radius: 3px; overflow: hidden; box-shadow: 0 0 10px rgba(0,255,255,0.4); position: relative; }
+.vs-line { position: absolute; top: 50%; left: -100%; width: 200%; height: 2px; background: linear-gradient(90deg, transparent 0%, transparent 40%, #0ff 42%, #fff 45%, #0ff 48%, transparent 50%, transparent 100%); animation: vs-line-scroll 2.2s linear infinite; }
+@keyframes vs-line-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(50%); } }
+
 /* ============================================================
    RAUM-AUSBAU: FUNK-RELAIS "HORIZONT" (Navy/Signal-Thematik)
    ============================================================ */
@@ -1180,6 +1223,23 @@
 .sm-wave-bar:nth-child(5) { animation-delay: 0.6s; }
 .sm-screen-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(60,150,255,0.25), transparent 70%); animation: sm-screen-flicker 2s ease-in-out infinite; pointer-events: none; }
 
+/* Subraum-Frequenzverstärker: schlanker Mast mit pulsierenden Verstärker-Ringen - erhöht die
+   Reichweite (Funk-Relais "Horizont"). */
+.item-frequenzverstaerker { width: 40px; height: 120px; position: absolute; z-index: 2; left: 22%; bottom: 70px; }
+.fv-mast { position: absolute; bottom: 16px; left: 50%; width: 4px; height: 85px; background: linear-gradient(180deg, #555, #222); transform: translateX(-50%); }
+.fv-ring { position: absolute; top: 10px; left: 50%; width: 30px; height: 30px; border: 2px solid #4af; border-radius: 50%; transform: translate(-50%, 0); animation: fv-ring-pulse 2s ease-out infinite; }
+.fv-ring.fv-r2 { animation-delay: 1s; }
+.fv-base { position: absolute; bottom: 0; left: 50%; width: 28px; height: 16px; background: #222; border: 1px solid #555; border-radius: 3px; transform: translateX(-50%); }
+@keyframes fv-ring-pulse { 0% { opacity: 0.9; transform: translate(-50%, 0) scale(0.3); } 100% { opacity: 0; transform: translate(-50%, 0) scale(1.6); } }
+
+/* Verschlüsselter Signal-Decoder: kleines Wandpanel mit durchlaufendem Zeichensalat, der sich
+   periodisch "entschlüsselt" (Funk-Relais "Horizont"). */
+.item-signal-decoder { width: 76px; height: 40px; position: absolute; z-index: 2; right: 18px; top: 50px; }
+.sd-panel { width: 100%; height: 100%; background: #0a1220; border: 1px solid #4af; border-radius: 3px; box-shadow: 0 0 10px rgba(70,170,255,0.4); overflow: hidden; padding: 4px; box-sizing: border-box; font-size: 8px; font-family: monospace; color: #4af; }
+.sd-text { white-space: nowrap; animation: sd-text-glitch 2.6s steps(1) infinite; }
+.sd-text.sd-t2 { color: #0f8; opacity: 0; animation-delay: 1.3s; }
+@keyframes sd-text-glitch { 0%, 45% { opacity: 1; } 50%, 95% { opacity: 0; } 100% { opacity: 1; } }
+
 /* ============================================================
    RAUM-AUSBAU: KI-KERNMATRIX (Neural/Datenkern-Thematik)
    ============================================================ */
@@ -1200,6 +1260,16 @@
 .hn-node.hn-n2 { top: 70%; left: 20%; animation-delay: 0.6s; background: #f0f; }
 .hn-node.hn-n3 { top: 60%; left: 78%; animation-delay: 1.2s; background: #0f8; }
 .hn-stand { width: 18px; height: 60px; background: linear-gradient(180deg, #222, #000); border: 1px solid #345; margin: 0 auto; box-shadow: 0 10px 20px rgba(0,0,0,0.8); }
+
+/* Projiziertes KI-Gesicht innerhalb der Holo-Kugel - zwei pulsierende Augen und ein
+   durchlaufender Scan-Balken, rein dekorativ (siehe Holoprojektor-Feature KI-Kernmatrix). */
+.hn-face { position: absolute; inset: 22%; border-radius: 50%; overflow: hidden; }
+.hn-eye { position: absolute; top: 38%; width: 10px; height: 4px; border-radius: 2px; background: #0ff; box-shadow: 0 0 8px #0ff; animation: hn-eye-blink 3s ease-in-out infinite; }
+.hn-eye-l { left: 22%; }
+.hn-eye-r { right: 22%; animation-delay: 0.15s; }
+.hn-scanline { position: absolute; left: 0; width: 100%; height: 2px; background: rgba(0,255,255,0.7); box-shadow: 0 0 6px rgba(0,255,255,0.8); animation: hn-scan-move 2.4s linear infinite; }
+@keyframes hn-eye-blink { 0%, 88%, 100% { transform: scaleY(1); opacity: 1; } 92% { transform: scaleY(0.15); opacity: 0.6; } }
+@keyframes hn-scan-move { 0% { top: 0%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 96%; opacity: 0; } }
 
 @keyframes dk-cyl-rotate { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
 @keyframes dk-stream-flow { 0% { background-position: 0 200%; } 100% { background-position: 0 -200%; } }

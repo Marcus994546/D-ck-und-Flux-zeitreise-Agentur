@@ -197,7 +197,7 @@
                     const file = new File([blob], dateiname, { type: 'image/png' });
                     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
-                            await navigator.share({ files: [file], title: optionen.titel, text: 'Ich hab gerade eine Anomalie in Dück & Flux Zeitreiseagentur extrahiert!' });
+                            await navigator.share({ files: [file], title: optionen.titel, text: 'Ich hab gerade eine Anomalie in Dück & Flux Zeitreise-Agentur extrahiert!' });
                         } catch (e) { /* Nutzer hat abgebrochen - kein Fehler */ }
                     } else {
                         statusEl.innerText = 'Teilen auf diesem Gerät nicht verfügbar - bitte herunterladen.';

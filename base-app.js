@@ -1237,10 +1237,16 @@
                 // bewusst unterdrückt - sonst würde die Seite beim bloßen Laden ungewollt
                 // herumspringen, wenn dabei mehrere nachgeholte Aufzugfahrten hintereinander
                 // ablaufen, bevor der Spieler die Ansicht überhaupt gesehen hat.
-                window._unterdrueckeAufzugScroll = true;
-                tickAgents();
-                tickPassiveRooms();
-                setTimeout(() => { window._unterdrueckeAufzugScroll = false; }, 500);
+                // WICHTIG: Zeitstempel statt manuell umzuschaltendem Flag - kann sich dadurch
+                // NIEMALS dauerhaft "verklemmen" (z.B. falls tickAgents() eine Ausnahme wirft),
+                // da es sich um einen reinen Zeitvergleich ohne zurückzusetzenden Zustand handelt.
+                window._aufzugScrollSperreBis = Date.now() + 500;
+                try {
+                    tickAgents();
+                    tickPassiveRooms();
+                } catch (e) {
+                    console.error('Fehler beim Nachhol-Tick:', e);
+                }
 
                 // Fusionierten Stand sofort zurück in die kanonische Quelle ("agenten") schreiben.
                 try {
@@ -1624,7 +1630,7 @@
     let aufzugScrollAktiv = false;
     let aufzugScrollSicherheitsTimer = null;
     function folgeAufzugScroll(durationMs) {
-        if (window._unterdrueckeAufzugScroll) return;
+        if (window._aufzugScrollSperreBis && Date.now() < window._aufzugScrollSperreBis) return;
         aufzugScrollAktiv = true;
         const startZeit = performance.now();
         // Hartes Sicherheitsnetz, unabhängig von der eigentlichen rAF-Schleife unten - falls
@@ -2074,6 +2080,11 @@
         } else if (task && task.effect === 'materiezelle') {
             const formula = (roomType === 'MATERIE-DEKOMPRESSOR') ? scaledMaterieDekompressor : scaledMaterieAmount;
             productionHtml = roomLevelCompareHtml(level, nextLevel, formula(level), formula(nextLevel), 'Materiezellen pro Zyklus');
+            if (roomType === 'OSZILLATIONS-KAMMER') {
+                const starter = gameState.agents.find(a => a.isStarter);
+                const curBoost = 5 + ((starter ? starter.level : 1) - 1) * 0.5;
+                productionHtml += '<div style="margin-top:8px; font-size:0.85em; color:#c060ff;">Solange der Starter-Agent hier aktiv arbeitet: +' + curBoost.toFixed(1).replace('.0', '') + '% Zeit-Boost für ALLE Agenten in der Basis (5% auf Level 1, +0,5% pro weiterem Starter-Level). Unabhängig vom Hochspannungs-Verteiler-Overdrive, beide stapeln sich.</div>';
+            }
         } else if (task && task.effect === 'player_xp') {
             productionHtml = roomLevelCompareHtml(level, nextLevel, scaledKinetikXP(level), scaledKinetikXP(nextLevel), 'Spieler-XP pro Zyklus');
         } else {
@@ -2335,7 +2346,7 @@
             return 'Nur Agent #1 (Starter) · 15h · Belohnung: 1 Materiezelle · <b style="color:#c060ff;">Während aktiv: +' + boostPreview.toFixed(1).replace('.0', '') + '% Zeit-Boost für alle Agenten</b>';
         }
         if (roomType === 'SUBRAUM-NEXUS') {
-            return 'VIP-Raum · immer 100 Credits/h passiv · mit Agent zusätzlich alle 3h 1 Materiezelle · Detailansicht mit 5 Interaktionen';
+            return '<b style="color:#ffcc00;">⚡ Interaktiver Raum</b> · VIP-Raum · immer 100 Credits/h passiv · mit Agent zusätzlich alle 3h 1 Materiezelle · Detailansicht mit mehreren Interaktionen';
         }
         if (roomType === 'FUNK-RELAIS "HORIZONT"') {
             return '<b style="color:#ffcc00;">⚡ Interaktiver Raum</b> · Agent 30min zugewiesen · erzeugt einen Zeitreise-Auftrag (Ziel-Jahr) für die TEMPORAL TIME FORGE';
@@ -2521,7 +2532,7 @@
     window.closeCustomAlert = () => { document.getElementById('custom-alert-box').style.display = 'none'; };
 
     // === AUTOMATISCHER CLOUD-SYNCHRONISATOR FÜR BLOCK 2 & BLOCK 3 ===
-    let _invCache = { desk: 0, server: 0, kartograph: 0, lampe: 0, regal: 0, lampe_archiv: 0, bett: 0, lampe_quartier: 0 };
+    let _invCache = { desk: 0, server: 0, kartograph: 0, lampe: 0, regal: 0, lampe_archiv: 0, zeitachsen_terminal: 0, bett: 0, lampe_quartier: 0 };
     try {
         // Läuft synchron beim Skript-Start, BEVOR die Auth-Session bestätigt ist - currentAgentName
         // existiert hier noch nicht. Dient nur als kurzzeitiger Platzhalter, bis loadInventoryFromCloud()
@@ -2673,13 +2684,9 @@
         } else if (type === 'ARTEFAKT-ARCHIV') {
             if (inventory.lampe_archiv > 0) spawnFurniture('lampe_archiv', 1);
             for (let i = 1; i <= inventory.regal; i++) spawnFurniture('regal', i);
-            // Zeitachsen-Terminal: kein käufliches Möbelstück, gehört immer fest zum Raum -
-            // deshalb unbedingt (nicht an ein inventory-Zählwerk gekoppelt) mit erzeugt, über
-            // denselben zuverlässigen spawnFurniture-Mechanismus wie alle anderen Möbel. Vorher
-            // wurde das Terminal direkt in openRoom erzeugt und dabei von einem erneuten
-            // clearRoom() (Teil von reloadFurniture) wieder gelöscht, ohne dass es über diesen
-            // Weg automatisch neu entstanden wäre.
-            spawnFurniture('zeitachsen_terminal', 1);
+            // Zeitachsen-Terminal ist jetzt ein käufliches Möbelstück (siehe Shop-Karte) - muss
+            // erst freigeschaltet werden, ist nicht mehr automatisch vorhanden.
+            if (inventory.zeitachsen_terminal > 0) spawnFurniture('zeitachsen_terminal', 1);
         } else if (type === 'AGENTEN-QUARTIERE') {
             if (inventory.lampe_quartier > 0) spawnFurniture('lampe_quartier', 1);
             for (let i = 1; i <= inventory.bett; i++) spawnFurniture('bett', i);
@@ -2754,7 +2761,7 @@
             if (window._roomAreaTargetId === 'room-area') {
                 item.style.cursor = 'pointer';
                 item.title = 'Zeitachse ansehen';
-                item.onclick = () => window.zeigeArchivZeitachse();
+                item.onclick = () => { playBeepBase(1200, 0.05); window.zeigeArchivZeitachse(); };
             }
             item.innerHTML = '<div style="width:100%; height:75%; background:linear-gradient(180deg,#1a0a2a,#0a0515); border:1px solid #c060ff; border-radius:2px; box-shadow:0 0 8px rgba(192,96,255,0.5);"><div style="width:80%; height:40%; margin:15% auto 0; background:repeating-linear-gradient(90deg,#c060ff,#c060ff 2px,transparent 2px,transparent 5px); opacity:0.8;"></div></div><div style="width:60%; height:25%; margin:0 auto; background:#151515; border:1px solid #333;"></div>';
         }
@@ -4107,7 +4114,7 @@ window.spawnFurniture = (type, count) => {
         if (window._roomAreaTargetId === 'room-area') {
             item.style.cursor = 'pointer';
             item.title = 'Energie-Tausch öffnen';
-            item.onclick = () => window.openTransformatorPopup();
+            item.onclick = () => { playBeepBase(1200, 0.05); window.openTransformatorPopup(); };
         }
         item.innerHTML = '<div class="ti-casing"><div class="ti-magnet"><div class="ti-bolt"></div></div><div class="ti-magnet"><div class="ti-bolt" style="animation-delay:0.7s;"></div></div><div class="ti-led l1"></div><div class="ti-led l2"></div></div><div class="ti-base"></div>';
     } else if (type === 'chrono_knoten') {
@@ -4206,7 +4213,7 @@ window.spawnFurniture = (type, count) => {
         if (window._roomAreaTargetId === 'room-area') {
             item.style.cursor = 'pointer';
             item.title = 'Chronos-Zellen verkaufen';
-            item.onclick = () => window.openRenaissancePopup();
+            item.onclick = () => { playBeepBase(1200, 0.05); window.openRenaissancePopup(); };
         }
         item.innerHTML = '<div class="np-cube"></div><div class="np-cube"></div><div class="np-cube"></div><div class="np-cube"></div>';
     } else if (type === 'lampe_ren') {
@@ -5074,10 +5081,12 @@ const menuAnomalie = `
     <div class="upgrade-card"><b>[ TEMPORAL-WARNLEUCHTE ]</b><p style="font-size:0.7em; color:#aaa;">Rotierendes violettes Warnlicht bei Riss-Detektion.</p><button id="btn-buy-lampe-anomalie" onclick="window.buyFurniture('lampe_anomalie', 140)" class="btn-upgrade-exec">KAUFEN (140 C)</button></div>
     <div class="upgrade-card"><b>[ HOLO-ZEITRISS-SCANNER ]</b><p style="font-size:0.7em; color:#aaa;">Rotierende Radarschale mit Hologramm-Sweep.</p><button id="btn-buy-risz-scanner" onclick="window.buyFurniture('risz_scanner', 950)" class="btn-upgrade-exec">KAUFEN (950 C)</button></div>
     <div class="upgrade-card"><b>[ CHRONON-RESONANZKRISTALL ]</b><p style="font-size:0.7em; color:#aaa;">Schwebender Kristall mit umlaufenden Chronon-Partikeln.</p><button id="btn-buy-chronon-kristall" onclick="window.buyFurniture('chronon_kristall', 3000)" class="btn-upgrade-exec" style="background:#c0f; color:#000; border:1px solid #c0f;">KAUFEN (3000 C + 40 MZ)</button></div>
+    <div class="upgrade-card"><b>[ TACHYONEN-RESONATOR ]</b><p style="font-size:0.7em; color:#aaa;">Lokalisiert Zeitverzerrungen - pulsierende Antennenspitze mit Funkenschlag.</p><button id="btn-buy-tachyonen-resonator" onclick="window.buyFurniture('tachyonen_resonator', 1400)" class="btn-upgrade-exec">KAUFEN (1400 C)</button></div>
+    <div class="upgrade-card"><b>[ GRAVITATIONS-KOMPASS ]</b><p style="font-size:0.7em; color:#aaa;">Zeigt Anomalien im Schwerefeld an - eine Nadel dreht sich unruhig auf einer Bodenplatte.</p><button id="btn-buy-gravitations-kompass" onclick="window.buyFurniture('gravitations_kompass', 1100)" class="btn-upgrade-exec">KAUFEN (1100 C)</button></div>
 </div>`;
 if (!document.getElementById('menu-anomalie-detektor')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuAnomalie);
 
-const itemsAnomalie = ['lampe_anomalie','risz_scanner','chronon_kristall'];
+const itemsAnomalie = ['lampe_anomalie','risz_scanner','chronon_kristall','tachyonen_resonator','gravitations_kompass'];
 itemsAnomalie.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
 const oldUpdateAusbau_AD = window.updateAusbauButtons;
@@ -5123,6 +5132,8 @@ window.reloadFurniture = (type) => {
         if (inventory.lampe_anomalie > 0) window.spawnFurniture('lampe_anomalie', 1);
         if (inventory.risz_scanner > 0) window.spawnFurniture('risz_scanner', 1);
         if (inventory.chronon_kristall > 0) window.spawnFurniture('chronon_kristall', 1);
+        if (inventory.tachyonen_resonator > 0) window.spawnFurniture('tachyonen_resonator', 1);
+        if (inventory.gravitations_kompass > 0) window.spawnFurniture('gravitations_kompass', 1);
     }
 };
 
@@ -5140,6 +5151,12 @@ window.spawnFurniture = (type, count) => {
     } else if (type === 'chronon_kristall') {
         item.classList.add('item-chronon-kristall');
         item.innerHTML = '<div class="ck-crystal"></div><div class="ck-orbit"><div class="ck-particle"></div></div><div class="ck-orbit ck-o2"><div class="ck-particle"></div></div><div class="ck-glow-base"></div>';
+    } else if (type === 'tachyonen_resonator') {
+        item.classList.add('item-tachyonen-resonator');
+        item.innerHTML = '<div class="tr-mast"></div><div class="tr-tip"><div class="tr-spark"></div></div><div class="tr-base"></div>';
+    } else if (type === 'gravitations_kompass') {
+        item.classList.add('item-gravitations-kompass');
+        item.innerHTML = '<div class="gk-plate"><div class="gk-needle"></div></div><div class="gk-pedestal"></div>';
     }
     room.appendChild(item);
 };
@@ -5151,17 +5168,19 @@ const menuKryo = `
     <div class="upgrade-card"><b>[ FROSTLICHT-LEUCHTE ]</b><p style="font-size:0.7em; color:#aaa;">Eisblau flackernde Deckenlampe.</p><button id="btn-buy-lampe-kryo" onclick="window.buyFurniture('lampe_kryo', 150)" class="btn-upgrade-exec">KAUFEN (150 C)</button></div>
     <div class="upgrade-card"><b>[ KRYO-STASIS-KAPSEL ]</b><p style="font-size:0.7em; color:#aaa;">Vertikale Kapsel, Nebel wallt am Glas.</p><button id="btn-buy-kryo-kapsel" onclick="window.buyFurniture('kryo_kapsel', 1100)" class="btn-upgrade-exec">KAUFEN (1100 C)</button></div>
     <div class="upgrade-card"><b>[ PERMAFROST-PROBENREGAL ]</b><p style="font-size:0.7em; color:#aaa;">Regal mit gefrorenen, leuchtenden Proben.</p><button id="btn-buy-probenregal" onclick="window.buyFurniture('probenregal', 2900)" class="btn-upgrade-exec" style="background:#0ff; color:#000; border:1px solid #0ff;">KAUFEN (2900 C + 35 MZ)</button></div>
+    <div class="upgrade-card"><b>[ STASIS-KÜHLMITTEL-KANISTER ]</b><p style="font-size:0.7em; color:#aaa;">Stabilisiert die Kammern - beschlagener Metallkanister mit tropfendem Kühlmittel.</p><button id="btn-buy-kuehlmittel-kanister" onclick="window.buyFurniture('kuehlmittel_kanister', 900)" class="btn-upgrade-exec">KAUFEN (900 C)</button></div>
+    <div class="upgrade-card"><b>[ BIOMETRISCHER VITALSENSOR ]</b><p style="font-size:0.7em; color:#aaa;">Überwacht den Kryo-Zustand - kleines Wandpanel mit pulsierender Herzfrequenz-Linie.</p><button id="btn-buy-vitalsensor" onclick="window.buyFurniture('vitalsensor', 1250)" class="btn-upgrade-exec">KAUFEN (1250 C)</button></div>
 </div>`;
 if (!document.getElementById('menu-kryo-depot')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuKryo);
 
-const itemsKryo = ['lampe_kryo','kryo_kapsel','probenregal'];
+const itemsKryo = ['lampe_kryo','kryo_kapsel','probenregal','kuehlmittel_kanister','vitalsensor'];
 itemsKryo.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
 const oldUpdateAusbau_KD = window.updateAusbauButtons;
 window.updateAusbauButtons = function() {
     if (typeof oldUpdateAusbau_KD === 'function') oldUpdateAusbau_KD();
     if (typeof inventory === 'undefined') return;
-    const limitsKD = { lampe_kryo:1, kryo_kapsel:1, probenregal:1 };
+    const limitsKD = { lampe_kryo:1, kryo_kapsel:1, probenregal:1, kuehlmittel_kanister:1, vitalsensor:1 };
     for (let k in limitsKD) {
         let max = limitsKD[k], current = parseInt(inventory[k])||0;
         let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
@@ -5200,6 +5219,8 @@ window.reloadFurniture = (type) => {
         if (inventory.lampe_kryo > 0) window.spawnFurniture('lampe_kryo', 1);
         if (inventory.kryo_kapsel > 0) window.spawnFurniture('kryo_kapsel', 1);
         if (inventory.probenregal > 0) window.spawnFurniture('probenregal', 1);
+        if (inventory.kuehlmittel_kanister > 0) window.spawnFurniture('kuehlmittel_kanister', 1);
+        if (inventory.vitalsensor > 0) window.spawnFurniture('vitalsensor', 1);
     }
 };
 
@@ -5217,6 +5238,12 @@ window.spawnFurniture = (type, count) => {
     } else if (type === 'probenregal') {
         item.classList.add('item-probenregal');
         item.innerHTML = '<div class="pr-shelf"><div class="pr-sample"></div><div class="pr-sample"></div><div class="pr-sample"></div></div><div class="pr-shelf pr-s2"><div class="pr-sample"></div><div class="pr-sample"></div></div><div class="pr-drip"></div>';
+    } else if (type === 'kuehlmittel_kanister') {
+        item.classList.add('item-kuehlmittel-kanister');
+        item.innerHTML = '<div class="kmk-body"><div class="kmk-frost"></div></div><div class="kmk-drip"></div><div class="kmk-base"></div>';
+    } else if (type === 'vitalsensor') {
+        item.classList.add('item-vitalsensor');
+        item.innerHTML = '<div class="vs-panel"><div class="vs-line"></div></div>';
     }
     room.appendChild(item);
 };
@@ -5232,17 +5259,19 @@ const menuFunkRelais = `
     <div class="upgrade-card"><b>[ SIGNAL-BLINKLICHT ]</b><p style="font-size:0.7em; color:#aaa;">Rot-weiß blinkendes Antennenlicht.</p><button id="btn-buy-lampe-funk" onclick="window.buyFurniture('lampe_funk', 130)" class="btn-upgrade-exec">KAUFEN (130 C)</button></div>
     <div class="upgrade-card"><b>[ PARABOL-ANTENNE 'HORIZONT' ]</b><p style="font-size:0.7em; color:#aaa;">Rotierende Schüssel, sendet Signalwellen aus.</p><button id="btn-buy-parabol-antenne" onclick="window.buyFurniture('parabol_antenne', 1000)" class="btn-upgrade-exec">KAUFEN (1000 C)</button></div>
     <div class="upgrade-card"><b>[ SUBRAUM-FREQUENZMODULATOR ]</b><p style="font-size:0.7em; color:#aaa;">Konsole mit lebendiger Wellenform-Anzeige.</p><button id="btn-buy-subraum-modulator" onclick="window.buyFurniture('subraum_modulator', 3100)" class="btn-upgrade-exec" style="background:#08f; color:#000; border:1px solid #08f;">KAUFEN (3100 C + 45 MZ)</button></div>
+    <div class="upgrade-card"><b>[ SUBRAUM-FREQUENZVERSTÄRKER ]</b><p style="font-size:0.7em; color:#aaa;">Erhöht die Reichweite - schlanker Mast mit pulsierendem Verstärker-Ring.</p><button id="btn-buy-frequenzverstaerker" onclick="window.buyFurniture('frequenzverstaerker', 1300)" class="btn-upgrade-exec">KAUFEN (1300 C)</button></div>
+    <div class="upgrade-card"><b>[ VERSCHLÜSSELTER SIGNAL-DECODER ]</b><p style="font-size:0.7em; color:#aaa;">Entschlüsselt abgefangene Nachrichten - kleines Panel mit durchlaufendem Zeichensalat.</p><button id="btn-buy-signal-decoder" onclick="window.buyFurniture('signal_decoder', 1450)" class="btn-upgrade-exec">KAUFEN (1450 C)</button></div>
 </div>`;
 if (!document.getElementById('menu-funk-relais-horizont')) document.getElementById('ausbau-menu').insertAdjacentHTML('beforeend', menuFunkRelais);
 
-const itemsFunkRelais = ['lampe_funk','parabol_antenne','subraum_modulator'];
+const itemsFunkRelais = ['lampe_funk','parabol_antenne','subraum_modulator','frequenzverstaerker','signal_decoder'];
 itemsFunkRelais.forEach(item => { if(typeof inventory !== 'undefined' && inventory[item] === undefined) inventory[item] = 0; });
 
 const oldUpdateAusbau_FR = window.updateAusbauButtons;
 window.updateAusbauButtons = function() {
     if (typeof oldUpdateAusbau_FR === 'function') oldUpdateAusbau_FR();
     if (typeof inventory === 'undefined') return;
-    const limitsFR = { lampe_funk:1, parabol_antenne:1, subraum_modulator:1 };
+    const limitsFR = { lampe_funk:1, parabol_antenne:1, subraum_modulator:1, frequenzverstaerker:1, signal_decoder:1 };
     for (let k in limitsFR) {
         let max = limitsFR[k], current = parseInt(inventory[k])||0;
         let btn = document.getElementById('btn-buy-'+k.replace(/_/g,'-'));
@@ -5317,6 +5346,8 @@ window.reloadFurniture = (type) => {
         if (inventory.lampe_funk > 0) window.spawnFurniture('lampe_funk', 1);
         if (inventory.parabol_antenne > 0) window.spawnFurniture('parabol_antenne', 1);
         if (inventory.subraum_modulator > 0) window.spawnFurniture('subraum_modulator', 1);
+        if (inventory.frequenzverstaerker > 0) window.spawnFurniture('frequenzverstaerker', 1);
+        if (inventory.signal_decoder > 0) window.spawnFurniture('signal_decoder', 1);
     }
 };
 
@@ -5333,12 +5364,18 @@ window.spawnFurniture = (type, count) => {
         if (window._roomAreaTargetId === 'room-area') {
             item.style.cursor = 'pointer';
             item.title = 'Bericht anzeigen';
-            item.onclick = () => window.showHorizonBriefing();
+            item.onclick = () => { playBeepBase(1200, 0.05); window.showHorizonBriefing(); };
         }
         item.innerHTML = '<div class="pa-dish"><div class="pa-emitter"></div></div><div class="pa-wave"></div><div class="pa-wave w2"></div><div class="pa-stand"></div>';
     } else if (type === 'subraum_modulator') {
         item.classList.add('item-subraum-modulator');
         item.innerHTML = '<div class="sm-console"><div class="sm-wave-bar"></div><div class="sm-wave-bar"></div><div class="sm-wave-bar"></div><div class="sm-wave-bar"></div><div class="sm-wave-bar"></div><div class="sm-screen-glow"></div></div>';
+    } else if (type === 'frequenzverstaerker') {
+        item.classList.add('item-frequenzverstaerker');
+        item.innerHTML = '<div class="fv-mast"></div><div class="fv-ring"></div><div class="fv-ring fv-r2"></div><div class="fv-base"></div>';
+    } else if (type === 'signal_decoder') {
+        item.classList.add('item-signal-decoder');
+        item.innerHTML = '<div class="sd-panel"><div class="sd-text">01100101</div><div class="sd-text sd-t2">DECODIERT...</div></div>';
     }
     room.appendChild(item);
 };
@@ -5412,7 +5449,11 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="lki-mount"></div><div class="lki-bulb"></div>';
     } else if (type === 'holo_netz') {
         item.classList.add('item-holo-netz');
-        item.innerHTML = '<div class="hn-sphere"><div class="hn-ring"></div><div class="hn-ring hn-r2"></div><div class="hn-ring hn-r3"></div><div class="hn-node"></div><div class="hn-node hn-n2"></div><div class="hn-node hn-n3"></div></div><div class="hn-stand"></div>';
+        item.innerHTML = '<div class="hn-sphere"><div class="hn-ring"></div><div class="hn-ring hn-r2"></div><div class="hn-ring hn-r3"></div><div class="hn-node"></div><div class="hn-node hn-n2"></div><div class="hn-node hn-n3"></div>' +
+            // Projiziertes KI-Gesicht: zwei pulsierende "Augen" und ein Scan-Balken, der über das
+            // Gesicht wandert - rein dekorativ, keine eigene Funktion.
+            '<div class="hn-face"><div class="hn-eye hn-eye-l"></div><div class="hn-eye hn-eye-r"></div><div class="hn-scanline"></div></div>' +
+            '</div><div class="hn-stand"></div>';
     } else if (type === 'daten_kern') {
         item.classList.add('item-daten-kern');
         item.innerHTML = '<div class="dk-cylinder"><div class="dk-stream"></div><div class="dk-stream ds2"></div><div class="dk-stream ds3"></div><div class="dk-core-glow"></div></div><div class="dk-base"></div>';
@@ -5527,30 +5568,30 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML =
             '<div class="sn-holo-screen"><div class="sn-holo-flicker"></div><div class="sn-holo-scanline"></div></div>' +
             '<div class="sn-holo-base"></div>';
-        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openHoloprojektor(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); playBeepBase(1200, 0.05); window.openHoloprojektor(); };
     } else if (type === 'sn_biokapsel') {
         item.classList.add('item-sn-biokapsel');
         item.innerHTML =
             '<div class="sn-kapsel-tube"><div class="sn-kapsel-liquid"></div><div class="sn-kapsel-bubble b1"></div><div class="sn-kapsel-bubble b2"></div><div class="sn-kapsel-bubble b3"></div></div>' +
             '<div class="sn-kapsel-base"></div>';
-        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openBioKapsel(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); playBeepBase(1200, 0.05); window.openBioKapsel(); };
     } else if (type === 'sn_schattenterminal') {
         item.classList.add('item-sn-schattenterminal');
         item.innerHTML =
             '<div class="sn80-monitor"><div class="sn80-screen"></div><div class="sn80-vents"><span></span><span></span><span></span><span></span></div></div>' +
             '<div class="sn80-keyboard"></div>';
-        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openSchattensyndikat(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); playBeepBase(1200, 0.05); window.openSchattensyndikat(); };
     } else if (type === 'sn_rohrpost') {
         item.classList.add('item-sn-rohrpost');
         if (isDetailView) item.id = 'sn-rohrpost-item';
         item.innerHTML =
             '<div class="sn-rohrpost-pipe"></div>' +
             '<div class="sn-rohrpost-box"><div class="sn-rohrpost-slot"></div><div class="sn-rohrpost-light"></div></div>';
-        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openRohrpost(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); playBeepBase(1200, 0.05); window.openRohrpost(); };
     } else if (type === 'sn_infostand') {
         item.classList.add('item-sn-infostand');
         item.innerHTML = '<div class="sn-info-icon">ℹ</div><div class="sn-info-base"></div>';
-        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); window.openSubraumInfo(); };
+        if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); playBeepBase(1200, 0.05); window.openSubraumInfo(); };
     }
     room.appendChild(item);
     if (type === 'sn_rohrpost' && typeof updateRohrpostVisual === 'function') updateRohrpostVisual();
@@ -5756,9 +5797,11 @@ window.sendRohrpostDrop = async function() {
 window.claimRohrpostDrop = async function() {
     if (!gameState.pendingDrop) return;
     const d = gameState.pendingDrop;
-    if (d.resourceType === 'credits') gameState.credits += d.amount;
-    else if (d.resourceType === 'materiezellen') gameState.materieZellen += d.amount;
-    else if (d.resourceType === 'chronoszellen') gameState.chronosZellen += d.amount;
+    // Landet jetzt im bestehenden Sammelsystem statt direkt gutgeschrieben zu werden - der
+    // Spieler muss die Belohnung wie bei Agenten-Boni/passiver Raumproduktion aktiv einsammeln.
+    if (d.resourceType === 'credits') gameState.pendingRewards.credits += d.amount;
+    else if (d.resourceType === 'materiezellen') gameState.pendingRewards.materiezellen += d.amount;
+    else if (d.resourceType === 'chronoszellen') gameState.pendingRewards.chronoszellen += d.amount;
     gameState.pendingDrop = null;
     updateUI();
     updateRohrpostVisual();
@@ -5768,7 +5811,7 @@ window.claimRohrpostDrop = async function() {
     } catch (e) { console.error(e); }
     const overlay = document.getElementById('rohrpost-claim-overlay');
     if (overlay) overlay.style.display = 'none';
-    if (typeof showInfoToast === 'function') showInfoToast('Sendung entnommen.');
+    if (typeof showInfoToast === 'function') showInfoToast('Sendung entnommen - Belohnung liegt jetzt im Sammelsystem bereit.');
 };
 
 // --- Holoprojektor: Direktkanal zur Administration, baut auf dem bestehenden Komm-Link-System

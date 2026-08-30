@@ -2,16 +2,20 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Agentur-Netzwerk | Dück & Flux Zeitreiseagentur</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Agentur-Netzwerk | Dück & Flux Zeitreise-Agentur</title>
 <style>
     :root {
         --nz-cyan: #0ff; --nz-purple: #b0f; --nz-green: #0f8; --nz-bg: #030308;
     }
     * { box-sizing: border-box; }
     body {
-        margin: 0; min-height: 100vh; background: var(--nz-bg); color: var(--nz-cyan);
+        margin: 0; min-height: 100vh; min-height: 100dvh; background: var(--nz-bg); color: var(--nz-cyan);
         font-family: 'Courier New', monospace; overflow-x: hidden;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
     }
     #nz-grid-bg {
         position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -149,8 +153,8 @@
     </div>
 </div>
 
-<script type="module" src="netzwerk-firebase-init.js?v=20260826m"></script>
-<script src="protokoll.js?v=20260826m"></script>
-<script src="netzwerk-app.js?v=20260826m"></script>
+<script type="module" src="netzwerk-firebase-init.js?v=20260827a"></script>
+<script src="protokoll.js?v=20260827a"></script>
+<script src="netzwerk-app.js?v=20260827a"></script>
 </body>
 </html>

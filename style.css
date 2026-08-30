@@ -32,6 +32,11 @@
             display: flex; justify-content: center; align-items: center;
             background-color: #000; overflow: hidden;
             letter-spacing: 1px;
+            /* iPhone Safe-Area: verhindert, dass die zentrierte Karte auf iPhones mit Notch/Dynamic
+               Island oben oder der Home-Indicator-Leiste unten anstößt bzw. dahinter verschwindet.
+               env() liefert auf allen anderen Geräten einfach 0, ist also unschädlich. */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            box-sizing: border-box;
         }
 /* ANTI-GEISTER-REGEL: stabile Klassen-basierte Loesung statt fragiler :not()-Kette.
    Jedes erlaubte Top-Level-Element bekommt die Klasse "top-level".
