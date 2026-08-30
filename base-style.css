@@ -1188,7 +1188,7 @@
 
 /* Biometrischer Vitalsensor: kleines Wandpanel mit durchlaufender Herzfrequenz-Linie -
    überwacht den Kryo-Zustand (Kryo-Depot). */
-.item-vitalsensor { width: 70px; height: 36px; position: absolute; z-index: 2; right: 80px; bottom: 78px; }
+.item-vitalsensor { width: 70px; height: 36px; position: absolute; z-index: 2; right: 65px; bottom: 78px; }
 .vs-panel { width: 100%; height: 100%; background: #0a1418; border: 1px solid #0ff; border-radius: 3px; overflow: hidden; box-shadow: 0 0 10px rgba(0,255,255,0.4); position: relative; }
 .vs-line { position: absolute; top: 50%; left: -100%; width: 200%; height: 2px; background: linear-gradient(90deg, transparent 0%, transparent 40%, #0ff 42%, #fff 45%, #0ff 48%, transparent 50%, transparent 100%); animation: vs-line-scroll 2.2s linear infinite; }
 @keyframes vs-line-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(50%); } }
@@ -1234,7 +1234,7 @@
 
 /* Verschlüsselter Signal-Decoder: kleines Wandpanel mit durchlaufendem Zeichensalat, der sich
    periodisch "entschlüsselt" (Funk-Relais "Horizont"). */
-.item-signal-decoder { width: 76px; height: 40px; position: absolute; z-index: 2; right: 75px; top: 62px; }
+.item-signal-decoder { width: 76px; height: 40px; position: absolute; z-index: 2; right: 60px; top: 62px; }
 .sd-panel { width: 100%; height: 100%; background: #0a1220; border: 1px solid #4af; border-radius: 3px; box-shadow: 0 0 10px rgba(70,170,255,0.4); overflow: hidden; padding: 4px; box-sizing: border-box; font-size: 8px; font-family: monospace; color: #4af; }
 .sd-text { white-space: nowrap; animation: sd-text-glitch 2.6s steps(1) infinite; }
 .sd-text.sd-t2 { color: #0f8; opacity: 0; animation-delay: 1.3s; }

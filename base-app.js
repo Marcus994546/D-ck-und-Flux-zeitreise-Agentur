@@ -1627,20 +1627,19 @@
         return document.scrollingElement || document.documentElement;
     }
 
-    let aufzugScrollAktiv = false;
-    let aufzugScrollSicherheitsTimer = null;
     function folgeAufzugScroll(durationMs) {
         if (window._aufzugScrollSperreBis && Date.now() < window._aufzugScrollSperreBis) return;
-        aufzugScrollAktiv = true;
+        // WICHTIG: aktiv-Flag und Sicherheits-Timer sind jetzt PRO AUFRUF (im Funktionsumfang von
+        // "schritt" gefangen), nicht mehr geteilte Modul-Variablen. Vorher konnte eine FRÜHER
+        // gestartete, kürzere Fahrt (z.B. die Abhol-Etappe) beim eigenen regulären Ende das
+        // gemeinsame Flag auf false setzen und dadurch eine GLEICHZEITIG noch laufende zweite
+        // Verfolgung (z.B. eine kurz danach gestartete zweite Fahrt) vorzeitig abbrechen - das
+        // war die Ursache für "die Ansicht folgt manchmal einfach nicht".
+        let aktiv = true;
         const startZeit = performance.now();
-        // Hartes Sicherheitsnetz, unabhängig von der eigentlichen rAF-Schleife unten - falls
-        // diese aus irgendeinem Grund nicht sauber terminiert (z.B. ein Fehler mitten in einem
-        // Frame), garantiert dieser Timer trotzdem ein Ende. Das war vermutlich die Ursache dafür,
-        // dass die Ansicht auch dann noch mitgescrollt ist, wenn gar keine Fahrt mehr lief.
-        if (aufzugScrollSicherheitsTimer) clearTimeout(aufzugScrollSicherheitsTimer);
-        aufzugScrollSicherheitsTimer = setTimeout(() => { aufzugScrollAktiv = false; }, durationMs + 500);
+        const sicherheitsTimer = setTimeout(() => { aktiv = false; }, durationMs + 500);
         function schritt(jetzt) {
-            if (!aufzugScrollAktiv) return;
+            if (!aktiv) return;
             const car = document.getElementById('bunker-elevator-car');
             if (car) {
                 const scrollContainer = findeScrollbarenVorfahren(car);
@@ -1654,7 +1653,7 @@
                 if (Math.abs(delta) > 1) scrollContainer.scrollTop += delta;
             }
             if (jetzt - startZeit < durationMs + 200) requestAnimationFrame(schritt);
-            else aufzugScrollAktiv = false;
+            else { aktiv = false; clearTimeout(sicherheitsTimer); }
         }
         requestAnimationFrame(schritt);
     }
