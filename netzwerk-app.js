@@ -229,6 +229,27 @@
             content.innerHTML = '<p style="color:#f44; text-align:center;">Keine Verbindung zur Datenbank.</p>';
             return;
         }
+        // WICHTIG: Die vollständige Berechnung liest die KOMPLETTEN Collections "agenten" und
+        // "Agent - Base" unbegrenzt ein - bei wenigen Spielern unproblematisch, aber bei
+        // wachsender Nutzerzahl der mit Abstand teuerste Lesevorgang der ganzen App, wenn er bei
+        // JEDEM einzelnen Aufruf der Rangliste erneut passiert. Ein geteilter Zwischenspeicher
+        // sorgt dafür, dass die teure Berechnung nur einmal pro Kalendertag läuft (Reset um
+        // Mitternacht, deutsche Zeit) - unabhängig davon, wie viele Spieler die Rangliste an
+        // diesem Tag ansehen.
+        const heuteStr = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+        try {
+            const cacheRef = window.doc(window.db, "netzwerk_cache", "rangliste");
+            const cacheSnap = await window.getDoc(cacheRef);
+            if (cacheSnap.exists()) {
+                const cache = cacheSnap.data();
+                const berechnetAmStr = cache.berechnetAm ? new Date(cache.berechnetAm).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) : null;
+                if (berechnetAmStr === heuteStr && Array.isArray(cache.entries)) {
+                    renderRanglisteHTML(content, cache.entries, cache.berechnetAm);
+                    return;
+                }
+            }
+        } catch (e) { console.error('Rangliste-Zwischenspeicher konnte nicht gelesen werden:', e); }
+
         try {
             const agentenSnap = await window.getDocs(window.collection(window.db, "agenten"));
             const baseSnap = await window.getDocs(window.collection(window.db, "Agent - Base"));
@@ -267,31 +288,54 @@
             });
             entries.sort((a, b) => b.score - a.score);
 
-            const myName = window.agentSlug(window.agentName);
-            const myRank = entries.findIndex(e => e.slug === myName) + 1;
+            // Nur die für die Anzeige tatsächlich benötigten Top-Einträge (etwas großzügiger
+            // Puffer für den eigenen Rang, falls der Spieler weiter unten steht) in den
+            // Zwischenspeicher schreiben - nicht die komplette, potenziell sehr lange Liste.
+            const CACHE_MAX_ENTRIES = 200;
+            const berechnetAm = Date.now();
+            try {
+                await window.setDoc(window.doc(window.db, "netzwerk_cache", "rangliste"), {
+                    berechnetAm: berechnetAm,
+                    entries: entries.slice(0, CACHE_MAX_ENTRIES).map(e => ({ slug: e.slug, lvl: e.lvl, artifactCount: e.artifactCount, score: e.score, title: e.title }))
+                });
+            } catch (e) { console.error('Rangliste-Zwischenspeicher konnte nicht geschrieben werden:', e); }
 
-            let html = '<div style="max-height:400px; overflow-y:auto;">';
-            html += '<table style="width:100%; border-collapse:collapse; font-size:0.78em;">';
-            html += '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">#</th><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Lvl</th><th style="padding:4px;">Artefakte</th><th style="padding:4px;">Score</th></tr>';
-            entries.slice(0, 25).forEach((e, i) => {
-                const isMe = (e.slug === myName);
-                html += '<tr style="' + (isMe ? 'background:rgba(0,255,255,0.15); font-weight:bold;' : '') + ' border-bottom:1px solid rgba(0,255,255,0.15);">' +
-                    '<td style="padding:4px;">' + (i + 1) + '</td>' +
-                    '<td style="padding:4px; text-align:left;"><span style="cursor:pointer; text-decoration:underline dotted;" onclick="window.zeigeSpielerProfil(\'' + e.slug + '\')">' + window.escHtml(e.slug) + '</span>' + (isMe ? ' (Du)' : '') + (e.title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + e.title + '</span>' : '') + '</td>' +
-                    '<td style="padding:4px;">' + e.lvl + '</td>' +
-                    '<td style="padding:4px;">' + e.artifactCount + '/40</td>' +
-                    '<td style="padding:4px;">' + e.score.toLocaleString('de-DE') + '</td>' +
-                '</tr>';
-            });
-            html += '</table></div>';
-            if (myRank > 25) {
-                html += '<p style="color:#0ff; margin-top:10px; font-size:0.8em;">Dein Rang: #' + myRank + ' von ' + entries.length + '</p>';
-            }
-            content.innerHTML = html;
+            renderRanglisteHTML(content, entries, berechnetAm);
         } catch (e) {
             console.error(e);
             content.innerHTML = '<p style="color:#f44; text-align:center;">Rangliste konnte nicht geladen werden.</p>';
         }
+    }
+
+    function renderRanglisteHTML(content, entries, berechnetAm) {
+        const myName = window.agentSlug(window.agentName);
+        const myRank = entries.findIndex(e => e.slug === myName) + 1;
+
+        let html = '';
+        if (berechnetAm) {
+            const standStr = new Date(berechnetAm).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            html += '<p style="color:#555; font-size:0.7em; text-align:right; margin:0 0 6px;">Stand: ' + standStr + ' Uhr</p>';
+        }
+        html += '<div style="max-height:400px; overflow-y:auto;">';
+        html += '<table style="width:100%; border-collapse:collapse; font-size:0.78em;">';
+        html += '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">#</th><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Lvl</th><th style="padding:4px;">Artefakte</th><th style="padding:4px;">Score</th></tr>';
+        entries.slice(0, 25).forEach((e, i) => {
+            const isMe = (e.slug === myName);
+            html += '<tr style="' + (isMe ? 'background:rgba(0,255,255,0.15); font-weight:bold;' : '') + ' border-bottom:1px solid rgba(0,255,255,0.15);">' +
+                '<td style="padding:4px;">' + (i + 1) + '</td>' +
+                '<td style="padding:4px; text-align:left;"><span style="cursor:pointer; text-decoration:underline dotted;" onclick="window.zeigeSpielerProfil(\'' + e.slug + '\')">' + window.escHtml(e.slug) + '</span>' + (isMe ? ' (Du)' : '') + (e.title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + e.title + '</span>' : '') + '</td>' +
+                '<td style="padding:4px;">' + e.lvl + '</td>' +
+                '<td style="padding:4px;">' + e.artifactCount + '/40</td>' +
+                '<td style="padding:4px;">' + e.score.toLocaleString('de-DE') + '</td>' +
+            '</tr>';
+        });
+        html += '</table></div>';
+        if (myRank > 25) {
+            html += '<p style="color:#0ff; margin-top:10px; font-size:0.8em;">Dein Rang: #' + myRank + ' von ' + entries.length + '</p>';
+        } else if (myRank === 0) {
+            html += '<p style="color:#888; margin-top:10px; font-size:0.8em;">Dein Rang wird bei der nächsten täglichen Aktualisierung der Rangliste (um Mitternacht) berücksichtigt.</p>';
+        }
+        content.innerHTML = html;
     }
 
     // --- SPIELER SUCHEN ---
@@ -456,8 +500,26 @@
             const meinBestand = (bietetTyp === 'materiezellen') ? ((myData.materiezellen !== undefined) ? myData.materiezellen : (myData.materialzellen || 0)) : (myData[bietetTyp] || 0);
             if (meinBestand < bietetMenge) { window.zeigeInfo('Nicht genug ' + HANDEL_LABEL[bietetTyp] + ' vorhanden, um das anzubieten.'); return; }
 
-            // Treuhand: eigenes Angebot sofort vom eigenen Konto abbuchen.
-            await window.setDoc(myRef, { [bietetTyp]: meinBestand - bietetMenge }, { merge: true });
+            // Höchstens ein Handelsangebot pro Kalendertag (Reset um Mitternacht, deutsche Zeit) -
+            // serverseitig zusätzlich über die Firestore-Regeln abgesichert (siehe
+            // firestore.rules), hier nur die freundliche, sofortige Vorab-Meldung ohne extra
+            // Lesevorgang (myData ist schon geladen).
+            const letztesAngebot = myData.letztesHandelsangebot || 0;
+            const heuteStr = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+            const letztesAngebotStr = letztesAngebot > 0 ? new Date(letztesAngebot).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) : null;
+            if (letztesAngebotStr === heuteStr) {
+                const jetzt = new Date();
+                const mitternacht = new Date(jetzt);
+                mitternacht.setHours(24, 0, 0, 0);
+                const restMin = Math.ceil((mitternacht - jetzt) / 60000);
+                const restStd = Math.floor(restMin / 60);
+                window.zeigeInfo('Du kannst nur ein Handelsangebot pro Tag erstellen. Ab Mitternacht (noch ca. ' + (restStd > 0 ? restStd + ' Std. ' + (restMin % 60) + ' Min.' : restMin + ' Min.') + ') kannst du ein neues Angebot erstellen.');
+                return;
+            }
+
+            // Treuhand: eigenes Angebot sofort vom eigenen Konto abbuchen, gleichzeitig den
+            // Cooldown-Zeitstempel setzen.
+            await window.setDoc(myRef, { [bietetTyp]: meinBestand - bietetMenge, letztesHandelsangebot: Date.now() }, { merge: true });
             if (bietetTyp === 'credits') window.playerCredits = meinBestand - bietetMenge;
             else if (bietetTyp === 'materiezellen') window.playerMateriezellen = meinBestand - bietetMenge;
 
@@ -1143,8 +1205,16 @@
         const radarAgents = document.getElementById('radar-agents');
         if (window.currentRadarListenerNz) window.currentRadarListenerNz();
 
+        // WICHTIG: Vorher ein Live-Listener auf die KOMPLETTE, ungefilterte "agenten"-Collection -
+        // jede Änderung IRGENDEINES Spielers weltweit hat bei JEDEM offenen Radar eine erneute
+        // Vollübertragung ausgelöst. Bei wachsender Spielerzahl der mit Abstand teuerste und am
+        // häufigsten neu ausgelöste Lesevorgang der ganzen App. Jetzt serverseitig auf kürzlich
+        // aktive Spieler vorgefiltert (großzügiges 5-Minuten-Fenster als Sicherheitsabstand) - die
+        // genaue 2-Minuten-Frische-Prüfung bleibt zusätzlich im Client bestehen, nur die Grundmenge
+        // an überhaupt abonnierten Dokumenten wird drastisch kleiner.
         const agentRef = window.collection(window.db, "agenten");
-        window.currentRadarListenerNz = window.onSnapshot(agentRef, (snapshot) => {
+        const radarQuery = window.query(agentRef, window.where("last_ping", ">", Date.now() - 300000));
+        window.currentRadarListenerNz = window.onSnapshot(radarQuery, (snapshot) => {
             const now = Date.now();
             let htmlList = "", htmlRadar = "", count = 0;
             snapshot.forEach((doc) => {
