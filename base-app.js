@@ -5450,19 +5450,40 @@ window.spawnFurniture = (type, count) => {
         item.innerHTML = '<div class="lki-mount"></div><div class="lki-bulb"></div>';
     } else if (type === 'ki_holoprojektor') {
         item.classList.add('item-holo-netz');
-        item.innerHTML = '<div class="hn-sphere"><div class="hn-ring"></div><div class="hn-ring hn-r2"></div><div class="hn-ring hn-r3"></div><div class="hn-node"></div><div class="hn-node hn-n2"></div><div class="hn-node hn-n3"></div>' +
-            // Projiziertes KI-Gesicht: zwei pulsierende "Augen" und ein Scan-Balken, der über das
-            // Gesicht wandert - rein dekorativ, keine eigene Funktion.
-            '<div class="hn-face">' +
-                '<div class="hn-face-outline"></div>' +
-                '<div class="hn-brow hn-brow-l"></div><div class="hn-brow hn-brow-r"></div>' +
-                '<div class="hn-eye hn-eye-l"><div class="hn-pupil"></div></div>' +
-                '<div class="hn-eye hn-eye-r"><div class="hn-pupil"></div></div>' +
-                '<div class="hn-nose"></div>' +
-                '<div class="hn-mouth"></div>' +
-                '<div class="hn-scanline"></div>' +
-            '</div>' +
-            '</div><div class="hn-stand"></div>';
+        // Echtes Punkt-Raster-Gesicht (SVG): ein Punktmuster wird durch eine Gesichtssilhouette
+        // maskiert (inkl. Augenhöhlen/Mund als Aussparung), mit einem radialen Helligkeitsverlauf
+        // für dichtere Punkte in der Mitte und ausfransenden Rändern - genau wie im
+        // Referenzbild, statt eines simplen Wireframes.
+        item.innerHTML = `
+            <svg class="hn-face-svg" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <pattern id="hnDots-${count}" patternUnits="userSpaceOnUse" width="3" height="3">
+                        <circle cx="1.5" cy="1.5" r="0.65" fill="#7ff5ff"/>
+                    </pattern>
+                    <radialGradient id="hnFade-${count}" cx="50%" cy="38%" r="62%">
+                        <stop offset="0%" stop-color="#fff"/>
+                        <stop offset="70%" stop-color="#fff"/>
+                        <stop offset="100%" stop-color="#222"/>
+                    </radialGradient>
+                    <mask id="hnMask-${count}">
+                        <path d="M50,8 C72,8 85,22 87,42 C89,58 85,72 78,85 C73,95 65,104 58,114 L54,132 L46,132 L42,114 C35,104 27,95 22,85 C15,72 11,58 13,42 C15,22 28,8 50,8 Z" fill="url(#hnFade-${count})"/>
+                        <ellipse cx="36" cy="55" rx="6.5" ry="4.5" fill="#000"/>
+                        <ellipse cx="64" cy="55" rx="6.5" ry="4.5" fill="#000"/>
+                        <ellipse cx="50" cy="98" rx="10" ry="4" fill="#000"/>
+                    </mask>
+                </defs>
+                <rect x="0" y="0" width="100" height="150" fill="url(#hnDots-${count})" mask="url(#hnMask-${count})" class="hn-dotlayer"/>
+                <g class="hn-eye-detail">
+                    <circle cx="36" cy="55" r="4.2" fill="none" stroke="#eafeff" stroke-width="0.8"/>
+                    <circle cx="36" cy="55" r="1.6" fill="#0ff"/>
+                    <circle cx="64" cy="55" r="4.2" fill="none" stroke="#eafeff" stroke-width="0.8"/>
+                    <circle cx="64" cy="55" r="1.6" fill="#0ff"/>
+                </g>
+                <line x1="50" y1="58" x2="50" y2="82" stroke="#7ff5ff" stroke-width="0.5" opacity="0.5"/>
+                <path class="hn-mouth-line" d="M42,98 Q50,102 58,98" fill="none" stroke="#eafeff" stroke-width="1.1" stroke-linecap="round"/>
+                <rect class="hn-scan-rect" x="0" y="0" width="100" height="3" fill="rgba(120,245,255,0.55)"/>
+            </svg>
+            <div class="hn-face-glow"></div>`;
     } else if (type === 'daten_kern') {
         item.classList.add('item-daten-kern');
         item.innerHTML = '<div class="dk-cylinder"><div class="dk-stream"></div><div class="dk-stream ds2"></div><div class="dk-stream ds3"></div><div class="dk-core-glow"></div></div><div class="dk-base"></div>';
