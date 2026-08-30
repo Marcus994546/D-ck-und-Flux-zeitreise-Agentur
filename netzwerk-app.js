@@ -241,6 +241,7 @@
             const entries = [];
             agentenSnap.forEach(d => {
                 const data = d.data();
+                if (data.isAdmin) return; // Admin-Konten sollen im Netzwerk komplett unsichtbar sein
                 const stats = {
                     slug: d.id,
                     lvl: data.lvl || 1,
@@ -307,7 +308,7 @@
         try {
             const slug = window.agentSlug(name);
             const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
-            if (!snap.exists()) {
+            if (!snap.exists() || snap.data().isAdmin) {
                 ergebnis.innerHTML = '<p style="color:#f44;">Kein Agent mit diesem Namen gefunden.</p>';
                 return;
             }
@@ -367,6 +368,7 @@
             try {
                 const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
                 const d = snap.exists() ? snap.data() : {};
+                if (d.isAdmin) continue; // Admin soll auch in Allianz-Mitgliederlisten unsichtbar sein
                 let artifactCount = 0, maxRoomLevel = 0, agentCount = 0;
                 try {
                     const baseSnap = await window.getDoc(window.doc(window.db, "Agent - Base", slug));
@@ -1016,6 +1018,7 @@
             let htmlList = "", htmlRadar = "", count = 0;
             snapshot.forEach((doc) => {
                 const data = doc.data();
+                if (data.isAdmin) return; // Admin soll im Radar komplett unsichtbar sein
                 if (data.last_ping && (now - data.last_ping < 120000) && doc.id !== window.agentSlug(window.agentName)) {
                     count++;
                     const top = Math.floor(Math.random() * 70) + 15, left = Math.floor(Math.random() * 70) + 15;
@@ -1102,7 +1105,7 @@
         status.innerText = 'Prüfe Berechtigung...';
         try {
             const snap = await window.getDoc(window.doc(window.db, "agenten", menteeSlug));
-            if (!snap.exists()) { status.innerText = 'Kein Agent mit diesem Namen gefunden.'; return; }
+            if (!snap.exists() || snap.data().isAdmin) { status.innerText = 'Kein Agent mit diesem Namen gefunden.'; return; }
             const data = snap.data();
             if (data.hatteMentor) { status.innerText = 'Dieser Spieler hatte bereits einen Mentor.'; return; }
             if ((data.lvl || 1) >= MENTEE_MAX_LEVEL) { status.innerText = 'Dieser Spieler ist bereits zu erfahren (Level ' + MENTEE_MAX_LEVEL + '+ ) für das Mentorenprogramm.'; return; }
