@@ -2488,6 +2488,21 @@
         await loadGameState();
         window.showAktiveBasis();
 
+        // WICHTIG: Mehrere Stellen im Code (z.B. moveAgentTo) rufen saveGameState() bisher ohne
+        // await auf - ein rein asynchroner Netzwerk-Schreibvorgang zu Firestore. Schließt der
+        // Spieler die App SOFORT nach einer Aktion (z.B. "Agent zuweisen, dann direkt offline
+        // gehen"), konnte dieser Schreibvorgang abgebrochen werden, BEVOR er beim Server ankam -
+        // die Zuweisung ging dann komplett verloren, ohne dass irgendetwas sichtbar fehlgeschlagen
+        // wäre. Dieser Listener versucht, GENAU in diesem Moment (Seite wird unsichtbar/
+        // geschlossen) noch einen letzten Speicherversuch anzustoßen - reduziert das Zeitfenster
+        // für Datenverlust erheblich, auch wenn es keine hundertprozentige Garantie sein kann
+        // (der Browser kann eine bereits geschlossene Seite nicht mehr "warten lassen").
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                try { saveGameState(); } catch (e) {}
+            }
+        });
+
         if (typeof renderAgentPanel === 'function') renderAgentPanel();
         // Läuft alle 15s: holt reale, vergangene Zeit nach und schreibt fällige Belohnungen gut,
         // auch während die Seite offen im Hintergrund liegt.
