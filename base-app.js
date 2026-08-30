@@ -5753,7 +5753,6 @@ window.spawnFurniture = (type, count) => {
         if (isDetailView) item.onclick = (ev) => { ev.stopPropagation(); playBeepBase(1200, 0.05); window.openSchattensyndikat(); };
     } else if (type === 'sn_rohrpost') {
         item.classList.add('item-sn-rohrpost');
-        if (isDetailView) item.id = 'sn-rohrpost-item';
         item.innerHTML =
             '<div class="sn-rohrpost-pipe"></div>' +
             '<div class="sn-rohrpost-box"><div class="sn-rohrpost-slot"></div><div class="sn-rohrpost-light"></div></div>';
@@ -5891,8 +5890,12 @@ window.buyBlackMarketArtifact = async function(name) {
 // "Agent - Base"-Dokument beschreiben). Nur Spieler, die SUBRAUM-NEXUS zum Versandzeitpunkt
 // bereits gebaut hatten, bekommen den Eintrag - später gebaute Räume erhalten nichts rückwirkend.
 function updateRohrpostVisual() {
-    const item = document.getElementById('sn-rohrpost-item');
-    if (item) item.classList.toggle('sn-rohrpost-pending', !!gameState.pendingDrop);
+    // Klassen-Auswahl statt einzelner ID - so wird das Lämpchen sowohl in der kleinen
+    // Aktive-Basis-Vorschau als auch in der vollen Raum-Detailansicht korrekt aktualisiert,
+    // nicht nur in Letzterer.
+    document.querySelectorAll('.item-sn-rohrpost').forEach(item => {
+        item.classList.toggle('sn-rohrpost-pending', !!gameState.pendingDrop);
+    });
 }
 function renderRohrpostStatus() { updateRohrpostVisual(); }
 
@@ -6065,8 +6068,12 @@ window.sendHoloMsg = async function() {
     inp.value = '';
     try {
         const myName = window.agentSlug(currentAgentName);
-        const msgRef = window.collection(window.db, "agenten_funk", holoChannelId, "nachrichten");
-        await window.addDoc(msgRef, { absender: currentAgentName, text: text, zeitstempel: window.serverTimestamp() });
+        // WICHTIG: Reihenfolge vertauscht - erst den Kanal mit "teilnehmer" versehen, DANN die
+        // Nachricht schreiben. Die Sicherheitsregel für /nachrichten prüft per get() die
+        // "teilnehmer" des ÜBERGEORDNETEN Kanal-Dokuments - solange der Platzhalter-Kanal (aus
+        // window.openHoloprojektor) noch KEIN "teilnehmer"-Feld hat, wird jeder Nachrichten-
+        // Schreibversuch abgelehnt. Das war exakt derselbe Fehler, der beim normalen Komm-Link
+        // (window.sendMsgNz) schon einmal behoben wurde, hier aber nie nachgezogen war.
         const channelRef = window.doc(window.db, "agenten_funk", holoChannelId);
         await window.setDoc(channelRef, {
             teilnehmer: [myName, holoAdminSlug],
@@ -6074,13 +6081,16 @@ window.sendHoloMsg = async function() {
             last_ping: Date.now(),
             viaVip: true
         }, { merge: true });
+        const msgRef = window.collection(window.db, "agenten_funk", holoChannelId, "nachrichten");
+        await window.addDoc(msgRef, { absender: currentAgentName, text: text, zeitstempel: window.serverTimestamp() });
         // Kosten erst NACH erfolgreichem Versand abziehen.
         gameState.chronosZellen -= cost;
         updateUI();
         await saveGameState();
     } catch (e) {
-        console.error(e);
-        if (typeof showCustomAlert === 'function') showCustomAlert('Nachricht konnte nicht gesendet werden.');
+        console.error('Holoprojektor-Nachricht fehlgeschlagen:', e);
+        if (inp) inp.value = text; // Getippten Text nicht verlieren, wenn das Senden fehlschlägt
+        if (typeof showCustomAlert === 'function') showCustomAlert('Nachricht konnte nicht gesendet werden: ' + (e && e.message ? e.message : 'unbekannter Fehler'));
     }
 };
 
