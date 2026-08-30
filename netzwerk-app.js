@@ -61,7 +61,17 @@
             window.playerCredits = data.credits || 0;
             window.playerMateriezellen = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
             window.playerLevel = data.lvl || 1;
+            window.istAdminNz = !!data.isAdmin;
         } catch (e) { console.error(e); }
+
+        // Admin-Slug einmalig auflösen - wird gebraucht, um VIP-Holoprojektor-Kanäle mit der
+        // Administration zu erkennen (Sperre für normale Spieler, Kennzeichnung für die
+        // Administration selbst, siehe unten).
+        try {
+            const qAdmin = window.query(window.collection(window.db, "agenten"), window.where("isAdmin", "==", true), window.limit(1));
+            const adminSnap = await window.getDocs(qAdmin);
+            if (!adminSnap.empty) window.adminSlugNz = adminSnap.docs[0].id;
+        } catch (e) { console.error('Admin-Auflösung fehlgeschlagen:', e); }
 
         window.switchNetzwerkTab(currentNetzwerkTab);
         starteKommLinkPulsUeberwachung();
@@ -798,16 +808,22 @@
         function renderKanalListe(docs) {
             const listContainer = document.getElementById('active-chat-list');
             if (!listContainer) return;
-            if (docs.length === 0) {
+            // Normale Spieler sollen die Administration im normalen Komm-Link NIE zu Gesicht
+            // bekommen - Kontakt läuft für sie ausschließlich über den Holoprojektor im
+            // VIP-Raum. Die Administration selbst sieht diese Kanäle ganz normal, aber mit einer
+            // Kennzeichnung, dass sie über den VIP-Raum entstanden sind.
+            const sichtbareDocs = window.istAdminNz ? docs : docs.filter(d => !d.viaVip);
+            if (sichtbareDocs.length === 0) {
                 listContainer.innerHTML = '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
                 return;
             }
             let html = "";
-            docs.forEach(data => {
+            sichtbareDocs.forEach(data => {
                 const other = data.teilnehmer.find(n => n !== mySlug) || mySlug;
                 const style = (data.ungelesen_fuer === mySlug) ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
+                const vipMarker = (window.istAdminNz && data.viaVip) ? ' <span style="color:#ffd700;" title="Über VIP-Raum-Holoprojektor">👑 VIP</span>' : '';
                 html += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
-                    <span style="cursor: pointer; flex-grow: 1; ${style}" onclick="window.openPrivateChatNz('${other}')">> AGENT: ${window.escHtml(other.toUpperCase())}${data.ungelesen_fuer === mySlug ? " [NEUE NACHRICHT]" : ""}</span>
+                    <span style="cursor: pointer; flex-grow: 1; ${style}" onclick="window.openPrivateChatNz('${other}')">> AGENT: ${window.escHtml(other.toUpperCase())}${vipMarker}${data.ungelesen_fuer === mySlug ? " [NEUE NACHRICHT]" : ""}</span>
                     <span style="cursor: pointer; color: #f44; padding: 0 10px;" onclick="window.deleteChatNz('${other}')">🗑️</span>
                 </div>`;
             });
@@ -906,6 +922,18 @@
     window.openPrivateChatNz = function(targetAgentName) {
         const myName = window.agentSlug(window.agentName);
         const targetName = window.agentSlug(targetAgentName);
+
+        // Normale Spieler erreichen die Administration NUR über den Holoprojektor im VIP-Raum,
+        // nie über den normalen Komm-Link - die Administration selbst ist von dieser Sperre
+        // ausgenommen und kann jederzeit normal über Komm-Link schreiben (z.B. um jemanden ohne
+        // VIP-Raum zu kontaktieren).
+        if (!window.istAdminNz && window.adminSlugNz && targetName === window.adminSlugNz) {
+            if (typeof window.zeigeInfo === 'function') {
+                window.zeigeInfo('Die Administration ist über den normalen Komm-Link nicht erreichbar. Schalte den VIP-Raum frei und nutze den Holoprojektor dort.');
+            }
+            return;
+        }
+
         const channelId = [myName, targetName].sort().join("_");
         window.currentChatTarget = targetName;
 

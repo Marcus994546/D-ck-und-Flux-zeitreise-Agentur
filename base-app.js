@@ -6013,8 +6013,12 @@ window.openHoloprojektor = async function() {
     holoChannelId = [myName, adminSlug].sort().join("_");
 
     // Platzhalter-Kanal anlegen, falls noch keine Nachricht existiert (analog zu
-    // window.openPrivateChat im Hauptterminal).
-    window.setDoc(window.doc(window.db, "agenten_funk", holoChannelId), { ungelesen_fuer: "" }, { merge: true });
+    // window.openPrivateChat im Hauptterminal). "viaVip" markiert diesen Kanal als über den
+    // VIP-Raum-Holoprojektor entstanden - so kann die Administration in ihrer eigenen
+    // Komm-Link-Übersicht erkennen, welche Chats über diesen exklusiven Weg liefen, und normale
+    // Spieler erreichen die Administration NUR über diesen Screen, nie über den normalen
+    // Komm-Link (siehe die neuen Sperren in netzwerk-app.js).
+    window.setDoc(window.doc(window.db, "agenten_funk", holoChannelId), { ungelesen_fuer: "", viaVip: true }, { merge: true });
 
     const overlay = document.getElementById('holoprojektor-overlay');
     if (overlay) overlay.style.display = 'flex';
@@ -6067,7 +6071,8 @@ window.sendHoloMsg = async function() {
         await window.setDoc(channelRef, {
             teilnehmer: [myName, holoAdminSlug],
             ungelesen_fuer: holoAdminSlug,
-            last_ping: Date.now()
+            last_ping: Date.now(),
+            viaVip: true
         }, { merge: true });
         // Kosten erst NACH erfolgreichem Versand abziehen.
         gameState.chronosZellen -= cost;

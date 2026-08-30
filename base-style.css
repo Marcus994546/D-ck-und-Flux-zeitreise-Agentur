@@ -1234,7 +1234,7 @@
 
 /* Verschlüsselter Signal-Decoder: kleines Wandpanel mit durchlaufendem Zeichensalat, der sich
    periodisch "entschlüsselt" (Funk-Relais "Horizont"). */
-.item-signal-decoder { width: 76px; height: 40px; position: absolute; z-index: 2; right: 60px; top: 62px; }
+.item-signal-decoder { width: 76px; height: 40px; position: absolute; z-index: 2; right: 60px; top: 38px; }
 .sd-panel { width: 100%; height: 100%; background: #0a1220; border: 1px solid #4af; border-radius: 3px; box-shadow: 0 0 10px rgba(70,170,255,0.4); overflow: hidden; padding: 4px; box-sizing: border-box; font-size: 8px; font-family: monospace; color: #4af; }
 .sd-text { white-space: nowrap; animation: sd-text-glitch 2.6s steps(1) infinite; }
 .sd-text.sd-t2 { color: #0f8; opacity: 0; animation-delay: 1.3s; }
