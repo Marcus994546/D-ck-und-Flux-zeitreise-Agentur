@@ -273,7 +273,7 @@
         modal.style.display = 'flex';
         try {
             const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
-            if (!snap.exists()) {
+            if (!snap.exists() || snap.data().isAdmin) {
                 inhalt.innerHTML = '<p style="color:#f44; text-align:center;">Agent nicht gefunden.</p>';
                 return;
             }
@@ -913,6 +913,7 @@
             const entries = [];
             agentenSnap.forEach(d => {
                 const data = d.data();
+                if (data.isAdmin) return; // Admin soll im Netzwerk komplett unsichtbar sein
                 const snapshot = findSevenDaySnapshot(data.dailyHistory);
                 if (!snapshot) return; // noch keine Historie vorhanden - taucht in der Saison-Liste noch nicht auf
                 const creditsGain = (data.credits || 0) - (snapshot.credits || 0);
