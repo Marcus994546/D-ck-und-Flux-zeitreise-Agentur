@@ -929,14 +929,23 @@
                 html += '<p style="color:#aaa; font-size:0.85em;">Noch keine Saison-Daten vorhanden - schau in ein paar Tagen wieder rein.</p>';
             } else {
                 html += '<div style="max-height:400px; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:0.78em;">';
-                html += '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">#</th><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">+Credits</th><th style="padding:4px;">+Level</th></tr>';
+                html += '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">#</th><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Credits</th><th style="padding:4px;">Level</th></tr>';
                 entries.slice(0, 25).forEach((e, i) => {
                     const isMe = (e.slug === myName);
+                    // WICHTIG: Vorher wurde vor den Wert immer stur ein "+" gesetzt - bei einem
+                    // NEGATIVEN Credits-Zuwachs (Level gestiegen, aber gleichzeitig mehr Credits
+                    // ausgegeben als verdient, z.B. durch Basisausbau) entstand daraus "+-3914",
+                    // was wie ein Plus-Minus-Zeichen aussah. Jetzt nur noch bei tatsächlich
+                    // positiven Werten ein "+" voranstellen, negative Werte zeigen ihr eigenes
+                    // Minuszeichen (zusätzlich rot eingefärbt zur Unterscheidung).
+                    const creditsVorzeichen = e.creditsGain > 0 ? '+' : '';
+                    const creditsFarbe = e.creditsGain < 0 ? 'color:#f66;' : '';
+                    const lvlVorzeichen = e.lvlGain > 0 ? '+' : '';
                     html += '<tr style="' + (isMe ? 'background:rgba(0,255,255,0.15); font-weight:bold;' : '') + ' border-bottom:1px solid rgba(0,255,255,0.15);">' +
                         '<td style="padding:4px;">' + (i + 1) + '</td>' +
                         '<td style="padding:4px; text-align:left;">' + window.escHtml(e.slug) + (isMe ? ' (Du)' : '') + '</td>' +
-                        '<td style="padding:4px;">+' + e.creditsGain.toLocaleString('de-DE') + '</td>' +
-                        '<td style="padding:4px;">+' + e.lvlGain + '</td>' +
+                        '<td style="padding:4px; ' + creditsFarbe + '">' + creditsVorzeichen + e.creditsGain.toLocaleString('de-DE') + '</td>' +
+                        '<td style="padding:4px;">' + lvlVorzeichen + e.lvlGain + '</td>' +
                     '</tr>';
                 });
                 html += '</table></div>';
