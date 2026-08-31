@@ -197,6 +197,34 @@
             const mz = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
             const title = computeBestTitle({ lvl: data.lvl || 1, credits: data.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender });
 
+            // Missions-Statistik-Balken: ein Balken pro Typ, volle Länge = alle jemals gestarteten
+            // Missionen dieses Typs, heller Strich = Anteil davon erfolgreich abgeschlossen. Nutzt
+            // dieselbe Farbzuordnung wie im Hauptterminal (window.missionColors), rein aus
+            // öffentlich sichtbaren Zählerständen auf dem Profil selbst - keine zusätzliche
+            // Abfrage, keine Preisgabe der (privaten) Detail-Historie mit Orten/Zeitstempeln.
+            const missionTypenReihenfolge = ['normal', 'fortgeschritten', 'weit', 'taeglich', 'dual'];
+            const missionLabels = { normal: 'Normal', fortgeschritten: 'Fortgeschritten', weit: 'Weit entfernt', taeglich: 'Täglich', dual: 'Dual-Mission' };
+            const missionFarben = { normal: '#0f8', fortgeschritten: '#ffaa00', weit: '#ff8800', taeglich: '#ffe066', dual: '#b0f' };
+            const missionStats = missionTypenReihenfolge.map(typ => ({
+                typ, label: missionLabels[typ], farbe: missionFarben[typ],
+                gestartet: data['missionen_' + typ + '_gestartet'] || 0,
+                erfolgreich: data['missionen_' + typ + '_erfolgreich'] || 0
+            }));
+            const maxGestartet = Math.max(1, ...missionStats.map(m => m.gestartet));
+            const missionStatsHtml = missionStats.map(m => {
+                const balkenBreite = (m.gestartet / maxGestartet) * 100;
+                const erfolgAnteil = m.gestartet > 0 ? (m.erfolgreich / m.gestartet) * 100 : 0;
+                return `<div style="margin-bottom:8px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.72em; color:#aaa; margin-bottom:2px;">
+                        <span>${m.label}</span><span>${m.erfolgreich} / ${m.gestartet}</span>
+                    </div>
+                    <div style="position:relative; height:10px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
+                        <div style="position:absolute; left:0; top:0; height:100%; width:${balkenBreite}%; background:${m.farbe}; opacity:0.35; border-radius:3px;"></div>
+                        ${m.gestartet > 0 ? `<div style="position:absolute; left:0; top:0; height:100%; width:${(balkenBreite * erfolgAnteil / 100)}%; background:${m.farbe}; border-radius:3px; box-shadow:0 0 6px ${m.farbe};"></div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+
             inhalt.innerHTML =
                 '<h3 style="color:#0ff; margin-top:0; text-shadow:0 0 8px #0ff;">' + window.escHtml(slug) + '</h3>' +
                 (title ? '<div style="opacity:0.85; margin-bottom:10px;">' + title + '</div>' : '') +
@@ -206,7 +234,8 @@
                 '<div>Materiezellen: <b>' + mz + '</b></div>' +
                 '<div>Chronos-Zellen: <b>' + (data.chronoszellen || 0) + '</b></div>' +
                 '<div>Artefakte: <b>' + artifactCount + '/40</b></div>' +
-                '<div>Agenten: <b>' + agentCount + '</b></div>';
+                '<div>Agenten: <b>' + agentCount + '</b></div>' +
+                '<div style="margin-top:14px; text-align:left;"><div style="font-size:0.75em; color:#0ff; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Missionsstatistik</div>' + missionStatsHtml + '</div>';
         } catch (e) {
             console.error(e);
             inhalt.innerHTML = '<p style="color:#f44; text-align:center;">Profil konnte nicht geladen werden.</p>';

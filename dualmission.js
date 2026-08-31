@@ -189,6 +189,13 @@
             const ziel = await sucheOeffentlichenOrt(a.vonLat, a.vonLon);
             if (!ziel) { window.zeigeInfo('Konnte keinen geeigneten öffentlichen Zielort finden. Bitte später erneut versuchen.'); return; }
             await window.setDoc(ref, { status: 'angenommen', zielLat: ziel.lat, zielLng: ziel.lng }, { merge: true });
+            // Öffentlicher Missions-Zähler fürs Profil - für BEIDE Beteiligten, da die Mission
+            // erst ab hier (Einladung tatsächlich angenommen) als "gestartet" zählt, nicht schon
+            // beim bloßen Versenden der Einladung.
+            if (window.increment) {
+                window.setDoc(window.doc(window.db, "agenten", a.von), { missionen_dual_gestartet: window.increment(1) }, { merge: true }).catch(e => console.error(e));
+                window.setDoc(window.doc(window.db, "agenten", a.an), { missionen_dual_gestartet: window.increment(1) }, { merge: true }).catch(e => console.error(e));
+            }
             starteDualMissionNavigation(missionId, { ...a, zielLat: ziel.lat, zielLng: ziel.lng });
         } catch (e) {
             console.error(e);
@@ -376,7 +383,8 @@
             window.playerCredits = (window.playerCredits || 0) + 1500;
             window.playerMateriezellen = (window.playerMateriezellen || 0) + 10;
             await window.setDoc(window.doc(window.db, "agenten", mySlug), {
-                lvl: window.playerLevel, credits: window.playerCredits, materiezellen: window.playerMateriezellen
+                lvl: window.playerLevel, credits: window.playerCredits, materiezellen: window.playerMateriezellen,
+                ...(window.increment ? { missionen_dual_erfolgreich: window.increment(1) } : {})
             }, { merge: true });
 
             const andererSnap = await window.getDoc(window.doc(window.db, "agenten", andererSlug));
@@ -384,7 +392,8 @@
             await window.setDoc(window.doc(window.db, "agenten", andererSlug), {
                 lvl: (andererData.lvl || 1) + 8,
                 credits: (andererData.credits || 0) + 1500,
-                materiezellen: (andererData.materiezellen || 0) + 10
+                materiezellen: (andererData.materiezellen || 0) + 10,
+                ...(window.increment ? { missionen_dual_erfolgreich: window.increment(1) } : {})
             }, { merge: true });
 
             await window.setDoc(ref, { status: 'abgeschlossen' }, { merge: true });

@@ -2590,6 +2590,11 @@ window.f_showDescription = function(withVoice) {
                 lng: gpsTargetLng || null
             }, { merge: true }).catch(e => console.error(e));
             window.currentMissionHistoryId = null;
+            if (window.increment) {
+                window.setDoc(window.doc(window.db, "agenten", window.agentSlug(window.agentName)), {
+                    ['missionen_' + window.currentMissionType + '_erfolgreich']: window.increment(1)
+                }, { merge: true }).catch(e => console.error(e));
+            }
         }
         return rewardResult;
     };
@@ -2781,6 +2786,17 @@ window.f_showDescription = function(withVoice) {
                 startTs: window.serverTimestamp(),
                 status: 'gestartet'
             }).then(ref => { window.currentMissionHistoryId = ref.id; }).catch(e => console.error(e));
+
+            // Öffentlich sichtbarer Missions-Zähler fürs Profil (siehe zeigeSpielerProfil in
+            // netzwerk-app.js) - bewusst NUR ein Zählerstand pro Typ, nicht die komplette
+            // Missionshistorie (die bleibt privat, keine Standort-/Zeitstempel-Details werden
+            // damit öffentlich). Liegt direkt auf dem ohnehin schon öffentlichen agenten-Dokument,
+            // damit der Profil-Aufruf keine zusätzliche Abfrage braucht.
+            if (window.increment) {
+                window.setDoc(window.doc(window.db, "agenten", window.agentSlug(window.agentName)), {
+                    ['missionen_' + window.currentMissionType + '_gestartet']: window.increment(1)
+                }, { merge: true }).catch(e => console.error(e));
+            }
         }
 
         if (!navigator.geolocation) {
