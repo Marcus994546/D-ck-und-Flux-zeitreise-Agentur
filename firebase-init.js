@@ -2,6 +2,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, getDocs, deleteDoc, deleteField, where, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, reauthenticateWithCredential, EmailAuthProvider, deleteUser, updatePassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
@@ -16,6 +17,12 @@
   const app = initializeApp(firebaseConfig);
   window.db = getFirestore(app);
   window.auth = getAuth(app);
+  // Cloud Functions - für serverseitig verifizierte Aktionen (z.B. Missionsbelohnungen), bei
+  // denen der Client dem Server nur noch meldet "das ist passiert", die eigentliche Berechnung
+  // aber ausschließlich serverseitig läuft (siehe functions-index.js: missionAbschliessen,
+  // dualMissionAbschliessen).
+  const functionsInstance = getFunctions(app);
+  window.callFunction = (name, data) => httpsCallable(functionsInstance, name)(data);
   window.fbCreateUser = createUserWithEmailAndPassword;
   window.fbSignIn = signInWithEmailAndPassword;
   window.fbSignOut = signOut;

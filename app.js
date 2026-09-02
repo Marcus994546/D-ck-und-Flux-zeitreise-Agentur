@@ -2498,105 +2498,43 @@ window.f_showDescription = function(withVoice) {
     };
 
     window.applyMissionRewards = async function(type) {
-        const loot = window.missionLootTables[type];
-        if (!loot) return null;
-        let xp = loot.xp, credits = loot.credits, materiezellen = loot.materiezellen;
-        // Resonanz-Kammer: Chance auf verdoppelten Loot (skaliert mit Raum-Level; Credits/MZ/XP -
-        // nicht der "level"-Bonus, der eine separate, deutlich stärkere Belohnung ist).
-        let doubled = false;
-        if (window.passiveRoomEffects && window.passiveRoomEffects.resonanzKammer > 0) {
-            const pct = scaledResonanzPct(window.passiveRoomEffects.resonanzKammer);
-            if (Math.random() * 100 < pct) { xp *= 2; credits *= 2; materiezellen *= 2; doubled = true; }
+        // WICHTIG: Die eigentliche Berechnung passiert jetzt AUSSCHLIESSLICH serverseitig in der
+        // Cloud Function "missionAbschliessen" (siehe functions-index.js) - der Client schickt
+        // nur noch "diese Mission ist fertig" und übernimmt die vom Server zurückgegebenen,
+        // bereits geprüften Beträge für die Anzeige. Vorher wurde die Belohnung komplett im
+        // Browser berechnet und selbst geschrieben - über die Konsole ließe sich das theoretisch
+        // manipulieren, jetzt nicht mehr.
+        if (!window.currentMissionHistoryId) {
+            console.error('Keine Missions-Historie-ID vorhanden - Belohnung kann nicht angefordert werden.');
+            return { xp: 0, credits: 0, materiezellen: 0, levelBonus: 0, doubled: false, quantenLaborAktiv: false, mentorBonusAktiv: false };
         }
-
-        // Mentorenprogramm: aktiver Mentee bekommt +20% auf Credits/MZ/XP dieser Mission. Läuft
-        // hier komplett eigenständig (Netzwerk-Seite lädt dieses Modul nicht), fragt direkt
-        // Firestore nach einer aktiven Mentorschaft, in der man selbst der Mentee ist.
-        let mentorBonusAktiv = false;
-        let mentorshipDoc = null;
-        if (window.db && window.agentName) {
-            try {
-                const mySlug = window.agentSlug(window.agentName);
-                const q = window.query(window.collection(window.db, "mentorships"), window.where('menteeSlug', '==', mySlug), window.where('status', '==', 'aktiv'));
-                const snap = await window.getDocs(q);
-                if (!snap.empty) {
-                    mentorshipDoc = { id: snap.docs[0].id, ...snap.docs[0].data() };
-                    mentorBonusAktiv = true;
-                    xp = Math.round(xp * 1.2);
-                    credits = Math.round(credits * 1.2);
-                    materiezellen = Math.round(materiezellen * 1.2);
-                }
-            } catch (e) { console.error('Mentee-Bonus-Prüfung fehlgeschlagen:', e); }
-        }
-
-        const quantenLaborAktiv = !!(window.passiveRoomEffects && window.passiveRoomEffects.quantenLabor > 0 && xp > 0);
-        if (xp > 0 && typeof window.updateXP === 'function') window.updateXP(xp);
-        if (loot.level > 0) {
-            window.playerLevel += loot.level;
-            window.updateUI();
-        }
-        if (credits > 0) window.playerCredits += credits;
-        if (materiezellen > 0) window.playerMateriezellen += materiezellen;
-        window.updateUI();
-        // WICHTIG: hier bewusst EINMAL gewartet (statt wie zuvor nur "fire and forget") - direkt
-        // danach ruft completeExtraction() f_start() auf, das seinerseits loadProgress() (also
-        // einen Firestore-READ) auslöst. Ohne dieses await konnte der nachfolgende Lesevorgang
-        // schneller sein als der Schreibvorgang hier und die gerade gutgeschriebene Belohnung
-        // wieder mit dem alten Server-Stand überschreiben - der vermutete Ursprung dafür, dass
-        // Belohnungen manchmal scheinbar "verschwunden" sind.
-        await window.saveProgress();
-
-        // Mentor-Trickle-Belohnung + Graduierungs-Check, NACH dem eigenen saveProgress, damit die
-        // eigene Belohnung sicher zuerst steht.
-        if (mentorshipDoc) {
-            try {
-                await window.setDoc(window.doc(window.db, "mentorships", mentorshipDoc.id), {
-                    missionsAbgeschlossen: (mentorshipDoc.missionsAbgeschlossen || 0) + 1
-                }, { merge: true });
-                const mentorRef = window.doc(window.db, "agenten", mentorshipDoc.mentorSlug);
-                const mentorSnap = await window.getDoc(mentorRef);
-                const mentorCredits = mentorSnap.exists() ? (mentorSnap.data().credits || 0) : 0;
-                await window.setDoc(mentorRef, { credits: mentorCredits + 20 }, { merge: true });
-
-                // Graduierung: 30 Tage vergangen ODER Mentee hat Level 10 erreicht.
-                const tageVergangen = (Date.now() - (mentorshipDoc.erstelltAm || Date.now())) / 86400000;
-                if (tageVergangen >= 30 || window.playerLevel >= 10) {
-                    await window.setDoc(window.doc(window.db, "mentorships", mentorshipDoc.id), { status: 'graduiert' }, { merge: true });
-                    window.playerCredits += 300;
-                    await window.saveProgress();
-                    const mentorSnap2 = await window.getDoc(mentorRef);
-                    const mentorCredits2 = mentorSnap2.exists() ? (mentorSnap2.data().credits || 0) : 0;
-                    await window.setDoc(mentorRef, { credits: mentorCredits2 + 800 }, { merge: true });
-                    if (typeof window.logEreignis === 'function') window.logEreignis('Mentorschaft erfolgreich abgeschlossen (graduiert) - Abschlussbonus erhalten.');
-                }
-            } catch (e) { console.error('Mentor-Belohnung/Graduierung fehlgeschlagen:', e); }
-        }
-
-        const rewardResult = {
-            xp: xp > 0 ? Math.round(xp) : 0,
-            credits: credits,
-            materiezellen: materiezellen,
-            levelBonus: loot.level > 0 ? loot.level : 0,
-            doubled: doubled,
-            quantenLaborAktiv: quantenLaborAktiv,
-            mentorBonusAktiv: mentorBonusAktiv
-        };
-        if (window.db && window.agentName && window.currentMissionHistoryId) {
-            window.setDoc(window.doc(window.db, "protokolle", window.agentSlug(window.agentName), "missionsverlauf", window.currentMissionHistoryId), {
-                status: 'abgeschlossen',
-                endTs: window.serverTimestamp(),
-                belohnung: { credits: rewardResult.credits, materiezellen: rewardResult.materiezellen, xp: rewardResult.xp, levelBonus: rewardResult.levelBonus },
+        try {
+            const result = await window.callFunction('missionAbschliessen', {
+                missionHistoryId: window.currentMissionHistoryId,
+                missionType: type,
                 lat: gpsTargetLat || null,
                 lng: gpsTargetLng || null
-            }, { merge: true }).catch(e => console.error(e));
+            });
+            const r = result.data;
             window.currentMissionHistoryId = null;
-            if (window.increment) {
-                window.setDoc(window.doc(window.db, "agenten", window.agentSlug(window.agentName)), {
-                    ['missionen_' + window.currentMissionType + '_erfolgreich']: window.increment(1)
-                }, { merge: true }).catch(e => console.error(e));
-            }
+
+            if (r.xp > 0) { window.playerXP += r.xp; while (window.playerXP >= 100) { window.playerLevel++; window.playerXP -= 100; } }
+            window.playerLevel += r.levelBonus;
+            window.playerCredits += r.credits;
+            window.playerMateriezellen += r.materiezellen;
+            window.updateUI();
+
+            return {
+                xp: r.xp, credits: r.credits, materiezellen: r.materiezellen,
+                levelBonus: r.levelBonus, doubled: r.doubled,
+                quantenLaborAktiv: r.quantenLaborAktiv, mentorBonusAktiv: r.mentorBonusAktiv
+            };
+        } catch (e) {
+            console.error('Missionsbelohnung fehlgeschlagen:', e);
+            window.currentMissionHistoryId = null;
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Belohnung konnte nicht verarbeitet werden: ' + (e && e.message ? e.message : 'unbekannter Fehler'));
+            return { xp: 0, credits: 0, materiezellen: 0, levelBonus: 0, doubled: false, quantenLaborAktiv: false, mentorBonusAktiv: false };
         }
-        return rewardResult;
     };
 
     // Zeigt nach einer abgeschlossenen Mission ein Popup mit der tatsächlich gutgeschriebenen
@@ -3556,9 +3494,13 @@ window.f_showDescription = function(withVoice) {
                 window.activeDualMissionId = null;
                 window.f_start();
             } else {
+                // WICHTIG: Die Cloud Function "missionAbschliessen" setzt bei "taeglich" den
+                // Status der täglichen Anomalie bereits selbst serverseitig mit - ein separater
+                // Client-Aufruf hier würde denselben Serverstand redundant und ungeprüft
+                // überschreiben, genau das sollte diese ganze Umstellung ja verhindern.
                 const rewardResult = await window.applyMissionRewards(window.currentMissionType);
-                if (window.currentMissionType === 'taeglich' && typeof window.taeglicheAnomalieAbgeschlossen === 'function') {
-                    await window.taeglicheAnomalieAbgeschlossen();
+                if (window.currentMissionType === 'taeglich' && typeof window.renderTaeglicheAnomalieEintrag === 'function') {
+                    window.renderTaeglicheAnomalieEintrag();
                 }
                 window.f_start();
                 showMissionRewardPopup(rewardResult);

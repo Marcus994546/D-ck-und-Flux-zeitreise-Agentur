@@ -379,31 +379,24 @@
             const a = snap.data();
             const andererSlug = (a.von === mySlug) ? a.an : a.von;
 
-            window.playerLevel = (window.playerLevel || 1) + 8;
-            window.playerCredits = (window.playerCredits || 0) + 1500;
-            window.playerMateriezellen = (window.playerMateriezellen || 0) + 10;
-            await window.setDoc(window.doc(window.db, "agenten", mySlug), {
-                lvl: window.playerLevel, credits: window.playerCredits, materiezellen: window.playerMateriezellen,
-                ...(window.increment ? { missionen_dual_erfolgreich: window.increment(1) } : {})
-            }, { merge: true });
+            // WICHTIG: Beide Belohnungen (eigene UND die des anderen Teilnehmers) werden jetzt
+            // ausschließlich serverseitig in einer einzigen atomaren Transaktion vergeben (siehe
+            // functions-index.js: dualMissionAbschliessen) - vorher hat der Client direkt in
+            // BEIDE Konten geschrieben, was theoretisch über die Konsole manipulierbar war.
+            const result = await window.callFunction('dualMissionAbschliessen', { missionId });
+            const r = result.data;
+            window.playerLevel = (window.playerLevel || 1) + r.levelBonus;
+            window.playerCredits = (window.playerCredits || 0) + r.credits;
+            window.playerMateriezellen = (window.playerMateriezellen || 0) + r.materiezellen;
+            window.updateUI();
 
-            const andererSnap = await window.getDoc(window.doc(window.db, "agenten", andererSlug));
-            const andererData = andererSnap.exists() ? andererSnap.data() : {};
-            await window.setDoc(window.doc(window.db, "agenten", andererSlug), {
-                lvl: (andererData.lvl || 1) + 8,
-                credits: (andererData.credits || 0) + 1500,
-                materiezellen: (andererData.materiezellen || 0) + 10,
-                ...(window.increment ? { missionen_dual_erfolgreich: window.increment(1) } : {})
-            }, { merge: true });
-
-            await window.setDoc(ref, { status: 'abgeschlossen' }, { merge: true });
             if (typeof window.vibriere === 'function') window.vibriere([60, 40, 60, 40, 120]);
 
             const el = document.createElement('div');
             el.className = 'top-level';
             el.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; background:rgba(20,0,25,0.96); color:#e0c0ff; border:1px solid #b0f; box-shadow:0 0 20px rgba(187,0,255,0.5); padding:14px 22px; border-radius:6px; font-family:monospace; font-size:0.85em; text-align:center; max-width:90vw;';
             el.innerHTML = '<div><b>🎉 DUAL-MISSION ABGESCHLOSSEN!</b></div>' +
-                '<div style="margin-top:4px;">+8 Level, +10 Materiezellen, +1.500 Credits</div>' +
+                '<div style="margin-top:4px;">+' + r.levelBonus + ' Level, +' + r.materiezellen + ' Materiezellen, +' + r.credits.toLocaleString('de-DE') + ' Credits</div>' +
                 '<button id="dual-mission-share-btn" style="margin-top:8px; width:100%; background:none; border:1px solid #b0f; color:#b0f; padding:6px; border-radius:4px; cursor:pointer; font-family:monospace;">📤 KARTE ÖFFNEN</button>';
             document.body.appendChild(el);
             const shareBtn = el.querySelector('#dual-mission-share-btn');
@@ -415,7 +408,7 @@
                         untertitel: 'Gemeinsam mit ' + andererSlug + ' abgeschlossen',
                         icon: '🤝',
                         agentName: window.agentName,
-                        belohnungZeilen: ['1.500 Credits', '10 Materiezellen', '+8 Level'],
+                        belohnungZeilen: [r.credits.toLocaleString('de-DE') + ' Credits', r.materiezellen + ' Materiezellen', '+' + r.levelBonus + ' Level'],
                         lat: a.zielLat || null,
                         lng: a.zielLng || null,
                         dateiname: 'dual-mission-erfolg'
