@@ -2,6 +2,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
@@ -16,6 +17,10 @@
   const app = initializeApp(firebaseConfig);
   window.db = getFirestore(app);
   window.auth = getAuth(app);
+  // Cloud Functions - für serverseitig verifizierte Aktionen (z.B. Sammelsystem-Einsammeln),
+  // gleiches Muster wie in firebase-init.js (Hauptterminal).
+  const functionsInstance = getFunctions(app);
+  window.callFunction = (name, data) => httpsCallable(functionsInstance, name)(data);
   window.doc = doc;
   window.setDoc = setDoc;
   window.getDoc = getDoc;

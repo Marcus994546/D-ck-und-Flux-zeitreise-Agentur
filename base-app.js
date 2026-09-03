@@ -1559,26 +1559,32 @@
     window.belohnungEinsammeln = async function() {
         const p = gameState.pendingRewards || { credits: 0, materiezellen: 0, chronoszellen: 0 };
         if (p.credits <= 0 && p.materiezellen <= 0 && p.chronoszellen <= 0) return;
-        const eingesammelt = { credits: p.credits, materiezellen: p.materiezellen, chronoszellen: p.chronoszellen };
-        gameState.credits += p.credits;
-        gameState.materieZellen += p.materiezellen;
-        gameState.chronosZellen += p.chronoszellen;
+        // WICHTIG: Statt den behaupteten Betrag direkt selbst zu schreiben, meldet der Client
+        // jetzt nur noch "ich will einsammeln" - die Cloud Function "sammelBelohnungEinsammeln"
+        // prüft serverseitig, ob der Betrag zur vergangenen Zeit und Agentenzahl plausibel ist,
+        // und kappt ihn sonst. Das ist (bewusst, siehe Kommentar in functions-index.js) keine
+        // exakte Nachrechnung wie bei den Missionen, aber verhindert groben Missbrauch.
+        let ergebnis;
+        try {
+            const result = await window.callFunction('sammelBelohnungEinsammeln', {});
+            ergebnis = result.data;
+        } catch (e) {
+            console.error('Sammelsystem-Einsammeln fehlgeschlagen:', e);
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Belohnung konnte nicht eingesammelt werden: ' + (e && e.message ? e.message : 'unbekannter Fehler'));
+            return;
+        }
+        gameState.credits += ergebnis.credits;
+        gameState.materieZellen += ergebnis.materiezellen;
+        gameState.chronosZellen += ergebnis.chronoszellen;
         gameState.pendingRewards = { credits: 0, materiezellen: 0, chronoszellen: 0 };
         updateUI();
-        await saveGameState();
         const teile = [];
-        if (eingesammelt.credits > 0) teile.push(eingesammelt.credits + ' Credits');
-        if (eingesammelt.materiezellen > 0) teile.push(eingesammelt.materiezellen + ' Materiezellen');
-        if (eingesammelt.chronoszellen > 0) teile.push(eingesammelt.chronoszellen + ' Chronos-Zellen');
-        // WICHTIG: der Protokoll-Eintrag wird jetzt VOR den restlichen (nicht-kritischen)
-        // Folgeaktionen abgewartet (await), nicht mehr nur "fire and forget" nebenbei
-        // angestoßen. Vorher bestand ein reales Zeitfenster, in dem ein Spieler direkt nach dem
-        // Klick zu einer anderen Seite wechseln konnte, während der Firestore-Schreibvorgang
-        // noch lief - dabei konnte der Eintrag verloren gehen, ohne dass irgendetwas davon
-        // sichtbar war.
+        if (ergebnis.credits > 0) teile.push(ergebnis.credits + ' Credits');
+        if (ergebnis.materiezellen > 0) teile.push(ergebnis.materiezellen + ' Materiezellen');
+        if (ergebnis.chronoszellen > 0) teile.push(ergebnis.chronoszellen + ' Chronos-Zellen');
         if (typeof window.logEreignis === 'function') {
             try {
-                await window.logEreignis('Belohnung eingesammelt: ' + teile.join(', ') + '.');
+                await window.logEreignis('Belohnung eingesammelt: ' + teile.join(', ') + (ergebnis.gekappt ? ' (auf plausiblen Höchstwert begrenzt)' : '') + '.');
             } catch (e) {
                 console.error('Protokoll-Eintrag beim Einsammeln fehlgeschlagen:', e);
             }
