@@ -183,6 +183,7 @@
   import {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBPnK30ra0r8pDMOhgRsiY6jSWCbJlt2t4",
@@ -197,6 +198,8 @@
   const app = initializeApp(firebaseConfig);
   window.db = getFirestore(app);
   window.auth = getAuth(app);
+  const functionsInstance = getFunctions(app);
+  window.callFunction = (name, data) => httpsCallable(functionsInstance, name)(data);
 
   window.fbSignIn = signInWithEmailAndPassword;
   window.fbSignOut = signOut;
@@ -344,6 +347,13 @@
       saveBtn.onclick = () => saveRow(a.id, tr);
       btnWrap.appendChild(saveBtn);
 
+      const pwBtn = document.createElement('button');
+      pwBtn.className = 'row-btn';
+      pwBtn.textContent = '🔑';
+      pwBtn.title = 'Passwort zurücksetzen';
+      pwBtn.onclick = () => resetAgentPassword(a.id);
+      btnWrap.appendChild(pwBtn);
+
       const delBtn = document.createElement('button');
       delBtn.className = 'row-btn btn-crit';
       delBtn.textContent = '🗑';
@@ -358,17 +368,28 @@
     });
   }
 
-  window.deleteAgentRow = async function(agentId) {
-    if (!confirm('Profil "' + agentId + '" wirklich löschen? Credits, Level, Basis und alle Räume/Möbel gehen dabei unwiderruflich verloren.\n\nHinweis: Der Login-Zugang (Firebase-Auth-Account) bleibt bestehen, das kann aus dem Browser heraus nicht entfernt werden - meldet sich die Person erneut an, startet sie mit einem leeren Profil neu, wie bei einer Erstregistrierung.')) return;
+  window.resetAgentPassword = async function(agentId) {
+    const neuesPasswort = prompt('Neues Passwort für "' + agentId + '" (mind. 6 Zeichen):');
+    if (!neuesPasswort) return;
+    if (neuesPasswort.length < 6) { alert('Das Passwort muss mindestens 6 Zeichen lang sein.'); return; }
     try {
-      await window.deleteDoc(window.doc(window.db, "agenten", agentId));
-      try { await window.deleteDoc(window.doc(window.db, "Agent - Base", agentId)); } catch(e) {}
+      await window.callFunction('adminResetPassword', { targetAgentName: agentId, newPassword: neuesPasswort });
+      alert('Passwort für "' + agentId + '" wurde zurückgesetzt.');
+    } catch (e) {
+      alert('Zurücksetzen fehlgeschlagen für ' + agentId + ': ' + (e && e.message ? e.message : e));
+    }
+  };
+
+  window.deleteAgentRow = async function(agentId) {
+    if (!confirm('Profil "' + agentId + '" wirklich löschen? Credits, Level, Basis und alle Räume/Möbel sowie der Login-Zugang selbst gehen dabei unwiderruflich verloren.')) return;
+    try {
+      await window.callFunction('adminDeleteAgent', { targetAgentName: agentId });
       agentsCache = agentsCache.filter(a => a.id !== agentId);
       delete baseCache[agentId];
       renderTable();
       plotMap();
     } catch (e) {
-      alert('Löschen fehlgeschlagen für ' + agentId + ': ' + e.message);
+      alert('Löschen fehlgeschlagen für ' + agentId + ': ' + (e && e.message ? e.message : e));
     }
   };
 
