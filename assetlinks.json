@@ -1,12 +1,8 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "PLATZHALTER_PAKETNAME_HIER_EINTRAGEN",
-      "sha256_cert_fingerprints": [
-        "PLATZHALTER_SHA256_FINGERABDRUCK_HIER_EINTRAGEN"
-      ]
-    }
-  }
-]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.dueck.flux.zeitreiseagentur",
+        "sha256_cert_fingerprints": ["F8:0D:E4:E7:A0:B4:66:EF:E5:E2:8A:14:2A:19:B6:05:C3:A4:58:6D:D3:BA:5D:00:B9:26:3F:31:84:7C:B0:0C"]
+      }
+    }]
