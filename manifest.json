@@ -3,6 +3,7 @@
   "short_name": "Zeitreise-Agentur",
   "description": "Browserbasiertes Zeitreise-Agentur-Spiel mit Standort-Missionen, Basisausbau und Agentensystem.",
   "start_url": "./index.html",
+  "id": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
