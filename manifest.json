@@ -35,5 +35,28 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tägliche Zeitanomalie",
+      "short_name": "Tägliche Anomalie",
+      "description": "Direkt zur heutigen Zeitanomalie springen",
+      "url": "./index.html?shortcut=taeglich",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Aktive Basis",
+      "short_name": "Basis",
+      "description": "Direkt zur Agentur-Basis springen",
+      "url": "./base.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Komm-Link",
+      "short_name": "Komm-Link",
+      "description": "Direkt zum Netzwerk-Chat springen",
+      "url": "./netzwerk.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }

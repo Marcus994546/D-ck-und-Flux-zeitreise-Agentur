@@ -1338,6 +1338,14 @@ window.startGlobalNotification = function() {
             clearInterval(matrixInterval);
             startupLayer.style.display = "none";
             window.f_start();
+
+            // App-Verknüpfung (Manifest-Shortcut) "Tägliche Zeitanomalie": öffnet direkt das
+            // Missionsmenü, das den Tages-Anomalie-Button (inkl. aktuellem Streak) ohnehin schon
+            // selbst rendert - kein Grund, dessen Aufbau-Logik hier zu duplizieren.
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('shortcut') === 'taeglich' && typeof window.showMissionMenu === 'function') {
+                window.showMissionMenu();
+            }
             return;
         }
 
