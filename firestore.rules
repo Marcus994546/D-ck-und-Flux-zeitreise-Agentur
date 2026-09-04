@@ -1,0 +1,443 @@
+rules_version = '2';
+
+// ============================================================================
+// Dück & Flux Zeitreiseagentur – Firestore Security Rules
+// ============================================================================
+// WICHTIG: Diese Datei ersetzt NICHT den Code in index.html/base.html/admin.html.
+// Sie muss zusätzlich in der Firebase-Konsole hinterlegt werden:
+// Firebase Console -> Firestore Database -> Regeln -> Inhalt einfügen -> Veröffentlichen.
+// Ohne diese Regeln ist der clientseitige Code allein KEIN echter Schutz, da jeder über
+// die Browser-Konsole oder die REST-API direkt mit dem Firestore-SDK sprechen kann.
+//
+// GRENZEN DIESES ANSATZES (bitte lesen):
+// Security Rules können Feld-für-Feld-Schreibrechte einschränken (z.B. "isAdmin darf sich
+// nie ändern", "xp darf pro Schreibvorgang nur um max. X steigen"). Sie können aber NICHT
+// prüfen, ob eine bestimmte Mission tatsächlich absolviert wurde – das erfordert serverseitige
+// Logik über Cloud Functions (Firebase Blaze-Tarif nötig). Diese Regeln verhindern also die
+// offensichtlichsten Cheats (z.B. "setze xp auf 999999"), aber ein sehr hartnäckiger Nutzer
+// könnte theoretisch weiterhin in kleinen, plausiblen Schritten schummeln. Für 100%ige
+// serverseitige Autorität wird eine Cloud Function empfohlen (siehe README.md).
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Hilfsfunktionen ----
+    // WICHTIG: Diese Funktionen müssen HIER (innerhalb von "match /databases/{database}/documents")
+    // stehen, nicht außerhalb der service-Deklaration - nur hier ist die Variable $(database) aus
+    // dem umgebenden match-Pfad überhaupt im Gültigkeitsbereich. Das war der Bug in der vorherigen
+    // Version: isAdminUser() stand außerhalb, $(database) war dort unbekannt, jede Auswertung von
+    // isAdminUser() ist dadurch stillschweigend fehlgeschlagen (= false), unabhängig vom Inhalt der
+    // Datenbank. Das erklärt "Missing or insufficient permissions" trotz korrekt gesetztem isAdmin.
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Leitet die Agenten-ID (= Firestore-Dokument-ID) aus der synthetischen Auth-E-Mail ab,
+    // z.B. "admin_d_ck_994645@agenten.flux-terminal.local" -> "admin_d_ck_994645".
+    // FUNKTIONIERT NUR NOCH für alte Konten mit dieser erfundenen Adresse - dient hier nur noch
+    // als Rückwärtskompatibilitäts-Fallback (siehe isOwner() weiter unten).
+    function callerAgentId() {
+      return (isSignedIn() && request.auth.token.email != null)
+        ? request.auth.token.email.lower().split('@')[0]
+        : '';
+    }
+
+    // Kalendertag-Index (Tage seit dem 1.1.1970), genähert an deutsche Zeit (UTC+1/CET) - für
+    // Sperren, die "um Mitternacht" zurückgesetzt werden sollen, statt starr "24 Stunden nach der
+    // letzten Aktion". Firestore-Regeln kennen keine echte Zeitzonen-Umrechnung inkl. Sommerzeit,
+    // daher bewusst eine feste 1-Stunden-Näherung - im Sommer (Sommerzeit, UTC+2) liegt der
+    // tatsächliche Reset-Zeitpunkt dadurch etwa eine Stunde neben echter deutscher Mitternacht,
+    // was für diesen Zweck (Handelsangebote-Tageslimit) unerheblich ist.
+    function tagIndex(millis) {
+      return int((millis + 3600000) / 86400000);
+    }
+
+    // Der eigentliche, verlässliche Besitznachweis ist das Feld "ownerUid" im Agenten-Dokument
+    // selbst, gesetzt bei der Registrierung (bzw. nachträglich beim Login für alte Konten) auf
+    // die Firebase-Auth-UID - ein stabiler, von der (synthetischen) E-Mail-Adresse unabhängiger
+    // Identifikator. callerAgentId() bleibt als reiner Rückwärtskompatibilitäts-Fallback für
+    // Alt-Konten ohne ownerUid-Feld bestehen.
+    function isOwnerByUid(agentId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/agenten/$(agentId))
+        && get(/databases/$(database)/documents/agenten/$(agentId)).data.get('ownerUid', '') == request.auth.uid;
+    }
+
+    // True, wenn der angemeldete Nutzer der Besitzer von agentId ist - entweder über die neue,
+    // robuste UID-Prüfung, oder (nur für alte Konten ohne ownerUid-Feld) über den alten
+    // E-Mail-Präfix-Abgleich.
+    function isOwner(agentId) {
+      return isSignedIn() && (callerAgentId() == agentId || isOwnerByUid(agentId));
+    }
+
+    // True, wenn der aufrufende Nutzer laut SEINEM EIGENEN Firestore-Dokument isAdmin=true hat.
+    // Das isAdmin-Feld kann - siehe unten - von Clients nie selbst gesetzt werden, sondern nur
+    // manuell über die Firebase-Konsole. Diese Funktion ist die serverseitige Grundlage für den
+    // Admin-Dashboard-Vollzugriff.
+    function isAdminUser() {
+      let cid = callerAgentId();
+      return isSignedIn() && cid != '' &&
+             exists(/databases/$(database)/documents/agenten/$(cid)) &&
+             get(/databases/$(database)/documents/agenten/$(cid)).data.isAdmin == true;
+    }
+
+    // True, wenn der aufrufende Nutzer laut der "teilnehmer"-Liste (zwei Agenten-Slugs) eines
+    // Chat-Kanals selbst einer dieser beiden Teilnehmer ist. Prüft sowohl den alten
+    // E-Mail-Präfix-Abgleich als auch (robuster) den ownerUid-Abgleich auf den jeweiligen
+    // Agenten-Dokumenten - analog zu isOwner() weiter oben.
+    function isChannelParticipant(teilnehmer) {
+      return isSignedIn() && teilnehmer is list &&
+             (callerAgentId() in teilnehmer ||
+              (teilnehmer.size() > 0 && isOwnerByUid(teilnehmer[0])) ||
+              (teilnehmer.size() > 1 && isOwnerByUid(teilnehmer[1])));
+    }
+
+    // WICHTIG: Firestore lehnt Listen-Abfragen grundsätzlich ab, wenn die Regel dafür get()/exists()
+    // auf einen Pfad ausführt, der aus den Dokumentdaten selbst abgeleitet wird. Deshalb nutzt die
+    // "list"-Regel bei /agenten_funk weiter unten bewusst einen komplett get()-freien Ausdruck.
+    // --- Agenten-Profile (xp, lvl, credits, materiezellen, isAdmin, registered) ---
+    match /agenten/{agentId} {
+      allow read: if isSignedIn();
+
+      allow create: if isAdminUser()
+                    || (isSignedIn()
+                        && request.resource.data.isAdmin == false
+                        && !('pass' in request.resource.data) // altes base64-Passwortfeld darf nie neu angelegt werden
+                        && (callerAgentId() == agentId || request.resource.data.get('ownerUid', '') == request.auth.uid));
+
+      allow update: if isAdminUser() // Admin-Dashboard: voller Zugriff, keine Deltas-Obergrenze
+                    || (isOwner(agentId)
+                        // isAdmin darf ein normaler Client NIEMALS selbst setzen/ändern.
+                        && request.resource.data.isAdmin == resource.data.isAdmin
+                        // xp/lvl dürfen sich pro Schreibvorgang nur in einem plausiblen Rahmen ändern.
+                        && (!('xp' in request.resource.data) ||
+                            (request.resource.data.xp is int &&
+                             request.resource.data.xp >= 0 &&
+                             request.resource.data.xp <= 100))
+                        && (!('lvl' in request.resource.data) ||
+                            (request.resource.data.lvl is int &&
+                             request.resource.data.lvl >= (resource.data.lvl != null ? resource.data.lvl : 1) &&
+                             request.resource.data.lvl <= (resource.data.lvl != null ? resource.data.lvl : 1) + 3))
+                        // Öffentlicher, frei editierbarer Profiltext (siehe renderMeinProfil in
+                        // netzwerk-app.js) - Längenbegrenzung serverseitig durchgesetzt, nicht nur
+                        // im Client (das <textarea maxlength> lässt sich umgehen).
+                        && (!('bioText' in request.resource.data) ||
+                            (request.resource.data.bioText is string && request.resource.data.bioText.size() <= 150))
+                        // Credits/Materiezellen sind seit der Daten-Fusion hier kanonisch (vorher
+                        // in "Agent - Base"). Kein Delta-Limit (wie zuvor dort auch), nur ein
+                        // simpler Sanity-Check gegen Müllwerte.
+                        && (!('credits' in request.resource.data) || request.resource.data.credits is number)
+                        && (!('materiezellen' in request.resource.data) || request.resource.data.materiezellen is number))
+                    // Handelsangebote (jetzt über den Komm-Link ausgelöst, nicht mehr an eine
+                    // Allianz gebunden): ein Spieler darf einem ANDEREN Spieler, mit dem
+                    // mindestens ein Funk-Kanal existiert (agenten_funk), eine kleine Menge
+                    // Ressourcen gutschreiben - ausschließlich additiv (nie verringern), auf
+                    // einen kleinen Betrag pro Schreibvorgang begrenzt, und es dürfen dabei
+                    // ausschließlich diese drei Felder betroffen sein. Der Abzug beim Absender
+                    // läuft separat über dessen eigenes isOwner().
+                    || (isSignedIn()
+                        && agentId != callerAgentId()
+                        && exists(/databases/$(database)/documents/agenten_funk/$(callerAgentId() < agentId ? callerAgentId() + '_' + agentId : agentId + '_' + callerAgentId()))
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits', 'materiezellen', 'chronoszellen'])
+                        && request.resource.data.get('credits', 0) - resource.data.get('credits', 0) >= 0
+                        && request.resource.data.get('credits', 0) - resource.data.get('credits', 0) <= 1000
+                        && request.resource.data.get('materiezellen', 0) - resource.data.get('materiezellen', 0) >= 0
+                        && request.resource.data.get('materiezellen', 0) - resource.data.get('materiezellen', 0) <= 5
+                        && request.resource.data.get('chronoszellen', 0) - resource.data.get('chronoszellen', 0) >= 0
+                        && request.resource.data.get('chronoszellen', 0) - resource.data.get('chronoszellen', 0) <= 2)
+                    // Dual-Mission-Belohnung: EXAKT der fest definierte Betrag (+1500 Credits,
+                    // +10 Materiezellen, +8 Level), sonst nichts - keine Cloud Functions verfügbar,
+                    // daher bewusst auf einen exakten, nicht verhandelbaren Betrag begrenzt statt
+                    // eines Deltas mit Obergrenze (kleineres Missbrauchsfenster als ein Bereich).
+                    // "missionen_dual_erfolgreich" ist der öffentliche Profil-Zähler (siehe
+                    // zeigeSpielerProfil) - ebenfalls exakt +1 pro Schreibvorgang, gleiches Prinzip.
+                    || (isSignedIn()
+                        && agentId != callerAgentId()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits', 'materiezellen', 'lvl', 'missionen_dual_erfolgreich'])
+                        && request.resource.data.get('credits', 0) - resource.data.get('credits', 0) == 1500
+                        && request.resource.data.get('materiezellen', 0) - resource.data.get('materiezellen', 0) == 10
+                        && request.resource.data.get('lvl', 0) - resource.data.get('lvl', 0) == 8
+                        && (!('missionen_dual_erfolgreich' in request.resource.data.diff(resource.data).affectedKeys())
+                            || request.resource.data.get('missionen_dual_erfolgreich', 0) - resource.data.get('missionen_dual_erfolgreich', 0) == 1))
+                    // Mentorenprogramm: Mentor-Trickle-Belohnung pro abgeschlossener Mission des
+                    // Mentees, plus die größere Abschluss-("Graduierungs")-Belohnung - beide
+                    // laufen über dieselbe, mit einer Obergrenze pro Schreibvorgang begrenzte
+                    // additive Gutschrift, nur wenn eine aktive Mentorschaft zwischen den beiden
+                    // tatsächlich existiert (deterministische Dokument-ID, siehe /mentorships).
+                    || (isSignedIn()
+                        && agentId != callerAgentId()
+                        && (exists(/databases/$(database)/documents/mentorships/$(agentId + '_' + callerAgentId()))
+                            || exists(/databases/$(database)/documents/mentorships/$(callerAgentId() + '_' + agentId)))
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits', 'materiezellen'])
+                        && request.resource.data.get('credits', 0) - resource.data.get('credits', 0) >= 0
+                        && request.resource.data.get('credits', 0) - resource.data.get('credits', 0) <= 1000
+                        && request.resource.data.get('materiezellen', 0) - resource.data.get('materiezellen', 0) >= 0
+                        && request.resource.data.get('materiezellen', 0) - resource.data.get('materiezellen', 0) <= 10);
+
+      allow delete: if isOwner(agentId) || isAdminUser();
+    }
+
+    // --- Agentur-Basis (Räume/Inventar) & Legacy-Sammlung ---
+    // HINWEIS: Diese beiden Sammlungsnamen enthalten ein Leerzeichen ("Agent - Base",
+    // "SLAs Agent"). Fest als Pfadsegment geschrieben (z.B. "match /Agent - Base/{id}")
+    // verwechselt der Regel-Parser " - " mit einem Minus-Operator -> Syntaxfehler. Deshalb wird
+    // der Sammlungsname hier als Platzhalter eingefangen und per String-Vergleich geprüft.
+    // WICHTIG: Diese Namen müssen exakt - inklusive Leerzeichen - mit den Namen übereinstimmen,
+    // die im App-Code verwendet werden (base-app.js: window.doc(window.db, "Agent - Base", ...)
+    // bzw. "SLAs Agent"). NICHT verändern/Leerzeichen entfernen, sonst greifen die Regeln nicht
+    // mehr auf die tatsächlich genutzten Sammlungen und alles fällt auf "allow ...: if false;" zurück.
+    match /{coll}/{agentId} {
+      allow read: if isSignedIn() && (coll == 'Agent - Base' || coll == 'SLAs Agent');
+
+      allow write: if (coll == 'Agent - Base' && (isOwner(agentId) || isAdminUser()))
+                   || (coll == 'SLAs Agent' && isOwner(agentId)
+                       && (!('lvl' in request.resource.data) ||
+                           (request.resource.data.lvl is int && request.resource.data.lvl >= 1)));
+    }
+
+    // --- Funk / Chat ---
+    // WICHTIG: Nur die beiden tatsächlichen Teilnehmer eines Kanals (siehe "teilnehmer"-Feld)
+    // dürfen lesen/schreiben - vorher konnte JEDER eingeloggte Agent über die Firebase-SDK/
+    // REST-API direkt jeden fremden privaten Chat mitlesen, unabhängig davon, was die
+    // Oberfläche anzeigt hat. Admins behalten zusätzlich Lesezugriff fürs Admin-Dashboard.
+    match /agenten_funk/{channelId} {
+      // WICHTIG: "read" bewusst in "get" (Einzeldokument) und "list" (Listen-Abfrage wie die
+      // "gespeicherten Kanäle"-Übersicht) aufgeteilt. Nach mehreren Anläufen mit "is list && in"
+      // (weiterhin "permission-denied" beim Live-Listener) jetzt auf das offiziell von Firebase
+      // dokumentierte Muster für genau diesen Fall umgestellt: .hasAny() statt des "in"-Operators
+      // - das ist die von Google selbst empfohlene, nachweislich listen-sichere Formulierung für
+      // "array-contains"-kompatible Listen-Regeln.
+      allow list: if isSignedIn() && resource.data.get('teilnehmer', []).hasAny([callerAgentId()]);
+      allow get: if isChannelParticipant(resource.data.get('teilnehmer', [])) || isAdminUser();
+
+      // Beim ersten Öffnen eines neuen Chats (window.openPrivateChat) wird zunächst ein reines
+      // Platzhalter-Dokument nur mit "ungelesen_fuer" angelegt - "teilnehmer" kommt erst später
+      // beim Senden der ersten Nachricht dazu. Ein Dokument ganz ohne teilnehmer-Feld enthält
+      // keinerlei private Inhalte, ist also unbedenklich; sobald teilnehmer gesetzt wird, muss
+      // der Schreibende selbst darin vorkommen.
+      allow create: if isSignedIn() &&
+                    (!('teilnehmer' in request.resource.data)
+                     || isChannelParticipant(request.resource.data.teilnehmer));
+
+      allow update: if !('teilnehmer' in resource.data)
+                    ? isChannelParticipant(request.resource.data.get('teilnehmer', []))
+                    : (isChannelParticipant(resource.data.teilnehmer)
+                       && isChannelParticipant(request.resource.data.get('teilnehmer', [])));
+
+      allow delete: if isChannelParticipant(resource.data.get('teilnehmer', [])) || isAdminUser();
+
+      match /nachrichten/{msgId} {
+        // Genau dasselbe Prinzip wie bei /agenten_funk selbst: "list" (die Nachrichten-Liste im
+        // offenen Chat-Fenster) bekommt die einfache, garantiert listen-sichere .hasAny()-Prüfung.
+        // Der äußere get() auf den Kanal ist hier unvermeidbar (Nachrichten speichern
+        // "teilnehmer" nicht selbst), aber unbedenklich, da der Pfad (channelId) für die GESAMTE
+        // Abfrage FEST ist, nicht pro Nachricht variiert.
+        allow list: if isSignedIn() &&
+                    get(/databases/$(database)/documents/agenten_funk/$(channelId)).data.get('teilnehmer', []).hasAny([callerAgentId()]);
+        allow get: if isChannelParticipant(get(/databases/$(database)/documents/agenten_funk/$(channelId)).data.get('teilnehmer', []))
+                    || isAdminUser();
+        allow create: if isChannelParticipant(get(/databases/$(database)/documents/agenten_funk/$(channelId)).data.get('teilnehmer', []))
+                      && request.resource.data.absender is string
+                      && request.resource.data.absender.size() <= 40
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0
+                      && request.resource.data.text.size() <= 500;
+        // Löschen (für die Kanal-Reinigung im Komm-Link-Menü) nur durch Teilnehmer selbst.
+        allow delete: if isChannelParticipant(get(/databases/$(database)/documents/agenten_funk/$(channelId)).data.get('teilnehmer', []))
+                      || isAdminUser();
+        // Kein update: Nachrichten sind nachträglich unveränderlich.
+      }
+    }
+
+    // --- Allianzen (Gilden): Gruppierung von Agenten, öffentlich einsehbar/durchsuchbar ---
+    match /allianzen/{allianzId} {
+      allow read: if isSignedIn();
+
+      // Gründung: nur mit sich selbst als alleinigem Startmitglied und als Besitzer.
+      allow create: if isSignedIn()
+                    && request.resource.data.mitglieder is list
+                    && request.resource.data.mitglieder.size() == 1
+                    && request.resource.data.mitglieder[0] == callerAgentId()
+                    && request.resource.data.ownerSlug == callerAgentId()
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.name.size() <= 40;
+
+      // Update erlaubt in genau vier Fällen: (1) Beitritt - eigene Slug wird der Liste
+      // hinzugefügt, sonst ändert sich nichts; (2) Austritt - eigene Slug wird aus der Liste
+      // entfernt, sonst ändert sich nichts; (3) Besitzer verlässt UND überträgt den Besitz
+      // gleichzeitig an ein verbleibendes Mitglied; (4) Admin-Eingriff.
+      allow update: if isAdminUser() || (isSignedIn() && (
+                      (request.resource.data.mitglieder == resource.data.mitglieder.concat([callerAgentId()])
+                       && !resource.data.mitglieder.hasAny([callerAgentId()])
+                       && request.resource.data.ownerSlug == resource.data.ownerSlug
+                       && request.resource.data.name == resource.data.name)
+                      ||
+                      (resource.data.mitglieder.hasAny([callerAgentId()])
+                       && request.resource.data.mitglieder.size() == resource.data.mitglieder.size() - 1
+                       && !request.resource.data.mitglieder.hasAny([callerAgentId()])
+                       && request.resource.data.ownerSlug == resource.data.ownerSlug
+                       && request.resource.data.name == resource.data.name)
+                      ||
+                      (resource.data.mitglieder.hasAny([callerAgentId()])
+                       && resource.data.ownerSlug == callerAgentId()
+                       && request.resource.data.mitglieder.size() == resource.data.mitglieder.size() - 1
+                       && !request.resource.data.mitglieder.hasAny([callerAgentId()])
+                       && request.resource.data.ownerSlug in request.resource.data.mitglieder
+                       && request.resource.data.ownerSlug in resource.data.mitglieder
+                       && request.resource.data.name == resource.data.name)
+                    ));
+
+      // Auflösen: nur der Gründer selbst oder ein Admin.
+      allow delete: if isAdminUser() || (isSignedIn() && resource.data.ownerSlug == callerAgentId());
+    }
+
+    // --- Handelsangebote (Allianz-Ressourcenhandel): Treuhand-Prinzip - das angebotene
+    // Gegenstück wird beim Erstellen sofort vom eigenen Konto abgebucht (siehe Update-Regel bei
+    // /agenten, eigener isOwner-Zweig), nicht Teil dieser Regel selbst. Diese Regel deckt nur
+    // das reine Angebots-Dokument ab.
+    match /handelsangebote/{angebotId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+                    && request.resource.data.von == callerAgentId()
+                    && request.resource.data.an is string
+                    && request.resource.data.an != callerAgentId()
+                    && request.resource.data.status == 'offen'
+                    && request.resource.data.willTyp in ['credits', 'materiezellen', 'chronoszellen']
+                    && request.resource.data.bietetTyp in ['credits', 'materiezellen', 'chronoszellen']
+                    && request.resource.data.willMenge is number && request.resource.data.willMenge > 0
+                    && request.resource.data.bietetMenge is number && request.resource.data.bietetMenge > 0
+                    // Höchstens ein Handelsangebot pro Kalendertag darf erstellt werden - Reset
+                    // um Mitternacht (nicht 24 Stunden nach dem letzten Angebot), serverseitig
+                    // durchgesetzt (nicht nur im Client versteckt), damit ein manipulierter
+                    // Client die Sperre nicht einfach umgehen kann.
+                    && (get(/databases/$(database)/documents/agenten/$(callerAgentId())).data.get('letztesHandelsangebot', 0) == 0
+                        || tagIndex(request.time.toMillis()) > tagIndex(get(/databases/$(database)/documents/agenten/$(callerAgentId())).data.get('letztesHandelsangebot', 0)));
+
+      // Nur Statuswechsel erlaubt, alle anderen Felder müssen unverändert bleiben:
+      // - Empfänger (an) darf offen -> angenommen ODER offen -> abgelehnt setzen.
+      // - Ersteller (von) darf offen -> storniert setzen (eigenes Angebot zurückziehen).
+      allow update: if isAdminUser() || (isSignedIn()
+                    && resource.data.status == 'offen'
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+                    && (
+                      (callerAgentId() == resource.data.an && request.resource.data.status in ['angenommen', 'abgelehnt'])
+                      || (callerAgentId() == resource.data.von && request.resource.data.status == 'storniert')
+                    ));
+
+      // Löschen: beide Beteiligte dürfen (nicht nur der Ersteller) - wird gebraucht, damit das
+      // Löschen eines kompletten Komm-Link-Kanals auch alle zugehörigen Handelsangebote
+      // mitaufräumen kann, unabhängig davon, wer das jeweilige Angebot erstellt hat.
+      allow delete: if isAdminUser() || (isSignedIn() && (callerAgentId() == resource.data.von || callerAgentId() == resource.data.an));
+    }
+
+    // --- Dual-Mission (lokaler GPS-Koop): Einladung, Annahme/Ablehnung, gemeinsamer Scan ---
+    match /dual_missionen/{missionId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+                    && request.resource.data.von == callerAgentId()
+                    && request.resource.data.an is string
+                    && request.resource.data.an != callerAgentId()
+                    && request.resource.data.status == 'offen'
+                    && request.resource.data.typ in ['direkt', 'zufaellig'];
+
+      // Empfänger darf annehmen (inkl. Zielkoordinaten setzen) oder ablehnen; Ersteller darf
+      // stornieren; beide Parteien dürfen sich selbst zur Scan-Liste hinzufügen bzw. den
+      // Abschluss markieren, sobald beide gescannt haben.
+      allow update: if isAdminUser() || (isSignedIn() && (
+                      (callerAgentId() == resource.data.an
+                       && resource.data.status == 'offen'
+                       && request.resource.data.status in ['angenommen', 'abgelehnt']
+                       && request.resource.data.von == resource.data.von
+                       && request.resource.data.an == resource.data.an)
+                      ||
+                      (callerAgentId() == resource.data.von
+                       && resource.data.status == 'offen'
+                       && request.resource.data.status == 'storniert')
+                      ||
+                      ((callerAgentId() == resource.data.von || callerAgentId() == resource.data.an)
+                       && resource.data.status in ['angenommen', 'abgeschlossen']
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gescanntVon', 'status', 'pos', 'bereit'])
+                       && request.resource.data.gescanntVon.hasAll(resource.data.get('gescanntVon', [])))
+                    ));
+
+      allow delete: if isAdminUser() || (isSignedIn() && callerAgentId() == resource.data.von);
+    }
+
+    // --- Protokoll: echtes, seitenübergreifendes Ereignis-Log pro Agent (ersetzt die
+    // vorherigen ausgedachten Platzhalter-Meldungen im Hauptterminal). Jeder Agent sieht/schreibt
+    // ausschließlich sein eigenes Protokoll.
+    match /protokolle/{agentId}/eintraege/{eintragId} {
+      allow read: if isSignedIn() && callerAgentId() == agentId;
+      allow create: if isSignedIn() && callerAgentId() == agentId
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() <= 200;
+      allow update, delete: if isAdminUser();
+    }
+
+    // Missions-Historie für den Konsolenbefehl "log": Start wird beim Missionsbeginn
+    // angelegt, danach entweder auf "abgeschlossen" (inkl. exakter Belohnung) oder
+    // "abgebrochen" aktualisiert.
+    match /protokolle/{agentId}/missionsverlauf/{missionId} {
+      allow read: if isSignedIn() && callerAgentId() == agentId;
+      allow create: if isSignedIn() && callerAgentId() == agentId
+                    && request.resource.data.status == 'gestartet';
+      allow update: if isAdminUser() || (isSignedIn() && callerAgentId() == agentId
+                    && request.resource.data.status in ['abgeschlossen', 'abgebrochen']);
+      allow delete: if isAdminUser();
+    }
+
+    // --- Mentorenprogramm ---
+    // Deterministische Dokument-ID "{mentorSlug}_{menteeSlug}" - erlaubt der agenten-Regel unten,
+    // eine aktive Mentorschaft direkt per exists() zu prüfen, ohne eine Query ausführen zu
+    // müssen (in Sicherheitsregeln nicht möglich).
+    match /mentorships/{mentorshipId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && callerAgentId() == request.resource.data.mentorSlug
+                    && request.resource.data.menteeSlug is string
+                    && request.resource.data.menteeSlug != callerAgentId()
+                    && request.resource.data.status == 'offen'
+                    && mentorshipId == (request.resource.data.mentorSlug + '_' + request.resource.data.menteeSlug)
+                    // Höchstens einmal alle drei Monate darf eine neue Mentorschaft begonnen
+                    // werden - serverseitig durchgesetzt (nicht nur im Client versteckt), damit
+                    // ein manipulierter Client die Sperre nicht einfach umgehen kann.
+                    && (get(/databases/$(database)/documents/agenten/$(callerAgentId())).data.get('letzterMentorStart', 0) == 0
+                        || request.time.toMillis() - get(/databases/$(database)/documents/agenten/$(callerAgentId())).data.get('letzterMentorStart', 0) >= 7776000000);
+      allow update: if isAdminUser() || (isSignedIn() && (
+                      (callerAgentId() == resource.data.menteeSlug
+                       && resource.data.status == 'offen'
+                       && request.resource.data.status in ['aktiv', 'abgelehnt'])
+                      ||
+                      ((callerAgentId() == resource.data.mentorSlug || callerAgentId() == resource.data.menteeSlug)
+                       && resource.data.status == 'aktiv'
+                       && request.resource.data.status in ['aktiv', 'graduiert', 'beendet']
+                       && request.resource.data.mentorSlug == resource.data.mentorSlug
+                       && request.resource.data.menteeSlug == resource.data.menteeSlug
+                       && request.resource.data.get('missionsAbgeschlossen', 0) >= resource.data.get('missionsAbgeschlossen', 0))
+                    ));
+      allow delete: if isAdminUser();
+    }
+
+    // Geteilter Rangliste-Zwischenspeicher (siehe renderRangliste in netzwerk-app.js) - reduziert
+    // die Häufigkeit der teuren, vollständigen Collection-Scans für alle Spieler gemeinsam auf
+    // höchstens einmal alle 5 Minuten. Enthält nur ohnehin öffentlich sichtbare Rangliste-Daten
+    // (kein sensibler Inhalt), deshalb bewusst simpel gehalten - lediglich strukturell auf die
+    // erwarteten Felder begrenzt, um Missbrauch als beliebigen Datenspeicher zu verhindern.
+    match /netzwerk_cache/{cacheId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+                   && request.resource.data.berechnetAm is number
+                   && request.resource.data.entries is list;
+    }
+
+    // Alles andere: standardmäßig gesperrt.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

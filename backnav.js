@@ -31,6 +31,12 @@
             history.pushState({ zurueckTiefe: window._backStack.length }, '', location.href);
             return result;
         };
+        // Für VERSCHACHTELTE Ansichten (z.B. Einstellungen -> Kontakt): eine "schließen"-Funktion
+        // einer TIEFEREN Ebene muss zur darüberliegenden Ansicht zurückkehren können, OHNE dabei
+        // selbst wieder einen neuen History-Eintrag zu erzeugen (das würde sonst passieren, wenn
+        // sie einfach die - jetzt gewrappte - window[openFnName] aufrufen würde). Das
+        // unveränderte Original bleibt deshalb zusätzlich unter "_roh" erreichbar.
+        window[openFnName + '_roh'] = originalOpen;
 
         const originalClose = window[closeFnName];
         if (typeof originalClose !== 'function') {

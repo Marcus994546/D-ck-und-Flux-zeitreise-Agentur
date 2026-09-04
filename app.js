@@ -2550,6 +2550,10 @@ window.f_showDescription = function(withVoice) {
     function showMissionRewardPopup(result) {
         if (!result) return;
         if (typeof window.vibriere === 'function') window.vibriere(result.doubled ? [60, 40, 60, 40, 120] : [60, 40, 100]);
+        // Guter Moment, um nach der Push-Erlaubnis zu fragen - Spieler hat gerade einen Erfolg
+        // erlebt, statt sofort beim allerersten Öffnen der App gefragt zu werden. Die Funktion
+        // selbst verhindert wiederholtes Nachfragen (siehe firebase-init.js).
+        if (typeof window.registriereFuerPushBenachrichtigungen === 'function') window.registriereFuerPushBenachrichtigungen();
         const lines = [];
         if (result.credits > 0) lines.push(result.credits + ' Credits');
         if (result.materiezellen > 0) lines.push(result.materiezellen + ' Materiezelle' + (result.materiezellen === 1 ? '' : 'n'));

@@ -131,12 +131,20 @@
                 vonLat = myData.lat; vonLon = myData.lon;
             }
         }
-        await window.addDoc(window.collection(window.db, "dual_missionen"), {
-            von: mySlug, an: zielSlug, typ: typ, status: 'offen',
-            vonLat: vonLat || null, vonLon: vonLon || null,
-            gescanntVon: [], createdAt: Date.now()
-        });
-        if (typeof window.logEreignis === 'function') window.logEreignis('Dual-Mission gestartet (Einladung an ' + zielSlug + ').');
+        // WICHTIG: Läuft jetzt über eine Cloud Function statt eines direkten Client-Schreibvorgangs
+        // - nicht aus Sicherheitsgründen, sondern weil nur eine Cloud Function (Admin-SDK) dem
+        // eingeladenen Spieler tatsächlich eine Push-Benachrichtigung schicken kann.
+        try {
+            await window.callFunction('dualMissionEinladen', {
+                zielSlug, typ,
+                vonLat: (typeof vonLat === 'number') ? vonLat : null,
+                vonLon: (typeof vonLon === 'number') ? vonLon : null
+            });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Dual-Mission gestartet (Einladung an ' + zielSlug + ').');
+        } catch (e) {
+            console.error('Dual-Mission-Einladung fehlgeschlagen:', e);
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Einladung konnte nicht gesendet werden: ' + (e && e.message ? e.message : 'unbekannter Fehler'));
+        }
     }
 
     // --- Eingehende Einladungen prüfen (Polling, alle 15s, solange eingeloggt) ---

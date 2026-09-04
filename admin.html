@@ -175,6 +175,27 @@
   </div>
 </main>
 
+<div id="pw-reset-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.75); align-items:center; justify-content:center;">
+  <div style="background:var(--panel); border:1px solid var(--neon); box-shadow:var(--glow); border-radius:8px; padding:24px; width:min(360px, 90vw); font-family:'Orbitron', monospace;">
+    <h3 style="margin-top:0; font-size:0.95em;">[ PASSWORT ZURÜCKSETZEN ]</h3>
+    <p style="font-size:0.75em; color:#aaa; margin-bottom:4px;">Neues Passwort für <b id="pw-reset-agentname" style="color:var(--neon);"></b>:</p>
+    <input type="text" id="pw-reset-input" placeholder="Mind. 6 Zeichen" autocomplete="off" style="width:100%; padding:10px; background:#000; border:1px solid var(--neon); color:var(--neon); font-family:monospace; outline:none; border-radius:4px; box-sizing:border-box;">
+    <div id="pw-reset-error" style="color:var(--crit); font-size:0.75em; min-height:16px; margin-top:6px;"></div>
+    <div style="display:flex; gap:10px; margin-top:14px;">
+      <button class="btn" style="flex:1;" onclick="document.getElementById('pw-reset-modal').style.display='none';">ABBRECHEN</button>
+      <button class="btn btn-warn" style="flex:1;" onclick="window.bestaetigePasswortReset()">ZURÜCKSETZEN</button>
+    </div>
+  </div>
+</div>
+
+<div id="pw-reset-erfolg-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.75); align-items:center; justify-content:center;">
+  <div style="background:var(--panel); border:1px solid var(--neon); box-shadow:var(--glow); border-radius:8px; padding:24px; width:min(360px, 90vw); font-family:'Orbitron', monospace; text-align:center;">
+    <h3 style="margin-top:0; font-size:0.95em; color:var(--neon);">✓ ERLEDIGT</h3>
+    <p id="pw-reset-erfolg-text" style="font-size:0.8em; color:#ccc;"></p>
+    <button class="btn" style="width:100%; margin-top:10px;" onclick="document.getElementById('pw-reset-erfolg-modal').style.display='none';">OK</button>
+  </div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import {
@@ -368,15 +389,30 @@
     });
   }
 
-  window.resetAgentPassword = async function(agentId) {
-    const neuesPasswort = prompt('Neues Passwort für "' + agentId + '" (mind. 6 Zeichen):');
-    if (!neuesPasswort) return;
-    if (neuesPasswort.length < 6) { alert('Das Passwort muss mindestens 6 Zeichen lang sein.'); return; }
+  window.resetAgentPassword = function(agentId) {
+    document.getElementById('pw-reset-agentname').innerText = agentId;
+    document.getElementById('pw-reset-input').value = '';
+    document.getElementById('pw-reset-error').innerText = '';
+    document.getElementById('pw-reset-modal').dataset.agentId = agentId;
+    document.getElementById('pw-reset-modal').style.display = 'flex';
+  };
+
+  window.bestaetigePasswortReset = async function() {
+    const modal = document.getElementById('pw-reset-modal');
+    const agentId = modal.dataset.agentId;
+    const neuesPasswort = document.getElementById('pw-reset-input').value;
+    const errEl = document.getElementById('pw-reset-error');
+    if (!neuesPasswort || neuesPasswort.length < 6) {
+      errEl.innerText = 'Das Passwort muss mindestens 6 Zeichen lang sein.';
+      return;
+    }
     try {
       await window.callFunction('adminResetPassword', { targetAgentName: agentId, newPassword: neuesPasswort });
-      alert('Passwort für "' + agentId + '" wurde zurückgesetzt.');
+      modal.style.display = 'none';
+      document.getElementById('pw-reset-erfolg-text').innerText = 'Passwort für "' + agentId + '" wurde zurückgesetzt.';
+      document.getElementById('pw-reset-erfolg-modal').style.display = 'flex';
     } catch (e) {
-      alert('Zurücksetzen fehlgeschlagen für ' + agentId + ': ' + (e && e.message ? e.message : e));
+      errEl.innerText = 'Fehlgeschlagen: ' + (e && e.message ? e.message : e);
     }
   };
 

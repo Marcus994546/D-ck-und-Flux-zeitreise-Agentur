@@ -23,6 +23,7 @@
  */
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 admin.initializeApp();
 
@@ -409,3 +410,152 @@ exports.sammelBelohnungEinsammeln = onCall(async (request) => {
     };
   });
 });
+
+/**
+ * Cloud Function: dualMissionEinladen
+ * ------------------------------------------------------------------
+ * Ersetzt den bisherigen DIREKTEN Client-Schreibvorgang in dualmission.js
+ * (erstelleDualMissionEinladung) - der Grund ist NICHT Sicherheit (eine Einladung anzulegen war
+ * für den Ersteller selbst nie ein Missbrauchsrisiko), sondern dass NUR eine Cloud Function
+ * (mit Admin-SDK-Rechten) tatsächlich eine Push-Benachrichtigung verschicken kann - ein Browser
+ * kann das grundsätzlich nicht selbst. Legt also weiterhin denselben Firestore-Eintrag an wie
+ * vorher, schickt zusätzlich eine Benachrichtigung an den eingeladenen Spieler, falls der einen
+ * gespeicherten Push-Token hat.
+ */
+exports.dualMissionEinladen = onCall(async (request) => {
+  const auth = request.auth;
+  if (!auth) throw new HttpsError("unauthenticated", "Login erforderlich.");
+  const mySlug = agentSlug((auth.token.email || "").split("@")[0]);
+
+  const { zielSlug, typ, vonLat, vonLon } = request.data || {};
+  if (!zielSlug || !typ) throw new HttpsError("invalid-argument", "zielSlug und typ erforderlich.");
+
+  const db = admin.firestore();
+  const docRef = await db.collection("dual_missionen").add({
+    von: mySlug, an: zielSlug, typ: typ, status: "offen",
+    vonLat: (typeof vonLat === "number") ? vonLat : null,
+    vonLon: (typeof vonLon === "number") ? vonLon : null,
+    gescanntVon: [], createdAt: Date.now()
+  });
+
+  try {
+    const zielSnap = await db.collection("agenten").doc(zielSlug).get();
+    const zielToken = zielSnap.exists ? zielSnap.data().fcmToken : null;
+    if (zielToken) {
+      await admin.messaging().send({
+        token: zielToken,
+        notification: {
+          title: "Dual-Mission-Einladung",
+          body: (typ === "direkt") ? ("Direkte Einladung von " + mySlug) : "Zufällige Anfrage aus deiner Nähe"
+        }
+      });
+    }
+  } catch (e) {
+    // Push-Fehler dürfen die Einladung selbst nicht verhindern - die Einladung existiert bereits
+    // in Firestore und wird auch ohne funktionierende Push-Zustellung über das normale 15-Sekunden-
+    // Polling im Spiel selbst gefunden.
+    console.error("Push-Benachrichtigung für Dual-Mission-Einladung fehlgeschlagen:", e);
+  }
+
+  return { success: true, missionId: docRef.id };
+});
+
+/**
+ * Cloud Function: taeglicheAnomalieErinnerung (geplant, läuft automatisch)
+ * ------------------------------------------------------------------
+ * Erinnert einmal täglich alle Spieler mit gespeichertem Push-Token daran, dass eine neue
+ * tägliche Zeitanomalie verfügbar ist. Läuft morgens (deutsche Zeit) - die tatsächliche,
+ * spielerindividuelle Anomalie wird weiterhin wie bisher rein clientseitig in dailyanomaly.js
+ * erzeugt, sobald der Spieler die App öffnet; diese Erinnerung sorgt nur dafür, dass Spieler
+ * überhaupt daran denken, heute nochmal reinzuschauen.
+ */
+exports.taeglicheAnomalieErinnerung = onSchedule(
+  { schedule: "0 8 * * *", timeZone: "Europe/Berlin" },
+  async () => {
+    const db = admin.firestore();
+    const snap = await db.collection("agenten").where("fcmToken", "!=", null).get();
+    const nachrichten = [];
+    snap.forEach((doc) => {
+      const token = doc.data().fcmToken;
+      if (token) {
+        nachrichten.push({
+          token,
+          notification: {
+            title: "Tägliche Zeitanomalie",
+            body: "Eine neue Zeitanomalie wartet heute auf dich - jetzt Streak fortsetzen!"
+          }
+        });
+      }
+    });
+    // In Blöcken zu je 500 verschicken - das ist die von Firebase Cloud Messaging pro
+    // sendEach()-Aufruf erlaubte Höchstmenge.
+    for (let i = 0; i < nachrichten.length; i += 500) {
+      const block = nachrichten.slice(i, i + 500);
+      try {
+        await admin.messaging().sendEach(block);
+      } catch (e) {
+        console.error("Fehler beim Versand eines Erinnerungs-Blocks:", e);
+      }
+    }
+    console.log("Tägliche Erinnerung verschickt an " + nachrichten.length + " Geräte.");
+  }
+);
+
+/**
+ * Cloud Function: agentFertigErinnerung (geplant, läuft automatisch)
+ * ------------------------------------------------------------------
+ * Der dritte, ursprünglich zurückgestellte Auslöser ("Agent hat Aufgabe abgeschlossen"). Prüft
+ * NICHT die komplette Agenten-Tick-Simulation nach (die bleibt bewusst rein clientseitig, siehe
+ * sammelBelohnungEinsammeln weiter oben) - schaut nur, ob die gespeicherte Aufgabendauer eines
+ * Agenten im Zustand "working" bereits abgelaufen ist. Rein lesend, verändert keinerlei
+ * Spieldaten, nur eine Benachrichtigung wird ggf. verschickt.
+ *
+ * WICHTIG: Da ein Agent im Zustand "working" nach Ablauf automatisch in denselben Zustand für
+ * den nächsten Zyklus zurückspringt (client-seitige Tick-Logik), würde eine ungefilterte Prüfung
+ * bei jedem Lauf erneut anschlagen - deshalb pro Spieler auf höchstens eine Benachrichtigung
+ * alle 30 Minuten begrenzt (letzteAgentBenachrichtigung-Zeitstempel).
+ */
+exports.agentFertigErinnerung = onSchedule(
+  { schedule: "every 15 minutes" },
+  async () => {
+    const db = admin.firestore();
+    const agentenSnap = await db.collection("agenten").where("fcmToken", "!=", null).get();
+    const jetzt = Date.now();
+
+    for (const agentDoc of agentenSnap.docs) {
+      const agentData = agentDoc.data();
+      const token = agentData.fcmToken;
+      if (!token) continue;
+
+      const letzteBenachrichtigung = agentData.letzteAgentBenachrichtigung || 0;
+      if (jetzt - letzteBenachrichtigung < 1800000) continue; // Rate-Limit: max. alle 30 Min.
+
+      try {
+        const baseSnap = await db.collection("Agent - Base").doc(agentDoc.id).get();
+        if (!baseSnap.exists) continue;
+        const agents = baseSnap.data().agents;
+        if (!Array.isArray(agents)) continue;
+
+        const fertigeAnzahl = agents.filter(a =>
+          a.state === "working" && a.taskStartTs && a.taskDurationMs
+          && (a.taskStartTs + a.taskDurationMs) <= jetzt
+        ).length;
+
+        if (fertigeAnzahl > 0) {
+          await admin.messaging().send({
+            token,
+            notification: {
+              title: "Agent bereit",
+              body: fertigeAnzahl === 1
+                ? "Ein Agent hat eine Aufgabe abgeschlossen - schau in deiner Basis vorbei!"
+                : fertigeAnzahl + " Agenten haben eine Aufgabe abgeschlossen - schau in deiner Basis vorbei!"
+            }
+          });
+          await db.collection("agenten").doc(agentDoc.id).set({ letzteAgentBenachrichtigung: jetzt }, { merge: true });
+        }
+      } catch (e) {
+        console.error("Agent-Fertig-Prüfung fehlgeschlagen für " + agentDoc.id + ":", e);
+      }
+    }
+  }
+);
