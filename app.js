@@ -1121,7 +1121,7 @@ window.startGlobalNotification = function() {
         } else if (cmd === 'rekrutieren') {
             window.f_shareVideo = function() {
                 const webLink = "https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/"; 
-                const videoLink = "https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Flux%20Agentur%20Werbung.mp4";
+                const videoLink = "https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Audio%20%26%20Bild/Flux%20Agentur%20Werbung.mp4";
                 const shareText = "Die Realität, die du kennst, ist fehlerhaft. Sieh dir diese geleakte Übertragung an:\n" + videoLink + "\n\nWir brauchen fähige Agenten. Klinke dich in das Terminal ein und stabilisiere die Zeitlinie:\n" + webLink;
                 const shareData = { title: 'Dück & Flux Zeitreise-Agentur', text: shareText };
                 
@@ -1132,7 +1132,7 @@ window.startGlobalNotification = function() {
             anzeige.innerHTML = `
                 <div style="color:#0f8; text-align:center; padding:10px;">
                     <h3 style="text-shadow: 0 0 10px #0f8;">[ REKRUTIERUNGS-SIGNAL ]</h3>
-                    <video src="Flux%20Agentur%20Werbung.mp4" controls autoplay style="width:100%; max-width:400px; border:1px solid #0f8; margin-bottom:15px; box-shadow: 0 0 10px rgba(0,255,204,0.3);"></video>
+                    <video src="Audio%20%26%20Bild/Flux%20Agentur%20Werbung.mp4" controls autoplay style="width:100%; max-width:400px; border:1px solid #0f8; margin-bottom:15px; box-shadow: 0 0 10px rgba(0,255,204,0.3);"></video>
                     <p style="font-size:0.8em; color:#aaa; margin-bottom:15px;">Leite dieses Signal weiter, um neue Agenten für den Sektor zu rekrutieren. Die Zeitlinie ist instabil.</p>
                     <button class="modell-btn" style="border-color:#ffcc00; color:#ffcc00;" onclick="window.f_shareVideo()">SIGNAL TEILEN</button>
                 </div>

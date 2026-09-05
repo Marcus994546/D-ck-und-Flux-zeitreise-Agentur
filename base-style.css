@@ -584,7 +584,7 @@
         width: 50px; height: 75px; background-color: #111;
         border: 4px ridge #5c3a21; outline: 2px solid #27140c; border-radius: 2px;
         box-shadow: 0 10px 20px rgba(0,0,0,0.9);
-        background-image: url('Mona-Lisa.png'); background-size: cover; background-position: center; z-index: 1;
+        background-image: url('Audio%20%26%20Bild/Mona-Lisa.png'); background-size: cover; background-position: center; z-index: 1;
     }
     .bild-licht {
         position: absolute; top: -12px; left: 50%; transform: translateX(-50%);

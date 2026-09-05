@@ -10,7 +10,7 @@
     <title>Dück & Flux | Agency Base</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="base-style.css?v=20260828e">
+    <link rel="stylesheet" href="base-style.css?v=20260904a">
 </head>
 <body>
 
@@ -209,9 +209,9 @@
         <p id="artifact-detail-story" style="font-size:0.85em; color:#e0c0ff; margin-top:10px; line-height:1.5; font-family:sans-serif;">-</p>
         <button id="btn-schallplatte-anhoeren" style="display:none; width:100%; margin-top:12px; background:#c060ff; color:#000; border:none; padding:10px; font-family:'Orbitron'; font-weight:bold; cursor:pointer;" onclick="window.schallplatteAnhoeren()">🎵 SCHALLPLATTE ANHÖREN</button>
         <div id="schallplatte-status" style="font-size:0.7em; color:#ff8080; margin-top:6px; font-family:sans-serif;"></div>
-        <audio id="schallplatte-audio" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/99%20Luftbalogs.mp3" preload="none" onerror="const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Audiodatei konnte nicht geladen werden (URL prüfen).';"></audio>
-        <img id="artifact-schriftrolle-bild" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/AlienSchriftrolle.jpg" alt="Alien-Schriftrolle" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Bild konnte nicht geladen werden (URL prüfen).';">
-        <video id="artifact-datenkristall-video" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" controls preload="none" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/%C3%9Cbertragung.mp4" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Video konnte nicht geladen werden (URL prüfen).';"></video>
+        <audio id="schallplatte-audio" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Audio%20%26%20Bild/99%20Luftbalogs.mp3" preload="none" onerror="const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Audiodatei konnte nicht geladen werden (URL prüfen).';"></audio>
+        <img id="artifact-schriftrolle-bild" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Audio%20%26%20Bild/AlienSchriftrolle.jpg" alt="Alien-Schriftrolle" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Bild konnte nicht geladen werden (URL prüfen).';">
+        <video id="artifact-datenkristall-video" style="display:none; width:100%; margin-top:12px; border:1px solid #c060ff; border-radius:4px;" controls preload="none" src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Audio%20%26%20Bild/%C3%9Cbertragung.mp4" onerror="this.style.display='none'; const s=document.getElementById('schallplatte-status'); if(s) s.innerText='⚠ Video konnte nicht geladen werden (URL prüfen).';"></video>
         <button id="btn-artifact-teilen" style="width:100%; margin-top:16px; background:none; border:1px solid #0ff; color:#0ff; padding:10px; font-family:monospace; cursor:pointer; border-radius:4px;" onclick="window.artefaktTeilen()">📤 KARTE ÖFFNEN</button>
         <button class="btn-back" style="width:100%; margin-top:8px;" onclick="window.closeArtifactDetail()">SCHLIESSEN</button>
     </div>
