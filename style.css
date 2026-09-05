@@ -1,0 +1,662 @@
+
+        #upload-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            color: #0f8;
+            font-family: monospace;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #0f8;
+            display: none;
+            z-index: 99999;
+            animation: blinkUpload 0.2s infinite;
+        }
+        @keyframes blinkUpload {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    
+        :root {
+            --neon-color: #00ffcc;
+            --bg-dark: #0b0e14;
+            --warn-red: rgba(255, 68, 68, 0.4);
+            --glow: 0 0 10px rgba(0, 255, 204, 0.5), 0 0 20px rgba(0, 255, 204, 0.2);
+        }
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            background-image: url('https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Audio%20%26%20Bild/Milchstra%C3%9Fe.jpeg');
+            background-size: cover; background-position: center;
+            font-family: 'Orbitron', 'Courier New', monospace; 
+            display: flex; justify-content: center; align-items: center;
+            background-color: #000; overflow: hidden;
+            letter-spacing: 1px;
+            /* iPhone Safe-Area: verhindert, dass die zentrierte Karte auf iPhones mit Notch/Dynamic
+               Island oben oder der Home-Indicator-Leiste unten anstößt bzw. dahinter verschwindet.
+               env() liefert auf allen anderen Geräten einfach 0, ist also unschädlich. */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            box-sizing: border-box;
+        }
+/* ANTI-GEISTER-REGEL: stabile Klassen-basierte Loesung statt fragiler :not()-Kette.
+   Jedes erlaubte Top-Level-Element bekommt die Klasse "top-level".
+   Neue Top-Level-Elemente muessen einfach nur diese Klasse erhalten. */
+body > *:not(.top-level) {
+    display: none !important;
+}
+
+        .background-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75); z-index: 1; pointer-events: none;
+        }
+        .portal-container {
+            position: relative; z-index: 2;
+            background: var(--bg-dark); border: 2px solid var(--neon-color); border-radius: 15px;
+            width: 95%; max-width: 420px;
+            /* WICHTIG: Der Container hatte bisher KEIN display:flex - sein Inhalt (Header, Nav,
+               #anzeige, Eingabezeile, Footer) ist einfach über min-height (560px) hinausgewachsen
+               und wurde beim vertikalen Zentrieren in body oben UND unten gleichermaßen vom
+               Viewport abgeschnitten, sobald die Bildschirmhöhe (v.a. iPhone mit Safari-UI)
+               knapper war. Genau das hat Einstellungen oben und Versionsnummer unten verdeckt.
+               Jetzt: feste Flex-Spalte, die garantiert nie höher als der verfügbare Bereich
+               (abzüglich Safe-Area) wird - #anzeige (der variable Hauptinhalt) übernimmt bei
+               Bedarf intern das Scrollen, Header/Nav/Eingabe/Footer bleiben immer komplett
+               sichtbar und anklickbar. */
+            display: flex; flex-direction: column;
+            max-height: calc(100vh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+            max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+            overflow: hidden; color: var(--neon-color); text-align: center;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.3), var(--glow);
+        }
+        .banner-bild { width: 100%; height: 100px; object-fit: cover; border-bottom: 2px solid var(--neon-color); opacity: 0.8; }
+        
+        .system-time {
+            position: absolute; top: 110px; right: 15px; font-size: 0.7em; 
+            color: var(--neon-color); opacity: 0.7; font-weight: bold;
+            text-shadow: var(--glow);
+        }
+
+        nav { display: flex; gap: 8px; padding: 10px; background: rgba(0, 255, 204, 0.05); }
+        button {
+            background: transparent; color: var(--neon-color); border: 1px solid var(--neon-color);
+            padding: 10px; cursor: pointer; flex: 1; font-weight: bold; border-radius: 4px;
+            text-transform: uppercase; font-size: 0.75em; transition: all 0.2s;
+            position: relative; font-family: 'Orbitron', sans-serif;
+            text-shadow: var(--glow);
+        }
+        button:hover { background: rgba(0, 255, 204, 0.2); box-shadow: 0 0 15px var(--neon-color); }
+        
+        .alert-pulse {
+            animation: pulseRed 2.5s infinite ease-in-out !important;
+            border-color: #ff4444 !important;
+            color: #ff4444 !important;
+        }
+
+        @keyframes pulseRed {
+            0% { box-shadow: 0 0 2px rgba(255, 68, 68, 0.2); background: transparent; }
+            50% { box-shadow: 0 0 12px rgba(255, 68, 68, 0.5); background: rgba(255, 68, 68, 0.1); }
+            100% { box-shadow: 0 0 2px rgba(255, 68, 68, 0.2); background: transparent; }
+        }
+
+        .status-warn-pulse {
+            animation: orangePochen 1.5s infinite ease-in-out !important;
+            border-color: #ff8800 !important;
+            color: #ff8800 !important;
+        }
+
+        @keyframes orangePochen {
+            0% { box-shadow: 0 0 2px rgba(255, 136, 0, 0.2); background: transparent; }
+            50% { box-shadow: 0 0 15px rgba(255, 136, 0, 0.5); background: rgba(255, 136, 0, 0.1); }
+            100% { box-shadow: 0 0 2px rgba(255, 136, 0, 0.2); background: transparent; }
+        }
+
+        #anzeige { padding: 20px; line-height: 1.5; min-height: 200px; position: relative; flex: 1 1 auto; overflow-y: auto; }
+        header, nav, #terminal-input-area, footer { flex-shrink: 0; }
+
+        .scanline {
+            width: 100%; height: 2px; background: var(--neon-color);
+            position: absolute; left: 0; top: -10px; opacity: 0; z-index: 10;
+            box-shadow: 0 0 10px var(--neon-color); pointer-events: none;
+        }
+        .scanning { animation: scanMove 0.6s linear; }
+        @keyframes scanMove {
+            0% { top: 0%; opacity: 0.8; }
+            100% { top: 100%; opacity: 0.2; }
+        }
+
+        .glitch { animation: glitchAnim 0.3s infinite; }
+        @keyframes glitchAnim {
+            0% { transform: translate(0); }
+            20% { transform: translate(-1px, 1px); }
+            40% { transform: translate(-1px, -1px); opacity: 0.8; }
+            100% { transform: translate(0); }
+        }
+
+        .modell-btn { 
+            display: block; width: 100%; margin: 12px 0; padding: 14px; 
+            color: var(--neon-color); background: rgba(0,255,204,0.1); border: 1px solid var(--neon-color); 
+            border-radius: 8px; font-weight: bold; cursor: pointer; font-family: 'Orbitron', sans-serif;
+            text-shadow: var(--glow);
+        }
+        .atlas-entry {
+            text-align: left; font-size: 0.8em; background: rgba(0,255,204,0.05); 
+            padding: 10px; border-left: 2px solid var(--neon-color); margin-bottom: 10px;
+        }
+        .log-entry { 
+            font-size: 0.7em; text-align: left; color: #aaa; 
+            border-top: 1px solid rgba(0,255,204,0.1); padding: 5px 0; 
+            animation: fadeInLog 0.5s ease-out;
+        }
+        @keyframes fadeInLog { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .status-warn { color: #ffcc00; text-shadow: 0 0 5px #ffcc00; }
+        .status-ok { color: #00ff66; text-shadow: 0 0 5px #00ff66; }
+        .status-crit { color: #ff4444; text-shadow: 0 0 5px #ff4444; }
+        
+        footer { font-size: 0.6em; padding: 10px; opacity: 0.4; }
+
+        /* Terminal-Eingabe (Suchzeile) Design */
+        #terminal-input-area { display: flex !important; flex-direction: row !important; width: 85% !important; margin: 10px auto !important; padding: 10px; background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); box-sizing: border-box; align-items: center; z-index: 100; border-radius: 4px; }
+        #term-prefix { color: #00ffcc; font-family: monospace; font-size: 13px; margin-right: 10px; white-space: nowrap; }
+        #terminal-input-field { background: transparent; border: none; color: #00ffcc; font-family: monospace; font-size: 14px; flex-grow: 1; outline: none; width: 100%; }
+    
+
+/* ==== next block ==== */
+
+    
+    #back-button-global {
+        display: none; margin: 20px auto; padding: 12px 30px; border: 1px solid #0f8; color: #0f8;
+        font-family: monospace; font-size: 14px; cursor: pointer; background: rgba(0, 255, 136, 0.1);
+        text-align: center; width: fit-content; z-index: 101; text-transform: uppercase; border-radius: 4px; font-weight: bold;
+    }
+
+    #reboot-layer {
+        position: fixed; top: -8%; left: -8%; width: 116%; height: 116%;
+        background: #000 !important; z-index: 30000; display: none;
+        flex-direction: column; justify-content: center; align-items: center;
+        color: #f44; font-family: monospace; text-align: center;
+        /* Übergröße + negativer Rand, damit die skew/scale/translate-Transformation der
+           Flacker-Animation (.flicker-active) niemals einen Rand freigibt, hinter dem
+           der Seiten-Hintergrund (Startbild) sichtbar würde. */
+    }
+    #reboot-bar-container { width: 60%; height: 4px; background: rgba(255,255,255,0.1); border: 1px solid #fff; display: none; margin-top: 20px; position: relative; overflow: hidden; }
+    #reboot-bar-fill { width: 0%; height: 100%; background: #fff; position: absolute; left: 0; transition: width 0.4s ease-out; }
+
+    @keyframes digital-energy-surge {
+        0% { filter: brightness(1) contrast(1); transform: scale(1); }
+        5% { filter: brightness(5) contrast(2) invert(0.2); transform: scale(1.02) skewX(1deg); }
+        10% { filter: brightness(1) contrast(1.2); transform: scale(1) skewX(0); }
+        15% { filter: brightness(7) contrast(3); transform: translateX(2px); }
+        20% { filter: brightness(1); transform: translateX(0); }
+        100% { filter: brightness(1); }
+    }
+    .flicker-active { animation: digital-energy-surge 0.1s infinite !important; }
+
+    #emp-flare { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: #fff; z-index: 40000; display: none; pointer-events: none; }
+
+
+/* ==== next block ==== */
+
+
+    .xp-wrapper {
+        display: flex; align-items: center; justify-content: center; width: 85%; margin: 10px auto 5px auto; gap: 10px;
+    }
+    .lvl-badge {
+        color: #00ffcc; font-family: monospace; font-size: 12px; font-weight: bold; border: 1px solid #00ffcc; padding: 2px 6px; border-radius: 4px; background: rgba(0, 255, 204, 0.1);
+    }
+    .xp-container {
+        flex-grow: 1; height: 14px;
+        border: 1px solid #00ffcc; background: rgba(0, 255, 204, 0.05);
+        border-radius: 7px; overflow: hidden; position: relative;
+    }
+    .xp-bar {
+        width: 0%; height: 100%; background: #0088ff;
+        box-shadow: 0 0 10px #0088ff; transition: width 0.5s ease-in-out;
+    }
+    .xp-text {
+        position: absolute; width: 100%; text-align: center;
+        font-size: 9px; line-height: 14px; color: #fff;
+        font-weight: bold; text-shadow: 1px 1px #000; z-index: 2;
+    }
+
+
+/* ==== next block ==== */
+
+
+    .mission-master-btn {
+        display: block; width: 100%; margin: 25px 0 10px 0; padding: 16px;
+        background: rgba(0, 255, 204, 0.05); border: 2px solid #0f8; border-radius: 4px;
+        color: #0f8; font-family: 'Orbitron', monospace; font-size: 1.2em; font-weight: bold;
+        letter-spacing: 5px; cursor: pointer; text-shadow: 0 0 10px #0f8;
+        box-shadow: 0 0 15px rgba(0, 255, 204, 0.2), inset 0 0 10px rgba(0, 255, 204, 0.1);
+        transition: all 0.2s; animation: btn-glitch 4s infinite;
+    }
+    .mission-master-btn:hover, .mission-master-btn:active { 
+        background: #0f8; color: #000; text-shadow: none; box-shadow: 0 0 25px #0f8; transform: scale(1.02); 
+    }
+    @keyframes btn-glitch {
+        0%, 96%, 98%, 100% { transform: translate(0, 0) skewX(0); filter: drop-shadow(0 0 0 transparent); }
+        97% { transform: translate(-2px, 1px) skewX(2deg); filter: drop-shadow(-2px 0 0 #f0f) drop-shadow(2px 0 0 #0ff); }
+        99% { transform: translate(2px, -1px) skewX(-2deg); filter: drop-shadow(2px 0 0 #f0f) drop-shadow(-2px 0 0 #0ff); }
+    }
+      @keyframes radar-spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+
+/* ==== next block ==== */
+
+
+    #startup-layer {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
+        background: #000; z-index: 50000; 
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        color: #0f8; font-family: monospace; text-align: center;
+        transition: opacity 1s ease-out;
+        overflow: hidden;
+    }
+
+    #matrix-canvas {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        opacity: 0.5; z-index: -1;
+    }
+
+    #startup-boot-container {
+        display: flex; flex-direction: column; align-items: center; width: 100%;
+        background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px;
+    }
+
+    #startup-bar-container {
+        width: 60%; max-width: 400px; height: 4px; background: rgba(0,255,204,0.1); 
+        border: 1px solid #0f8; position: relative; overflow: hidden; margin-top: 20px;
+    }
+    
+    #startup-bar-fill {
+        width: 0%; height: 100%; background: #0f8; 
+        position: absolute; left: 0;
+    }
+
+    #startup-setup-container {
+        display: none; 
+        flex-direction: column; gap: 20px; width: 80%; max-width: 300px;
+        background: rgba(0, 0, 0, 0.9); border: 1px solid #0f8; padding: 30px;
+        border-radius: 8px; box-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+        z-index: 50001;
+    }
+
+    #agent-name-input {
+        padding: 12px; background: #000; border: 1px solid #0f8; color: #0f8; 
+        font-family: monospace; font-size: 16px; outline: none; text-align: center;
+        text-transform: uppercase;
+    }
+    
+    .setup-btn {
+        padding: 12px; background: #0f8; color: #000; border: none; 
+        font-weight: bold; cursor: pointer; font-family: monospace; 
+        font-size: 16px; text-transform: uppercase;
+    }
+
+
+/* ==== next block ==== */
+
+
+    .glitch-retro {
+        animation: g-retro 0.3s ease-in-out;
+    }
+    @keyframes g-retro {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-5px); filter: grayscale(1); }
+        50% { transform: translateX(5px); }
+        75% { transform: translateX(-2px); }
+        100% { transform: translateX(0); }
+    }
+
+    .glitch-cyber {
+        animation: g-cyber 0.4s ease-in-out;
+    }
+    @keyframes g-cyber {
+        0% { filter: drop-shadow(0 0 0 #0ff); }
+        20% { filter: drop-shadow(-5px 0 0 #f0f) drop-shadow(5px 0 0 #0ff); transform: skewX(2deg); }
+        40% { filter: drop-shadow(5px 0 0 #f0f) drop-shadow(-5px 0 0 #0ff); transform: skewX(-2deg); }
+        60% { filter: drop-shadow(-2px 0 0 #f0f) drop-shadow(2px 0 0 #0ff); }
+        100% { filter: drop-shadow(0 0 0 #0ff); transform: skewX(0); }
+    }
+
+    .glitch-warp {
+        animation: g-warp 0.5s ease-in-out;
+    }
+    @keyframes g-warp {
+        0% { filter: invert(0) blur(0); transform: scale(1); }
+        20% { filter: invert(1) blur(2px); transform: scale(1.05); }
+        40% { filter: invert(0) blur(5px) hue-rotate(90deg); transform: scale(0.95); }
+        60% { filter: invert(1) blur(1px) hue-rotate(180deg); transform: scale(1.02); }
+        100% { filter: invert(0) blur(0) hue-rotate(0); transform: scale(1); }
+    }
+
+
+/* ==== next block ==== */
+
+
+    #emp-trap {
+        position: fixed; top: 10%; left: 0; width: 100vw; height: 250px;
+        background: transparent; z-index: 2147483647 !important;
+        display: none; cursor: pointer;
+    }
+
+    #emp-flash-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
+        pointer-events: none; opacity: 0; display: none;
+        background: #ffffff; z-index: 2147483646 !important;
+    }
+
+    #emp-solid-black {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
+        opacity: 1; display: none;
+        background: #000000; z-index: 2147483643 !important; pointer-events: auto;
+    }
+
+    #emp-boot-layer, #blackout-layer {
+        position: fixed; top: -8%; left: -8%; width: 116%; height: 116%;
+        display: none; flex-direction: column; justify-content: center; align-items: center;
+        color: #0f8; font-family: monospace; text-align: center;
+        background: #000;
+    }
+    #emp-boot-layer { z-index: 2147483645 !important; color: #f44; text-align: left; padding: 20px; }
+    #blackout-layer { z-index: 2147483644 !important; }
+
+    .boot-console { max-width: 400px; width: 100%; animation: glitch-flicker 2s infinite; }
+    .boot-bar-container { width: 100%; height: 20px; border: 2px solid #ff8800; margin-top: 20px; }
+    .boot-bar-fill { height: 100%; background: #ff8800; width: 0%; animation: stutter-load 7s linear forwards; }
+    .reboot-stutter-fill { height: 100%; background: #0f8; width: 0%; animation: reboot-stutter 5.5s linear forwards; }
+
+    @keyframes reboot-stutter {
+        0% { width: 0%; background: #0f8; } 15% { width: 35%; } 25% { width: 35%; background: #0f8; }
+        26% { width: 35%; background: #f44; } 28% { width: 35%; background: #0f8; } 45% { width: 62%; }
+        60% { width: 62%; } 62% { width: 58%; } 68% { width: 58%; } 85% { width: 92%; } 92% { width: 92%; } 100% { width: 100%; }
+    }
+    @keyframes stutter-load {
+        0% { width: 0%; } 15% { width: 10%; } 20% { width: 10%; } 40% { width: 45%; } 50% { width: 45%; }
+        70% { width: 80%; } 85% { width: 80%; } 95% { width: 99%; } 100% { width: 100%; }
+    }
+
+    .blackout-panel {
+        background: rgba(0, 20, 0, 0.95); border: 2px solid #0f8; padding: 20px; max-width: 400px; width: 90%;
+        position: relative; box-shadow: 0 0 15px rgba(0,255,0,0.2); animation: glitch-flicker 3.5s infinite;
+    }
+    #emp-help-modal {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 15, 0, 0.98);
+        z-index: 100; display: none; flex-direction: column; justify-content: center; align-items: center;
+        padding: 20px; box-sizing: border-box; text-align: center;
+    }
+    .help-btn {
+        position: absolute; top: 15px; right: 15px; background: #000; color: #0f8; border: 1px solid #0f8;
+        cursor: pointer; font-family: monospace; font-size: 1.1em; padding: 2px 8px; z-index: 10;
+    }
+    @keyframes glitch-flicker {
+        0% { opacity: 1; } 2% { opacity: 0.4; } 4% { opacity: 1; } 30% { opacity: 1; } 32% { opacity: 0.2; }
+        34% { opacity: 0.9; } 36% { opacity: 0.2; } 38% { opacity: 1; } 70% { opacity: 1; } 71% { opacity: 0.7; }
+        72% { opacity: 1; } 100% { opacity: 1; }
+    }
+
+    .modell-btn { background: #000; color: #0f8; border: 1px solid #0f8; padding: 15px; margin: 10px 0; width: 100%; cursor: pointer; font-family: monospace; }
+    .sector-btn { display: block; width: 100%; margin: 4px 0; padding: 8px; background: #000; color: #0f8; border: 1px solid #0f8; cursor: pointer; font-family: monospace; text-align: left; font-size: 0.9em; }
+    .sector-btn.off { background: #300; color: #f44; border-color: #f44; text-decoration: line-through; }
+
+    #jumper-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; margin: 15px 0; touch-action: none; background: #000; padding: 5px; border: 1px solid #0f8; }
+    .jumper-cell { aspect-ratio: 1; background: rgba(0,255,0,0.1); border: 1px solid rgba(0,255,0,0.3); border-radius: 50%; }
+    .jumper-cell.start { background: #0f8; box-shadow: 0 0 10px #0f8; }
+    .jumper-cell.end { background: #ff8800; box-shadow: 0 0 10px #ff8800; }
+    .jumper-cell.path { background: #0f8; }
+    .jumper-cell.enemy { background: #f44; box-shadow: 0 0 10px #f44; }
+
+
+/* ==== next block ==== */
+
+
+    #gps-mission-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
+        background: #000; z-index: 60000; display: none;
+        flex-direction: column; overflow: hidden;
+    }
+    #gps-map-container { flex: 1; position: relative; }
+    #gps-map { width: 100%; height: 100%; }
+    .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+    .leaflet-control-container { display: none; }
+
+    #gps-hud {
+        position: absolute; top: 0; left: 0; width: 100%;
+        padding: 15px; box-sizing: border-box;
+        background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%);
+        z-index: 1000; pointer-events: none;
+        font-family: 'Orbitron', monospace; color: #0f8;
+    }
+    #gps-distance { font-size: 1.5em; font-weight: bold; text-shadow: 0 0 10px #0f8; }
+    #gps-status { font-size: 0.75em; opacity: 0.7; margin-top: 5px; }
+
+    #gps-cancel-btn {
+        position: absolute; top: 15px; right: 15px; z-index: 1001;
+        background: rgba(255,68,68,0.2); border: 1px solid #f44; color: #f44;
+        padding: 8px 16px; border-radius: 4px; font-family: 'Orbitron', monospace;
+        font-size: 0.7em; cursor: pointer; pointer-events: auto;
+    }
+    #gps-cancel-btn:active { background: #f44; color: #000; }
+
+    .gps-player-marker { width: 16px; height: 16px; background: #0f8; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 15px #0f8; }
+
+    #ar-mission-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
+        background: #000; z-index: 9999 !important; display: none;
+        flex-direction: column; overflow: hidden;
+    }
+    #ar-video {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        object-fit: cover; z-index: 1; display: block;
+        filter: sepia(0.6) hue-rotate(-30deg) saturate(2) contrast(1.5) brightness(0.7);
+        animation: arFlicker 0.15s infinite;
+    }
+    #ar-ash-canvas {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 4; pointer-events: none;
+    }
+    @keyframes arFlicker { 0%,100% { opacity: 1; } 48% { opacity: 0.92; } 50% { opacity: 0.98; } 52% { opacity: 0.9; } }
+
+    #ar-scanlines {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
+        pointer-events: none;
+        background: linear-gradient(rgba(0,0,0,0) 50%, rgba(255,40,0,0.08) 50%);
+        background-size: 100% 4px;
+    }
+    #ar-vignette {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3;
+        pointer-events: none;
+        background: radial-gradient(ellipse at center, transparent 40%, rgba(80,0,0,0.6) 100%);
+    }
+
+    #ar-crosshair {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 10; pointer-events: none;
+        width: 60px; height: 60px;
+    }
+    #ar-crosshair::before, #ar-crosshair::after {
+        content: ''; position: absolute; background: #0f8; box-shadow: 0 0 8px #0f8;
+    }
+    #ar-crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
+    #ar-crosshair::after { top: 0; left: 50%; width: 2px; height: 100%; transform: translateX(-50%); }
+
+    #ar-anomaly {
+        position: absolute; width: 220px; height: 220px;
+        z-index: 99999; pointer-events: none;
+        display: none;
+        transition: opacity 0.3s;
+    }
+    #ar-anomaly canvas {
+        width: 100%; height: 100%;
+        filter: drop-shadow(0 0 25px rgba(180,80,255,0.5)) drop-shadow(0 0 60px rgba(100,200,255,0.3));
+    }
+    #ar-anomaly::before {
+        content: ''; position: absolute; top: -20px; left: -20px;
+        width: calc(100% + 40px); height: calc(100% + 40px);
+        border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+        background: conic-gradient(from 0deg, transparent, rgba(255,255,255,0.15), transparent, rgba(255,255,255,0.15), transparent);
+        animation: riftSpin 4s linear infinite, riftWobble 5.5s ease-in-out infinite;
+        pointer-events: none;
+    }
+    #ar-anomaly::after {
+        content: ''; position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%; height: 100%;
+        border-radius: 58% 42% 39% 61% / 55% 48% 52% 45%;
+        box-shadow: inset 0 0 40px rgba(255,255,255,0.2), inset 0 0 80px rgba(100,50,255,0.15);
+        animation: riftPulse 2s ease-in-out infinite alternate, riftWobble 7s ease-in-out infinite reverse;
+        pointer-events: none;
+    }
+    @keyframes riftSpin { to { transform: rotate(360deg); } }
+    @keyframes riftWobble {
+        0%   { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+        25%  { border-radius: 58% 42% 39% 61% / 55% 48% 52% 45%; }
+        50%  { border-radius: 47% 53% 55% 45% / 60% 38% 62% 40%; }
+        75%  { border-radius: 63% 37% 44% 56% / 42% 60% 40% 58%; }
+        100% { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+    }
+    @keyframes riftPulse {
+        0% { box-shadow: inset 0 0 30px rgba(255,255,255,0.15), inset 0 0 60px rgba(100,50,255,0.1); }
+        100% { box-shadow: inset 0 0 50px rgba(255,255,255,0.3), inset 0 0 100px rgba(100,50,255,0.25); }
+    }
+    #ar-anomaly-glitch {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none;
+        animation: glitchShift 0.15s steps(2) infinite;
+    }
+    @keyframes glitchShift {
+        0% { transform: translate(0, 0); opacity: 0.4; }
+        50% { transform: translate(3px, -2px); opacity: 0.2; }
+        100% { transform: translate(-2px, 2px); opacity: 0.5; }
+    }
+    #ar-anomaly-distortion {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 130%; height: 130%;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 0 20px rgba(255,255,255,0.1), 0 0 40px rgba(150,100,255,0.15);
+        animation: distortionWave 3s ease-in-out infinite;
+        pointer-events: none;
+    }
+    @keyframes distortionWave {
+        0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+        50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.6; }
+    }
+    #ar-direction-hint {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 14; pointer-events: none;
+        font-family: 'Orbitron', monospace; font-size: 2em;
+        color: #0f8; text-shadow: 0 0 15px #0f8;
+        display: none;
+        animation: hintPulse 1s ease-in-out infinite alternate;
+    }
+    @keyframes hintPulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+
+    #ar-hud {
+        position: absolute; top: 0; left: 0; width: 100%; padding: 15px; box-sizing: border-box;
+        z-index: 11; pointer-events: none;
+        font-family: 'Orbitron', monospace; color: #0f8; font-size: 0.7em;
+        background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+    }
+    #ar-instructions { text-shadow: 0 0 5px #0f8; }
+
+    #ar-extract-btn {
+        position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+        z-index: 12; pointer-events: auto;
+        padding: 18px 40px; font-size: 1em; font-weight: bold;
+        font-family: 'Orbitron', monospace; text-transform: uppercase;
+        border: 2px solid #555; color: #555; background: rgba(0,0,0,0.6);
+        border-radius: 8px; cursor: pointer; user-select: none;
+        touch-action: none; transition: all 0.2s;
+    }
+    #ar-extract-btn.ar-active {
+        border-color: #0f8; color: #0f8; background: rgba(0,255,136,0.15);
+        box-shadow: 0 0 20px #0f8; text-shadow: 0 0 10px #0f8;
+        animation: btnGlow 1s infinite alternate;
+    }
+    @keyframes btnGlow { 0% { box-shadow: 0 0 15px #0f8; } 100% { box-shadow: 0 0 30px #0f8; } }
+
+    #ar-extract-bar-container {
+        position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%);
+        width: 70%; max-width: 300px; height: 6px;
+        background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3);
+        z-index: 12; border-radius: 3px; overflow: hidden;
+    }
+    #ar-extract-bar { width: 0%; height: 100%; background: #0f8; box-shadow: 0 0 10px #0f8; transition: width 0.05s linear; }
+
+    #ar-cancel-btn {
+        position: absolute; top: 15px; right: 15px; z-index: 13;
+        background: rgba(255,68,68,0.2); border: 1px solid #f44; color: #f44;
+        padding: 8px 16px; border-radius: 4px; font-family: 'Orbitron', monospace;
+        font-size: 0.7em; cursor: pointer; pointer-events: auto;
+    }
+    #ar-cancel-btn:active { background: #f44; color: #000; }
+
+    #mission-return-anim {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
+        background: #000; z-index: 80000; display: none;
+        flex-direction: column; justify-content: center; align-items: center;
+        color: #0f8; font-family: 'Orbitron', monospace;
+    }
+    #mission-return-anim h2 { letter-spacing: 2px; text-shadow: 0 0 10px #0f8; }
+    #mission-return-bar-bg { width: 60%; height: 4px; border: 1px solid #0f8; background: rgba(0,255,136,0.1); margin-top: 20px; }
+    #mission-return-bar { width: 0%; height: 100%; background: #0f8; transition: width 2s linear; }
+
+/* ============================================================
+   Kompass während der GPS-Missionsphase (unten rechts).
+   Zifferblatt (N/O/S/W) dreht sich mit dem Gerät, damit "N" immer
+   wirklich Richtung Norden zeigt. Die Nadel zeigt unabhängig davon
+   immer zum Missionsziel.
+   ============================================================ */
+#gps-compass {
+    position: absolute; bottom: 20px; right: 20px; width: 90px; z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+#gps-compass-tip {
+    font-size: 0.55em; color: #0f8; text-align: center; text-shadow: 0 0 6px rgba(0,255,136,0.6);
+    background: rgba(0,10,10,0.6); border-radius: 4px; padding: 3px 5px; line-height: 1.3;
+}
+.compass-dial {
+    position: relative; width: 90px; height: 90px; border-radius: 50%;
+    background: rgba(0,10,10,0.75); border: 2px solid #0f8;
+    box-shadow: 0 0 20px rgba(0,255,136,0.4), inset 0 0 15px rgba(0,255,136,0.15);
+}
+.compass-label {
+    position: absolute; color: #0f8; font-family: monospace; font-size: 0.75em; font-weight: bold;
+    text-shadow: 0 0 6px #0f8;
+}
+.compass-n { top: 4px; left: 50%; transform: translateX(-50%); color: #fff; text-shadow: 0 0 8px #fff; }
+.compass-e { top: 50%; right: 5px; transform: translateY(-50%); }
+.compass-s { bottom: 4px; left: 50%; transform: translateX(-50%); }
+.compass-w { top: 50%; left: 5px; transform: translateY(-50%); }
+.compass-needle {
+    position: absolute; top: 50%; left: 50%; width: 0; height: 0;
+    transform-origin: center center;
+    transition: opacity 0.3s;
+}
+.compass-needle::before {
+    content: ''; position: absolute; left: -5px; top: -30px; width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-bottom: 30px solid #ff8800;
+    filter: drop-shadow(0 0 6px #ff8800);
+}
+.compass-needle::after {
+    content: ''; position: absolute; left: -3px; top: 0; width: 6px; height: 6px;
+    border-radius: 50%; background: #ff8800; box-shadow: 0 0 8px #ff8800;
+}
+
+/* === Agentur-Netzwerk (vorher: Zeit-Stränge-Platzhalter) === */
+.netzwerk-tab-btn {
+    background: #000; color: #0ff; border: 1px solid rgba(0,255,255,0.4);
+    padding: 8px 14px; cursor: pointer; font-family: monospace; font-size: 0.8em;
+}
+.netzwerk-tab-active { background: rgba(0,255,255,0.15); border-color: #0ff; box-shadow: 0 0 8px rgba(0,255,255,0.4); }
+
+/* === Dual-Mission: Zielmarker auf der Karte === */
+.gps-target-marker { width: 18px; height: 18px; background: #b0f; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 15px #b0f; }

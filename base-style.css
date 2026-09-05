@@ -1,0 +1,1673 @@
+
+        :root { --neon-color: #8844ff; }
+        body {
+            background-color: #000; color: var(--neon-color);
+            font-family: 'Orbitron', sans-serif; margin: 0; padding: 0;
+            display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden;
+            /* iPhone Safe-Area: die Basis füllt den Bildschirm randlos aus - ohne diesen Puffer
+               könnten das obere Einstellungen-Icon hinter der Notch/Dynamic Island bzw. untere
+               Elemente hinter der Home-Indicator-Leiste verschwinden. env() liefert auf allen
+               anderen Geräten 0, ist also unschädlich. */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            box-sizing: border-box;
+        }
+        
+        /* UI Kopfzeile */
+        .top-bar { background: #000; z-index: 100; width: 100%; display: flex; flex-direction: column; }
+        .ui-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; font-size: 0.8em; }
+        .currency-container { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; }
+        .currency-mz { color: #0f8; text-shadow: 0 0 5px #0f8; }
+        .level-display { color: #ffaa00; font-weight: bold; text-shadow: 0 0 5px #ffaa00; }
+        h2 { text-align: center; margin: 5px 0 15px 0; font-size: 1.1em; letter-spacing: 2px; }
+        .neon-divider { width: 100%; height: 2px; background: var(--neon-color); box-shadow: 0 0 10px var(--neon-color), 0 0 20px var(--neon-color); }
+        
+        .btn-back { background: none; border: 1px solid var(--neon-color); color: var(--neon-color); padding: 5px 10px; cursor: pointer; font-family: 'Orbitron'; font-size: 0.7em; }
+        .btn-cheat { background: rgba(0, 255, 136, 0.1); border: 1px dashed #0f8; color: #0f8; font-family: 'Orbitron'; font-size: 0.6em; cursor: pointer; padding: 4px 8px; margin-left: 10px; }
+
+        /* Raster-Ansicht */
+        #grid-wrapper { flex-grow: 1; overflow: auto; position: relative; display: flex; background: #050505; }
+        #base-grid {
+            display: grid; grid-template-columns: repeat(7, 45vw); grid-template-rows: repeat(7, 45vw);
+            gap: 20px; padding: 60vw; margin: auto;
+        }
+        .room-slot { display: none; }
+        .room-active {
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border: 3px solid var(--neon-color); background: #0a0a0a;
+            box-shadow: inset 0 0 20px rgba(136, 68, 255, 0.2); 
+            color: #fff; width: 100%; height: 100%; border-radius: 4px; cursor: pointer; text-align: center; padding: 5px; box-sizing: border-box; font-size: 0.7em;
+        }
+        .room-buildable {
+            display: flex; justify-content: center; align-items: center;
+            border: 2px dashed #8844ff; color: #c8a0ff;
+            width: 60%; height: 60%; margin: auto; border-radius: 4px; cursor: pointer;
+            font-size: 2em; animation: buildableSlotPulse 1.6s ease-in-out infinite;
+        }
+        @keyframes buildableSlotPulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(136,68,255,0.3); opacity: 0.7; }
+            50% { box-shadow: 0 0 24px rgba(136,68,255,0.9); opacity: 1; }
+        }
+
+        /* Modul-Auswahl Overlay */
+        #room-selection-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 400; display: none;
+            flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box;
+        }
+        .selection-list { 
+            width: 100%; max-width: 450px; display: flex; flex-direction: column; 
+            gap: 8px; overflow-y: auto; margin-top: 15px; max-height: 65vh; padding-right: 5px; 
+        }
+        .selection-item {
+            background: #150d22; border: 1px solid rgba(136, 68, 255, 0.4); padding: 12px; color: #fff;
+            font-family: 'Orbitron'; cursor: pointer; text-align: left; font-size: 0.75em;
+            box-shadow: inset 0 0 10px rgba(136, 68, 255, 0.1);
+        }
+        .selection-item:active { background: var(--neon-color); color: #000; }
+        .level-lock-hint { color: #ff4444; font-size: 0.8em; margin-top: 4px; display: block; }
+
+
+/* ==== next block ==== */
+
+
+    /* Block 2 Zentrale, Agenten-Quatiere, Atefakten-lager    */
+    #interior-screen { display: none; flex-direction: column; flex-grow: 1; background: #000; padding: 20px; padding-bottom: 50px; overflow-y: auto; }
+    
+    /* Visuelle Raum-Box */
+    .room-box { position: relative; width: 100%; height: 250px; background: #050505; border: 2px solid var(--neon-color); margin-bottom: 20px; overflow: hidden; }
+    .r-ceiling { position: absolute; top: 0; left: 0; width: 100%; height: 30px; background: #1a1a1a; clip-path: polygon(0 0, 100% 0, calc(100% - 40px) 100%, 40px 100%); z-index: 2; }
+    .r-floor { position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: #111; clip-path: polygon(40px 0, calc(100% - 40px) 0, 100% 100%, 0 100%); overflow: hidden; z-index: 2; }
+    .r-floor-grid { position: absolute; top: 0; left: -50%; width: 200%; height: 300%; transform-origin: top; transform: perspective(400px) rotateX(60deg); background-image: linear-gradient(rgba(136, 68, 255, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(136, 68, 255, 0.2) 1px, transparent 1px); background-size: 20px 20px; }
+    .r-left { position: absolute; top: 0; left: 0; width: 40px; height: 100%; background: #0d0d0d; clip-path: polygon(0 0, 100% 30px, 100% calc(100% - 70px), 0 100%); z-index: 2; }
+    .r-right { position: absolute; top: 0; right: 0; width: 40px; height: 100%; background: #0a0a0a; clip-path: polygon(0 30px, 100% 0, 100% 100%, 0 calc(100% - 70px)); z-index: 2; }
+    .r-back { position: absolute; top: 30px; left: 40px; right: 40px; bottom: 70px; background: #020202; box-shadow: inset 0 0 30px #000; border: 1px solid #1a1a1a; z-index: 1; }
+
+    .btn-ausbau-main { width: 100%; background: none; border: 2px solid var(--neon-color); color: var(--neon-color); padding: 15px; font-family: 'Orbitron'; cursor: pointer; font-weight: bold; margin-bottom: 20px; box-shadow: 0 0 10px rgba(136, 68, 255, 0.2); }
+    
+    #ausbau-menu { display: none; flex-direction: column; gap: 15px; }
+    .upgrade-card { border: 1px solid #444; padding: 15px; background: rgba(255,255,255,0.03); }
+    .btn-upgrade-exec { width: 100%; background: var(--neon-color); border: none; color: #000; padding: 10px; font-family: 'Orbitron'; font-weight: bold; margin-top: 10px; cursor: pointer; }
+    .btn-upgrade-exec:disabled { background: #333; color: #555; cursor: not-allowed; }
+    /* Für wiederholbare Aktions-Buttons (Tausch/Verkauf), die NIE dauerhaft "ausverkauft" sind -
+       optisch identisch zu .btn-upgrade-exec, aber bewusst eine andere Klasse, damit sie beim
+       Möbel-Vollständigkeits-Check (levelUpRoom) nicht fälschlich als Kauf-Button mitgezählt
+       werden. */
+    .btn-action-repeatable { width: 100%; background: var(--neon-color); border: none; color: #000; padding: 10px; font-family: 'Orbitron'; font-weight: bold; margin-top: 10px; cursor: pointer; }
+
+    /* Feste Positionierung */
+    .fixed-item { position: absolute; z-index: 10; }
+
+    /* --- MÖBEL ZENTRALE --- */
+    .item-desk { width: 80px; height: 25px; background: #1a1a1a; border-top: 2px solid var(--neon-color); border-radius: 3px; display: flex; justify-content: center; box-shadow: 0 5px 10px rgba(0,0,0,0.8); }
+    @keyframes holo-scroll { 100% { background-position: 0 -20px; } }
+    .item-desk::before { content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 45px; height: 25px; border: 1px solid var(--neon-color); border-radius: 2px; background: repeating-linear-gradient(0deg, rgba(136, 68, 255, 0.1) 0px, rgba(136, 68, 255, 0.6) 2px, transparent 3px, transparent 5px); background-size: 100% 20px; animation: holo-scroll 1.5s linear infinite; box-shadow: 0 0 10px rgba(136, 68, 255, 0.4); margin-bottom: 2px; }
+    .item-desk::after { content: ''; position: absolute; top: 100%; left: 10px; right: 10px; height: 15px; border-left: 3px solid #555; border-right: 3px solid #555; }
+    .desk-console { width: 60px; height: 6px; background: #000; margin-top: 4px; border-radius: 1px; display: flex; justify-content: space-around; align-items: center; padding: 0 4px; }
+    .desk-led { width: 4px; height: 4px; border-radius: 50%; }
+    
+    .item-lampe { width: 60px; height: 10px; background: rgba(136, 68, 255, 0.2); border: 1px solid var(--neon-color); border-radius: 2px; box-shadow: 0 0 20px var(--neon-color); z-index: 5 !important; }
+    .item-lampe::after { content: ''; position: absolute; top: 100%; left: 10%; width: 80%; height: 40px; background: linear-gradient(to bottom, rgba(136, 68, 255, 0.3), transparent); pointer-events: none; }
+    .item-kartograph { width: 40px; height: 15px; background: #222; border-radius: 50%; border: 1px solid #444; box-shadow: 0 4px 8px #000; }
+    @keyframes map-rotate { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
+    .item-kartograph::before { content: '🌐'; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 24px; filter: drop-shadow(0 0 10px #0ff); opacity: 0.7; animation: map-rotate 5s linear infinite; }
+    .item-server { width: 35px; height: 80px; background: #111; border: 1px solid #0ff; display: flex; flex-direction: column; gap: 5px; padding: 5px; box-sizing: border-box; box-shadow: 2px 10px 15px rgba(0,0,0,0.8); }
+    .server-led { height: 2px; width: 100%; background: #0f8; animation: serverBlink 1s infinite; }
+    @keyframes serverBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+    /* --- MÖBEL ARCHIV --- */
+    @keyframes regalFlicker {
+        0%, 100% { border-right-color: #0ff; box-shadow: 2px 0 8px rgba(0,255,255,0.4); }
+        50% { border-right-color: #048; box-shadow: 2px 0 2px rgba(0,102,153,0.2); }
+    }
+    .item-regal { 
+        width: 30px; height: 118px; background: #151515; 
+        border: 1px solid #333; border-right: 2px solid #0ff; 
+        display: flex; flex-direction: column; 
+        animation: regalFlicker 3.5s infinite;
+    }
+    .regal-fach { flex: 1; border-bottom: 1px solid #444; width: 100%; display: flex; align-items: center; justify-content: center; gap: 1px; flex-wrap: wrap; overflow: hidden; }
+    .regal-fach:last-child { border-bottom: none; }
+    /* Kleine Artefakt-Symbole, die physisch in den Regalfächern liegen (siehe
+       placeArtifactsInShelves in base-app.js) - anklickbar, öffnet das Detail-Popup. */
+    .regal-artifact-icon { font-size: 9px; line-height: 1; cursor: pointer; filter: drop-shadow(0 0 2px #0ff); position: relative; z-index: 5; }
+    @keyframes leichtesFlimmernArchiv {
+    0%, 60%, 100% { box-shadow: 0 0 15px #0ff; opacity: 1; }
+    62% { box-shadow: 0 0 5px rgba(0, 255, 255, 0.3); opacity: 0.8; }
+    64% { box-shadow: 0 0 15px #0ff; opacity: 1; }
+    88% { box-shadow: 0 0 15px #0ff; opacity: 1; }
+    89% { box-shadow: 0 0 8px rgba(0, 255, 255, 0.5); opacity: 0.9; }
+    90% { box-shadow: 0 0 15px #0ff; opacity: 1; }
+}
+
+.item-lampe-archiv { 
+    width: 100px; height: 6px; background: #0ff; 
+    border-radius: 5px; z-index: 5 !important; 
+    animation: leichtesFlimmernArchiv 6s infinite;
+}
+
+    /* --- MÖBEL QUARTIERE (KOMPLETT NEU) --- */
+    @keyframes dataStream { 
+        0% { background-position: 0 10px; } 
+        100% { background-position: 0 0; } 
+    }
+    
+    /* Asymmetrische Schlafzimmer-Lampe */
+@keyframes leichtesFlimmern {
+    0%, 90%, 100% { box-shadow: 0 -2px 10px rgba(0, 255, 136, 0.5); border-top-color: #0f8; }
+    92% { box-shadow: 0 -2px 3px rgba(0, 255, 136, 0.1); border-top-color: rgba(0, 255, 136, 0.4); }
+    94% { box-shadow: 0 -2px 12px rgba(0, 255, 136, 0.6); border-top-color: #0f8; }
+    96% { box-shadow: 0 -2px 4px rgba(0, 255, 136, 0.2); border-top-color: rgba(0, 255, 136, 0.5); }
+}
+
+.item-lampe-quartier {
+    width: 90px; height: 5px; background: #111; border-top: 2px solid #0f8;
+    border-radius: 2px; z-index: 5 !important;
+    animation: leichtesFlimmern 4s infinite;
+}
+
+    /* Verbreiterte Stockbetten (max 4) */
+
+    .item-bett { 
+    width: 62px; height: 100px; 
+    background: #151515; 
+    border-left: 2px solid #333; border-right: 4px solid #222;
+    display: flex; flex-direction: column; justify-content: space-evenly; 
+    position: absolute; box-shadow: -4px 8px 15px rgba(0,0,0,0.9);
+    box-sizing: border-box; padding: 2px 0;
+}
+
+/* Etagen etwas vergrößert für die längeren Betten */
+.bett-etage {
+    height: 42px; background: #1a1a1a; 
+    border-bottom: 3px solid #335588; 
+    position: relative; margin: 0 2px;
+    display: flex; align-items: flex-end;
+    }
+    .bett-kissen { 
+        width: 14px; height: 8px; background: #ccc; 
+        margin-left: 4px; margin-bottom: 2px; border-radius: 2px 2px 0 0; 
+    }
+/* Holodeck: Kleiner, über dem Kissen platziert und in Neon-Grün */
+.holo-screen-q { 
+    position: absolute; 
+    left: 4px;    /* Direkt über dem Kissen auf der linken Seite */
+    bottom: 14px; /* Höhe über dem Kissen */
+    width: 14px;  /* Kleiner gemacht */
+    height: 10px; /* Kleiner gemacht */
+    border-top: 1px solid #0f8; 
+    border-left: 1px solid #0f8;
+    background: repeating-linear-gradient(0deg, rgba(0, 255, 136, 0.1) 0px, rgba(0, 255, 136, 0.4) 1px, transparent 2px); 
+    background-size: 100% 4px;
+    animation: dataStream 1.5s linear infinite; 
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+    }
+
+    /* Custom Alert */
+    #custom-alert-box { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 300; display: none; justify-content: center; align-items: center; }
+    .alert-content { background: #050505; border: 2px solid #f44; padding: 25px; text-align: center; box-shadow: 0 0 20px rgba(255, 68, 68, 0.4); width: 80%; max-width: 320px; border-radius: 4px; }
+
+
+/* ==== next block ==== */
+
+
+    /* --- Block 3, SERVER-HUB, TECHNIK-DECK  --- */
+@keyframes neuro-blink { 0%, 100% { opacity: 1; box-shadow: 0 0 5px #0f8; } 50% { opacity: 0.3; } }
+@keyframes holo-interface { 0% { opacity: 0.7; transform: translateX(-50%) scaleY(1); } 50% { opacity: 0.4; transform: translateX(-50%) scaleY(1.05) skewX(1deg); } 100% { opacity: 0.8; transform: translateX(-50%) scaleY(0.95); } }
+@keyframes flacker-text { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+@keyframes plasma-tube-glow { 0% { box-shadow: 0 0 10px #8844ff, 0 0 20px #0ff; } 100% { box-shadow: 0 0 20px #8844ff, 0 0 40px #0ff; } }
+@keyframes spark-flash { 0%, 100% { opacity: 0; } 5%, 10% { opacity: 1; background: #fff; box-shadow: 0 0 20px #fff, 0 0 10px #0ff; } 15% { opacity: 0; } }
+@keyframes laser-scan-tech { 0% { top: 0%; } 100% { top: calc(100% - 2px); } }
+@keyframes rotation-flux { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes energy-flow { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes pulse-core { 0% { opacity: 0.3; transform: translate(-50%, -50%) scale(0.8); } 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.1); } }
+@keyframes slot-scan { 0% { left: -10px; } 50% { left: 35px; } 100% { left: 35px; } }
+
+/* --- SERVER-HUB DESIGNS --- */
+.item-hub-server { width: 15%; height: 110px; background: #0a0a0c; border: 1px solid #8844ff; display: flex; flex-direction: column; justify-content: space-between; padding: 5px; box-sizing: border-box; box-shadow: inset 0 0 10px rgba(136, 68, 255, 0.3); z-index: 3; }
+.server-unit { height: 18%; background: #000; border: 1px solid #222; display: flex; align-items: center; justify-content: space-around; }
+.led-neuro { width: 3px; height: 3px; border-radius: 50%; background: #0f8; animation: neuro-blink 0.6s infinite; }
+.led-data { width: 8px; height: 1px; background: #0ff; animation: neuro-blink 1.2s infinite reverse; }
+
+/* Holo-Terminal (Mit Gehäuse-Struktur und Scanner-Slot) */
+.item-hub-terminal { 
+    width: 50px; height: 30px; background: #151515; 
+    border-top: 2px solid #0ff; border-left: 2px solid #333; border-right: 2px solid #333; 
+    box-shadow: 0 5px 10px rgba(0,0,0,0.9); position: absolute; z-index: 4; 
+    display: flex; flex-direction: column; justify-content: flex-end; align-items: center; 
+}
+.terminal-slot { 
+    width: 35px; height: 3px; background: #000; border: 1px solid #222; 
+    margin-bottom: 6px; position: relative; overflow: hidden; border-radius: 1px; 
+}
+.terminal-slot::after { 
+    content: ''; position: absolute; top: 0; left: -10px; width: 8px; height: 100%; 
+    background: #0f8; box-shadow: 0 0 5px #0f8; animation: slot-scan 2.5s ease-in-out infinite; 
+}
+.terminal-holo-display { position: absolute; bottom: 110%; left: 50%; width: 44px; height: 38px; background: rgba(0, 255, 255, 0.1); border: 1px solid #0ff; animation: holo-interface 0.2s infinite; pointer-events: none; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 2px 0; box-sizing: border-box; overflow: hidden; }
+.holo-text { font-family: 'Orbitron'; font-size: 5px; color: #0f8; animation: flacker-text 0.1s infinite; margin: 0; line-height: 1; letter-spacing: 0px; white-space: nowrap; transform: scale(0.5); }
+.holo-grid-line { width: 80%; height: 1px; background: rgba(0, 255, 255, 0.3); margin: 0; }
+
+.item-hub-lampe { width: 90px; height: 6px; background: #111; border-bottom: 2px solid #8844ff; z-index: 5 !important; border-radius: 0 0 5px 5px; }
+.plasma-tube { position: absolute; top: 100%; left: 5px; right: 5px; height: 10px; background: rgba(0, 255, 255, 0.4); border-radius: 5px; border: 1px solid #0ff; animation: plasma-tube-glow 2s infinite alternate; }
+
+/* --- TECHNIK-DECK DESIGNS --- */
+
+/* Werkbank & Optimiertes Holo */
+.item-werkbank { width: 110px; height: 45px; position: absolute; z-index: 4; display: flex; justify-content: space-between; align-items: flex-end; }
+.wb-leg { width: 12px; height: 40px; background: #222; border: 1px solid #111; border-radius: 2px 2px 0 0; }
+.wb-top { position: absolute; top: 0; left: 0; width: 100%; height: 10px; background: #2a2a2a; border-top: 2px solid #ffaa00; border-bottom: 2px solid #111; box-shadow: 0 5px 15px rgba(0,0,0,0.9); z-index: 2; }
+.wb-holo-quad { 
+    position: absolute; bottom: 120%; left: 50%; width: 45px; height: 40px; 
+    background: rgba(0, 255, 255, 0.1); border: 1px solid #0ff; transform: translateX(-50%);
+    animation: holo-interface 0.2s infinite; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; overflow: hidden;
+}
+.wb-holo-text { font-family: 'Orbitron'; font-size: 5px; color: #0f8; white-space: nowrap; transform: scale(0.55); animation: flacker-text 0.15s infinite; line-height: 1; }
+
+/* Montagearm Decke */
+.item-montagearm { width: 20px; height: 80px; position: absolute; z-index: 5; display: flex; flex-direction: column; align-items: center; }
+.arm-base { width: 24px; height: 10px; background: #1a1a1a; border-bottom: 2px solid #ffaa00; border-radius: 0 0 3px 3px; }
+.arm-segment-1 { width: 8px; height: 35px; background: #333; z-index: 2; }
+.arm-joint { width: 14px; height: 14px; background: #222; border-radius: 50%; border: 2px solid #ffaa00; margin: -4px 0; z-index: 4; }
+.arm-segment-2 { width: 6px; height: 25px; background: #444; transform: rotate(25deg); position: relative; z-index: 1; }
+.montage-spark { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); width: 8px; height: 8px; border-radius: 50%; animation: spark-flash 1.5s infinite; }
+
+/* Fabricator mit Bauteil */
+.item-fabricator { width: 55px; height: 75px; background: #1a1a1a; border: 2px solid #333; border-top: 3px solid #ffaa00; border-radius: 8px 8px 0 0; position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: center; padding-top: 8px; box-shadow: 10px 10px 20px rgba(0,0,0,0.8); }
+.fab-window { width: 40px; height: 45px; background: rgba(0, 255, 255, 0.05); border: 2px solid #0ff; position: relative; overflow: hidden; }
+.fab-item { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 15px; height: 15px; background: #0ff; border-radius: 2px; animation: pulse-core 1s infinite alternate; box-shadow: 0 0 15px #0ff; }
+.fabricator-laser { position: absolute; left: 0; width: 100%; height: 2px; background: #f44; box-shadow: 0 0 8px #f44; animation: laser-scan-tech 2.5s linear infinite alternate; z-index: 5; }
+
+/* Teststand */
+.item-teststand { width: 50px; height: 85px; background: linear-gradient(to right, #111, #2a2a2a, #111); border: 2px solid #444; border-radius: 25px 25px 0 0; position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: -10px 10px 20px rgba(0,0,0,0.8); }
+.test-core { width: 34px; height: 55px; border-radius: 17px; border: 2px solid rgba(0, 255, 255, 0.4); display: flex; align-items: center; justify-content: center; position: relative; }
+.test-coil { width: 18px; height: 40px; border: 2px dashed #0ff; border-radius: 50%; animation: rotation-flux 0.8s linear infinite; }
+
+/* Industrie-Lampe */
+.item-industrie-lampe { width: 80px; height: 12px; background: #222; border: 2px solid #444; border-top: none; position: absolute; z-index: 6; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+.lampe-flow { width: 100%; height: 100%; background: linear-gradient(90deg, transparent 0%, #ffaa00 50%, transparent 100%); background-size: 50% 100%; animation: energy-flow 2s linear infinite; opacity: 0.8; }
+
+
+/* ==== next block ==== */
+
+
+    /* --- Komplexe Animationen Flux-Reaktor --- */
+    @keyframes core-pulse { 0% { box-shadow: 0 0 20px #0f8, inset 0 0 15px #fff; transform: scale(1); } 50% { box-shadow: 0 0 60px #0f8, inset 0 0 30px #fff; transform: scale(1.05); } 100% { box-shadow: 0 0 20px #0f8, inset 0 0 15px #fff; transform: scale(1); } }
+    @keyframes ring-spin-1 { from { transform: rotateX(65deg) rotateY(0deg) rotateZ(0deg); } to { transform: rotateX(65deg) rotateY(360deg) rotateZ(360deg); } }
+    @keyframes ring-spin-2 { from { transform: rotateX(0deg) rotateY(65deg) rotateZ(0deg); } to { transform: rotateX(360deg) rotateY(65deg) rotateZ(360deg); } }
+    @keyframes ring-spin-3 { from { transform: rotateZ(0deg) scale(1); } 50% { transform: rotateZ(-180deg) scale(1.05); } to { transform: rotateZ(-360deg) scale(1); } }
+    
+    /* Hart codierte Abfluss-Animationen für Leitungen (immer VOM Reaktor WEG) */
+    @keyframes plasma-out-left { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @keyframes plasma-out-right { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    @keyframes plasma-out-up { 0% { background-position: 0 200%; } 100% { background-position: 0 -200%; } }
+    
+    @keyframes led-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+    @keyframes field-fluctuate { 0% { opacity: 0.2; transform: scale(0.98); } 50% { opacity: 0.5; transform: scale(1.02); } 100% { opacity: 0.2; transform: scale(0.98); } }
+    @keyframes spark-shoot { 0% { opacity: 0; transform: translate(0, 0) scale(1); } 10% { opacity: 1; background: #fff; box-shadow: 0 0 10px #fff, 0 0 20px #0ff; } 100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.2); } }
+
+    /* --- Reaktor-Hauptstruktur --- */
+    .item-reaktor { width: 100%; height: 180px; position: absolute; z-index: 3; left: 0; bottom: 65px; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+    
+    /* Perfekt zentrierter Ankerpunkt für Kern & Ringe */
+    .reaktor-center { position: absolute; bottom: 85px; left: 50%; width: 0; height: 0; display: flex; justify-content: center; align-items: center; }
+    
+    .reaktor-containment { position: absolute; width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle, rgba(0,255,136,0.15) 0%, rgba(0,255,136,0) 60%); border: 1px solid rgba(0, 255, 136, 0.4); animation: field-fluctuate 3s infinite; box-shadow: 0 0 30px rgba(0,255,136,0.3); }
+    .reaktor-core { position: absolute; width: 38px; height: 38px; background: #fff; border-radius: 50%; animation: core-pulse 1.5s infinite; z-index: 5; box-shadow: 0 0 20px #0f8; }
+    
+    .reaktor-ring-1 { position: absolute; width: 100px; height: 100px; border: 3px solid #0ff; border-radius: 50%; animation: ring-spin-1 3.5s linear infinite; z-index: 4; box-shadow: inset 0 0 15px rgba(0,255,255,0.8), 0 0 15px rgba(0,255,255,0.8); }
+    .reaktor-ring-2 { position: absolute; width: 85px; height: 85px; border: 3px dashed #ffaa00; border-radius: 50%; animation: ring-spin-2 2.8s linear infinite reverse; z-index: 6; }
+    .reaktor-ring-3 { position: absolute; width: 115px; height: 115px; border: 2px dotted #fff; border-radius: 50%; animation: ring-spin-3 7s linear infinite; z-index: 3; opacity: 0.6; }
+    
+    /* Neues massives Podest mit Industrie-Details */
+    .reaktor-base { 
+        width: 140px; height: 50px; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+        background: linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 40%, #050505 100%); 
+        border-radius: 6px 6px 2px 2px; border: 2px solid #555; border-bottom: 5px solid #ffaa00; 
+        box-shadow: 0 20px 30px rgba(0,0,0,0.95), inset 0 2px 8px rgba(255,255,255,0.2); 
+        z-index: 7; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 4px 0; box-sizing: border-box;
+    }
+    
+    /* Podest-Details */
+    .base-top-plate { width: 60%; height: 6px; background: #000; border: 1px solid #0f8; border-radius: 2px; box-shadow: inset 0 0 8px rgba(0,255,136,0.6), 0 0 10px rgba(0,255,136,0.4); }
+    .base-mid-section { width: 90%; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; box-sizing: border-box; }
+    .base-vent { width: 25px; height: 12px; background: repeating-linear-gradient(90deg, #111 0px, #111 2px, #000 2px, #000 4px); border: 1px solid #000; border-radius: 1px; }
+    .base-hazard { width: 100%; height: 6px; background: repeating-linear-gradient(45deg, #ffaa00 0px, #ffaa00 6px, #000 6px, #000 12px); border-top: 1px solid #000; margin-top: 2px; opacity: 0.8; }
+    
+    .r-led { width: 6px; height: 6px; background: #f44; border-radius: 50%; box-shadow: 0 0 10px #f44; animation: led-blink 1s infinite; }
+    .r-led.green { background: #0f8; box-shadow: 0 0 10px #0f8; animation-delay: 0.3s; }
+    
+    /* Blitze */
+    .r-spark { position: absolute; width: 4px; height: 4px; border-radius: 50%; z-index: 8; opacity: 0; animation: spark-shoot 1.5s infinite; }
+
+    /* --- Hochspannungsleitungen (In den Reaktor) --- */
+    .item-hv-leitung { position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center; }
+    .hv-kabel { width: 100%; height: 8px; background: #111; border-top: 1px solid #444; border-bottom: 1px solid #000; box-shadow: 0 5px 15px rgba(0,0,0,0.9); overflow: hidden; position: relative; }
+    .hv-kabel.vert { width: 8px; height: 100%; border-left: 1px solid #444; border-right: 1px solid #000; border-top: none; border-bottom: none; }
+    .hv-isolator { width: 16px; height: 18px; background: repeating-linear-gradient(90deg, #333 0px, #333 4px, #111 4px, #111 8px); border-radius: 3px; border: 1px solid #000; box-shadow: 0 2px 5px #000; }
+    .hv-zap { width: 100%; height: 100%; background: linear-gradient(90deg, transparent 0%, #0ff 30%, #fff 50%, #0ff 70%, transparent 100%); background-size: 50% 100%; opacity: 0.9; filter: drop-shadow(0 0 5px #0ff); }
+    .hv-zap.vert { background: linear-gradient(180deg, transparent 0%, #0ff 30%, #fff 50%, #0ff 70%, transparent 100%); background-size: 100% 50%; }
+
+    /* Spezifische Animationen für die Ausrichtung */
+    .hz-left { animation: plasma-out-left 0.8s linear infinite; }
+    .hz-right { animation: plasma-out-right 0.8s linear infinite; }
+    .hz-up { animation: plasma-out-up 0.8s linear infinite; }
+
+    /* --- Plasma-Bogenleuchte --- */
+    .item-plasma-lampe { width: 100px; height: 22px; background: #0a0a0a; border: 2px solid #333; border-top: none; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; box-shadow: 0 8px 25px rgba(0,255,136,0.3); border-radius: 0 0 8px 8px; }
+    .plasma-arc { width: 85%; height: 2px; background: #fff; box-shadow: 0 0 10px #fff, 0 0 20px #0f8; animation: field-fluctuate 0.1s infinite; }
+    .plasma-arc:nth-child(2) { box-shadow: 0 0 10px #fff, 0 0 20px #0ff; animation-duration: 0.15s; }
+
+
+/* ==== next block ==== */
+
+
+    /* --- Quanten-Labor Animationen --- */
+    @keyframes levitate { 0%, 100% { transform: translateY(0) rotateX(20deg) rotateZ(45deg); } 50% { transform: translateY(-15px) rotateX(20deg) rotateZ(45deg); } }
+    @keyframes data-stream-up { 0% { background-position: 0 100%; opacity: 0.3; } 50% { opacity: 0.8; } 100% { background-position: 0 0; opacity: 0.3; } }
+    @keyframes q-ring-spin { 0% { transform: rotateX(70deg) rotateZ(0deg); } 100% { transform: rotateX(70deg) rotateZ(360deg); } }
+    @keyframes laser-scan-quantum { 0%, 100% { left: 5%; } 50% { left: 95%; } }
+    @keyframes crystal-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes ring-pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+    @keyframes beam-flicker { 0%, 100% { opacity: 0.8; height: 2px; } 50% { opacity: 0.3; height: 1px; } }
+    @keyframes q-node-hover { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    @keyframes node-spark { 0% { opacity: 0; transform: scale(1) translate(0,0); } 10% { opacity: 1; background: #fff; box-shadow: 0 0 10px #0ff; } 100% { opacity: 0; transform: scale(0.2) translate(var(--tx), var(--ty)); } }
+
+    /* --- Quanten-Zentralrechner (Q-Core) --- */
+    .item-qcore { width: 100%; height: 200px; position: absolute; z-index: 3; left: 0; bottom: 50px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; pointer-events: none; }
+    
+    .q-cube { width: 60px; height: 60px; background: rgba(20, 5, 40, 0.9); border: 2px solid #84f; box-shadow: 0 0 30px #84f, inset 0 0 15px #0ff; animation: levitate 4s ease-in-out infinite; position: absolute; bottom: 80px; z-index: 5; }
+    .q-ring-1 { width: 140px; height: 140px; border: 2px solid rgba(0, 255, 255, 0.5); border-radius: 50%; position: absolute; bottom: 40px; animation: q-ring-spin 6s linear infinite; z-index: 4; }
+    .q-ring-2 { width: 110px; height: 110px; border: 2px dashed rgba(136, 68, 255, 0.8); border-radius: 50%; position: absolute; bottom: 55px; animation: q-ring-spin 4s linear infinite reverse; z-index: 6; }
+    
+    .q-uplink { width: 40px; height: 250px; background: repeating-linear-gradient(0deg, transparent, transparent 5px, rgba(0, 255, 255, 0.4) 5px, rgba(0, 255, 255, 0.8) 10px); background-size: 100% 200%; position: absolute; bottom: 0; animation: data-stream-up 2s linear infinite; mask-image: linear-gradient(to top, transparent, black 20%, black 80%, transparent); -webkit-mask-image: linear-gradient(to top, transparent, black 20%, black 80%, transparent); z-index: 2; }
+    .q-base { width: 100px; height: 20px; background: #050505; border: 2px solid #444; border-top: 4px solid #84f; border-radius: 50%; position: absolute; bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.9), 0 -10px 20px rgba(136, 68, 255, 0.3); z-index: 1; }
+
+    /* --- Verschränkungs-Knoten (Entanglement Nodes) --- */
+    .item-qnode { position: absolute; z-index: 4; bottom: 65px; width: 50px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; animation: q-node-hover 3s ease-in-out infinite; }
+    .node-crystal { width: 18px; height: 45px; background: rgba(0,255,255,0.9); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); animation: crystal-float 2.5s infinite ease-in-out; box-shadow: 0 0 25px #0ff; margin-bottom: 15px; position: relative; z-index: 3; }
+    .node-stand { width: 36px; height: 20px; background: linear-gradient(180deg, #333, #111); border: 2px solid #555; border-top: 3px solid #0ff; border-radius: 4px 4px 0 0; box-shadow: 0 8px 15px rgba(0,0,0,0.9); z-index: 2; }
+    
+    .node-ring { position: absolute; top: 15px; width: 45px; height: 12px; border: 2px solid rgba(136, 68, 255, 0.8); border-radius: 50%; animation: ring-pulse 1.5s infinite; z-index: 1; }
+    .node-beam { position: absolute; top: 20px; width: 110px; height: 2px; background: #0ff; box-shadow: 0 0 15px #0ff; z-index: 0; }
+    .beam-left { left: 30px; animation: beam-flicker 0.1s infinite; }
+    .beam-right { right: 30px; animation: beam-flicker 0.1s infinite reverse; }
+    
+    .node-spark-pt { position: absolute; width: 3px; height: 3px; border-radius: 50%; z-index: 5; opacity: 0; animation: node-spark 1.2s infinite; }
+
+    /* --- Photonen-Scanner-Leuchte --- */
+    .item-photon-lampe { width: 140px; height: 18px; background: #111; border: 2px solid #444; border-top: none; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); border-radius: 0 0 10px 10px; overflow: visible !important; }
+    .photon-track { width: 90%; height: 4px; background: #000; margin: 8px auto 0 auto; position: relative; border-radius: 2px; }
+    .photon-laser { width: 12px; height: 12px; background: #0ff; border-radius: 50%; position: absolute; top: -4px; animation: laser-scan-quantum 3.5s ease-in-out infinite; box-shadow: 0 0 20px #0ff; }
+    
+    /* Sichtbarer Scan-Strahl als fixes DIV */
+    .photon-beam { position: absolute; top: 6px; left: -24px; width: 60px; height: 220px; background: linear-gradient(180deg, rgba(0,255,255,0.4) 0%, rgba(0,255,255,0) 100%); clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); pointer-events: none; z-index: 6; }
+
+
+/* ==== next block ==== */
+
+
+    /* --- Animationen für Hochspannungs-Verteiler --- */
+    @keyframes coil-buzz { 0%, 100% { transform: translateX(0); box-shadow: 0 0 10px #ffaa00; } 50% { transform: translateX(1px); box-shadow: 0 0 25px #ffaa00; } }
+    @keyframes arc-flash { 0%, 100% { opacity: 0; } 1%, 5% { opacity: 1; transform: scaleX(1.1) rotate(2deg); } 2%, 4% { opacity: 0; } 3% { opacity: 1; transform: scaleX(0.9) rotate(-2deg); } }
+    @keyframes cap-charge { 0% { height: 10%; background: rgba(0, 255, 136, 0.4); box-shadow: 0 0 10px #0f8; } 50% { height: 90%; background: #0ff; box-shadow: 0 0 25px #0ff; } 100% { height: 10%; background: rgba(0, 255, 136, 0.4); box-shadow: 0 0 10px #0f8; } }
+    @keyframes relay-zap { 0%, 95% { opacity: 0; height: 0; } 96% { opacity: 1; height: 140px; box-shadow: 0 0 20px #0ff; } 100% { opacity: 0; height: 0; } }
+
+    /* --- Haupt-Transformator --- */
+    .item-hv-trafo { width: 110px; height: 140px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .trafo-base { width: 100%; height: 35px; background: linear-gradient(180deg, #222, #000); border: 2px solid #555; border-bottom: 5px solid #ffaa00; border-radius: 4px; z-index: 2; box-shadow: 0 15px 20px rgba(0,0,0,0.9); }
+    .trafo-coils { display: flex; gap: 12px; margin-bottom: -8px; z-index: 1; }
+    .trafo-coil { width: 28px; height: 90px; background: repeating-linear-gradient(0deg, #8b4513 0px, #8b4513 4px, #a0522d 4px, #a0522d 8px); border-radius: 14px; border: 2px solid #111; animation: coil-buzz 0.1s infinite; position: relative; }
+    .trafo-arc { position: absolute; top: 15px; left: -8px; width: 40px; height: 60px; border-left: 3px solid #0ff; border-right: 3px solid #0ff; border-radius: 50%; animation: arc-flash 2.5s infinite; filter: drop-shadow(0 0 10px #0ff); pointer-events: none; }
+
+    /* --- Kondensator-Bänke --- */
+    .item-hv-kondensator { width: 26px; height: 80px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .cap-glass { width: 100%; height: 70px; background: rgba(255,255,255,0.05); border: 2px solid #444; border-radius: 13px; position: relative; overflow: hidden; box-shadow: inset 0 0 15px rgba(0,0,0,0.9); }
+    .cap-fluid { width: 100%; position: absolute; bottom: 0; animation: cap-charge 4s ease-in-out infinite; border-radius: 0 0 10px 10px; }
+    .cap-cap { width: 30px; height: 12px; background: #222; border: 1px solid #777; border-radius: 4px 4px 0 0; margin-bottom: -3px; z-index: 3; }
+
+    /* --- Plasma-Relais (Decke) --- */
+    .item-hv-relais { width: 34px; height: 25px; position: absolute; top: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; }
+    .relais-mount { width: 100%; height: 18px; background: #222; border: 2px solid #666; border-top: none; border-radius: 0 0 8px 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.9); }
+    .relais-node { width: 12px; height: 12px; background: #0ff; border-radius: 50%; margin-top: -6px; box-shadow: 0 0 15px #0ff; position: relative; }
+    .relais-lightning { position: absolute; top: 6px; left: 5px; width: 3px; background: #fff; box-shadow: 0 0 10px #0ff, 0 0 20px #0ff; animation: relay-zap 3s infinite; transform-origin: top; }
+
+
+/* ==== next block ==== */
+
+
+    /* --- Paradoxon-Filter: Originales High-Detail Design --- */
+    @keyframes time-ripple { 0% { box-shadow: 0 0 0 0 rgba(200, 0, 255, 0.6); } 100% { box-shadow: 0 0 0 25px rgba(200, 0, 255, 0); } }
+    @keyframes reverse-spin { from { transform: rotate(360deg) scaleY(0.5); } to { transform: rotate(0deg) scaleY(0.5); } }
+    @keyframes tachyon-pulse { 0%, 100% { opacity: 0.6; box-shadow: inset 0 0 10px #c0f; } 50% { opacity: 1; box-shadow: inset 0 0 25px #f0f; } }
+    @keyframes float-anomalie { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
+
+    /* --- Dimensions-Glitch (Bilder aus anderen Zeiten/Welten) --- */
+    @keyframes epic-dim-glitch {
+        0%, 9%, 11%, 29%, 31%, 49%, 51%, 69%, 71%, 89%, 91%, 100% { opacity: 0; background-image: none; transform: skewX(0); filter: none; }
+        
+        /* 1. Natur / Steinzeit */
+        9.5% { opacity: 0.6; background-image: url('https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80'); transform: scale(1.05) skewX(5deg); mix-blend-mode: hard-light; filter: sepia(0.8); }
+        10% { opacity: 0.3; background-image: url('https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80'); transform: scale(1) skewX(-2deg); mix-blend-mode: hard-light; filter: sepia(0.8) invert(0.2); }
+
+        /* 2. Zukunft / Cyber-City */
+        30% { opacity: 0.7; background-image: url('https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=600&q=80'); transform: scale(1.1) skewY(3deg); mix-blend-mode: screen; filter: hue-rotate(90deg); }
+
+        /* 3. Blitze / Sturm */
+        50% { opacity: 0.8; background-image: url('https://images.unsplash.com/photo-1605722243979-fc087912411e?auto=format&fit=crop&w=600&q=80'); transform: scale(1); mix-blend-mode: screen; filter: contrast(1.5); }
+        50.2% { opacity: 0; }
+        50.4% { opacity: 0.9; background-image: url('https://images.unsplash.com/photo-1605722243979-fc087912411e?auto=format&fit=crop&w=600&q=80'); filter: invert(1); mix-blend-mode: difference; }
+
+        /* 4. Mars-Oberfläche */
+        70% { opacity: 0.5; background-image: url('https://images.unsplash.com/photo-1614728263952-84ea256f9679?auto=format&fit=crop&w=600&q=80'); transform: scale(1.02); mix-blend-mode: color-dodge; filter: contrast(1.2) hue-rotate(-20deg); }
+
+        /* 5. Weltall / Milchstraße */
+        90% { opacity: 0.6; background-image: url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=600&q=80'); transform: scale(1.08) rotate(2deg); mix-blend-mode: screen; }
+    }
+
+    #dimension-glitch-layer {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none; z-index: 10;
+        background-size: cover; background-position: center;
+        opacity: 0;
+    }
+    #dimension-glitch-layer.active {
+        animation: epic-dim-glitch 25s infinite linear;
+    }
+
+    /* Treibende Zeitfragmente - unregelmäßig gespawnt, jedes mit eigenem Farbton und leichter
+       Seitwärtsdrift, damit keine zwei gleich aussehen. */
+    @keyframes paradox-fragment-rise {
+        0% { transform: translate(0, 0) rotate(0deg) scale(0.4); opacity: 0; }
+        15% { opacity: 0.9; }
+        85% { opacity: 0.7; }
+        100% { transform: translate(var(--drift), -220px) rotate(140deg) scale(1); opacity: 0; }
+    }
+    .paradox-fragment {
+        position: absolute; bottom: 20px; width: 10px; height: 10px; z-index: 8;
+        background: conic-gradient(from var(--hue), #fff, #c0f, #0ff, #fff);
+        clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+        filter: hue-rotate(var(--hue)) drop-shadow(0 0 8px currentColor);
+        animation: paradox-fragment-rise linear forwards;
+        pointer-events: none;
+    }
+
+    /* Realitäts-Visionen - kurze Bild-Einblendungen aus anderen Zeitlinien, unregelmäßig
+       gespawnt (siehe scheduleParadoxVision in base-app.js). Größerer Bild-Pool als vorher. */
+    @keyframes paradox-vision-flash {
+        0% { opacity: 0; transform: scale(1.15); filter: blur(4px); }
+        15% { opacity: 0.85; transform: scale(1.02); filter: blur(0px); }
+        70% { opacity: 0.75; }
+        85% { opacity: 0.4; }
+        100% { opacity: 0; transform: scale(1.05); filter: blur(2px); }
+    }
+    .paradox-vision {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 9;
+        background-size: cover; background-position: center;
+        animation: paradox-vision-flash 1.6s ease-in-out forwards;
+        pointer-events: none;
+    }
+
+    /* --- Möbel Designs --- */
+    .item-chrono-kern { width: 120px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .chrono-base { width: 80px; height: 25px; background: linear-gradient(180deg, #1a052a, #000); border: 2px solid #555; border-top: 4px solid #c0f; border-radius: 8px 8px 3px 3px; z-index: 2; box-shadow: 0 15px 25px rgba(0,0,0,0.9); }
+    .chrono-sphere { width: 55px; height: 55px; background: radial-gradient(circle, #f0f 0%, #408 80%, #000 100%); border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.8); position: absolute; bottom: 40px; animation: float-anomalie 5s ease-in-out infinite, time-ripple 2.5s infinite; z-index: 5; }
+    .chrono-ring-1 { width: 110px; height: 110px; border: 3px solid #0ff; border-radius: 50%; position: absolute; bottom: 12px; animation: reverse-spin 6s linear infinite; transform-origin: center; z-index: 4; }
+    .chrono-ring-2 { width: 90px; height: 90px; border: 2px dashed #f0f; border-radius: 50%; position: absolute; bottom: 22px; animation: reverse-spin 4s linear infinite reverse; transform-origin: center; z-index: 6; }
+
+    .item-anomalie-daempfer { width: 35px; height: 100px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    .daempfer-pillar { width: 25px; height: 90px; background: #0a0a0a; border: 2px solid #333; border-top: 3px solid #0ff; border-radius: 4px; position: relative; overflow: hidden; box-shadow: 5px 10px 15px rgba(0,0,0,0.8); }
+    .daempfer-core { position: absolute; top: 15px; bottom: 15px; left: 5px; right: 5px; background: rgba(200, 0, 255, 0.2); border-left: 1px solid #c0f; border-right: 1px solid #c0f; animation: tachyon-pulse 2s infinite; }
+
+    .item-tachyon-netz { position: absolute; top: 0; left: 0; width: 100%; height: 40px; z-index: 5; background-image: linear-gradient(90deg, rgba(200,0,255,0.2) 1px, transparent 1px), linear-gradient(0deg, rgba(200,0,255,0.2) 1px, transparent 1px); background-size: 20px 20px; border-bottom: 2px solid #c0f; box-shadow: 0 5px 25px rgba(200,0,255,0.3); pointer-events: none; }
+    .netz-emitter { position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 40px; height: 10px; background: #111; border: 1px solid #c0f; border-radius: 5px; box-shadow: 0 0 15px #c0f; }
+
+
+/* ==== next block ==== */
+
+
+    /* --- Globale Raum-Glitches (Wird vom Pulsgenerator ausgelöst) --- */
+    /* @keyframes room-emp-glitch steht jetzt gebündelt weiter unten (Abschnitt "FIX 1"),
+       neu getaktet auf den Lade-/Impuls-Zyklus des Kondensators. */
+    .emp-active {
+        animation: room-emp-glitch 5s infinite linear;
+    }
+
+    /* Keyframes für kern-charge-pulse/ring-accel/room-emp-glitch stehen jetzt gebündelt
+       weiter unten in der Datei (Abschnitt "FIX 1: IMPULS-KONDENSATOR") - hier nur noch
+       die Basis-Positionierung der Elemente selbst. */
+    .item-impuls-kern { width: 140px; height: 140px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; justify-content: center; align-items: flex-end; }
+    .kern-gehaeuse { width: 70px; height: 110px; background: rgba(0, 10, 30, 0.9); border: 2px solid #0055ff; border-radius: 10px 10px 40px 40px; position: relative; z-index: 2; animation: kern-charge-pulse 5s infinite ease-in-out; }
+    .kern-base { width: 110px; height: 25px; background: linear-gradient(180deg, #111, #000); border: 2px solid #444; border-bottom: 4px solid #00aaff; border-radius: 8px 8px 3px 3px; position: absolute; bottom: 0; z-index: 3; box-shadow: 0 15px 25px rgba(0,0,0,0.9); }
+    .kern-ring-accel { position: absolute; top: 40px; width: 110px; height: 110px; border: 3px solid #0ff; border-radius: 50%; z-index: 4; animation: ring-accel 5s infinite ease-in; pointer-events: none; }
+
+    /* --- Supraleiter-Spulen Redesign (Plasma-Säulen) --- */
+    @keyframes pillar-surge {
+        0% { transform: translateY(100%); opacity: 0; }
+        50% { opacity: 1; }
+        100% { transform: translateY(-100%); opacity: 0; }
+    }
+    @keyframes supra-sync-flash {
+        0%, 93%, 100% { filter: none; }
+        95% { filter: brightness(4) drop-shadow(0 0 30px #0ff); }
+    }
+
+    .item-supraleiter { width: 40px; height: 100px; position: absolute; z-index: 2; bottom: 70px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; animation: supra-sync-flash 5s infinite linear; }
+    .supra-base { width: 36px; height: 18px; background: linear-gradient(180deg, #222, #000); border: 2px solid #0ff; border-bottom: none; border-radius: 6px 6px 0 0; z-index: 2; box-shadow: 0 10px 15px rgba(0,0,0,0.8); }
+    .supra-energy-pillar { width: 16px; height: 80px; background: rgba(0, 50, 100, 0.4); border-left: 2px solid #00aaff; border-right: 2px solid #00aaff; border-radius: 10px; margin-bottom: -5px; z-index: 1; position: relative; overflow: hidden; box-shadow: 0 0 15px rgba(0, 170, 255, 0.4); }
+    .supra-energy-pillar::after { content: ''; position: absolute; left: 0; width: 100%; height: 50%; background: #fff; box-shadow: 0 0 20px #fff, 0 0 30px #0ff; animation: pillar-surge 1.2s infinite linear; filter: blur(2px); }
+
+    /* --- Decken-Entlader (Unverändert) --- */
+    @keyframes spark-jump { 0%, 90%, 100% { opacity: 0; transform: scaleY(0.5); } 95% { opacity: 1; transform: scaleY(1); box-shadow: 0 0 15px #0ff; } }
+    @keyframes energy-flow-up { 0% { background-position: 0 200%; } 100% { background-position: 0 -200%; } }
+    
+    .item-decken-entlader { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 50px; z-index: 4; display: flex; flex-direction: column; align-items: center; }
+    .entlader-mount { width: 100%; height: 15px; background: #1a1a1a; border: 2px solid #444; border-top: none; border-radius: 0 0 10px 10px; box-shadow: 0 5px 15px rgba(0,170,255,0.3); }
+    .entlader-beam { width: 8px; height: 140px; background: linear-gradient(180deg, rgba(0,255,255,0.8), transparent); animation: energy-flow-up 1.5s linear infinite; filter: drop-shadow(0 0 8px #0ff); }
+    .entlader-spark { position: absolute; top: 15px; width: 4px; height: 25px; background: #fff; animation: spark-jump 4s infinite; }
+
+
+/* ==== next block ==== */
+
+
+    /* --- Oszillations-Kammer (Offiziers-Suite) --- */
+    @keyframes holo-stream-play { 100% { background-position: 0 -50px; } }
+    
+    .holz-carving {
+        background-image: repeating-linear-gradient(135deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+    }
+
+    .item-offiziers-bild {
+        position: absolute; top: 45px; left: 50%; transform: translateX(-50%);
+        width: 50px; height: 75px; background-color: #111;
+        border: 4px ridge #5c3a21; outline: 2px solid #27140c; border-radius: 2px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.9);
+        background-image: url('Audio%20%26%20Bild/Mona-Lisa.png'); background-size: cover; background-position: center; z-index: 1;
+    }
+    .bild-licht {
+        position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+        width: 40px; height: 3px; background: #fff; box-shadow: 0 0 15px #ffcc00; border-radius: 2px;
+    }
+
+    /* 2. Offiziers-Bett mit rotem Teppich */
+    .item-offiziers-bett {
+        position: absolute; 
+        bottom: 55px; /* Ein Ticken nach unten/vorne geschoben */
+        left: 45px;
+        width: 120px; 
+        height: 45px;
+        z-index: 2; 
+        display: flex; 
+        align-items: flex-end; 
+        justify-content: flex-start;
+    }
+    
+    /* Der rote Teppich flach auf dem Boden und parallel zur Wand */
+    .bett-teppich {
+        position: absolute; 
+        top: 30px; /* Gleicht die Bett-Verschiebung aus -> Startet exakt an der Hinterwand */
+        left: -5px; /* Greift exakt in die linke Raumecke (Bett 45px - 5px = 40px Kante) */
+        width: 150px; 
+        height: 60px; 
+        background: #600000; 
+        border-bottom: 2px solid #ffaa00; 
+        border-top: 2px solid #ffaa00;
+        z-index: 0; 
+        transform-origin: top left; 
+        /* Perspective für die Bodentiefe + skewX für die exakte Parallele zur linken Wand */
+        transform: perspective(400px) rotateX(60deg) skewX(-22deg); 
+        box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+        background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.2) 5px, rgba(0,0,0,0.2) 10px);
+    }
+
+
+    .bett-legs-side { position: absolute; bottom: -5px; width: 100%; display: flex; justify-content: space-around; z-index: 2; }
+    .bett-leg { width: 8px; height: 5px; background: #1a0d08; border-radius: 0 0 2px 2px; }
+    
+    .bett-frame-side {
+        width: 100%; height: 35px; background: linear-gradient(180deg, #5c3a21, #3e2723);
+        border: 2px solid #27140c; border-radius: 3px; display: flex; align-items: flex-end; justify-content: space-between;
+        position: relative; z-index: 4; box-shadow: 10px 10px 15px rgba(0,0,0,0.8);
+    }
+    .bett-matratze-side {
+        width: 110px; height: 30px; background: #e0e0e0; border-left: 1px solid #999; border-right: 1px solid #999;
+        z-index: 3; position: relative; margin-bottom: -1px;
+    }
+    .bett-pillow-side { position: absolute; top: 4px; left: 6px; width: 22px; height: 12px; background: #fff; border-radius: 4px; box-shadow: 1px 2px 4px rgba(0,0,0,0.3); }
+    .bett-decke-side { position: absolute; bottom: 0; right: 0; width: 75%; height: 22px; background: #2a0a33; border-left: 4px solid #ffaa00; box-shadow: inset -5px 0 10px rgba(0,0,0,0.3); }
+
+    .bett-headboard-side, .bett-footboard-side {
+        width: 10px; height: 100%; position: absolute; top: 0; z-index: 5;
+        background: linear-gradient(180deg, #5c3a21, #3e2723); border: 2px solid #27140c; border-bottom: none;
+    }
+    .bett-headboard-side { left: -6px; height: 120%; border-radius: 4px 0 0 0; }
+    .bett-footboard-side { right: -6px; height: 105%; border-radius: 0 4px 0 0; }
+
+    .item-offiziers-bar {
+        position: absolute; bottom: 70px; left: 48%;
+        width: 34px; height: 45px;
+        background: linear-gradient(180deg, #5c3a21, #3e2723);
+        border: 2px solid #27140c; border-top: 3px ridge #8b5a2b;
+        z-index: 2; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
+        box-shadow: 5px 15px 15px rgba(0,0,0,0.8);
+    }
+    .item-offiziers-bar::before, .item-offiziers-bar::after {
+        content: ''; position: absolute; top: 100%; width: 4px; height: 4px; background: #1a0d08;
+    }
+    .item-offiziers-bar::before { left: 4px; } .item-offiziers-bar::after { right: 4px; }
+    .bar-shelf { width: 90%; height: 2px; background: #27140c; display: flex; justify-content: space-around; align-items: flex-end; padding-bottom: 1px; box-shadow: 0 1px 2px rgba(255,255,255,0.1); }
+    
+    .bottle { position: relative; width: 5px; height: 11px; border-radius: 2px 2px 1px 1px; overflow: hidden; }
+    .bottle::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 5px; border-radius: 2px 2px 0 0; background: inherit; filter: brightness(1.2); }
+    .bottle-cap { position: absolute; bottom: 100%; left: 1px; width: 3px; height: 3px; background: #999; border-radius: 2px; box-shadow: 0 0 3px rgba(255,255,255,0.3); }
+    .bottle-1 { background: rgba(0, 255, 136, 0.9); box-shadow: 0 0 5px #0f8; }
+    .bottle-2 { background: rgba(255, 0, 255, 0.9); box-shadow: 0 0 5px #f0f; height: 8px; }
+    .bottle-3 { background: rgba(0, 255, 255, 0.9); box-shadow: 0 0 5px #0ff; height: 13px; }
+
+    .bar-base { width: 90%; height: 5px; background: #27140c; position: absolute; bottom: 2px; left: 5%; }
+
+    .item-offiziers-desk {
+        position: absolute; bottom: 70px; right: 10%; width: 90px; height: 50px;
+        z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    }
+    .desk-platte-massive {
+        width: 100%; height: 18px; background: linear-gradient(180deg, #8b5a2b, #5c3a21);
+        border: 4px ridge #27140c; border-radius: 3px; z-index: 4;
+        box-shadow: -8px 10px 15px rgba(0,0,0,0.8); position: relative;
+    }
+    .desk-beine-massive { width: 85%; height: 32px; display: flex; justify-content: space-between; z-index: 3; }
+    .desk-bein { width: 12px; height: 100%; background: linear-gradient(90deg, #3e2723, #27140c); border-left: 1px solid #1a0d08; border-right: 1px solid #1a0d08; }
+    
+    .desk-holo-projector {
+        position: absolute; top: -5px; left: 50%; transform: translateX(-50%);
+        width: 24px; height: 4px; background: #111; border: 1px solid #444; box-shadow: inset 0 0 5px #0ff; border-radius: 2px 2px 0 0;
+    }
+    .desk-holo-stream {
+        position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+        width: 55px; height: 40px; background: repeating-linear-gradient(0deg, rgba(0,255,255,0.1) 0px, rgba(0,255,255,0.3) 2px, transparent 3px, transparent 5px);
+        background-size: 100% 50px; border: 1px solid rgba(0,255,255,0.5); border-radius: 2px;
+        animation: holo-stream-play 1s linear infinite; box-shadow: 0 0 15px rgba(0,255,255,0.2);
+        display: flex; justify-content: center; align-items: center;
+    }
+    .desk-holo-stream::after { content: 'LIVE'; font-family: 'Orbitron'; font-size: 6px; color: #fff; text-shadow: 0 0 5px #0ff; }
+
+
+/* ==== next block ==== */
+
+
+/* === TRANSFORMATOREN-STATION === */
+@keyframes tachyon-bolt { 0%,100% { opacity:0; } 3%,8% { opacity:1; box-shadow:0 0 15px #c0f; } 5% { opacity:0.3; } 10% { opacity:0; } }
+@keyframes led-async-blink { 0%,100% { opacity:1; } 30% { opacity:0.2; } 60% { opacity:0.8; } }
+@keyframes warn-pulse-slow { 0%,100% { opacity:0.2; box-shadow:0 0 5px #f44; } 50% { opacity:1; box-shadow:0 0 20px #f44; } }
+@keyframes plasma-thread { 0% { transform:translateX(-15px); opacity:0.3; } 50% { transform:translateX(15px); opacity:1; } 100% { transform:translateX(-15px); opacity:0.3; } }
+
+.item-temp-inverter { width:100px; height:120px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ti-casing { width:90px; height:80px; background:linear-gradient(180deg,#1a0a2a,#050010); border:2px solid #555; border-bottom:4px solid #c0f; border-radius:6px; position:relative; z-index:2; box-shadow:0 15px 25px rgba(0,0,0,0.9), inset 0 0 20px rgba(200,0,255,0.2); display:flex; justify-content:space-around; align-items:center; padding:0 10px; box-sizing:border-box; }
+.ti-magnet { width:16px; height:50px; background:rgba(200,0,255,0.15); border:1px solid #c0f; border-radius:8px; position:relative; }
+.ti-bolt { position:absolute; top:-5px; left:0; width:100%; height:60px; pointer-events:none; }
+.ti-bolt::before { content:''; position:absolute; top:10px; left:30%; width:3px; height:40px; background:#c0f; box-shadow:0 0 10px #c0f; animation:tachyon-bolt 1.5s infinite; }
+.ti-bolt::after { content:''; position:absolute; top:5px; left:60%; width:2px; height:45px; background:#f0f; box-shadow:0 0 10px #f0f; animation:tachyon-bolt 2s infinite 0.5s; }
+.ti-led { position:absolute; bottom:5px; width:5px; height:5px; border-radius:50%; }
+.ti-led.l1 { left:10px; background:#0f8; box-shadow:0 0 8px #0f8; animation:led-async-blink 0.8s infinite; }
+.ti-led.l2 { right:10px; background:#ffcc00; box-shadow:0 0 8px #ffcc00; animation:led-async-blink 1.3s infinite 0.4s; }
+.ti-base { width:110px; height:20px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px 4px 2px 2px; z-index:1; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
+
+.item-chrono-knoten { width:40px; height:100px; position:absolute; z-index:2; bottom:70px; left:50px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ck-frame { width:100%; height:85px; background:rgba(255,0,0,0.05); border:1px solid #333; border-top:2px solid #f44; border-radius:4px; position:relative; overflow:hidden; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.ck-warn-bar { position:absolute; left:0; width:100%; height:4px; background:#f44; border-radius:2px; }
+.ck-warn-bar.b1 { top:15px; animation:warn-pulse-slow 2s infinite; }
+.ck-warn-bar.b2 { top:40px; animation:warn-pulse-slow 2s infinite 1s; }
+.ck-warn-bar.b3 { top:65px; animation:warn-pulse-slow 2s infinite 0.5s; }
+.ck-base { width:100%; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-wartungs-drohne { width:50px; height:80px; position:absolute; z-index:2; bottom:70px; right:50px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.wd-station { width:100%; height:20px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px 4px 8px 8px; box-shadow:0 8px 15px rgba(0,0,0,0.9); position:relative; }
+.wd-station::before { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:20px; height:4px; background:#333; border-radius:2px; }
+.wd-body { width:30px; height:25px; background:#1a1a2a; border:1px solid #555; border-radius:50% 50% 30% 30%; margin-bottom:-3px; position:relative; }
+.wd-eye { width:8px; height:4px; background:#333; border-radius:50%; position:absolute; top:8px; left:50%; transform:translateX(-50%); }
+.wd-arm { width:3px; height:12px; background:#444; position:absolute; bottom:0; }
+.wd-arm.l { left:-2px; transform:rotate(20deg); }
+.wd-arm.r { right:-2px; transform:rotate(-20deg); }
+
+.item-lampe-trans { width:80px; height:12px; background:#0a0a0a; border:1px solid #333; border-top:none; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); border-radius:0 0 8px 8px; overflow:hidden; }
+.lt-plasma { width:4px; height:8px; background:#c0f; box-shadow:0 0 15px #c0f, 0 0 25px #f0f; border-radius:2px; margin:2px auto; animation:plasma-thread 0.3s infinite; }
+
+/* === RENAISSANCE-GENERATOR === */
+@keyframes quantum-glow { 0%,100% { box-shadow:0 0 20px #0af, inset 0 0 15px #0ff; } 50% { box-shadow:0 0 50px #0af, inset 0 0 30px #0ff; } }
+@keyframes ring-rotate-steady { from { transform:rotateX(70deg) rotateZ(0deg); } to { transform:rotateX(70deg) rotateZ(360deg); } }
+@keyframes anvil-press { 0%,80%,100% { transform:translateY(0); } 85%,90% { transform:translateY(15px); } }
+@keyframes press-led { 0%,80%,100% { opacity:0.2; } 85%,90% { opacity:1; box-shadow:0 0 15px #0f8; } }
+
+.item-materie-rekon { width:80px; height:150px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.mr-cylinder { width:50px; height:100px; background:rgba(0,10,30,0.9); border:2px solid #0af; border-radius:25px 25px 5px 5px; position:relative; z-index:2; animation:quantum-glow 2s infinite; box-shadow:0 0 20px #0af; }
+.mr-base { width:70px; height:20px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
+
+.item-singularitaet-komp { width:60px; height:80px; position:absolute; z-index:2; bottom:70px; left:50px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.sk-anvil { width:50px; height:40px; background:linear-gradient(180deg,#333,#111); border:2px solid #555; border-radius:4px 4px 2px 2px; position:relative; z-index:2; box-shadow:5px 10px 15px rgba(0,0,0,0.9); animation:anvil-press 4s infinite; }
+.sk-led { position:absolute; bottom:5px; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background:#0f8; animation:press-led 4s infinite; }
+.sk-base { width:55px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-nullpunkt-cluster { width:60px; height:50px; position:absolute; z-index:2; bottom:80px; right:50px; display:flex; gap:3px; align-items:flex-end; }
+.np-cube { width:14px; height:14px; background:rgba(0,255,255,0.1); border:1px solid #0ff; border-radius:2px; box-shadow:inset 0 0 8px rgba(0,255,255,0.3); }
+.np-cube:nth-child(2) { height:20px; }
+.np-cube:nth-child(3) { height:16px; }
+.np-cube:nth-child(4) { height:24px; }
+
+.item-lampe-ren { width:50px; height:30px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; }
+.lr-coil { width:30px; height:20px; border:2px solid #ffcc00; border-radius:15px; background:rgba(255,204,0,0.15); box-shadow:0 0 20px #ffcc00, 0 8px 15px rgba(255,204,0,0.3); }
+.lr-mount { width:3px; height:8px; background:#333; }
+
+/* === THERMO-KOPPLER === */
+@keyframes drill-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes led-bar-run { 0% { transform:translateY(100%); opacity:0; } 20% { opacity:1; } 100% { transform:translateY(-100%); opacity:0; } }
+@keyframes coolant-flow { 0% { background-position:0 0; } 100% { background-position:0 -20px; } }
+@keyframes needle-jitter { 0%,100% { transform:rotate(0deg); } 25% { transform:rotate(3deg); } 75% { transform:rotate(-2deg); } }
+@keyframes thermo-blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+@keyframes magma-pulse { 0%,100% { box-shadow:0 0 10px #f40, inset 0 0 10px #f40; opacity:0.7; } 50% { box-shadow:0 0 30px #f40, inset 0 0 20px #f40; opacity:1; } }
+
+.item-erdkern-res { width:80px; height:140px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.er-drill { width:30px; height:60px; background:linear-gradient(180deg,#333,#111); border:2px solid #555; border-radius:3px; position:relative; z-index:2; }
+.er-bit { width:20px; height:30px; background:conic-gradient(#555,#222,#555,#222,#555); border-radius:50% 50% 5px 5px; margin-top:-3px; animation:drill-spin 0.3s linear infinite; box-shadow:0 0 15px rgba(0,255,136,0.5); }
+.er-control { width:60px; height:35px; background:#0a0a0a; border:2px solid #333; border-radius:4px; position:relative; overflow:hidden; z-index:3; display:flex; flex-direction:column; gap:3px; padding:4px; box-sizing:border-box; }
+.er-led-bar { width:100%; height:3px; background:#0f8; border-radius:1px; animation:led-bar-run 1.5s infinite; }
+.er-led-bar:nth-child(2) { animation-delay:0.5s; }
+.er-led-bar:nth-child(3) { animation-delay:1s; }
+.er-base { width:70px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; z-index:1; }
+
+.item-kryo-kuehl { width:100px; height:70px; position:absolute; z-index:2; bottom:80px; left:40px; display:flex; gap:5px; }
+.kk-tube { width:12px; height:100%; background:rgba(0,100,200,0.1); border:1px solid #0af; border-radius:6px; position:relative; overflow:hidden; }
+.kk-fluid { position:absolute; top:0; width:100%; height:200%; background:repeating-linear-gradient(0deg, rgba(0,170,255,0.6) 0px, rgba(0,170,255,0.6) 3px, transparent 3px, transparent 8px); animation:coolant-flow 0.8s linear infinite; }
+
+.item-holo-thermo { width:50px; height:60px; position:absolute; z-index:4; bottom:80px; right:45px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ht-screen { width:100%; height:40px; background:rgba(0,255,255,0.08); border:1px solid #0ff; border-radius:4px; position:relative; overflow:hidden; box-shadow:0 0 15px rgba(0,255,255,0.3); }
+.ht-needle { position:absolute; bottom:5px; left:50%; width:2px; height:15px; background:#0f8; transform-origin:bottom; animation:needle-jitter 0.15s infinite; box-shadow:0 0 5px #0f8; }
+.ht-led { position:absolute; width:4px; height:4px; border-radius:50%; }
+.ht-led.l { top:5px; left:5px; background:#ffcc00; box-shadow:0 0 5px #ffcc00; animation:thermo-blink 1s infinite; }
+.ht-led.r { top:5px; right:5px; background:#f44; box-shadow:0 0 5px #f44; animation:thermo-blink 1.3s infinite 0.5s; }
+.ht-base { width:100%; height:12px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-lampe-thermo { width:30px; height:30px; position:absolute; z-index:5!important; top:5px; left:50%; transform:translateX(-50%); }
+.lt-crystal { width:20px; height:20px; background:radial-gradient(circle,#f40,#800); border-radius:50%; border:2px solid #f40; animation:magma-pulse 3s infinite; }
+
+/* === KINETIK-LABOR === */
+@keyframes centrifuge-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes led-color-shift { 0% { background:#0f8; box-shadow:0 0 10px #0f8; } 50% { background:#ffcc00; box-shadow:0 0 10px #ffcc00; } 100% { background:#f44; box-shadow:0 0 10px #f44; } }
+@keyframes absorber-flash { 0%,90%,100% { opacity:0; } 95% { opacity:1; box-shadow:0 0 20px #0af; } }
+@keyframes pendulum-swing { 0%,100% { transform:rotate(15deg); } 50% { transform:rotate(-15deg); } }
+
+.item-grav-zentrifuge { width:90px; height:130px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.gz-cylinder { width:80px; height:100px; border:3px solid #444; border-radius:8px; background:rgba(0,0,0,0.5); position:relative; z-index:2; overflow:hidden; box-shadow:0 15px 25px rgba(0,0,0,0.9); }
+.gz-core { width:25px; height:25px; background:radial-gradient(circle,#fff,#0af); border-radius:50%; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); animation:centrifuge-spin 1s linear infinite; box-shadow:0 0 20px #0af; }
+.gz-led-strip { position:absolute; top:0; right:0; width:4px; height:100%; border-radius:2px; animation:led-color-shift 1s infinite; }
+.gz-base { width:90px; height:18px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; }
+
+.item-kinetik-absorber { width:120px; height:30px; position:absolute; z-index:2; bottom:72px; left:50%; transform:translateX(-50%); display:flex; gap:4px; }
+.ka-plate { flex:1; height:100%; background:#111; border:1px solid #333; border-radius:3px; position:relative; overflow:hidden; }
+.ka-plate::before { content:''; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,170,255,0.6); animation:absorber-flash 3s infinite; }
+.ka-plate:nth-child(2)::before { animation-delay:1s; }
+.ka-plate:nth-child(3)::before { animation-delay:2s; }
+
+.item-holo-matrix { width:60px; height:50px; position:absolute; z-index:4; bottom:100px; right:40px; }
+.hm-proj { width:100%; height:100%; background:rgba(136,68,255,0.08); border:1px solid rgba(136,68,255,0.5); border-radius:4px; display:flex; align-items:center; justify-content:center; font-family:'Orbitron'; font-size:6px; color:#84f; text-shadow:0 0 5px #84f; line-height:1.2; text-align:center; box-shadow:0 0 15px rgba(136,68,255,0.2); }
+
+.item-lampe-kinetik { width:40px; height:50px; position:absolute; z-index:5!important; top:0; left:30%; display:flex; flex-direction:column; align-items:center; }
+.lk-arm { width:2px; height:20px; background:#333; }
+.lk-pendel { width:15px; height:15px; background:radial-gradient(circle,#ffcc00,#660); border-radius:50%; box-shadow:0 0 15px #ffcc00; animation:pendulum-swing 2s ease-in-out infinite; transform-origin:top center; }
+
+/* === MATERIE-DEKOMPRESSOR === */
+@keyframes field-rotate-cw { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes field-rotate-ccw { from { transform:rotate(0deg); } to { transform:rotate(-360deg); } }
+@keyframes warn-blink-fast { 0%,100% { opacity:0.2; } 50% { opacity:1; box-shadow:0 0 15px #f80; } }
+@keyframes lightstream-flow { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+@keyframes barrier-flash { 0%,90%,100% { opacity:0; } 95% { opacity:1; background:#f44; box-shadow:0 0 15px #f44; } }
+@keyframes strobe-rotate { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+
+.item-molekular-disruptor { width:100px; height:120px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.md-field-container { width:100%; height:80px; position:relative; display:flex; justify-content:space-between; align-items:center; }
+.md-field { width:35px; height:70px; border:2px solid #f80; border-radius:50%; background:rgba(255,136,0,0.1); box-shadow:0 0 15px rgba(255,136,0,0.4); }
+.md-field.left { animation:field-rotate-cw 2s linear infinite; }
+.md-field.right { animation:field-rotate-ccw 2s linear infinite; }
+.md-warn { position:absolute; top:-15px; left:50%; transform:translateX(-50%); width:10px; height:10px; border-radius:50%; background:#f80; animation:warn-blink-fast 0.4s infinite; }
+.md-base { width:90px; height:18px; background:linear-gradient(180deg,#222,#000); border:2px solid #444; border-radius:4px; z-index:1; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
+
+.item-antigrav-transport { width:120px; height:25px; position:absolute; z-index:2; bottom:75px; left:50%; transform:translateX(-50%); }
+.at-belt { width:100%; height:100%; background:repeating-linear-gradient(90deg, rgba(255,255,255,0.3) 0px, rgba(255,255,255,0.3) 2px, transparent 2px, transparent 10px); background-size:200% 100%; animation:lightstream-flow 1s linear infinite; border:1px solid rgba(255,255,255,0.4); border-radius:4px; overflow:hidden; position:relative; }
+.at-barrier { position:absolute; top:-8px; right:10px; width:3px; height:8px; border-radius:2px; animation:barrier-flash 2s infinite; }
+
+.item-quarantaene-stasis { width:50px; height:60px; position:absolute; z-index:2; bottom:80px; right:45px; }
+.qs-box { width:100%; height:100%; background:rgba(0,255,255,0.05); border:2px solid rgba(0,255,255,0.4); border-radius:4px; box-shadow:inset 0 0 15px rgba(0,255,255,0.1), 0 5px 15px rgba(0,0,0,0.8); }
+
+.item-lampe-dekomp { width:30px; height:30px; position:absolute; z-index:5!important; top:5px; left:50%; transform:translateX(-50%); }
+.ld-strobe { width:20px; height:20px; background:conic-gradient(#ffcc00, transparent, #ffcc00, transparent, #ffcc00); border-radius:50%; animation:strobe-rotate 1s linear infinite; box-shadow:0 0 20px #ffcc00; }
+
+/* === TEMPORAL TIME FORGE (ehem. VAKUUM-SCHMIEDE) === */
+@keyframes ttf-ring-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes ttf-ring-spin-rev { from { transform:rotate(360deg); } to { transform:rotate(0deg); } }
+@keyframes ttf-core-pulse {
+    0%,100% { box-shadow:0 0 20px #0ff, 0 0 40px #08f; transform:scale(1); }
+    50% { box-shadow:0 0 40px #fff, 0 0 80px #0ff, 0 0 120px #08f; transform:scale(1.2); }
+}
+@keyframes ttf-spark-orbit { from { transform:rotate(0deg) translateX(50px) rotate(0deg); } to { transform:rotate(360deg) translateX(50px) rotate(-360deg); } }
+@keyframes ttf-holo-rotate { from { transform:rotateY(0deg); } to { transform:rotateY(360deg); } }
+@keyframes ttf-holo-flicker {
+    0%,41%,100% { opacity:0.9; }
+    42% { opacity:0.15; } 44% { opacity:0.85; }
+    55% { opacity:0.25; } 57% { opacity:0.9; }
+    80% { opacity:0.9; } 81% { opacity:0.35; } 83% { opacity:0.9; }
+}
+@keyframes ttf-arc-flicker-a {
+    0%,2%,7%,45%,52%,90%,96%,100% { opacity:0; }
+    3%,5% { opacity:1; } 48%,50% { opacity:1; } 92%,94% { opacity:1; }
+}
+@keyframes ttf-arc-flicker-b {
+    0%,20%,27%,66%,73%,100% { opacity:0; }
+    23%,25% { opacity:1; } 68%,70% { opacity:1; }
+}
+
+/* Zeitmaschinen-Kern: fünf konzentrische, gegenläufig rotierende Ringe unterschiedlicher
+   Geschwindigkeit um einen pulsierenden Energiekern - bewusst FLACH (kein 3D-Tilt mehr), da
+   die vorherige Kippung die Ringe optisch vom Kern-Mittelpunkt weg verschoben hat, obwohl
+   beide rechnerisch denselben Zentrierungspunkt (top:50%/left:50%/margin) nutzten. Jeder Ring
+   wird zur "Rückseite" hin kleiner und etwas dunkler, für einen Tunnel-/Sog-Effekt. Sitzt
+   direkt über dem Sockel (.ttf-base), Kern exakt im Zentrum aller Ringe. */
+.item-zeitmaschinen-kern { width:110px; height:110px; position:absolute; z-index:3; left:50%; bottom:35px; transform:translateX(-50%); }
+.ttf-ring { position:absolute; top:50%; left:50%; border-radius:50%; border-style:solid; box-sizing:border-box; }
+.ttf-ring-1 { width:104px; height:104px; border-width:4px; border-color:#0ff transparent #0ff transparent; margin:-52px 0 0 -52px; animation:ttf-ring-spin 4s linear infinite; box-shadow:0 0 15px #0ff; }
+.ttf-ring-2 { width:86px; height:86px; border-width:3px; border-color:transparent #08f transparent #08f; margin:-43px 0 0 -43px; animation:ttf-ring-spin-rev 3.1s linear infinite; box-shadow:0 0 13px #08f; }
+.ttf-ring-3 { width:68px; height:68px; border-width:3px; border-color:#c0f #c0f transparent transparent; margin:-34px 0 0 -34px; animation:ttf-ring-spin 2.4s linear infinite; box-shadow:0 0 11px #c0f; }
+.ttf-ring-4 { width:50px; height:50px; border-width:2px; border-color:transparent #0f8 transparent #0f8; margin:-25px 0 0 -25px; animation:ttf-ring-spin-rev 1.8s linear infinite; box-shadow:0 0 9px #0f8; opacity:0.8; }
+.ttf-ring-5 { width:34px; height:34px; border-width:2px; border-color:#fff #fff transparent transparent; margin:-17px 0 0 -17px; animation:ttf-ring-spin 1.3s linear infinite; box-shadow:0 0 8px #fff; opacity:0.6; }
+.ttf-core { width:22px; height:22px; position:absolute; top:50%; left:50%; margin:-11px 0 0 -11px; border-radius:50%; background:radial-gradient(circle,#fff,#0ff 40%,#08f 80%); animation:ttf-core-pulse 1.5s ease-in-out infinite; z-index:2; }
+.ttf-spark { width:4px; height:4px; border-radius:50%; background:#fff; position:absolute; top:50%; left:50%; box-shadow:0 0 8px #fff, 0 0 15px #0ff; animation:ttf-spark-orbit 2.2s linear infinite; }
+.ttf-spark.s2 { animation-duration:3.2s; animation-direction:reverse; background:#c0f; box-shadow:0 0 8px #c0f; }
+.ttf-spark.s3 { animation-duration:4.4s; background:#0f8; box-shadow:0 0 8px #0f8; }
+.ttf-base { position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); width:90px; height:14px; background:linear-gradient(180deg,#222,#000); border:2px solid #0ff; border-radius:4px; box-shadow:0 0 20px rgba(0,255,255,0.4); }
+
+/* Einzigartige, zackige Blitze des Zeitmaschinen-Kerns (bewusst NICHT dieselbe Optik wie beim
+   Energie-Bogen-Generator): echte gezackte Pfade statt gerader Balken, per JS in
+   zufällige Richtungen gezeichnet (siehe spawnForgeLightning in base-app.js). */
+.ttf-lightning-svg { position:absolute; top:0; left:0; width:100%; height:100%; z-index:4; overflow:visible; pointer-events:none; }
+.ttf-lightning-bolt { fill:none; stroke:#fff; stroke-width:1.6; stroke-linejoin:round; filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #0ff) drop-shadow(0 0 18px #c0f); }
+
+/* Holo-Projektor: flackernde, rotierende Zeitstrom-Sphäre über einer Emitter-Basis. */
+.item-holo-projektor { width:70px; height:110px; position:absolute; z-index:2; bottom:70px; left:38px; }
+.hp-base { width:100%; height:16px; background:linear-gradient(180deg,#222,#000); border:2px solid #555; border-radius:4px; position:absolute; bottom:0; }
+.hp-emitter { width:14px; height:6px; background:#0ff; border-radius:2px; position:absolute; bottom:16px; left:50%; transform:translateX(-50%); box-shadow:0 0 15px #0ff; }
+.hp-hologram { position:absolute; bottom:24px; left:50%; transform:translateX(-50%); width:55px; height:62px; perspective:200px; }
+.hp-globe {
+    width:100%; height:100%; border-radius:50%; border:1px solid rgba(0,255,255,0.5);
+    background:
+        repeating-linear-gradient(0deg, rgba(0,255,255,0.18) 0px, transparent 2px, transparent 7px),
+        repeating-linear-gradient(90deg, rgba(0,255,255,0.12) 0px, transparent 2px, transparent 9px);
+    box-shadow:0 0 25px rgba(0,255,255,0.45), inset 0 0 20px rgba(0,255,255,0.2);
+    animation:ttf-holo-rotate 4s linear infinite, ttf-holo-flicker 3.2s steps(1) infinite;
+    transform-style:preserve-3d;
+}
+
+/* Energie-Bogen-Generator: zwei Ladeknoten mit unregelmäßig, asynchron aufflackernden
+   Energiebögen dazwischen - wirkt durch die versetzten Keyframes wie echtes Überspringen. */
+.item-energie-bogen { width:90px; height:70px; position:absolute; z-index:2; bottom:80px; right:35px; }
+.eb-node { width:14px; height:14px; border-radius:50%; background:radial-gradient(circle,#fff,#c0f); position:absolute; bottom:5px; box-shadow:0 0 15px #c0f, 0 0 25px #c0f; }
+.eb-node.left { left:0; } .eb-node.right { right:0; }
+.eb-bolt { position:absolute; left:12px; right:12px; top:22px; height:3px; background:linear-gradient(90deg, transparent, #fff, #c0f, #fff, transparent); box-shadow:0 0 8px #fff, 0 0 16px #c0f; border-radius:2px; }
+.eb-bolt.b1 { transform:translateY(-9px) rotate(-7deg); animation:ttf-arc-flicker-a 3s infinite; }
+.eb-bolt.b2 { transform:translateY(2px) rotate(5deg); animation:ttf-arc-flicker-b 3.4s infinite; }
+.eb-bolt.b3 { transform:translateY(10px) rotate(-4deg); animation:ttf-arc-flicker-a 2.3s infinite 0.6s; }
+
+/* Chrono-Leuchte: Deckenring mit rotierendem Lichtband. */
+.item-chrono-leuchte { width:55px; height:16px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
+.cl-ring { width:44px; height:10px; border:2px solid #0ff; border-radius:50%; background:rgba(0,255,255,0.25); box-shadow:0 0 25px #0ff, 0 0 45px #08f; position:relative; overflow:hidden; }
+.cl-ring::before { content:''; position:absolute; inset:0; background:conic-gradient(from 0deg, transparent, #fff, transparent 40%); animation:ttf-ring-spin 2s linear infinite; }
+
+/* === RESONANZ-KAMMER === */
+@keyframes ring-vibrate { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(1.15); } }
+@keyframes freq-line-scan { 0% { left:0; } 100% { left:100%; } }
+@keyframes keypad-blink { 0%,100% { opacity:0.3; } 50% { opacity:1; box-shadow:0 0 8px #0f8; } }
+@keyframes freq-tube-flicker { 0%,100% { opacity:0.8; } 50% { opacity:0.3; } }
+
+.item-chrono-oszillator { width:80px; height:130px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.co-pedestal { width:50px; height:25px; background:linear-gradient(180deg,#333,#111); border:2px solid #555; border-radius:4px; z-index:2; box-shadow:0 10px 20px rgba(0,0,0,0.9); }
+.co-ring-container { position:absolute; bottom:25px; left:50%; transform:translateX(-50%); width:60px; height:80px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:5px; z-index:3; }
+.co-ring { width:50px; height:8px; border:2px solid #0ff; border-radius:50%; box-shadow:0 0 15px #0ff; animation:ring-vibrate 0.1s infinite; }
+.co-ring:nth-child(2) { width:40px; animation-delay:0.05s; }
+.co-ring:nth-child(3) { width:30px; animation-delay:0.1s; }
+
+.item-tachyon-spektrometer { width:55px; height:65px; position:absolute; z-index:2; bottom:75px; left:45px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ts-console { width:100%; height:45px; background:#0a0a0a; border:2px solid #333; border-radius:4px; position:relative; overflow:hidden; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.ts-holo { width:90%; height:15px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.4); border-radius:2px; margin:5px auto; position:relative; overflow:hidden; }
+.ts-freq-line { position:absolute; top:50%; transform:translateY(-50%); width:2px; height:100%; background:#0f8; box-shadow:0 0 8px #0f8; animation:freq-line-scan 2s linear infinite; }
+.ts-keypad { display:flex; gap:2px; justify-content:center; padding:3px; }
+.ts-key { width:4px; height:4px; background:#0f8; border-radius:1px; animation:keypad-blink 0.8s infinite; }
+.ts-key:nth-child(2) { animation-delay:0.3s; }
+.ts-key:nth-child(3) { animation-delay:0.6s; }
+.ts-base { width:100%; height:12px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-schall-nullifizierung { width:60px; height:70px; position:absolute; z-index:2; bottom:75px; right:45px; display:flex; flex-wrap:wrap; gap:3px; align-content:flex-end; }
+.sn-panel { width:25px; height:30px; background:rgba(136,68,255,0.08); border:1px solid rgba(136,68,255,0.4); border-radius:3px; }
+.sn-panel:nth-child(3) { border-radius:50%; }
+.sn-panel:nth-child(4) { transform:rotate(45deg); }
+
+.item-lampe-resonanz { width:12px; height:100px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
+.lr-tube { width:100%; height:80px; background:linear-gradient(180deg,#0ff,rgba(0,255,255,0.2)); border-radius:6px; box-shadow:0 0 15px #0ff; animation:freq-tube-flicker 0.1s infinite; }
+
+/* === KYBERNETIK-STATION === */
+@keyframes synapse-blink { 0%,100% { opacity:0.2; } 50% { opacity:1; box-shadow:0 0 10px #0af; } }
+@keyframes holo-scan-line { 0% { transform:translateY(0); opacity:0.5; } 50% { opacity:1; } 100% { transform:translateY(30px); opacity:0.5; } }
+@keyframes standby-blink { 0%,100% { opacity:0.3; } 50% { opacity:1; } }
+
+.item-neural-sync { width:90px; height:100px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.ns-chair { width:70px; height:55px; position:relative; z-index:2; }
+.ns-backrest { width:50px; height:40px; background:linear-gradient(180deg,#1a1a2a,#0a0a1a); border:2px solid #444; border-radius:8px 8px 4px 4px; position:relative; box-shadow:5px 10px 15px rgba(0,0,0,0.9); }
+.ns-synapse { position:absolute; width:4px; height:4px; border-radius:50%; background:#0af; animation:synapse-blink 1s infinite; }
+.ns-synapse.s1 { top:8px; left:8px; }
+.ns-synapse.s2 { top:15px; right:8px; animation-delay:0.3s; }
+.ns-synapse.s3 { top:25px; left:15px; animation-delay:0.6s; }
+.ns-synapse.s4 { bottom:8px; right:12px; animation-delay:0.9s; }
+.ns-seat { width:60px; height:12px; background:#1a1a2a; border:2px solid #444; border-radius:4px; margin-top:-3px; }
+.ns-base { width:80px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-nanobot-deck { width:55px; height:55px; position:absolute; z-index:2; bottom:75px; left:45px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.nd-table { width:100%; height:8px; background:#222; border:1px solid #555; border-radius:2px; }
+.nd-scan { width:90%; height:35px; position:relative; overflow:hidden; border:1px solid rgba(0,170,255,0.3); border-radius:3px; background:rgba(0,170,255,0.05); }
+.nd-scan-line { position:absolute; top:0; left:50%; transform:translateX(-50%); width:80%; height:2px; background:#0af; box-shadow:0 0 10px #0af; animation:holo-scan-line 1.5s infinite; }
+.nd-led { position:absolute; bottom:3px; right:3px; width:4px; height:4px; border-radius:50%; background:#0af; animation:standby-blink 2s infinite; }
+.nd-base { width:100%; height:10px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-bio-gewebe-kultivator { width:50px; height:85px; position:absolute; z-index:2; bottom:75px; right:45px; display:flex; flex-direction:column; gap:4px; }
+.bg-shelf { width:100%; height:25px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.3); border-radius:3px; position:relative; box-shadow:0 4px 10px rgba(0,0,0,0.7); }
+.bg-vial { position:absolute; bottom:2px; width:6px; height:15px; border-radius:0 0 3px 3px; }
+.bg-vial.v1 { left:5px; background:rgba(0,255,136,0.6); box-shadow:0 0 8px #0f8; }
+.bg-vial.v2 { left:15px; background:rgba(0,170,255,0.6); box-shadow:0 0 8px #0af; }
+.bg-vial.v3 { left:25px; background:rgba(200,0,255,0.6); box-shadow:0 0 8px #c0f; }
+
+.item-lampe-kybernetik { width:20px; height:20px; position:absolute; z-index:5!important; top:5px; left:50%; transform:translateX(-50%); }
+.lk-spot { width:15px; height:15px; background:radial-gradient(circle,#fff,#aaa); border-radius:50%; box-shadow:0 0 30px #fff, 0 0 50px #aaf; }
+
+/* === SCANNER-PHALANX === */
+@keyframes scan-line-rotate { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes data-stream-burst { 0% { opacity:0; } 10% { opacity:1; box-shadow:0 0 8px #0ff; } 20% { opacity:0; } }
+@keyframes ir-dim { 0%,100% { opacity:0.3; } 50% { opacity:1; box-shadow:0 0 10px #f44; } }
+
+.item-zeitstrom-kartograf { width:90px; height:100px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.zk-table { width:80px; height:30px; background:linear-gradient(180deg,#1a1a1a,#050505); border:2px solid #333; border-radius:50%; z-index:2; box-shadow:0 15px 25px rgba(0,0,0,0.9); position:relative; overflow:hidden; }
+.zk-holo { position:absolute; top:-50px; left:50%; transform:translateX(-50%); width:60px; height:50px; border:1px solid rgba(0,255,136,0.3); border-radius:50% 50% 0 0; background:rgba(0,255,136,0.05); }
+.zk-scan-line { position:absolute; top:50%; left:50%; transform-origin:left center; width:30px; height:2px; background:#0f8; box-shadow:0 0 10px #0f8; animation:scan-line-rotate 3s linear infinite; }
+.zk-base { width:90px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-ki-quantenkerne { width:55px; height:90px; position:absolute; z-index:2; bottom:75px; left:45px; display:flex; gap:4px; }
+.kq-cabinet { width:25px; height:100%; background:rgba(0,255,255,0.05); border:1px solid rgba(0,255,255,0.3); border-radius:3px; position:relative; overflow:hidden; box-shadow:0 5px 15px rgba(0,0,0,0.8); }
+.kq-stream { position:absolute; width:2px; height:100%; background:#0ff; border-radius:1px; animation:data-stream-burst 0.3s infinite; }
+.kq-stream:nth-child(1) { left:5px; }
+.kq-stream:nth-child(2) { left:12px; animation-delay:0.1s; }
+.kq-stream:nth-child(3) { left:18px; animation-delay:0.2s; }
+
+.item-synthetik-replikator { width:35px; height:45px; position:absolute; z-index:2; bottom:80px; right:50px; }
+.sr-body { width:100%; height:100%; background:#1a1a1a; border:2px solid #444; border-radius:4px; position:relative; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.sr-led { position:absolute; top:5px; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background:#f44; box-shadow:0 0 10px #f44; }
+
+.item-lampe-scanner { width:60px; height:15px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); display:flex; gap:5px; justify-content:center; }
+.ls-sensor { width:10px; height:10px; border-radius:50%; background:#f44; }
+.ls-sensor:nth-child(1) { animation:ir-dim 2s infinite; }
+.ls-sensor:nth-child(2) { animation:ir-dim 2s infinite 0.7s; }
+.ls-sensor:nth-child(3) { animation:ir-dim 2s infinite 1.4s; }
+
+/* === DEKONTAMINATIONS-SCHLEUSE === */
+@keyframes ion-mist { 0%,100% { opacity:0.2; transform:translateX(-5px); } 50% { opacity:0.5; transform:translateX(5px); } }
+@keyframes battery-blink { 0%,100% { opacity:0.3; } 50% { opacity:1; box-shadow:0 0 8px #0af; } }
+@keyframes uv-flicker-charge { 0%,5% { opacity:0; } 10%,15% { opacity:1; } 20%,25% { opacity:0.3; } 30%,100% { opacity:0.8; box-shadow:0 0 20px #c0f; } }
+
+.item-temp-partikel-filter { width:100px; height:130px; position:absolute; z-index:3; left:50%; bottom:70px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.tpf-arch { width:90px; height:100px; border:3px solid #0af; border-bottom:none; border-radius:50% 50% 0 0; background:rgba(0,170,255,0.05); position:relative; z-index:2; overflow:hidden; box-shadow:0 0 20px rgba(0,170,255,0.3); }
+.tpf-mist { position:absolute; top:20px; left:0; width:100%; height:60px; background:radial-gradient(ellipse,rgba(0,170,255,0.3),transparent); animation:ion-mist 3s infinite; }
+.tpf-barrier { position:absolute; top:0; left:30%; width:1px; height:100%; background:rgba(0,170,255,0.6); box-shadow:0 0 5px #0af; }
+.tpf-barrier.b2 { left:60%; }
+.tpf-green-led { position:absolute; bottom:5px; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background:#0f8; box-shadow:0 0 10px #0f8; }
+.tpf-base { width:100px; height:15px; background:#111; border:1px solid #333; border-radius:0 0 4px 4px; }
+
+.item-exo-phasen-anzuege { width:45px; height:80px; position:absolute; z-index:2; bottom:75px; left:45px; display:flex; gap:5px; }
+.epa-rack { width:18px; height:100%; background:#1a1a1a; border:2px solid #444; border-radius:4px 4px 2px 2px; position:relative; box-shadow:5px 10px 15px rgba(0,0,0,0.8); }
+.epa-suit { position:absolute; top:5px; left:50%; transform:translateX(-50%); width:12px; height:50px; background:rgba(200,200,200,0.2); border:1px solid #666; border-radius:6px 6px 4px 4px; }
+.epa-battery { position:absolute; top:8px; right:1px; width:4px; height:6px; background:#0af; border-radius:1px; animation:battery-blink 1.5s infinite; }
+
+.item-ionen-ablaufigitter { width:120px; height:25px; position:absolute; z-index:2; bottom:72px; left:50%; transform:translateX(-50%); background:repeating-linear-gradient(90deg, rgba(0,170,255,0.2) 0px, rgba(0,170,255,0.2) 1px, transparent 1px, transparent 8px); border:1px solid rgba(0,170,255,0.3); border-radius:3px; }
+
+.item-lampe-dekont { width:50px; height:20px; position:absolute; z-index:5!important; top:0; left:50%; transform:translateX(-50%); }
+.ld-array { width:100%; height:15px; background:radial-gradient(ellipse,#c0f,rgba(200,0,255,0.3)); border:1px solid #c0f; border-radius:4px; animation:uv-flicker-charge 4s infinite; box-shadow:0 0 20px #c0f; }
+
+/* ============================================================
+   FIX 1: IMPULS-KONDENSATOR - echte Lade-Sequenz vor dem Impuls
+   Ablauf innerhalb EINES 5s-Zyklus: 0-70% Aufladen (sichtbar,
+   stetig wachsend) -> 70-85% Impuls wird ausgelöst (Ring schießt
+   nach außen) -> 82-90% Raum blitzt auf -> Rest: Abklingen.
+   ============================================================ */
+@keyframes kern-charge-pulse {
+    0%   { filter: brightness(0.85) hue-rotate(0deg); box-shadow: 0 0 6px #0055ff, inset 0 0 6px #0033aa; transform: scale(1); }
+    40%  { filter: brightness(1.05) hue-rotate(10deg); box-shadow: 0 0 25px #0077ee, inset 0 0 18px #0066dd; transform: scale(1.01); }
+    68%  { filter: brightness(1.5) hue-rotate(35deg); box-shadow: 0 0 70px #00bbff, inset 0 0 55px #00ccff; transform: scale(1.05) translateY(-2px); }
+    76%  { filter: brightness(2.3) hue-rotate(60deg); box-shadow: 0 0 110px #0ff, inset 0 0 90px #0ff; transform: scale(1.1) translateY(-4px); }
+    82%  { filter: brightness(5); box-shadow: 0 0 180px #fff, 0 0 240px #0ff, inset 0 0 160px #fff; transform: scale(1.2) translateY(-2px); background: #fff; }
+    88%  { filter: brightness(0.9); box-shadow: 0 0 8px #0055ff; transform: scale(0.94) translateY(2px); }
+    100% { filter: brightness(0.85) hue-rotate(0deg); box-shadow: 0 0 6px #0055ff, inset 0 0 6px #0033aa; transform: scale(1); }
+}
+@keyframes kern-charge-fill {
+    0%   { height: 8%; opacity: 0.35; background: #0055ff; }
+    68%  { height: 92%; opacity: 0.9; background: #00ccff; }
+    82%  { height: 100%; opacity: 1; background: #fff; }
+    88%  { height: 12%; opacity: 0.4; background: #0055ff; }
+    100% { height: 8%; opacity: 0.35; background: #0055ff; }
+}
+@keyframes ring-accel {
+    0%, 55% { transform: rotateX(75deg) rotateZ(0deg) scale(1); opacity: 0.35; border-color: rgba(0,255,255,0.4); }
+    76%  { transform: rotateX(75deg) rotateZ(620deg) scale(1); opacity: 0.95; border-color: #fff; box-shadow: 0 0 25px #fff; }
+    88%  { transform: rotateX(75deg) rotateZ(1240deg) scale(2.1); opacity: 0; border-width: 10px; }
+    100% { transform: rotateX(75deg) rotateZ(0deg) scale(1); opacity: 0; }
+}
+/* Raum-Blitz jetzt exakt auf den Impuls-Moment (82-88%) statt 93-98% getaktet */
+@keyframes room-emp-glitch {
+    0%, 78%, 100% { filter: none; transform: translate(0,0) skewX(0); }
+    81% { filter: invert(1) contrast(2) hue-rotate(180deg); transform: translate(-5px, 5px) skewX(10deg); background-color: rgba(0, 255, 255, 0.2); }
+    85% { filter: brightness(4) contrast(1.5); transform: translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
+    90% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: translate(0px, 2px) skewX(2deg); }
+}
+/* Bunker-Miniaturansicht braucht dieselbe Glitch-Optik, aber die Verkleinerung
+   (scale(0.4)) muss dabei in JEDEM Schritt erhalten bleiben, sonst überschreiben sich
+   Glitch und Skalierung gegenseitig auf derselben "transform"-Eigenschaft. */
+@keyframes room-emp-glitch-scaled {
+    0%, 78%, 100% { filter: none; transform: scale(0.46) translate(0,0) skewX(0); }
+    81% { filter: invert(1) contrast(2) hue-rotate(180deg); transform: scale(0.46) translate(-5px, 5px) skewX(10deg); background-color: rgba(0, 255, 255, 0.2); }
+    85% { filter: brightness(4) contrast(1.5); transform: scale(0.46) translate(5px, -5px) skewX(-10deg); background-color: rgba(255, 255, 255, 0.9); }
+    90% { filter: hue-rotate(90deg) drop-shadow(0 0 20px #0ff); transform: scale(0.46) translate(0px, 2px) skewX(2deg); }
+}
+.emp-active-scaled { animation: room-emp-glitch-scaled 5s infinite linear !important; transform-origin: top center !important; }
+.kern-charge-core { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 90%; border-radius: 20px; overflow: hidden; display: flex; align-items: flex-end; background: rgba(0,0,0,0.6); border: 1px solid rgba(0,150,255,0.4); }
+.kern-charge-fill-inner { width: 100%; animation: kern-charge-fill 5s infinite ease-in-out; box-shadow: 0 0 15px #00ccff; }
+
+/* ============================================================
+   FIX 2: RENAISSANCE-GENERATOR - Ringe direkt auf dem Zylinder
+   zentriert (Kinder von .mr-cylinder statt lose Geschwister),
+   damit die Zentrierung nie von der Außen-Layout abhängt.
+   ============================================================ */
+.mr-cylinder { position: relative; }
+.mr-ring { position: absolute; top: 50%; left: 50%; width: 66px; height: 66px; margin-top: -33px; margin-left: -33px; border: 2px solid #0ff; border-radius: 50%; transform: rotateX(70deg); animation: ring-rotate-steady 4s linear infinite; pointer-events: none; }
+.mr-ring.r2 { width: 84px; height: 84px; margin-top: -42px; margin-left: -42px; border-style: dashed; border-color: #0af; animation-duration: 3s; animation-direction: reverse; }
+
+/* ============================================================
+   RAUM-AUSBAU: ANOMALIE-DETEKTOR (violett, Zeitriss-Thematik)
+   ============================================================ */
+@keyframes la-beacon-spin { 0% { transform: translateX(-50%) rotate(0deg); } 100% { transform: translateX(-50%) rotate(360deg); } }
+@keyframes la-beam-sweep { 0% { opacity: 0; transform: translateX(-50%) rotate(0deg); } 45% { opacity: 0.8; } 55% { opacity: 0; } 100% { opacity: 0; transform: translateX(-50%) rotate(360deg); } }
+.item-lampe-anomalie { width: 60px; height: 24px; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); }
+.la-mount { width: 30px; height: 6px; background: #222; border: 1px solid #444; border-radius: 2px; margin: 0 auto; }
+.la-beacon { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle, #e0aaff, #a020f0); box-shadow: 0 0 25px #c0f, 0 0 45px #a0f; margin: 2px auto 0; animation: la-beacon-spin 2.5s linear infinite; position: relative; }
+.la-sweep { position: absolute; top: 12px; left: 50%; width: 2px; height: 60px; background: linear-gradient(180deg, #c0f, transparent); transform-origin: top center; animation: la-beam-sweep 2.5s linear infinite; }
+
+@keyframes rs-dish-rotate { 0% { transform: rotateX(55deg) rotateZ(0deg); } 100% { transform: rotateX(55deg) rotateZ(360deg); } }
+@keyframes rs-sweep-spin { 0% { transform: rotate(0deg); opacity: 0.9; } 100% { transform: rotate(360deg); opacity: 0.9; } }
+@keyframes rs-blip-ping { 0%, 100% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 20px #c0f; } }
+.item-risz-scanner { width: 120px; height: 140px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.rs-dish { width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle, rgba(160,0,255,0.15), rgba(20,0,40,0.9) 70%); border: 2px solid #a0f; box-shadow: 0 0 30px rgba(160,0,255,0.5), inset 0 0 40px rgba(160,0,255,0.3); position: relative; animation: rs-dish-rotate 8s linear infinite; overflow: hidden; }
+.rs-sweep-line { position: absolute; top: 50%; left: 50%; width: 50%; height: 2px; background: linear-gradient(90deg, #e0aaff, transparent); transform-origin: left center; animation: rs-sweep-spin 2s linear infinite; }
+.rs-blip { position: absolute; top: 30%; left: 65%; width: 8px; height: 8px; border-radius: 50%; background: #f0f; animation: rs-blip-ping 2s infinite; }
+.rs-stand { width: 20px; height: 40px; background: linear-gradient(180deg, #222, #000); border: 1px solid #444; margin-top: -5px; }
+
+@keyframes ck-crystal-float { 0%, 100% { transform: translateX(-50%) translateY(0) rotate(-3deg); } 50% { transform: translateX(-50%) translateY(-12px) rotate(3deg); } }
+@keyframes ck-crystal-glow { 0%, 100% { filter: brightness(1) hue-rotate(0deg); } 50% { filter: brightness(1.6) hue-rotate(30deg); } }
+@keyframes ck-orbit-spin { 0% { transform: translateX(-50%) rotateX(70deg) rotateZ(0deg); } 100% { transform: translateX(-50%) rotateX(70deg) rotateZ(360deg); } }
+.item-chronon-kristall { width: 100px; height: 160px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); }
+.ck-crystal { position: absolute; left: 50%; bottom: 70px; width: 34px; height: 50px; background: linear-gradient(160deg, #e8c0ff, #8020c0 60%, #400a70); clip-path: polygon(50% 0%, 100% 30%, 80% 100%, 20% 100%, 0% 30%); transform: translateX(-50%); animation: ck-crystal-float 4s ease-in-out infinite, ck-crystal-glow 2.5s ease-in-out infinite; box-shadow: 0 0 40px #c0f; }
+
+/* Tachyonen-Resonator: dünner Mast mit pulsierender, funkensprühender Spitze - lokalisiert
+   Zeitverzerrungen (Anomaliedetektor). */
+.item-tachyonen-resonator { width: 30px; height: 130px; position: absolute; z-index: 3; left: 15%; bottom: 70px; }
+.tr-mast { position: absolute; bottom: 20px; left: 50%; width: 4px; height: 90px; background: linear-gradient(180deg, #666, #222); transform: translateX(-50%); }
+.tr-tip { position: absolute; top: 0; left: 50%; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, #fff, #c0f 60%, transparent); transform: translateX(-50%); animation: tr-tip-pulse 1.6s ease-in-out infinite; box-shadow: 0 0 20px #c0f; }
+.tr-spark { position: absolute; top: -6px; left: 50%; width: 2px; height: 2px; background: #fff; transform: translateX(-50%); animation: tr-spark-fly 1.6s linear infinite; }
+.tr-base { position: absolute; bottom: 0; left: 50%; width: 26px; height: 20px; background: #222; border: 1px solid #555; border-radius: 3px; transform: translateX(-50%); }
+@keyframes tr-tip-pulse { 0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(0.85); } 50% { opacity: 1; transform: translateX(-50%) scale(1.2); } }
+@keyframes tr-spark-fly { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(calc(-50% + 15px), -25px) scale(0); opacity: 0; } }
+
+/* Gravitations-Kompass: Bodenplatte mit einer unruhig ausschlagenden Nadel - zeigt Anomalien im
+   Schwerefeld an (Anomaliedetektor). */
+.item-gravitations-kompass { width: 60px; height: 45px; position: absolute; z-index: 3; right: 25%; bottom: 70px; }
+.gk-plate { position: absolute; bottom: 8px; left: 50%; width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle, #1a0a2a, #0a0510); border: 2px solid #c0f; transform: translateX(-50%) rotateX(60deg); box-shadow: 0 0 15px rgba(192,0,255,0.5); }
+.gk-needle { position: absolute; top: 50%; left: 50%; width: 3px; height: 22px; background: linear-gradient(180deg, #f0f, #600a90); transform-origin: bottom center; transform: translate(-50%, -100%); animation: gk-needle-swing 3.2s ease-in-out infinite; }
+.gk-pedestal { position: absolute; bottom: 0; left: 50%; width: 20px; height: 14px; background: #222; border: 1px solid #555; transform: translateX(-50%); }
+@keyframes gk-needle-swing { 0%, 100% { transform: translate(-50%, -100%) rotate(-25deg); } 30% { transform: translate(-50%, -100%) rotate(15deg); } 55% { transform: translate(-50%, -100%) rotate(-10deg); } 80% { transform: translate(-50%, -100%) rotate(20deg); } }
+.ck-orbit { position: absolute; left: 50%; bottom: 95px; width: 90px; height: 90px; animation: ck-orbit-spin 6s linear infinite; }
+.ck-orbit.ck-o2 { width: 65px; height: 65px; animation-duration: 4s; animation-direction: reverse; }
+.ck-particle { position: absolute; top: 0; left: 50%; width: 6px; height: 6px; border-radius: 50%; background: #f0f; box-shadow: 0 0 12px #f0f; transform: translateX(-50%); }
+.ck-glow-base { width: 90px; height: 20px; background: radial-gradient(ellipse, rgba(160,0,255,0.5), transparent); position: absolute; bottom: 60px; left: 5px; filter: blur(4px); }
+
+/* ============================================================
+   RAUM-AUSBAU: KRYO-DEPOT (Frost/Eisblau-Thematik)
+   ============================================================ */
+@keyframes lk-flicker { 0%, 89%, 100% { opacity: 1; } 90% { opacity: 0.3; } 91% { opacity: 1; } 92% { opacity: 0.5; } 93% { opacity: 1; } }
+@keyframes lk-mist-rise { 0% { opacity: 0; transform: translateX(-50%) translateY(0) scale(0.8); } 50% { opacity: 0.5; } 100% { opacity: 0; transform: translateX(-50%) translateY(-25px) scale(1.4); } }
+.item-lampe-kryo { width: 50px; height: 40px; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); }
+.lk-mount { width: 24px; height: 6px; background: #223; margin: 0 auto; border-radius: 2px; }
+.lk-bulb { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle, #eaffff, #6adfff); box-shadow: 0 0 30px #6adfff, 0 0 55px #3ac0ff; margin: 2px auto 0; animation: lk-flicker 4s infinite; }
+.lk-frost-mist { position: absolute; top: 20px; left: 50%; width: 30px; height: 20px; background: radial-gradient(ellipse, rgba(160,230,255,0.6), transparent); animation: lk-mist-rise 3s infinite; }
+
+@keyframes kk-mist-drift { 0% { opacity: 0.2; transform: translateY(0); } 50% { opacity: 0.7; } 100% { opacity: 0.2; transform: translateY(-15px); } }
+@keyframes kk-silhouette-pulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.35; } }
+@keyframes kk-glass-shimmer { 0%, 100% { background-position: -100% 0; } 100% { background-position: 200% 0; } }
+.item-kryo-kapsel { width: 80px; height: 170px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.kk-pod { width: 60px; height: 140px; border-radius: 30px 30px 15px 15px; background: linear-gradient(180deg, rgba(120,220,255,0.15), rgba(10,30,50,0.9)); border: 3px solid #6adfff; box-shadow: 0 0 35px rgba(106,223,255,0.5), inset 0 0 30px rgba(106,223,255,0.2); position: relative; overflow: hidden; }
+.kk-silhouette { position: absolute; bottom: 15px; left: 50%; width: 26px; height: 70px; background: #0a1a2a; border-radius: 13px 13px 8px 8px; transform: translateX(-50%); animation: kk-silhouette-pulse 5s ease-in-out infinite; }
+.kk-mist { position: absolute; bottom: 0; left: 10%; width: 80%; height: 30px; background: radial-gradient(ellipse, rgba(200,240,255,0.5), transparent); animation: kk-mist-drift 3s infinite; }
+.kk-mist.m2 { animation-delay: 1.5s; left: 30%; }
+.kk-frost-glass { position: absolute; inset: 0; background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%); background-size: 300% 100%; animation: kk-glass-shimmer 5s linear infinite; }
+.kk-base { width: 74px; height: 18px; background: linear-gradient(180deg, #222, #000); border: 2px solid #345; border-radius: 4px; box-shadow: 0 10px 20px rgba(0,0,0,0.8); }
+
+@keyframes pr-sample-glow { 0%, 100% { box-shadow: 0 0 10px #6adfff; } 50% { box-shadow: 0 0 22px #a0f0ff; } }
+@keyframes pr-drip-fall { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(30px); } }
+.item-probenregal { width: 130px; height: 110px; position: absolute; z-index: 2; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.pr-shelf { width: 130px; height: 14px; background: linear-gradient(180deg, #223, #001); border: 1px solid #345; border-radius: 3px; display: flex; align-items: center; justify-content: space-evenly; box-shadow: 0 8px 15px rgba(0,0,0,0.6); }
+.pr-sample { width: 16px; height: 22px; background: linear-gradient(180deg, rgba(160,240,255,0.5), rgba(60,180,255,0.3)); border: 1px solid #6adfff; border-radius: 3px; transform: translateY(-18px); animation: pr-sample-glow 3s ease-in-out infinite; }
+.pr-sample:nth-child(2) { animation-delay: 1s; }
+.pr-sample:nth-child(3) { animation-delay: 2s; }
+.pr-drip { position: absolute; top: 20px; left: 40%; width: 3px; height: 6px; background: #6adfff; border-radius: 50%; animation: pr-drip-fall 2.5s infinite; }
+
+/* Stasis-Kühlmittel-Kanister: beschlagener Metallkanister, tropft langsam Kühlmittel -
+   stabilisiert die Kammern (Kryo-Depot). */
+.item-kuehlmittel-kanister { width: 46px; height: 90px; position: absolute; z-index: 2; left: 12%; bottom: 70px; }
+.kmk-body { position: absolute; bottom: 14px; left: 0; width: 46px; height: 66px; background: linear-gradient(90deg, #445, #223 50%, #445); border: 1px solid #667; border-radius: 6px 6px 3px 3px; overflow: hidden; box-shadow: 0 0 12px rgba(100,200,255,0.3); }
+.kmk-frost { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(150,220,255,0.15) 0px, rgba(150,220,255,0.15) 3px, transparent 3px, transparent 8px); animation: kmk-frost-shift 6s linear infinite; }
+.kmk-drip { position: absolute; bottom: 4px; left: 50%; width: 3px; height: 10px; background: #9adfff; border-radius: 0 0 3px 3px; transform: translateX(-50%); animation: pr-drip-fall 3.4s infinite; }
+.kmk-base { position: absolute; bottom: 0; left: 50%; width: 34px; height: 14px; background: #222; border: 1px solid #555; border-radius: 3px; transform: translateX(-50%); }
+@keyframes kmk-frost-shift { 0% { background-position: 0 0; } 100% { background-position: 40px 40px; } }
+
+/* Biometrischer Vitalsensor: kleines Wandpanel mit durchlaufender Herzfrequenz-Linie -
+   überwacht den Kryo-Zustand (Kryo-Depot). */
+.item-vitalsensor { width: 70px; height: 36px; position: absolute; z-index: 2; right: 65px; bottom: 78px; }
+.vs-panel { width: 100%; height: 100%; background: #0a1418; border: 1px solid #0ff; border-radius: 3px; overflow: hidden; box-shadow: 0 0 10px rgba(0,255,255,0.4); position: relative; }
+.vs-line { position: absolute; top: 50%; left: -100%; width: 200%; height: 2px; background: linear-gradient(90deg, transparent 0%, transparent 40%, #0ff 42%, #fff 45%, #0ff 48%, transparent 50%, transparent 100%); animation: vs-line-scroll 2.2s linear infinite; }
+@keyframes vs-line-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(50%); } }
+
+/* ============================================================
+   RAUM-AUSBAU: FUNK-RELAIS "HORIZONT" (Navy/Signal-Thematik)
+   ============================================================ */
+@keyframes lf-blink-alt { 0%, 49% { background: #f44; box-shadow: 0 0 20px #f44; } 50%, 99% { background: #eee; box-shadow: 0 0 20px #eee; } 100% { background: #f44; } }
+.item-lampe-funk { width: 20px; height: 60px; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); }
+.lf-pole { width: 4px; height: 45px; background: #333; margin: 0 auto; }
+.lf-light { width: 12px; height: 12px; border-radius: 50%; margin: 0 auto; animation: lf-blink-alt 1s steps(1) infinite; }
+
+@keyframes pa-dish-scan { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+@keyframes pa-emitter-pulse { 0%, 100% { box-shadow: 0 0 10px #08f; } 50% { box-shadow: 0 0 30px #4af; } }
+@keyframes pa-wave-out { 0% { transform: translateX(-50%) scale(0.3); opacity: 0.9; border-color: #08f; } 100% { transform: translateX(-50%) scale(2.4); opacity: 0; border-color: #4af; } }
+.item-parabol-antenne { width: 110px; height: 150px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.pa-dish { width: 90px; height: 60px; border-radius: 50% 50% 45% 45% / 100% 100% 30% 30%; background: linear-gradient(180deg, #223 30%, #445); border: 2px solid #4af; box-shadow: 0 0 25px rgba(60,140,255,0.5); position: relative; animation: pa-dish-scan 7s linear infinite; transform-style: preserve-3d; }
+.pa-emitter { position: absolute; top: -10px; left: 50%; width: 8px; height: 8px; border-radius: 50%; background: #4af; transform: translateX(-50%); animation: pa-emitter-pulse 1.5s ease-in-out infinite; }
+.pa-wave { position: absolute; top: -5px; left: 50%; width: 40px; height: 40px; border: 2px solid #4af; border-radius: 50%; transform: translateX(-50%); animation: pa-wave-out 2.2s ease-out infinite; }
+.pa-wave.w2 { animation-delay: 1.1s; }
+.pa-stand { width: 16px; height: 45px; background: linear-gradient(180deg, #222, #000); border: 1px solid #345; margin-top: -8px; }
+
+@keyframes sm-bar-bounce { 0%, 100% { height: 15%; } 50% { height: 85%; } }
+@keyframes sm-screen-flicker { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+.item-subraum-modulator { width: 110px; height: 90px; position: absolute; z-index: 2; left: 50%; bottom: 70px; transform: translateX(-50%); }
+.sm-console { width: 110px; height: 70px; background: linear-gradient(180deg, #101830, #050810); border: 2px solid #08f; border-radius: 6px; box-shadow: 0 0 25px rgba(0,140,255,0.4), 0 15px 20px rgba(0,0,0,0.8); position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 5px; padding: 10px; box-sizing: border-box; }
+.sm-wave-bar { width: 8px; background: linear-gradient(180deg, #4af, #08f); border-radius: 2px 2px 0 0; animation: sm-bar-bounce 1.2s ease-in-out infinite; box-shadow: 0 0 8px #4af; }
+.sm-wave-bar:nth-child(1) { animation-delay: 0s; }
+.sm-wave-bar:nth-child(2) { animation-delay: 0.15s; }
+.sm-wave-bar:nth-child(3) { animation-delay: 0.3s; }
+.sm-wave-bar:nth-child(4) { animation-delay: 0.45s; }
+.sm-wave-bar:nth-child(5) { animation-delay: 0.6s; }
+.sm-screen-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(60,150,255,0.25), transparent 70%); animation: sm-screen-flicker 2s ease-in-out infinite; pointer-events: none; }
+
+/* Subraum-Frequenzverstärker: schlanker Mast mit pulsierenden Verstärker-Ringen - erhöht die
+   Reichweite (Funk-Relais "Horizont"). */
+.item-frequenzverstaerker { width: 40px; height: 120px; position: absolute; z-index: 2; left: 22%; bottom: 70px; }
+.fv-mast { position: absolute; bottom: 16px; left: 50%; width: 4px; height: 85px; background: linear-gradient(180deg, #555, #222); transform: translateX(-50%); }
+.fv-ring { position: absolute; top: 10px; left: 50%; width: 30px; height: 30px; border: 2px solid #4af; border-radius: 50%; transform: translate(-50%, 0); animation: fv-ring-pulse 2s ease-out infinite; }
+.fv-ring.fv-r2 { animation-delay: 1s; }
+.fv-base { position: absolute; bottom: 0; left: 50%; width: 28px; height: 16px; background: #222; border: 1px solid #555; border-radius: 3px; transform: translateX(-50%); }
+@keyframes fv-ring-pulse { 0% { opacity: 0.9; transform: translate(-50%, 0) scale(0.3); } 100% { opacity: 0; transform: translate(-50%, 0) scale(1.6); } }
+
+/* Verschlüsselter Signal-Decoder: kleines Wandpanel mit durchlaufendem Zeichensalat, der sich
+   periodisch "entschlüsselt" (Funk-Relais "Horizont"). */
+.item-signal-decoder { width: 76px; height: 40px; position: absolute; z-index: 2; right: 60px; top: 38px; }
+.sd-panel { width: 100%; height: 100%; background: #0a1220; border: 1px solid #4af; border-radius: 3px; box-shadow: 0 0 10px rgba(70,170,255,0.4); overflow: hidden; padding: 4px; box-sizing: border-box; font-size: 8px; font-family: monospace; color: #4af; }
+.sd-text { white-space: nowrap; animation: sd-text-glitch 2.6s steps(1) infinite; }
+.sd-text.sd-t2 { color: #0f8; opacity: 0; animation-delay: 1.3s; }
+@keyframes sd-text-glitch { 0%, 45% { opacity: 1; } 50%, 95% { opacity: 0; } 100% { opacity: 1; } }
+
+/* ============================================================
+   RAUM-AUSBAU: KI-KERNMATRIX (Neural/Datenkern-Thematik)
+   ============================================================ */
+@keyframes lki-hue-cycle { 0% { background: #0ff; box-shadow: 0 0 25px #0ff; } 33% { background: #f0f; box-shadow: 0 0 25px #f0f; } 66% { background: #0f8; box-shadow: 0 0 25px #0f8; } 100% { background: #0ff; box-shadow: 0 0 25px #0ff; } }
+.item-lampe-ki { width: 50px; height: 30px; position: absolute; z-index: 5 !important; top: 0; left: 50%; transform: translateX(-50%); }
+.lki-mount { width: 22px; height: 6px; background: #222; margin: 0 auto; border-radius: 2px; }
+.lki-bulb { width: 18px; height: 18px; border-radius: 50%; margin: 2px auto 0; animation: lki-hue-cycle 4s linear infinite; }
+
+.item-holo-netz { width: 140px; height: 135px; position: absolute; z-index: 3; right: 10px; bottom: 60px; }
+
+/* Echtes Punkt-Raster-Gesicht (Referenzbild: Punktwolke in Gesichtsform, dichter in der Mitte,
+   ausfransend an den Rändern) - gerendert als SVG (siehe spawnFurniture/ki_holoprojektor).
+   Rein dekorativ, KI-Kernmatrix. */
+.hn-face-svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 10px rgba(120,245,255,0.5)); animation: hn-float 4s ease-in-out infinite; overflow: visible; }
+.hn-face-glow { position: absolute; inset: 10%; border-radius: 50%; background: radial-gradient(circle, rgba(120,245,255,0.12), transparent 70%); pointer-events: none; z-index: -1; }
+.hn-particle { transform-box: fill-box; transform-origin: center; animation-name: hn-particle-drift; animation-timing-function: ease-out; animation-iteration-count: infinite; }
+@keyframes hn-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes hn-particle-drift { 0% { transform: translate(0,0); opacity: 0; } 12% { opacity: 0.9; } 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+
+@keyframes dk-cyl-rotate { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+@keyframes dk-stream-flow { 0% { background-position: 0 200%; } 100% { background-position: 0 -200%; } }
+@keyframes dk-core-pulse { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+.item-daten-kern { width: 90px; height: 150px; position: absolute; z-index: 3; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.dk-cylinder { width: 60px; height: 120px; border-radius: 30px; background: rgba(0,20,20,0.9); border: 2px solid #0fc; box-shadow: 0 0 35px rgba(0,255,200,0.4), inset 0 0 25px rgba(0,255,200,0.2); position: relative; overflow: hidden; animation: dk-cyl-rotate 10s linear infinite; transform-style: preserve-3d; }
+.dk-stream { position: absolute; left: 15%; top: 0; width: 2px; height: 100%; background: repeating-linear-gradient(180deg, #0fc 0px, #0fc 4px, transparent 4px, transparent 10px); animation: dk-stream-flow 1.5s linear infinite; opacity: 0.8; }
+.dk-stream.ds2 { left: 48%; animation-duration: 1.1s; }
+.dk-stream.ds3 { left: 80%; animation-duration: 1.8s; }
+.dk-core-glow { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle, #fff, #0fc, transparent); transform: translate(-50%, -50%); animation: dk-core-pulse 2s ease-in-out infinite; }
+.dk-base { width: 74px; height: 18px; background: linear-gradient(180deg, #222, #000); border: 2px solid #345; border-radius: 4px; box-shadow: 0 10px 20px rgba(0,0,0,0.8); margin-top: -3px; }
+
+/* ============================================================
+   AKTIVE BASIS - Bunker-Querschnitt mit Aufzug links, Stockwerken
+   rechts (ZENTRALE oben, danach in Kaufreihenfolge). Jedes Stockwerk
+   zeigt den ECHTEN, aktuell eingerichteten Raum (skaliert), nicht nur
+   einen Textnamen - siehe window._roomAreaTargetId in base-app.js.
+   ============================================================ */
+#agent-unlock-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.96); z-index: 700; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box; text-align: center;
+}
+
+.base-view { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; overflow-y: auto; }
+#view-aktive-basis #bunker-view { padding: 0 20px 20px; }
+
+#bunker-view { display: flex; width: 100%; max-width: 440px; gap: 0; }
+
+#bunker-shaft {
+    position: relative; width: 70px; flex-shrink: 0;
+    background: linear-gradient(90deg, #050505, #111 50%, #050505);
+    border-right: 2px solid rgba(0,170,255,0.4);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
+}
+#bunker-shaft-track {
+    position: absolute; top: 0; left: 50%; width: 10px; height: 100%;
+    transform: translateX(-50%);
+    background:
+        repeating-linear-gradient(180deg, #444 0px, #444 3px, transparent 3px, transparent 14px),
+        linear-gradient(90deg, #0a0a0a, #1c1c1c 50%, #0a0a0a);
+    border-left: 1px solid #333; border-right: 1px solid #333;
+    box-shadow: 0 0 8px rgba(0,170,255,0.15);
+}
+
+#bunker-elevator-car {
+    position: absolute; left: 50%; top: 8px; width: 50px; height: 104px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #2a3550 0%, #14192a 55%, #0a0d16 100%);
+    border: 2px solid #0af; border-radius: 4px 4px 3px 3px;
+    box-shadow: 0 0 15px rgba(0,170,255,0.6), inset 0 0 10px rgba(0,170,255,0.3);
+    transition: top 2.6s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 5; overflow: hidden; cursor: pointer;
+}
+/* Kleine anklickbare Lampe im Aufzug - standardmäßig aus, leuchtet nach Klick auf */
+#bunker-elevator-lamp {
+    position: absolute; bottom: 6px; left: 50%; width: 8px; height: 8px;
+    transform: translateX(-50%); border-radius: 50%;
+    background: #333; box-shadow: none; z-index: 6;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+#bunker-elevator-lamp.an {
+    background: #ffe066; box-shadow: 0 0 10px #ffe066, 0 0 18px #ffe066;
+}
+/* Kopfblende mit Warnleuchte + horizontale Verstrebung */
+#bunker-elevator-car::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 14px;
+    background: linear-gradient(180deg, #3a4560, #223);
+    border-bottom: 1px solid rgba(0,170,255,0.5);
+    box-shadow: 0 0 6px rgba(0,170,255,0.4) inset;
+}
+#bunker-elevator-car::after {
+    content: ''; position: absolute; top: 4px; left: 50%; width: 6px; height: 6px;
+    transform: translateX(-50%); border-radius: 50%;
+    background: #ff3333; box-shadow: 0 0 6px #ff3333, 0 0 10px #ff3333;
+    animation: elevator-warnlight 1.4s ease-in-out infinite;
+}
+@keyframes elevator-warnlight { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+/* Fenster/Sichtfeld + seitliche Streben als Innenstruktur */
+.bunker-elevator-window {
+    position: absolute; top: 20px; left: 6px; right: 6px; height: 46px;
+    background: linear-gradient(180deg, rgba(0,200,255,0.18), rgba(0,40,60,0.5));
+    border: 1px solid rgba(0,200,255,0.4); border-radius: 2px;
+    box-shadow: inset 0 0 10px rgba(0,200,255,0.25);
+}
+.bunker-elevator-window::before {
+    content: ''; position: absolute; top: 0; left: 40%; width: 1px; height: 100%;
+    background: rgba(0,200,255,0.3);
+}
+.bunker-elevator-strut {
+    position: absolute; left: 3px; width: 2px; height: 30px; background: rgba(0,170,255,0.35);
+}
+.bunker-elevator-strut.right { left: auto; right: 3px; }
+.bunker-elevator-panel {
+    position: absolute; bottom: 4px; left: 8px; right: 8px; height: 14px;
+    background: repeating-linear-gradient(90deg, rgba(0,170,255,0.25) 0px, rgba(0,170,255,0.25) 2px, transparent 2px, transparent 6px);
+    border-top: 1px solid rgba(0,170,255,0.3);
+}
+
+/* Breiter als vorher: neben der Raum-Vorschau ist jetzt Platz für eine Info-Seitenleiste,
+   damit der Beschreibungstext nicht mehr die Möbel im Raum selbst verdeckt. */
+#bunker-floors { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; }
+
+.bunker-floor {
+    height: 128px; box-sizing: border-box; border-bottom: 2px solid rgba(0,170,255,0.25);
+    cursor: pointer; transition: filter 0.2s; padding: 3px 6px;
+}
+.bunker-floor:hover { filter: brightness(1.3); }
+.bunker-floor:last-child { border-bottom: none; }
+
+.bunker-floor-inner { display: flex; gap: 8px; height: 100%; align-items: stretch; }
+
+.bunker-room-preview-wrap {
+    position: relative; width: 160px; flex-shrink: 0; height: 100%; overflow: hidden;
+    border-radius: 5px; border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Info-Seitenleiste rechts neben dem Raum - normaler Textblock, verdeckt nichts mehr im Raum. */
+.bunker-floor-sidebar {
+    flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;
+    padding: 4px 2px;
+}
+.bunker-floor-label {
+    font-size: 0.72em; color: #fff; letter-spacing: 0.3px; margin-bottom: 4px;
+}
+.bunker-floor-buttons { display: flex; gap: 6px; margin-top: 5px; }
+.bunker-floor-btn {
+    font-size: 0.6em; padding: 3px 8px; background: rgba(0,255,255,0.1); color: #0ff;
+    border: 1px solid rgba(0,255,255,0.5); border-radius: 3px; cursor: pointer; font-family: inherit;
+}
+.bunker-floor-btn-level { background: rgba(0,255,136,0.1); color: #0f8; border-color: rgba(0,255,136,0.5); }
+
+/* Der echte Raum (Wände + Möbel, per window._roomAreaTargetId hierher umgeleitet) wird
+   1:1 wie im normalen Raum-Bildschirm aufgebaut, dann als Ganzes herunterskaliert - dadurch
+   bleiben alle Größenverhältnisse (Möbel, Männchen) exakt wie im echten Raum erhalten. */
+.bunker-room-preview {
+    position: absolute; top: 0; left: 50%; width: 340px; height: 250px;
+    margin-left: -170px;
+    transform: scale(0.46) !important; transform-origin: top center !important;
+    background: #050505;
+}
+
+/* Kleines animiertes Männchen - lebt in derselben (unskalierten) Koordinatenwelt wie die
+   echten Möbelstücke und wird zusammen mit dem ganzen Raum herunterskaliert. Dadurch ist es
+   automatisch richtig groß im Verhältnis zu Lampen/Konsolen/Kristallen etc. */
+@keyframes bunker-walk-cycle {
+    0%   { left: 4%;  transform: scaleX(1); }
+    38%  { left: 78%; transform: scaleX(1); }
+    42%  { left: 78%; transform: scaleX(1); }
+    50%  { left: 78%; transform: scaleX(1) scale(1.15); filter: drop-shadow(0 0 10px #0ff); }
+    58%  { left: 78%; transform: scaleX(-1); }
+    92%  { left: 4%;  transform: scaleX(-1); }
+    96%  { left: 4%;  transform: scaleX(-1); }
+    100% { left: 4%;  transform: scaleX(1); }
+}
+@keyframes bunker-leg-shuffle { 0%, 100% { height: 16px; } 50% { height: 10px; } }
+.bunker-figure { position: absolute; bottom: 70px; width: 14px; height: 32px; z-index: 6; }
+.bunker-figure::before {
+    content: ''; position: absolute; top: 0; left: 2px; width: 10px; height: 10px;
+    border-radius: 50%; background: #0ff; box-shadow: 0 0 10px #0ff;
+}
+.bunker-figure::after {
+    content: ''; position: absolute; top: 10px; left: 3.5px; width: 7px; height: 15px;
+    background: #0af; border-radius: 3px; animation: bunker-leg-shuffle 0.4s infinite;
+}
+/* 42%-58%: das Männchen hält kurz mittig im Raum an und "interagiert" mit der Ausrüstung
+   (kurzes Aufleuchten, s.o. in der Keyframe-Regel bei 50%) statt einfach nur vorbeizulaufen. */
+.bunker-walker { animation: bunker-walk-cycle 7s ease-in-out infinite; }
+
+/* Männchen im Aufzug: sitzen/stehen nebeneinander, sanftes Warte-Wippen */
+@keyframes bunker-car-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.bunker-rider {
+    position: absolute; bottom: 6px; width: 12px; height: 26px;
+    animation: bunker-car-idle 1s ease-in-out infinite;
+}
+.bunker-rider::before { width: 8px; height: 8px; left: 2px; }
+.bunker-rider::after { width: 6px; height: 12px; left: 3px; top: 9px; animation: none; }
+
+/* ============================================================
+   AGENTEN-LOGIK: sichtbares, klickbares Männchen in der Aktive-Basis-Ansicht
+   ============================================================ */
+@keyframes agent-badge-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+.room-slot { position: relative; }
+
+.bunker-agent-figure {
+    position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+    z-index: 30; cursor: pointer; display: flex; flex-direction: column; align-items: center;
+    padding: 2px;
+}
+/* scale(2.174) = 1/0.46, gleicht die Verkleinerung durch .bunker-room-preview aus, damit das
+   Männchen überall (Raum wie Aufzug) exakt gleich groß erscheint. Bewusst nur auf die Figur
+   selbst angewendet, nicht auf den ganzen Wrapper - sonst würde auch das Level-Badge mit
+   vergrößert. */
+.bunker-agent-figure .bunker-figure {
+    position: relative; bottom: auto; left: auto; transform: scale(2.174); transform-origin: bottom center;
+}
+/* Läuft sichtbar von der Raummitte zum Aufzug (siehe playElevatorAnimation) - 5s Übergang auf
+   "left", startet bei 50% (Raummitte) und endet bei 0% (linker Rand, Richtung Aufzugsschacht). */
+.bunker-walking-figure {
+    position: absolute; bottom: 4px; left: 50%; z-index: 31;
+    transition: left 5s linear; transform: translateX(-50%);
+}
+.bunker-walking-figure .bunker-figure { position: relative; bottom: auto; left: auto; transform: scale(2.174); transform-origin: bottom center; }
+.bunker-agent-level {
+    font-size: 0.55em; color: #0ff; background: rgba(0,20,20,0.8); border: 1px solid #0ff;
+    border-radius: 3px; padding: 1px 4px; margin-bottom: 44px; white-space: nowrap;
+    box-shadow: 0 0 6px rgba(0,255,255,0.5); position: relative; z-index: 32;
+}
+.bunker-agent-figure-selected .bunker-agent-level {
+    color: #ff8800; border-color: #ff8800; box-shadow: 0 0 8px rgba(255,136,0,0.7);
+    animation: agent-badge-pulse 1s ease-in-out infinite;
+}
+.bunker-agent-figure-selected .bunker-figure::before { background: #ff8800; box-shadow: 0 0 10px #ff8800; }
+.bunker-agent-figure-selected .bunker-figure::after { background: #cc6600; }
+/* Starter-Agent (der allererste überhaupt) - golden statt cyan, damit er sich dauerhaft von
+   allen anderen Agenten abhebt, egal ob gerade ausgewählt oder nicht. */
+.bunker-agent-starter .bunker-agent-level {
+    color: #ffd700; border-color: #ffd700; box-shadow: 0 0 8px rgba(255,215,0,0.6);
+}
+.bunker-agent-starter .bunker-figure::before { background: #ffd700; box-shadow: 0 0 12px #ffd700; }
+.bunker-agent-starter .bunker-figure::after { background: #c9a600; }
+/* Aufzug-Männchen/Lauffigur tragen alle Klassen auf DEMSELBEN Element (nicht verschachtelt wie
+   bei den Raumfiguren) - der Verschachtelungs-Selektor oben greift dort nicht, deshalb
+   zusätzlich als zusammengesetzter Selektor ohne Leerzeichen. */
+.bunker-figure.bunker-agent-starter::before { background: #ffd700; box-shadow: 0 0 12px #ffd700; }
+.bunker-figure.bunker-agent-starter::after { background: #c9a600; }
+.bunker-agent-wait {
+    font-size: 0.5em; color: #ffaa00; background: rgba(30,15,0,0.85); border: 1px solid #ffaa00;
+    border-radius: 3px; padding: 1px 4px; margin-top: 2px; white-space: nowrap;
+}
+.bunker-agent-timer {
+    font-size: 0.5em; color: #0f8; background: rgba(0,20,15,0.85); border: 1px solid #0f8;
+    border-radius: 3px; padding: 1px 4px; margin-top: 2px; white-space: nowrap;
+}
+
+/* Neutraler Info-Hinweis (kein "FEHLER"-Stil) für reine Status-Meldungen wie
+   Agenten-Auswahl/-Bewegung - erscheint kurz unten und verschwindet von selbst. */
+#info-toast-box {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+    z-index: 900; display: none; opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+}
+#info-toast-box.info-toast-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.info-toast-content {
+    background: rgba(0,15,15,0.95); border: 1px solid var(--neon-color); border-radius: 6px;
+    padding: 12px 20px; box-shadow: 0 0 20px rgba(136,68,255,0.4); max-width: 90vw;
+}
+#info-toast-msg { color: var(--neon-color); font-size: 0.85em; margin: 0; text-align: center; }
+
+.bunker-floor-info {
+    font-size: 0.55em; color: #0f8; opacity: 0.85; margin-top: 2px; font-weight: normal;
+    white-space: normal; line-height: 1.3;
+}
+/* Passive Räume (laufen automatisch, kein Agent nötig) - hellblau statt grün, damit auf
+   einen Blick klar ist, ob ein Raum einen Agenten braucht oder nicht. */
+.bunker-floor-info.passive-room-info { color: #4dd0ff; }
+/* Räume mit echtem Lebensrisiko für den Agenten - orange signalisiert die höchste Gefahrenstufe. */
+.bunker-floor-info.danger-room-info { color: #ff8800; font-weight: bold; }
+/* Zeitreise-Kreislauf-Räume (Forge -> Dekontamination -> Archiv) - lila als eigene Kategorie. */
+.bunker-floor-info.journey-room-info { color: #c060ff; }
+/* Paradoxon-Filter (instabile Quanten-Alternative zum regulären Zeitreise-Kreislauf) - eigene,
+   auffällige Neon-Türkis-Farbe, deutlich abgesetzt vom normalen Aktiv-Grün. */
+.bunker-floor-info.quantum-room-info { color: #00fff2; text-shadow: 0 0 6px rgba(0,255,242,0.5); }
+
+/* Regalfach-Optik für gesammelte Artefakte im Artefakt-Archiv. */
+.artifact-shelf-slot {
+    background: rgba(192,96,255,0.08); border: 1px solid rgba(192,96,255,0.4); border-radius: 4px;
+    padding: 6px 4px; font-size: 0.68em; text-align: center; color: #d9b3ff;
+    box-shadow: inset 0 0 8px rgba(192,96,255,0.15); line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Paradoxon-Filter: Quanten-Warp-Effekt - Strahl baut sich auf und schießt nach oben (stellvertretend
+   für "Richtung Artefakt-Archiv"), bei Fehlschlag stattdessen eine kleine Verpuffung. */
+@keyframes warp-beam-build {
+    0% { height: 0; opacity: 0; }
+    40% { height: 40vh; opacity: 1; }
+    70% { height: 60vh; opacity: 1; }
+    100% { height: 100vh; opacity: 0; }
+}
+.warp-beam {
+    width: 14px; background: linear-gradient(180deg, #00fff2, #0ff, transparent);
+    box-shadow: 0 0 20px #00fff2, 0 0 40px #0ff, 0 0 60px #00fff2;
+    animation: warp-beam-build 2.2s ease-in forwards;
+    border-radius: 8px;
+}
+@keyframes warp-fizzle-pop {
+    0% { transform: scale(0.3); opacity: 1; }
+    60% { transform: scale(1.4); opacity: 0.6; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+.warp-fizzle {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: radial-gradient(circle, #ff4444, #661111 70%, transparent);
+    box-shadow: 0 0 30px #ff4444;
+    animation: warp-fizzle-pop 1.2s ease-out forwards;
+}
+.warp-result {
+    margin-top: 20px; font-family: 'Orbitron', monospace; font-size: 0.95em;
+    padding: 10px 18px; border-radius: 4px; text-align: center;
+}
+.warp-result.warp-success { color: #00fff2; text-shadow: 0 0 10px #00fff2; border: 1px solid #00fff2; background: rgba(0,255,242,0.08); }
+.warp-result.warp-fail { color: #ff6666; text-shadow: 0 0 10px #ff4444; border: 1px solid #ff4444; background: rgba(255,68,68,0.08); }
+
+/* === SUBRAUM-NEXUS: 5 echte, klickbare Gegenstände im Raum === */
+
+/* 1. Holoprojektor - groß, breites flackerndes Display */
+.item-sn-holoprojektor { width: 100px; height: 90px; position: absolute; z-index: 3; left: 50%; bottom: 65px; transform: translateX(-50%); cursor: pointer; }
+.sn-holo-screen {
+    width: 100px; height: 60px; border: 2px solid #0ff; border-radius: 4px;
+    background: rgba(0,255,255,0.08); position: relative; overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,255,255,0.4), inset 0 0 15px rgba(0,255,255,0.2);
+}
+.sn-holo-flicker {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(0,255,255,0.15) 0px, transparent 2px, transparent 6px);
+    animation: sn-holo-flicker-anim 3s steps(1) infinite;
+}
+@keyframes sn-holo-flicker-anim {
+    0%, 40%, 100% { opacity: 0.9; } 42% { opacity: 0.2; } 44% { opacity: 0.9; }
+    70% { opacity: 0.9; } 72% { opacity: 0.3; } 74% { opacity: 0.9; }
+}
+.sn-holo-scanline {
+    position: absolute; left: 0; right: 0; height: 3px; background: rgba(0,255,255,0.6);
+    box-shadow: 0 0 8px #0ff; animation: sn-holo-scan 2.5s linear infinite;
+}
+@keyframes sn-holo-scan { 0% { top: 0; } 100% { top: 100%; } }
+.sn-holo-base { width: 90px; height: 12px; background: linear-gradient(180deg, #222, #000); border: 2px solid #0ff; border-radius: 4px; margin: 4px auto 0; box-shadow: 0 0 15px rgba(0,255,255,0.3); }
+
+/* 2. Bio-Rekonstruktions-Kapsel - grün leuchtender Flüssigkeitstank */
+.item-sn-biokapsel { width: 50px; height: 105px; position: absolute; z-index: 2; bottom: 65px; left: 15px; cursor: pointer; transform: perspective(320px) rotateY(18deg); transform-origin: left center; }
+.sn-kapsel-tube {
+    width: 44px; height: 90px; border: 2px solid #0f8; border-radius: 20px;
+    background: linear-gradient(180deg, rgba(0,255,136,0.1), rgba(0,255,136,0.35));
+    position: relative; overflow: hidden; box-shadow: 0 0 25px rgba(0,255,136,0.5), inset 0 0 15px rgba(0,255,136,0.3);
+    animation: sn-kapsel-pulse 2.4s ease-in-out infinite;
+}
+@keyframes sn-kapsel-pulse { 0%, 100% { box-shadow: 0 0 25px rgba(0,255,136,0.5), inset 0 0 15px rgba(0,255,136,0.3); } 50% { box-shadow: 0 0 40px rgba(0,255,136,0.8), inset 0 0 25px rgba(0,255,136,0.5); } }
+.sn-kapsel-liquid { position: absolute; bottom: 0; left: 0; right: 0; height: 75%; background: rgba(0,255,136,0.25); }
+.sn-kapsel-bubble { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: rgba(200,255,220,0.8); bottom: 5px; animation: sn-bubble-rise 3s linear infinite; }
+.sn-kapsel-bubble.b1 { left: 10px; animation-delay: 0s; }
+.sn-kapsel-bubble.b2 { left: 22px; animation-delay: 1s; }
+.sn-kapsel-bubble.b3 { left: 32px; animation-delay: 2s; }
+@keyframes sn-bubble-rise { 0% { bottom: 5px; opacity: 0.9; } 100% { bottom: 80px; opacity: 0; } }
+.sn-kapsel-base { width: 50px; height: 10px; background: linear-gradient(180deg, #222, #000); border: 2px solid #0f8; border-radius: 4px; margin-top: 4px; }
+
+/* 3. Schattensyndikat-Terminal - Retro-PC im 80er-Jahre-Stil: klobiger beiger Monitor auf
+   Standfuß, grün flackernder Phosphor-Screen, dazu eine kleine Tastatur davor. */
+.item-sn-schattenterminal { width: 54px; height: 62px; position: absolute; z-index: 2; bottom: 65px; right: 55px; cursor: pointer; }
+.sn80-monitor {
+    width: 50px; height: 40px; background: linear-gradient(180deg, #d8cdb0, #b8ad92);
+    border: 2px solid #6b6250; border-radius: 6px 6px 3px 3px; position: relative;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.6);
+}
+.sn80-screen {
+    position: absolute; top: 5px; left: 5px; right: 5px; bottom: 10px;
+    background: #0a1a0a; border: 2px inset #4a4436; border-radius: 2px; overflow: hidden;
+}
+.sn80-screen::before {
+    content: '> SYNDIKAT_'; position: absolute; top: 3px; left: 3px; color: #3f3;
+    font-family: monospace; font-size: 5px; text-shadow: 0 0 4px #3f3;
+    animation: sn80-flicker 2.2s steps(1) infinite;
+}
+.sn80-screen::after {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(51,255,51,0.08) 0px, transparent 1px, transparent 3px);
+}
+@keyframes sn80-flicker { 0%, 78%, 100% { opacity: 1; } 80% { opacity: 0.3; } 82% { opacity: 1; } 92% { opacity: 0.5; } 94% { opacity: 1; } }
+.sn80-vents { position: absolute; bottom: 2px; left: 5px; right: 5px; height: 4px; display: flex; gap: 2px; }
+.sn80-vents span { flex: 1; background: #6b6250; height: 100%; border-radius: 1px; }
+.sn80-keyboard {
+    width: 54px; height: 12px; background: linear-gradient(180deg, #cfc4a8, #a89d82);
+    border: 1px solid #6b6250; border-radius: 3px; margin-top: 3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* 4. Temporale Rohrpost - wandmontierte Station mit Rohr, das nach oben zur Decke führt.
+   Blinkt auffällig gelb, sobald eine Admin-Sendung wartet (siehe .sn-rohrpost-pending). Container
+   reicht bewusst bis zur tatsächlichen Raumdecke (.room-box ist 250px hoch, Sockel bei
+   bottom:65px - also 185px Container-Höhe, damit das Rohr lückenlos bis oben reicht). */
+.item-sn-rohrpost { width: 32px; height: 185px; position: absolute; z-index: 3; bottom: 65px; right: 4px; cursor: pointer; }
+.sn-rohrpost-pipe {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 137px;
+    background: linear-gradient(90deg, #1a2530, #3a4a5a 40%, #1a2530);
+    border-left: 1px solid #556; border-right: 1px solid #223;
+    box-shadow: inset 0 0 4px rgba(0,136,255,0.3);
+    overflow: hidden; /* hält den Fluss-Effekt innerhalb der Rohrform, statt darüber hinauszulaufen */
+}
+.sn-rohrpost-pipe::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 100%;
+    background: linear-gradient(180deg, transparent, rgba(0,136,255,0.4), transparent);
+    animation: sn-pipe-flow 2.4s linear infinite;
+}
+@keyframes sn-pipe-flow { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+.sn-rohrpost-box {
+    position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 32px; height: 48px; background: linear-gradient(180deg, #202c38, #101820);
+    border: 2px solid #08f; border-radius: 4px; box-shadow: 0 0 15px rgba(0,136,255,0.35);
+}
+.sn-rohrpost-slot {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 18px; height: 10px; background: #000; border: 1px solid #08f; border-radius: 2px;
+    box-shadow: inset 0 0 6px rgba(0,136,255,0.5);
+}
+.sn-rohrpost-light { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 7px; height: 7px; border-radius: 50%; background: #234; }
+.item-sn-rohrpost.sn-rohrpost-pending .sn-rohrpost-light { width: 11px; height: 11px; background: #ffe600; box-shadow: 0 0 8px #ffe600, 0 0 18px #ffe600, 0 0 30px rgba(255,230,0,0.6); animation: sn80-flicker 0.6s steps(1) infinite; }
+.item-sn-rohrpost.sn-rohrpost-pending .sn-rohrpost-box { animation: sn-rohrpost-pending-pulse 1.4s ease-in-out infinite; }
+@keyframes sn-rohrpost-pending-pulse { 0%, 100% { box-shadow: 0 0 15px rgba(255,230,0,0.4); } 50% { box-shadow: 0 0 35px rgba(255,230,0,0.9); } }
+
+/* 5. Infostand - kleines holografisches Info-Terminal */
+.item-sn-infostand { width: 30px; height: 50px; position: absolute; z-index: 2; bottom: 65px; left: 78px; cursor: pointer; text-align: center; }
+.sn-info-icon {
+    width: 24px; height: 24px; line-height: 24px; border-radius: 50%; margin: 0 auto 4px;
+    background: rgba(200,200,200,0.15); border: 2px solid #ccc; color: #ccc; font-weight: bold;
+    box-shadow: 0 0 12px rgba(200,200,200,0.4); animation: sn-info-float 2.2s ease-in-out infinite;
+}
+@keyframes sn-info-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.sn-info-base { width: 30px; height: 8px; background: linear-gradient(180deg, #222, #000); border: 2px solid #ccc; border-radius: 3px; }

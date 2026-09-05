@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Dück & Flux Zeitreise-Agentur | Zentral-Terminal</title>
+
+    <!-- iOS: Element.requestFullscreen() wird von Safari auf dem iPhone NICHT unterstützt -
+         das ist eine Plattform-Einschränkung von Apple, kein Bug hier. Der einzige Weg zu
+         echtem, chrome-losem Vollbild auf iOS ist "Zum Home-Bildschirm hinzufügen" + Start
+         über das Icon dort - das aktivieren diese drei Tags. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Dück & Flux">
+    <meta name="theme-color" content="#000000">
+
+    <!-- PWA-Grundlagen für die spätere Play-Store-Veröffentlichung (TWA) -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+        <meta name="description" content="Dück & Flux Zeitreise-Agentur - Das ultimative Terminal-Browsergame im GlobalerAgentur-Sektor. Erfülle Missionen, sammle XP und stabilisiere die Zeitlinie.">
+    <meta name="keywords" content="Zeitreise, Zeitagentur, Dück & Flux, Marcus Dück, Terminal Game, Retro Terminal, Sci-Fi Simulator, Browsergame, Flux-Kondensator, Minigame, Zeitstränge, Cyberpunk, Text-Adventure, Zeitmaschine, Paradoxon, Zeitlinie, Zeitreise buchen, Zeit-Agent">
+    <meta name="author" content="Marcus Dück">
+    <meta name="robots" content="index, follow">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Dück & Flux Zeitreise-Agentur | Zentral-Terminal">
+    <meta property="og:description" content="Bereit für den Sprung? Werde Agent im GlobalerAgentur-Sektor und stabilisiere die Zeitlinie.">
+    <meta property="og:image" content="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Audio%20%26%20Bild/Milchstra%C3%9Fe.jpeg">
+    
+    <link rel="stylesheet" href="style.css?v=20260904a">
+</head>
+<body onload="initSystem()">
+
+<div class="background-overlay top-level"></div>
+
+<div class="portal-container top-level">
+    <div id="upload-indicator">▲ UPLINK...</div>
+    <header>
+        <div onclick="window.openEinstellungenUeberIcon()" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; z-index: 100; text-shadow: 0 0 10px #0f8; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</div>
+        
+        <img src="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Audio%20%26%20Bild/Milchstra%C3%9Fe.jpeg" class="banner-bild" alt="Weltraum">
+        <div class="system-time" id="clock">00:00:00 TX</div>
+        <h1 style="font-size: 1.1em; margin: 10px 0; text-shadow: var(--glow);">Dück & Flux Zeitreise-Agentur</h1>
+    </header>
+
+<nav>
+    <button onclick="f_buchen()">Flux-Kopplung</button>
+    <button id="netzwerk-nav-btn" onclick="window.location.href='netzwerk.html'">Netzwerk</button>
+    <button id="status-nav-btn" onclick="f_status()">Status</button>
+</nav>
+    
+    <div id="anzeige">
+        <div id="scanline" class="scanline"></div>
+        <div id="content-body"></div>
+    </div>
+    
+    <div id="terminal-input-area">
+        <span id="term-prefix">ADM@FLUX:~$</span>
+        <input type="search" id="terminal-input-field" placeholder="Befehl (help)..." autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" name="cmd_random_99x" data-lpignore="true">
+    </div>
+
+    <footer>
+        <!-- WICHTIG: Diese Versionsnummer muss bei JEDER Änderung an app.js/style.css exakt mit
+             dem Cache-Buster-Suffix "?v=..." unten bei den Script- und Link-Einbindungen übereinstimmen. -->
+        &copy; 2026 Dück & Flux Zeitreise-Agentur | Version <span id="app-version">20260904a</span>
+    </footer>
+</div>
+
+
+
+
+
+<div id="emp-flare" class="top-level"></div>
+<div id="reboot-layer" class="top-level">
+    <div id="reboot-header" style="font-size: 24px; margin-bottom: 20px; letter-spacing: 5px; color: #fff;">[ SYSTEM RESET ]</div>
+    <div id="reboot-bar-container"><div id="reboot-bar-fill"></div></div>
+    <div id="reboot-status" style="font-size: 16px; margin-top: 20px;">Initialisiere...</div>
+</div>
+
+<div id="back-button-global" class="top-level" onclick="window.fullSystemRestore()">ZURÜCK ZUR BASIS</div>
+
+  
+<div class="xp-wrapper" id="xp-leiste-auto">
+    <div class="lvl-badge">LVL <span id="lvl-val">1</span></div>
+    <div class="xp-container">
+        <div class="xp-text">XP: <span id="xp-val">0</span> / 100</div>
+        <div id="xp-bar-fill" class="xp-bar"></div>
+    </div>
+</div>
+
+
+    
+
+  
+
+
+<div id="startup-layer" class="top-level">
+    <canvas id="matrix-canvas"></canvas>
+    
+    <div id="startup-boot-container">
+        <div style="font-size: 24px; letter-spacing: 5px; font-weight: bold;">[ SYSTEM BOOT ]</div>
+        <div id="startup-bar-container"><div id="startup-bar-fill"></div></div>
+        <div id="startup-status" style="font-size: 16px; margin-top: 20px;">Initialisiere Digital-Strom...</div>
+    </div>
+
+    <div id="startup-setup-container">
+        <div id="auth-main-menu" style="display: flex; flex-direction: column; width: 100%;">
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #0f8; text-align: center;">SYSTEM-ZUGANG</div>
+            <button class="setup-btn" style="margin-bottom: 15px;" onclick="window.f_renderLogin()">[ AGENTEN-LOGIN ]</button>
+            <button class="setup-btn" style="background: rgba(255, 170, 0, 0.1); border: 1px solid #ffaa00; color: #ffaa00;" onclick="window.f_renderRegister()">[ NEUE REKRUTIERUNG ]</button>
+        </div>
+
+        <div id="auth-form-container" style="display: none; flex-direction: column; width: 100%;"></div>
+    </div>
+
+    <div id="agb-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 60000; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;">
+        <h3 style="color: #ffaa00; margin-bottom: 10px;">AGENTUR-KODEX</h3>
+        <div id="agb-text-content" style="width: 100%; max-width: 400px; max-height: 60vh; overflow-y: auto; color: #0f8; font-size: 0.75em; text-align: left; border: 1px solid #0f8; padding: 15px; background: rgba(0,255,204,0.05); margin-bottom: 20px; line-height: 1.5;"></div>
+        <button class="setup-btn" style="width: 100%; max-width: 400px;" onclick="document.getElementById('agb-modal').style.display = 'none';">SCHLIESSEN</button>
+    </div>
+</div>
+ 
+  
+        
+
+<audio id="bg-music" loop>
+    <source src="Audio%20%26%20Bild/Hintergrundmusik%20(Terminal%20%26%20Basis).mp3" type="audio/mpeg">
+</audio>
+
+<div id="emp-audio-container">
+    <audio id="snd-emp-crash" src="Audio%20%26%20Bild/Sound-Effekt%20EMP-Crash.mp3" preload="auto"></audio>
+    <audio id="snd-blackout-hum" src="Audio%20%26%20Bild/Sound-Effekt%20Blackout-Brummen.mp3" preload="auto" loop></audio>
+</div>
+
+
+
+<div id="emp-trap" onclick="window.triggerTrap()"></div>
+<div id="emp-flash-overlay"></div>
+
+<div id="spieler-profil-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:380px; border:1px solid #0ff; box-shadow:0 0 25px rgba(0,255,255,0.4); background:rgba(0,20,20,0.95); padding:20px;">
+        <div id="spieler-profil-inhalt" style="text-align:left; color:#ddd; font-size:0.85em;"><p style="color:#0f8; text-align:center;">Lade...</p></div>
+        <button class="setup-btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('spieler-profil-modal').style.display='none';">SCHLIESSEN</button>
+    </div>
+</div>
+
+<div id="dual-mission-start-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:380px; border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); padding:20px; text-align:center;">
+        <h3 style="color:#b0f; margin-top:0;">DUAL MISSION</h3>
+        <div id="dual-mission-start-inhalt"></div>
+        <button class="setup-btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('dual-mission-start-modal').style.display='none';">SCHLIESSEN</button>
+    </div>
+</div>
+
+<div id="dual-mission-invite-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(20,0,25,0.92); z-index:65000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:380px; border:2px solid #b0f; box-shadow:0 0 30px rgba(187,0,255,0.6); background:rgba(20,0,25,0.95); padding:22px; text-align:center; animation: crashoutPulse 1.4s ease-in-out infinite;">
+        <div style="font-size:1.2em; color:#b0f; text-shadow:0 0 10px #b0f; margin-bottom:10px;">📡 DUAL-MISSION-ANFRAGE</div>
+        <div id="dual-mission-invite-text" style="color:#e0c0ff; margin-bottom:18px;"></div>
+        <div style="display:flex; gap:8px;">
+            <button class="setup-btn" style="flex:1; border-color:#0f8; color:#0f8;" onclick="window.dualMissionAntworten(true)">AKZEPTIEREN</button>
+            <button class="setup-btn" style="flex:1; border-color:#f44; color:#f44;" onclick="window.dualMissionAntworten(false)">ABLEHNEN</button>
+        </div>
+    </div>
+</div>
+
+<div id="dual-mission-active-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:60000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:400px; border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); padding:20px; text-align:center;">
+        <h3 style="color:#b0f; margin-top:0;">AKTIVE DUAL-MISSION</h3>
+        <div id="dual-mission-active-inhalt"></div>
+        <button class="setup-btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('dual-mission-active-modal').style.display='none';">MINIMIEREN</button>
+    </div>
+</div>
+
+<div id="bestaetigungs-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:70000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:360px; border:1px solid #f44; box-shadow:0 0 25px rgba(255,68,68,0.5); background:rgba(25,0,0,0.95); padding:20px; text-align:center;">
+        <div id="bestaetigungs-modal-text" style="color:#ffd8d8; font-size:0.9em; margin-bottom:18px; line-height:1.5;"></div>
+        <div style="display:flex; gap:8px;">
+            <button class="setup-btn" style="flex:1; border-color:#f44; color:#f44;" id="bestaetigungs-modal-ja">JA</button>
+            <button class="setup-btn" style="flex:1;" onclick="document.getElementById('bestaetigungs-modal').style.display='none';">ABBRECHEN</button>
+        </div>
+    </div>
+</div>
+
+<div id="info-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:70000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:360px; border:1px solid #0ff; box-shadow:0 0 25px rgba(0,255,255,0.5); background:rgba(0,20,20,0.95); padding:20px; text-align:center;">
+        <div id="info-modal-text" style="color:#dfffff; font-size:0.9em; margin-bottom:18px; line-height:1.5;"></div>
+        <button class="setup-btn" style="width:100%;" onclick="document.getElementById('info-modal').style.display='none';">OK</button>
+    </div>
+</div>
+
+<div id="handel-chat-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:65000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:360px; border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); padding:20px; text-align:left;">
+        <h3 style="color:#b0f; margin-top:0; text-align:center;">HANDELSANGEBOT AN <span id="handel-chat-empfaenger"></span></h3>
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
+            <span style="font-size:0.75em; color:#0f8;">ICH WILL</span>
+            <input type="number" id="handel-chat-will-menge" min="1" placeholder="Menge" style="width:70px; background:#000; border:1px solid #0f8; color:#0f8; padding:6px; font-family:inherit;">
+            <select id="handel-chat-will-typ" style="flex:1; background:#000; border:1px solid #0f8; color:#0f8; padding:6px; font-family:inherit;">
+                <option value="credits">Credits (max 1000)</option>
+                <option value="materiezellen">Materiezellen (max 5)</option>
+                <option value="chronoszellen">Chronos-Zellen (max 2)</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+            <span style="font-size:0.75em; color:#ffcc00;">ICH BIETE</span>
+            <input type="number" id="handel-chat-bietet-menge" min="1" placeholder="Menge" style="width:70px; background:#000; border:1px solid #ffcc00; color:#ffcc00; padding:6px; font-family:inherit;">
+            <select id="handel-chat-bietet-typ" style="flex:1; background:#000; border:1px solid #ffcc00; color:#ffcc00; padding:6px; font-family:inherit;">
+                <option value="credits">Credits (max 1000)</option>
+                <option value="materiezellen">Materiezellen (max 5)</option>
+                <option value="chronoszellen">Chronos-Zellen (max 2)</option>
+            </select>
+        </div>
+        <button class="setup-btn" style="width:100%; border-color:#b0f; color:#b0f;" onclick="window.handelAusChatErstellen()">ANGEBOT ERSTELLEN</button>
+        <button class="setup-btn" style="width:100%; margin-top:8px;" onclick="document.getElementById('handel-chat-modal').style.display='none';">ABBRECHEN</button>
+    </div>
+</div>
+
+<div id="crashout-averted-modal" class="top-level" style="display:none; position:fixed; inset:0; background:rgba(20,0,0,0.9); z-index:70000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:380px; border:2px solid #ff8800; box-shadow:0 0 35px rgba(255,136,0,0.6); background:rgba(30,10,0,0.95); padding:22px; text-align:center; animation: crashoutPulse 1.2s ease-in-out infinite;">
+        <div style="font-size:1.3em; color:#ff8800; text-shadow:0 0 10px #ff8800; margin-bottom:10px;">⚠ CRASHOUT ABGEWENDET ⚠</div>
+        <div id="crashout-averted-text" style="color:#ffd8a8; font-size:0.9em; line-height:1.5; margin-bottom:16px;"></div>
+        <button class="setup-btn" style="width:100%; border-color:#ff8800; color:#ff8800;" onclick="document.getElementById('crashout-averted-modal').style.display='none';">VERSTANDEN</button>
+    </div>
+</div>
+<style>
+@keyframes crashoutPulse {
+    0%, 100% { box-shadow: 0 0 35px rgba(255,136,0,0.6); }
+    50% { box-shadow: 0 0 55px rgba(255,136,0,0.95); }
+}
+</style>
+<div id="emp-solid-black"></div>
+
+<div id="emp-boot-layer">
+    <div class="boot-console">
+        <h2 style="margin:0 0 10px 0; text-shadow: 0 0 10px #f44;">[ SYSTEM OFFLINE ]</h2>
+        <p style="color:#aaa; font-size:0.9em; margin:5px 0;">> HAUPTENERGIE: VERLUST</p>
+        <p style="color:#aaa; font-size:0.9em; margin:5px 0;">> DATENKERN: BESCHÄDIGT</p>
+        <p style="color:#ff8800; font-size:0.9em; margin:15px 0 5px 0;">> NOTFALLSYSTEM LÄDT...</p>
+        <div class="boot-bar-container"><div class="boot-bar-fill"></div></div>
+    </div>
+</div>
+
+<div id="blackout-layer">
+    <div class="blackout-panel">
+        <div id="blackout-content"></div>
+        <div id="emp-help-modal">
+            <h3 style="color:#0f8; margin-top:0;">[ SYSTEM-HILFE ]</h3>
+            <div id="emp-help-text" style="color:#aaa; font-size:0.9em; margin:20px 0; line-height:1.5;"></div>
+            <button class="modell-btn" style="width:auto; padding:10px 20px;" onclick="window.closeHelp()">VERSTANDEN</button>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+<div id="gps-mission-overlay" class="top-level">
+    <div id="gps-hud">
+        <div id="gps-distance">--- m</div>
+        <div id="gps-status">Suche GPS-Signal...</div>
+    </div>
+    <button id="gps-cancel-btn" onclick="window.cancelGpsMission()">ABBRECHEN</button>
+    <div id="gps-map-container"><div id="gps-map"></div></div>
+    <div id="gps-compass">
+        <div class="compass-dial">
+            <div class="compass-label compass-n">N</div>
+            <div class="compass-label compass-e">O</div>
+            <div class="compass-label compass-s">S</div>
+            <div class="compass-label compass-w">W</div>
+            <div class="compass-needle"></div>
+        </div>
+        <div id="gps-compass-tip">Nadel zeigt zum Ziel, nicht nach Norden</div>
+    </div>
+</div>
+
+<div id="radar-arrival-popup" class="top-level" style="position:fixed;top:0;left:0;width:100vw;height: 100vh; height: 100dvh;background:rgba(0,0,0,0.9);z-index:9998;display:none;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:20px;box-sizing:border-box;font-family:'Orbitron',monospace;">
+    <div style="font-size:2.5em;margin-bottom:10px;">📡</div>
+    <h2 style="color:#0f8;text-shadow:0 0 15px #0f8;margin:0 0 10px 0;">ANOMALIE GEORTET</h2>
+    <p id="radar-arrival-info" style="color:#aaa;font-size:0.85em;max-width:320px;margin-bottom:30px;">Du befindest dich am Zielort. Aktiviere den Radar-Scanner, um die Anomalie sichtbar zu machen.</p>
+    <button class="modell-btn" style="border-color:#0f8;color:#0f8;font-size:1.1em;padding:14px 30px;" onclick="window.confirmStartRadar()">📡 RADAR STARTEN</button>
+    <button class="modell-btn" style="border-color:#f44;color:#f44;margin-top:12px;" onclick="window.cancelGpsMission()">ABBRECHEN</button>
+</div>
+
+<div id="ar-mission-overlay" class="top-level">
+    <video id="ar-video" autoplay muted playsinline></video>
+    <canvas id="ar-ash-canvas"></canvas>
+    <div id="ar-scanlines"></div>
+    <div id="ar-vignette"></div>
+    <div id="ar-hud"><div id="ar-instructions">Drehe dich, um die Anomalie zu finden!</div></div>
+    <div id="ar-anomaly">
+        <canvas id="ar-anomaly-canvas" width="220" height="220"></canvas>
+        <div id="ar-anomaly-distortion"></div>
+        <div id="ar-anomaly-glitch"></div>
+    </div>
+    <div id="ar-direction-hint"></div>
+    <div id="ar-crosshair"></div>
+    <div id="ar-extract-bar-container"><div id="ar-extract-bar"></div></div>
+    <button id="ar-extract-btn">FLUX-EXTRAKTOR</button>
+    <button id="ar-cancel-btn" onclick="window.cancelArMission()">ABBRECHEN</button>
+</div>
+
+<div id="mission-return-anim" class="top-level">
+    <h2>RÜCKREISE LÄUFT...</h2>
+    <div id="mission-return-bar-bg"><div id="mission-return-bar"></div></div>
+</div>
+
+
+
+<div id="loot-popup" class="top-level" style="position:fixed;top:0;left:0;width:100vw;height: 100vh; height: 100dvh;background:rgba(0,0,0,0.85);z-index:50000;display:none;justify-content:center;align-items:center;">
+    <div id="loot-popup-content" style="background:#0a0a0a;border:1px solid #0f8;border-radius:10px;padding:25px;max-width:320px;width:90%;font-family:'Orbitron',monospace;"></div>
+</div>
+
+
+
+<script type="module" src="firebase-init.js?v=20260904a"></script>
+<script src="protokoll.js?v=20260828g"></script>
+<script src="sharecard.js?v=20260828g"></script>
+<script src="dualmission.js?v=20260828g"></script>
+<script src="dailyanomaly.js?v=20260828g"></script>
+<script src="app.js?v=20260904a"></script>
+<script src="backnav.js?v=20260828g"></script>
+<script>
+    // Zurück-Taste/-Geste (Android TWA): registriert die wichtigsten Menü-/Popup-Paare des
+    // Hauptterminals. Muss NACH app.js laufen, da erst dort alle Funktionen definiert werden.
+    if (typeof window.registerBackable === 'function') {
+        window.registerBackable('openHelp', 'closeHelp');
+        window.registerBackable('showLootPopup', 'closeLootPopup');
+        // Das Missionsmenü nutzt bewusst eine eigene, isolierte "Schließen"-Funktion statt
+        // f_start() direkt - f_start() wird an 27 weiteren Stellen für andere Zwecke aufgerufen.
+        window.registerBackable('showMissionMenu', 'closeMissionsmenuUeberZurueck');
+        window.registerBackable('openEinstellungenUeberIcon', 'closeEinstellungenUeberZurueck');
+        window.registerBackable('f_kontakt', 'closeKontaktUeberZurueck');
+    }
+</script>
+<script>
+    // Service-Worker-Registrierung für PWA-Installierbarkeit (Voraussetzung für die spätere
+    // Android-TWA-Verpackung). Bewusst mit leerem try/catch - falls die Registrierung aus
+    // irgendeinem Grund fehlschlägt (z.B. älterer Browser ohne Unterstützung), soll das Spiel
+    // ganz normal weiterlaufen, nur eben ohne PWA-Installierbarkeit.
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(e => console.error('Service Worker Registrierung fehlgeschlagen:', e));
+        });
+    }
+</script>
+</body>
+</html>

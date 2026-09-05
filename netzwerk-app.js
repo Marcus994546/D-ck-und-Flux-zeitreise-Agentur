@@ -1,0 +1,1619 @@
+// ============================================================
+// AGENTUR-NETZWERK - jetzt eine komplett eigenständige Seite (netzwerk.html), kein
+// Unterbereich des Hauptterminals mehr. Läuft wie base.html mit eigenem Firebase-Auth-Gate.
+// ============================================================
+
+(function() {
+    window.escHtml = function(str) {
+        const div = document.createElement('div');
+        div.textContent = String(str ?? '');
+        return div.innerHTML;
+    };
+
+    window.zeigeBestaetigung = function(text, onJa) {
+        const modal = document.getElementById('bestaetigungs-modal');
+        const textEl = document.getElementById('bestaetigungs-modal-text');
+        const jaBtn = document.getElementById('bestaetigungs-modal-ja');
+        if (!modal || !textEl || !jaBtn) return;
+        textEl.innerText = text;
+        modal.style.display = 'flex';
+        const neuerJaBtn = jaBtn.cloneNode(true);
+        jaBtn.parentNode.replaceChild(neuerJaBtn, jaBtn);
+        neuerJaBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            onJa();
+        });
+    };
+
+    window.zeigeInfo = function(text) {
+        const modal = document.getElementById('info-modal');
+        const textEl = document.getElementById('info-modal-text');
+        if (!modal || !textEl) return;
+        textEl.innerText = text;
+        modal.style.display = 'flex';
+    };
+
+    // WICHTIG: netzwerk-firebase-init.js läuft als type="module" (vom Browser automatisch
+    // verzögert ausgeführt) - dieselbe Wartefunktion wie in base-app.js, sonst könnte das
+    // Auth-Gate starten, bevor window.netzwerkAuthReady überhaupt existiert.
+    function waitForNetzwerkAuthReady() {
+        return new Promise((resolve) => {
+            (function check() {
+                if (window.netzwerkAuthReady) resolve(window.netzwerkAuthReady);
+                else setTimeout(check, 20);
+            })();
+        });
+    }
+
+    let currentNetzwerkTab = 'rangliste';
+
+    (async function guardNetzwerkAccess() {
+        const authPromise = await waitForNetzwerkAuthReady();
+        const user = await authPromise;
+        if (!user) { window.location.href = 'index.html'; return; }
+        window.agentName = user.displayName || (user.email || '').split('@')[0];
+        if (!window.agentName) { window.location.href = 'index.html'; return; }
+
+        try {
+            const mySlug = window.agentSlug(window.agentName);
+            const snap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
+            const data = snap.exists() ? snap.data() : {};
+            window.playerCredits = data.credits || 0;
+            window.playerMateriezellen = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
+            window.playerLevel = data.lvl || 1;
+            window.istAdminNz = !!data.isAdmin;
+        } catch (e) { console.error(e); }
+
+        // Admin-Slug einmalig auflösen - wird gebraucht, um VIP-Holoprojektor-Kanäle mit der
+        // Administration zu erkennen (Sperre für normale Spieler, Kennzeichnung für die
+        // Administration selbst, siehe unten).
+        try {
+            const qAdmin = window.query(window.collection(window.db, "agenten"), window.where("isAdmin", "==", true), window.limit(1));
+            const adminSnap = await window.getDocs(qAdmin);
+            if (!adminSnap.empty) window.adminSlugNz = adminSnap.docs[0].id;
+        } catch (e) { console.error('Admin-Auflösung fehlgeschlagen:', e); }
+
+        window.switchNetzwerkTab(currentNetzwerkTab);
+        starteKommLinkPulsUeberwachung();
+        starteMentorenPulsUeberwachung();
+    })();
+
+    // Grün pulsierender Komm-Link-Tab, sobald irgendwo eine ungelesene Nachricht ODER ein
+    // offenes, an mich gerichtetes Handelsangebot wartet - unabhängig davon, welcher Tab gerade
+    // aktiv ist.
+    function starteKommLinkPulsUeberwachung() {
+        const mySlug = window.agentSlug(window.agentName);
+        let hatUngelesen = false, hatOffenesAngebot = false;
+        function aktualisierePuls() {
+            const tabBtn = document.querySelector('.nz-tab-btn[data-tab="chat"]');
+            if (!tabBtn) return;
+            tabBtn.classList.toggle('nz-tab-pulse-green', hatUngelesen || hatOffenesAngebot);
+        }
+        const qChat = window.query(window.collection(window.db, "agenten_funk"), window.where("teilnehmer", "array-contains", mySlug));
+        window.onSnapshot(qChat, (snapshot) => {
+            hatUngelesen = false;
+            snapshot.forEach(d => { if (d.data().ungelesen_fuer === mySlug) hatUngelesen = true; });
+            aktualisierePuls();
+        });
+        const qTrade = window.query(window.collection(window.db, "handelsangebote"), window.where("an", "==", mySlug), window.where("status", "==", "offen"));
+        let bekannteOffeneAngebote = new Set();
+        window.onSnapshot(qTrade, (snapshot) => {
+            hatOffenesAngebot = !snapshot.empty;
+            const jetztOffen = new Set();
+            snapshot.forEach(d => {
+                jetztOffen.add(d.id);
+                if (!bekannteOffeneAngebote.has(d.id)) {
+                    const a = d.data();
+                    if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot von ' + a.von + ' bekommen.');
+                }
+            });
+            bekannteOffeneAngebote = jetztOffen;
+            aktualisierePuls();
+        });
+    }
+
+    // Grün pulsierender Mentoren-Tab, sobald eine offene Mentoren-Anfrage an mich wartet -
+    // separat vom Komm-Link-Tab, wie gewünscht ("nicht Komm-Link, sondern Mentoren").
+    function starteMentorenPulsUeberwachung() {
+        const mySlug = window.agentSlug(window.agentName);
+        const q = window.query(window.collection(window.db, "mentorships"), window.where("menteeSlug", "==", mySlug), window.where("status", "==", "offen"));
+        window.onSnapshot(q, (snapshot) => {
+            const tabBtn = document.querySelector('.nz-tab-btn[data-tab="mentoren"]');
+            if (tabBtn) tabBtn.classList.toggle('nz-tab-pulse-green', !snapshot.empty);
+        });
+    }
+
+    window.switchNetzwerkTab = function(tab) {
+        // Radar läuft als eigene Unteransicht innerhalb von "chat" (siehe renderRadarViewNz) und
+        // ist in dieser Tab-Liste nicht enthalten - ohne diese Abschaltung würde ein per
+        // Intervall laufendes Radar beim direkten Wechsel zu einem anderen Haupt-Tab (statt über
+        // den eigenen "RADAR DEAKTIVIEREN"-Button) unbemerkt im Hintergrund weiterlaufen.
+        if (window.currentRadarListenerNz) { window.currentRadarListenerNz(); window.currentRadarListenerNz = null; }
+        currentNetzwerkTab = tab;
+        document.querySelectorAll('.nz-tab-btn').forEach(btn => {
+            btn.classList.toggle('nz-tab-active', btn.dataset.tab === tab);
+        });
+        if (tab === 'profil') renderMeinProfil();
+        else if (tab === 'rangliste') renderRangliste();
+        else if (tab === 'suche') renderSpielerSuche();
+        else if (tab === 'allianz') renderAllianz();
+        else if (tab === 'saison') renderSaison();
+        else if (tab === 'chat') renderKommLinkUebersicht();
+        else if (tab === 'mentoren') renderMentorenTab();
+    };
+
+
+    // --- TITEL/ABZEICHEN ---
+    // Rein clientseitig aus bereits vorhandenen Werten berechnet, kein eigenes Firestore-Feld
+    // nötig. Absteigend nach Prestige sortiert - es wird immer nur der EINE höchste zutreffende
+    // Titel angezeigt, um die Anzeige nicht zu überladen.
+    const TITLE_TIERS = [
+        { check: (s) => s.artifactCount >= 40, label: '🏆 Archiv-Vollender' },
+        { check: (s) => s.isAllianzGruender, label: '👑 Allianz-Gründer' },
+        { check: (s) => s.artifactCount >= 25, label: '💎 Artefakt-Meister' },
+        { check: (s) => s.maxRoomLevel >= 10, label: '⚙️ Architekt' },
+        { check: (s) => s.lvl >= 50, label: '⚡ Meister-Agent' },
+        { check: (s) => s.artifactCount >= 10, label: '🔹 Artefakt-Sammler' },
+        { check: (s) => s.credits >= 100000, label: '💰 Wohlhabender Agent' },
+        { check: (s) => s.lvl >= 25, label: '🌟 Erfahrener Agent' },
+        { check: (s) => s.agentCount >= 8, label: '🧑‍🤝‍🧑 Vollbesetzte Agentur' }
+    ];
+    function computeBestTitle(stats) {
+        const tier = TITLE_TIERS.find(t => t.check(stats));
+        return tier ? tier.label : '';
+    }
+
+    // --- MEIN PROFIL (eigener Tab, editierbar - im Unterschied zum reinen Anzeige-Popup bei
+    // anderen Spielern über zeigeSpielerProfil) ---
+    async function renderMeinProfil() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = '<p style="color:#0f8; text-align:center;">Lade Profil...</p>';
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const snap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
+            const data = snap.exists() ? snap.data() : {};
+            let artifactCount = 0, maxRoomLevel = 0, agentCount = 0;
+            try {
+                const baseSnap = await window.getDoc(window.doc(window.db, "Agent - Base", mySlug));
+                if (baseSnap.exists()) {
+                    const bd = baseSnap.data();
+                    if (Array.isArray(bd.collectedArtifacts)) artifactCount = bd.collectedArtifacts.length;
+                    if (Array.isArray(bd.baseData)) maxRoomLevel = Math.max(0, ...bd.baseData.map(r => r.lvl || 1));
+                    if (Array.isArray(bd.agents)) agentCount = bd.agents.length;
+                }
+            } catch (e) {}
+            let isAllianzGruender = false;
+            try {
+                const allianzSnap = await window.getDocs(window.collection(window.db, "allianzen"));
+                allianzSnap.forEach(d => { if (d.data().ownerSlug === mySlug) isAllianzGruender = true; });
+            } catch (e) {}
+            const mz = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
+            const title = computeBestTitle({ lvl: data.lvl || 1, credits: data.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender });
+            const missionStatsHtml = renderMissionStatsHtml(data);
+            const bioText = data.bioText || '';
+
+            content.innerHTML =
+                '<h3 style="color:#0ff; margin-top:0; text-shadow:0 0 8px #0ff;">' + window.escHtml(mySlug) + ' (Du)</h3>' +
+                (title ? '<div style="opacity:0.85; margin-bottom:10px;">' + title + '</div>' : '') +
+                '<div style="text-align:left;">' +
+                '<div>Level: <b>' + (data.lvl || 1) + '</b></div>' +
+                '<div>Credits: <b>' + (data.credits || 0).toLocaleString('de-DE') + '</b></div>' +
+                '<div>Materiezellen: <b>' + mz + '</b></div>' +
+                '<div>Chronos-Zellen: <b>' + (data.chronoszellen || 0) + '</b></div>' +
+                '<div>Artefakte: <b>' + artifactCount + '/40</b></div>' +
+                '<div>Agenten: <b>' + agentCount + '</b></div>' +
+                '<div style="margin-top:14px;"><div style="font-size:0.75em; color:#0ff; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Missionsstatistik</div>' + missionStatsHtml + '</div>' +
+                '<div style="margin-top:16px;">' +
+                '<div style="font-size:0.75em; color:#0ff; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Profiltext (öffentlich sichtbar)</div>' +
+                '<textarea id="mein-bio-text" maxlength="150" placeholder="Ein paar Worte über dich..." style="width:100%; box-sizing:border-box; background:#000; border:1px solid #0f8; color:#0f8; padding:8px; font-family:monospace; resize:vertical; min-height:60px;">' + window.escHtml(bioText) + '</textarea>' +
+                '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">' +
+                '<span id="mein-bio-zaehler" style="font-size:0.7em; color:#666;">' + bioText.length + '/150</span>' +
+                '<button class="modell-btn" style="margin:0; width:auto; padding:6px 16px;" onclick="window.speichereBioText()">SPEICHERN</button>' +
+                '</div></div>' +
+                '</div>';
+
+            const textarea = document.getElementById('mein-bio-text');
+            const zaehler = document.getElementById('mein-bio-zaehler');
+            if (textarea && zaehler) {
+                textarea.addEventListener('input', () => { zaehler.innerText = textarea.value.length + '/150'; });
+            }
+        } catch (e) {
+            console.error(e);
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Profil konnte nicht geladen werden.</p>';
+        }
+    }
+
+    window.speichereBioText = async function() {
+        const textarea = document.getElementById('mein-bio-text');
+        if (!textarea || !window.db) return;
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            await window.setDoc(window.doc(window.db, "agenten", mySlug), { bioText: textarea.value.slice(0, 150) }, { merge: true });
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Profiltext gespeichert.');
+        } catch (e) {
+            console.error(e);
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Profiltext konnte nicht gespeichert werden.');
+        }
+    };
+
+    // Missions-Statistik-Balken - ausgelagert, da sowohl im eigenen Profil (renderMeinProfil) als
+    // auch bei anderen Spielern (zeigeSpielerProfil) identisch benötigt.
+    function renderMissionStatsHtml(data) {
+        const missionTypenReihenfolge = ['normal', 'fortgeschritten', 'weit', 'taeglich', 'dual'];
+        const missionLabels = { normal: 'Normal', fortgeschritten: 'Fortgeschritten', weit: 'Weit entfernt', taeglich: 'Täglich', dual: 'Dual-Mission' };
+        const missionFarben = { normal: '#0f8', fortgeschritten: '#ffaa00', weit: '#ff8800', taeglich: '#ffe066', dual: '#b0f' };
+        const missionStats = missionTypenReihenfolge.map(typ => ({
+            typ, label: missionLabels[typ], farbe: missionFarben[typ],
+            gestartet: data['missionen_' + typ + '_gestartet'] || 0,
+            erfolgreich: data['missionen_' + typ + '_erfolgreich'] || 0
+        }));
+        const maxGestartet = Math.max(1, ...missionStats.map(m => m.gestartet));
+        return missionStats.map(m => {
+            const balkenBreite = (m.gestartet / maxGestartet) * 100;
+            const erfolgAnteil = m.gestartet > 0 ? (m.erfolgreich / m.gestartet) * 100 : 0;
+            return `<div style="margin-bottom:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.72em; color:#aaa; margin-bottom:2px;">
+                    <span>${m.label}</span><span>${m.erfolgreich} / ${m.gestartet}</span>
+                </div>
+                <div style="position:relative; height:10px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
+                    <div style="position:absolute; left:0; top:0; height:100%; width:${balkenBreite}%; background:${m.farbe}; opacity:0.35; border-radius:3px;"></div>
+                    ${m.gestartet > 0 ? `<div style="position:absolute; left:0; top:0; height:100%; width:${(balkenBreite * erfolgAnteil / 100)}%; background:${m.farbe}; border-radius:3px; box-shadow:0 0 6px ${m.farbe};"></div>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // --- Gemeinsames Spieler-Profil-Popup (Rangliste, Spielersuche, Allianz-Mitgliederliste) ---
+    window.zeigeSpielerProfil = async function(slug) {
+        const modal = document.getElementById('spieler-profil-modal');
+        const inhalt = document.getElementById('spieler-profil-inhalt');
+        if (!modal || !inhalt) return;
+        inhalt.innerHTML = '<p style="color:#0f8; text-align:center;">Lade...</p>';
+        modal.style.display = 'flex';
+        try {
+            const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
+            if (!snap.exists() || snap.data().isAdmin) {
+                inhalt.innerHTML = '<p style="color:#f44; text-align:center;">Agent nicht gefunden.</p>';
+                return;
+            }
+            const data = snap.data();
+            let artifactCount = 0, maxRoomLevel = 0, agentCount = 0;
+            try {
+                const baseSnap = await window.getDoc(window.doc(window.db, "Agent - Base", slug));
+                if (baseSnap.exists()) {
+                    const bd = baseSnap.data();
+                    if (Array.isArray(bd.collectedArtifacts)) artifactCount = bd.collectedArtifacts.length;
+                    if (Array.isArray(bd.baseData)) maxRoomLevel = Math.max(0, ...bd.baseData.map(r => r.lvl || 1));
+                    if (Array.isArray(bd.agents)) agentCount = bd.agents.length;
+                }
+            } catch (e) {}
+            let isAllianzGruender = false, allianzName = '';
+            try {
+                const allianzSnap = await window.getDocs(window.collection(window.db, "allianzen"));
+                allianzSnap.forEach(d => {
+                    if (d.data().ownerSlug === slug) isAllianzGruender = true;
+                    if (Array.isArray(d.data().mitglieder) && d.data().mitglieder.includes(slug)) allianzName = d.data().name;
+                });
+            } catch (e) {}
+            const mz = (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0);
+            const title = computeBestTitle({ lvl: data.lvl || 1, credits: data.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender });
+            const missionStatsHtml = renderMissionStatsHtml(data);
+            const bioText = (data.bioText || '').trim();
+
+            inhalt.innerHTML =
+                '<h3 style="color:#0ff; margin-top:0; text-shadow:0 0 8px #0ff;">' + window.escHtml(slug) + '</h3>' +
+                (title ? '<div style="opacity:0.85; margin-bottom:10px;">' + title + '</div>' : '') +
+                (allianzName ? '<div style="font-size:0.8em; color:#aaa; margin-bottom:10px;">Allianz: <b style="color:#0ff;">' + window.escHtml(allianzName) + '</b></div>' : '') +
+                (bioText ? '<div style="font-size:0.85em; color:#7ff5ff; font-style:italic; border-left:2px solid #0ff; padding-left:8px; margin-bottom:12px; text-align:left;">„' + window.escHtml(bioText) + '"</div>' : '') +
+                '<div style="text-align:left;">' +
+                '<div>Level: <b>' + (data.lvl || 1) + '</b></div>' +
+                '<div>Credits: <b>' + (data.credits || 0).toLocaleString('de-DE') + '</b></div>' +
+                '<div>Materiezellen: <b>' + mz + '</b></div>' +
+                '<div>Chronos-Zellen: <b>' + (data.chronoszellen || 0) + '</b></div>' +
+                '<div>Artefakte: <b>' + artifactCount + '/40</b></div>' +
+                '<div>Agenten: <b>' + agentCount + '</b></div>' +
+                '<div style="margin-top:14px;"><div style="font-size:0.75em; color:#0ff; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Missionsstatistik</div>' + missionStatsHtml + '</div>' +
+                '</div>';
+        } catch (e) {
+            console.error(e);
+            inhalt.innerHTML = '<p style="color:#f44; text-align:center;">Profil konnte nicht geladen werden.</p>';
+        }
+    };
+
+    // --- RANGLISTE ---
+    // Score-Formel: bewusst simpel und transparent gehalten, gewichtet Artefakte und
+    // Spieler-Level stärker als reine Ressourcenmenge.
+    function computeAgenturScore(stats) {
+        return Math.round(
+            (stats.lvl || 0) * 100 +
+            (stats.artifactCount || 0) * 250 +
+            (stats.credits || 0) / 50 +
+            (stats.materiezellen || 0) * 10 +
+            (stats.chronoszellen || 0) * 40
+        );
+    }
+
+    async function renderRangliste() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = '<p style="color:#0f8; text-align:center;">Lade Rangliste...</p>';
+        if (!window.db || !window.getDocs || !window.collection) {
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Keine Verbindung zur Datenbank.</p>';
+            return;
+        }
+        // WICHTIG: Die vollständige Berechnung liest die KOMPLETTEN Collections "agenten" und
+        // "Agent - Base" unbegrenzt ein - bei wenigen Spielern unproblematisch, aber bei
+        // wachsender Nutzerzahl der mit Abstand teuerste Lesevorgang der ganzen App, wenn er bei
+        // JEDEM einzelnen Aufruf der Rangliste erneut passiert. Ein geteilter Zwischenspeicher
+        // sorgt dafür, dass die teure Berechnung nur einmal pro Kalendertag läuft (Reset um
+        // Mitternacht, deutsche Zeit) - unabhängig davon, wie viele Spieler die Rangliste an
+        // diesem Tag ansehen.
+        const heuteStr = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+        try {
+            const cacheRef = window.doc(window.db, "netzwerk_cache", "rangliste");
+            const cacheSnap = await window.getDoc(cacheRef);
+            if (cacheSnap.exists()) {
+                const cache = cacheSnap.data();
+                const berechnetAmStr = cache.berechnetAm ? new Date(cache.berechnetAm).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) : null;
+                if (berechnetAmStr === heuteStr && Array.isArray(cache.entries)) {
+                    renderRanglisteHTML(content, cache.entries, cache.berechnetAm);
+                    return;
+                }
+            }
+        } catch (e) { console.error('Rangliste-Zwischenspeicher konnte nicht gelesen werden:', e); }
+
+        try {
+            const agentenSnap = await window.getDocs(window.collection(window.db, "agenten"));
+            const baseSnap = await window.getDocs(window.collection(window.db, "Agent - Base"));
+            const artifactCounts = {};
+            const maxRoomLevels = {};
+            const agentCounts = {};
+            baseSnap.forEach(d => {
+                const bd = d.data();
+                const arr = bd.collectedArtifacts;
+                artifactCounts[d.id] = Array.isArray(arr) ? arr.length : 0;
+                maxRoomLevels[d.id] = Array.isArray(bd.baseData) ? Math.max(0, ...bd.baseData.map(r => r.lvl || 1)) : 0;
+                agentCounts[d.id] = Array.isArray(bd.agents) ? bd.agents.length : 0;
+            });
+            let allianzGruender = {};
+            try {
+                const allianzSnap = await window.getDocs(window.collection(window.db, "allianzen"));
+                allianzSnap.forEach(d => { allianzGruender[d.data().ownerSlug] = true; });
+            } catch (e) {}
+
+            const entries = [];
+            agentenSnap.forEach(d => {
+                const data = d.data();
+                if (data.isAdmin) return; // Admin-Konten sollen im Netzwerk komplett unsichtbar sein
+                const stats = {
+                    slug: d.id,
+                    lvl: data.lvl || 1,
+                    credits: data.credits || 0,
+                    materiezellen: (data.materiezellen !== undefined) ? data.materiezellen : (data.materialzellen || 0),
+                    chronoszellen: data.chronoszellen || 0,
+                    artifactCount: artifactCounts[d.id] || 0,
+                    maxRoomLevel: maxRoomLevels[d.id] || 0,
+                    agentCount: agentCounts[d.id] || 0,
+                    isAllianzGruender: !!allianzGruender[d.id]
+                };
+                entries.push({ ...stats, score: computeAgenturScore(stats), title: computeBestTitle(stats) });
+            });
+            entries.sort((a, b) => b.score - a.score);
+
+            // Nur die für die Anzeige tatsächlich benötigten Top-Einträge (etwas großzügiger
+            // Puffer für den eigenen Rang, falls der Spieler weiter unten steht) in den
+            // Zwischenspeicher schreiben - nicht die komplette, potenziell sehr lange Liste.
+            const CACHE_MAX_ENTRIES = 200;
+            const berechnetAm = Date.now();
+            try {
+                await window.setDoc(window.doc(window.db, "netzwerk_cache", "rangliste"), {
+                    berechnetAm: berechnetAm,
+                    entries: entries.slice(0, CACHE_MAX_ENTRIES).map(e => ({ slug: e.slug, lvl: e.lvl, artifactCount: e.artifactCount, score: e.score, title: e.title }))
+                });
+            } catch (e) { console.error('Rangliste-Zwischenspeicher konnte nicht geschrieben werden:', e); }
+
+            renderRanglisteHTML(content, entries, berechnetAm);
+        } catch (e) {
+            console.error(e);
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Rangliste konnte nicht geladen werden.</p>';
+        }
+    }
+
+    function renderRanglisteHTML(content, entries, berechnetAm) {
+        const myName = window.agentSlug(window.agentName);
+        const myRank = entries.findIndex(e => e.slug === myName) + 1;
+
+        let html = '';
+        if (berechnetAm) {
+            const standStr = new Date(berechnetAm).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            html += '<p style="color:#555; font-size:0.7em; text-align:right; margin:0 0 6px;">Stand: ' + standStr + ' Uhr</p>';
+        }
+        html += '<div style="max-height:400px; overflow-y:auto;">';
+        html += '<table style="width:100%; border-collapse:collapse; font-size:0.78em;">';
+        html += '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">#</th><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Lvl</th><th style="padding:4px;">Artefakte</th><th style="padding:4px;">Score</th></tr>';
+        entries.slice(0, 25).forEach((e, i) => {
+            const isMe = (e.slug === myName);
+            html += '<tr style="' + (isMe ? 'background:rgba(0,255,255,0.15); font-weight:bold;' : '') + ' border-bottom:1px solid rgba(0,255,255,0.15);">' +
+                '<td style="padding:4px;">' + (i + 1) + '</td>' +
+                '<td style="padding:4px; text-align:left;"><span style="cursor:pointer; text-decoration:underline dotted;" onclick="window.zeigeSpielerProfil(\'' + e.slug + '\')">' + window.escHtml(e.slug) + '</span>' + (isMe ? ' (Du)' : '') + (e.title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + e.title + '</span>' : '') + '</td>' +
+                '<td style="padding:4px;">' + e.lvl + '</td>' +
+                '<td style="padding:4px;">' + e.artifactCount + '/40</td>' +
+                '<td style="padding:4px;">' + e.score.toLocaleString('de-DE') + '</td>' +
+            '</tr>';
+        });
+        html += '</table></div>';
+        if (myRank > 25) {
+            html += '<p style="color:#0ff; margin-top:10px; font-size:0.8em;">Dein Rang: #' + myRank + ' von ' + entries.length + '</p>';
+        } else if (myRank === 0) {
+            html += '<p style="color:#888; margin-top:10px; font-size:0.8em;">Dein Rang wird bei der nächsten täglichen Aktualisierung der Rangliste (um Mitternacht) berücksichtigt.</p>';
+        }
+        content.innerHTML = html;
+    }
+
+    // --- SPIELER SUCHEN ---
+    function renderSpielerSuche() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML =
+            '<div style="display:flex; gap:5px; margin-bottom:15px;">' +
+                '<input type="text" id="netzwerk-such-input" placeholder="Agentenname..." autocomplete="off" style="flex-grow:1; background:#000; border:1px solid #0ff; color:#0ff; padding:8px; font-family:inherit;">' +
+                '<button class="modell-btn" onclick="window.suchSpieler()">SUCHEN</button>' +
+            '</div>' +
+            '<div id="netzwerk-such-ergebnis"></div>';
+        const input = document.getElementById('netzwerk-such-input');
+        if (input) input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') window.suchSpieler(); });
+    }
+
+    window.suchSpieler = async function() {
+        const input = document.getElementById('netzwerk-such-input');
+        const ergebnis = document.getElementById('netzwerk-such-ergebnis');
+        if (!input || !ergebnis) return;
+        const name = input.value.trim();
+        if (!name) return;
+        ergebnis.innerHTML = '<p style="color:#0f8;">Suche...</p>';
+        try {
+            const slug = window.agentSlug(name);
+            const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
+            if (!snap.exists() || snap.data().isAdmin) {
+                ergebnis.innerHTML = '<p style="color:#f44;">Kein Agent mit diesem Namen gefunden.</p>';
+                return;
+            }
+            ergebnis.innerHTML =
+                '<div style="border:1px solid #0ff; padding:15px; text-align:center; cursor:pointer;" onclick="window.zeigeSpielerProfil(\'' + slug + '\')">' +
+                    '<b style="color:#0ff; font-size:1.1em; text-decoration:underline dotted;">' + window.escHtml(name) + '</b>' +
+                    '<div style="font-size:0.7em; color:#888; margin-top:4px;">Antippen für Profil</div>' +
+                '</div>';
+        } catch (e) {
+            console.error(e);
+            ergebnis.innerHTML = '<p style="color:#f44;">Suche fehlgeschlagen.</p>';
+        }
+    };
+
+    // --- ALLIANZEN ---
+    async function renderAllianz() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = '<p style="color:#0f8; text-align:center;">Lade...</p>';
+        if (!window.db) { content.innerHTML = '<p style="color:#f44;">Keine Verbindung zur Datenbank.</p>'; return; }
+
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            // Eigene Allianz suchen: einmalig alle Allianzen laden und nach der eigenen Slug in
+            // "mitglieder" filtern (die Collection bleibt bei einer kleinen Spielerbasis günstig
+            // in einem Rutsch abfragbar).
+            const allSnap = await window.getDocs(window.collection(window.db, "allianzen"));
+            let myAllianz = null;
+            const alleAllianzen = [];
+            allSnap.forEach(d => {
+                const data = d.data();
+                alleAllianzen.push({ id: d.id, ...data });
+                if (Array.isArray(data.mitglieder) && data.mitglieder.includes(mySlug)) myAllianz = { id: d.id, ...data };
+            });
+
+            if (myAllianz) {
+                renderEigeneAllianz(myAllianz);
+            } else {
+                renderAllianzBrowser(alleAllianzen);
+            }
+        } catch (e) {
+            console.error(e);
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Allianzen konnten nicht geladen werden.</p>';
+        }
+    }
+
+    async function renderEigeneAllianz(allianz) {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        const mySlug = window.agentSlug(window.agentName);
+        const isOwner = (allianz.ownerSlug === mySlug);
+        const otherMembers = allianz.mitglieder.filter(s => s !== mySlug);
+
+        // Für jedes Mitglied die Basisdaten für eine kleine Mitgliederliste nachladen.
+        let memberRows = '';
+        for (const slug of allianz.mitglieder) {
+            try {
+                const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
+                const d = snap.exists() ? snap.data() : {};
+                if (d.isAdmin) continue; // Admin soll auch in Allianz-Mitgliederlisten unsichtbar sein
+                let artifactCount = 0, maxRoomLevel = 0, agentCount = 0;
+                try {
+                    const baseSnap = await window.getDoc(window.doc(window.db, "Agent - Base", slug));
+                    if (baseSnap.exists()) {
+                        const bd = baseSnap.data();
+                        if (Array.isArray(bd.collectedArtifacts)) artifactCount = bd.collectedArtifacts.length;
+                        if (Array.isArray(bd.baseData)) maxRoomLevel = Math.max(0, ...bd.baseData.map(r => r.lvl || 1));
+                        if (Array.isArray(bd.agents)) agentCount = bd.agents.length;
+                    }
+                } catch (e) {}
+                const title = computeBestTitle({ lvl: d.lvl || 1, credits: d.credits || 0, artifactCount, maxRoomLevel, agentCount, isAllianzGruender: slug === allianz.ownerSlug });
+                memberRows += '<tr style="border-bottom:1px solid rgba(0,255,255,0.15);">' +
+                    '<td style="padding:4px; text-align:left;"><span style="cursor:pointer; text-decoration:underline dotted;" onclick="window.zeigeSpielerProfil(\'' + slug + '\')">' + window.escHtml(slug) + '</span>' + (slug === allianz.ownerSlug ? ' 👑' : '') + (slug === mySlug ? ' (Du)' : '') + (title ? '<br><span style="font-size:0.85em; opacity:0.75;">' + title + '</span>' : '') + '</td>' +
+                    '<td style="padding:4px;">' + (d.lvl || 1) + '</td>' +
+                '</tr>';
+            } catch (e) {}
+        }
+
+        // Der Besitzer kann beim Verlassen optional selbst einen Nachfolger bestimmen - lässt er
+        // die Auswahl auf "Automatisch", entscheidet der Algorithmus (siehe waehleNachfolger()).
+        let successorSelect = '';
+        if (isOwner && otherMembers.length > 0) {
+            successorSelect = '<select id="allianz-nachfolger-select" style="width:100%; background:#000; border:1px solid #0ff; color:#0ff; padding:6px; margin-bottom:8px; font-family:inherit;">' +
+                '<option value="">Nachfolger automatisch bestimmen</option>' +
+                otherMembers.map(s => '<option value="' + s + '">' + window.escHtml(s) + ' als Nachfolger festlegen</option>').join('') +
+            '</select>';
+        }
+
+        content.innerHTML =
+            '<div style="border:1px solid #0ff; padding:15px; text-align:left;">' +
+                '<h4 style="color:#0ff; margin-top:0;">' + window.escHtml(allianz.name) + '</h4>' +
+                '<p style="font-size:0.8em; color:#aaa;">' + allianz.mitglieder.length + ' Mitglied' + (allianz.mitglieder.length === 1 ? '' : 'er') + '</p>' +
+                '<table style="width:100%; border-collapse:collapse; font-size:0.8em; margin-bottom:15px;">' +
+                    '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Lvl</th></tr>' +
+                    memberRows +
+                '</table>' +
+                successorSelect +
+                '<button class="modell-btn" style="border-color:#f44; color:#f44; margin-top:12px;" onclick="window.allianzVerlassen(\'' + allianz.id + '\')">' + (isOwner && otherMembers.length > 0 ? 'ALLIANZ VERLASSEN' : (isOwner ? 'ALLIANZ AUFLÖSEN' : 'ALLIANZ VERLASSEN')) + '</button>' +
+            '</div>';
+    }
+
+    const HANDEL_MAX = { credits: 1000, materiezellen: 5, chronoszellen: 2 };
+    const HANDEL_LABEL = { credits: 'Credits', materiezellen: 'Materiezellen', chronoszellen: 'Chronos-Zellen' };
+    let handelChatEmpfaenger = null;
+
+    window.openHandelAusChat = function(targetName) {
+        handelChatEmpfaenger = targetName;
+        const el = document.getElementById('handel-chat-empfaenger');
+        if (el) el.innerText = targetName.toUpperCase();
+        const modal = document.getElementById('handel-chat-modal');
+        if (modal) modal.style.display = 'flex';
+    };
+
+    // Bucht den angebotenen Betrag SOFORT vom eigenen Konto ab (Treuhand) - wird bei Ablehnung
+    // oder Stornierung wieder gutgeschrieben. So bleibt jede Kontoänderung immer eine reine
+    // Erhöhung auf einem FREMDEN Dokument (die einzige Art, die die Firestore-Regeln zulassen),
+    // nie eine Verringerung.
+    window.handelAusChatErstellen = async function() {
+        const empfaenger = handelChatEmpfaenger;
+        if (!empfaenger) return;
+        const willTyp = document.getElementById('handel-chat-will-typ').value;
+        const willMenge = parseInt(document.getElementById('handel-chat-will-menge').value) || 0;
+        const bietetTyp = document.getElementById('handel-chat-bietet-typ').value;
+        const bietetMenge = parseInt(document.getElementById('handel-chat-bietet-menge').value) || 0;
+
+        if (willMenge <= 0 || bietetMenge <= 0) { window.zeigeInfo('Bitte für beide Seiten eine Menge größer als 0 eingeben.'); return; }
+        if (willMenge > HANDEL_MAX[willTyp]) { window.zeigeInfo('Maximal ' + HANDEL_MAX[willTyp] + ' ' + HANDEL_LABEL[willTyp] + ' pro Angebot.'); return; }
+        if (bietetMenge > HANDEL_MAX[bietetTyp]) { window.zeigeInfo('Maximal ' + HANDEL_MAX[bietetTyp] + ' ' + HANDEL_LABEL[bietetTyp] + ' pro Angebot.'); return; }
+
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const myRef = window.doc(window.db, "agenten", mySlug);
+            const mySnap = await window.getDoc(myRef);
+            const myData = mySnap.exists() ? mySnap.data() : {};
+            const meinBestand = (bietetTyp === 'materiezellen') ? ((myData.materiezellen !== undefined) ? myData.materiezellen : (myData.materialzellen || 0)) : (myData[bietetTyp] || 0);
+            if (meinBestand < bietetMenge) { window.zeigeInfo('Nicht genug ' + HANDEL_LABEL[bietetTyp] + ' vorhanden, um das anzubieten.'); return; }
+
+            // Höchstens ein Handelsangebot pro Kalendertag (Reset um Mitternacht, deutsche Zeit) -
+            // serverseitig zusätzlich über die Firestore-Regeln abgesichert (siehe
+            // firestore.rules), hier nur die freundliche, sofortige Vorab-Meldung ohne extra
+            // Lesevorgang (myData ist schon geladen).
+            const letztesAngebot = myData.letztesHandelsangebot || 0;
+            const heuteStr = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+            const letztesAngebotStr = letztesAngebot > 0 ? new Date(letztesAngebot).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) : null;
+            if (letztesAngebotStr === heuteStr) {
+                const jetzt = new Date();
+                const mitternacht = new Date(jetzt);
+                mitternacht.setHours(24, 0, 0, 0);
+                const restMin = Math.ceil((mitternacht - jetzt) / 60000);
+                const restStd = Math.floor(restMin / 60);
+                window.zeigeInfo('Du kannst nur ein Handelsangebot pro Tag erstellen. Ab Mitternacht (noch ca. ' + (restStd > 0 ? restStd + ' Std. ' + (restMin % 60) + ' Min.' : restMin + ' Min.') + ') kannst du ein neues Angebot erstellen.');
+                return;
+            }
+
+            // Treuhand: eigenes Angebot sofort vom eigenen Konto abbuchen, gleichzeitig den
+            // Cooldown-Zeitstempel setzen.
+            await window.setDoc(myRef, { [bietetTyp]: meinBestand - bietetMenge, letztesHandelsangebot: Date.now() }, { merge: true });
+            if (bietetTyp === 'credits') window.playerCredits = meinBestand - bietetMenge;
+            else if (bietetTyp === 'materiezellen') window.playerMateriezellen = meinBestand - bietetMenge;
+
+            // Handelsangebote entstehen jetzt genau wie Nachrichten immer innerhalb eines
+            // dauerhaften Chat-Kanals - der Kanal wird also (falls noch nicht vorhanden) hier
+            // ebenfalls angelegt, damit er dauerhaft in "GESPEICHERTE KANÄLE" auftaucht.
+            const channelId = [mySlug, empfaenger].sort().join('_');
+            await window.setDoc(window.doc(window.db, "agenten_funk", channelId), {
+                teilnehmer: [mySlug, empfaenger],
+                ungelesen_fuer: empfaenger,
+                last_ping: Date.now()
+            }, { merge: true });
+
+            await window.addDoc(window.collection(window.db, "handelsangebote"), {
+                von: mySlug, an: empfaenger,
+                willTyp, willMenge, bietetTyp, bietetMenge,
+                status: 'offen', createdAt: Date.now()
+            });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot an ' + empfaenger + ' erstellt.');
+            document.getElementById('handel-chat-modal').style.display = 'none';
+        } catch (e) {
+            console.error(e);
+            window.zeigeInfo('Angebot konnte nicht erstellt werden.');
+        }
+    };
+
+    window.handelAnnehmen = async function(angebotId) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "handelsangebote", angebotId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists() || snap.data().status !== 'offen') { window.zeigeInfo('Angebot nicht mehr verfügbar.'); return; }
+            const a = snap.data();
+
+            const myRef = window.doc(window.db, "agenten", mySlug);
+            const mySnap = await window.getDoc(myRef);
+            const myData = mySnap.exists() ? mySnap.data() : {};
+            const meinWillBestand = (a.willTyp === 'materiezellen') ? ((myData.materiezellen !== undefined) ? myData.materiezellen : (myData.materialzellen || 0)) : (myData[a.willTyp] || 0);
+            if (meinWillBestand < a.willMenge) { window.zeigeInfo('Du hast nicht genug ' + HANDEL_LABEL[a.willTyp] + ', um das Angebot anzunehmen.'); return; }
+            const meinBietetBestand = myData[a.bietetTyp] || 0;
+
+            // Eigenes Dokument: das Verlangte abgeben, das (treuhänderisch hinterlegte) Angebot
+            // des anderen entgegennehmen - beides eigener Besitz, uneingeschränkt erlaubt.
+            await window.setDoc(myRef, {
+                [a.willTyp]: meinWillBestand - a.willMenge,
+                [a.bietetTyp]: meinBietetBestand + a.bietetMenge
+            }, { merge: true });
+
+            // Anbieter-Dokument: nur eine Erhöhung um das Verlangte - die einzige Art von
+            // Fremdzugriff, die die Regeln erlauben.
+            const vonRef = window.doc(window.db, "agenten", a.von);
+            const vonSnap = await window.getDoc(vonRef);
+            const vonBestand = vonSnap.exists() ? (vonSnap.data()[a.willTyp] || 0) : 0;
+            await window.setDoc(vonRef, { [a.willTyp]: vonBestand + a.willMenge }, { merge: true });
+
+            await window.setDoc(ref, { status: 'angenommen' }, { merge: true });
+
+            if (a.willTyp === 'credits') window.playerCredits = meinWillBestand - a.willMenge;
+            else if (a.willTyp === 'materiezellen') window.playerMateriezellen = meinWillBestand - a.willMenge;
+            if (a.bietetTyp === 'credits') window.playerCredits = (window.playerCredits || 0) + a.bietetMenge;
+            else if (a.bietetTyp === 'materiezellen') window.playerMateriezellen = (window.playerMateriezellen || 0) + a.bietetMenge;
+
+            window.zeigeInfo('Handel abgeschlossen.');
+            if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot von ' + a.von + ' angenommen.');
+        } catch (e) {
+            console.error(e);
+            window.zeigeInfo('Annahme fehlgeschlagen.');
+        }
+    };
+
+    window.handelAblehnen = async function(angebotId) {
+        try {
+            const ref = window.doc(window.db, "handelsangebote", angebotId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists() || snap.data().status !== 'offen') return;
+            const a = snap.data();
+            // Treuhand-Rückerstattung an den Anbieter (reine Erhöhung, erlaubt).
+            const vonRef = window.doc(window.db, "agenten", a.von);
+            const vonSnap = await window.getDoc(vonRef);
+            const vonBestand = vonSnap.exists() ? (vonSnap.data()[a.bietetTyp] || 0) : 0;
+            await window.setDoc(vonRef, { [a.bietetTyp]: vonBestand + a.bietetMenge }, { merge: true });
+            await window.setDoc(ref, { status: 'abgelehnt' }, { merge: true });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot von ' + a.von + ' abgelehnt.');
+        } catch (e) {
+            console.error(e);
+            window.zeigeInfo('Ablehnung fehlgeschlagen.');
+        }
+    };
+
+    window.handelStornieren = async function(angebotId) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "handelsangebote", angebotId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists() || snap.data().status !== 'offen') return;
+            const a = snap.data();
+            // Eigene Treuhand-Rückerstattung, auf dem eigenen Dokument - uneingeschränkt erlaubt.
+            const myRef = window.doc(window.db, "agenten", mySlug);
+            const mySnap = await window.getDoc(myRef);
+            const meinBestand = mySnap.exists() ? (mySnap.data()[a.bietetTyp] || 0) : 0;
+            await window.setDoc(myRef, { [a.bietetTyp]: meinBestand + a.bietetMenge }, { merge: true });
+            if (a.bietetTyp === 'credits') window.playerCredits = meinBestand + a.bietetMenge;
+            else if (a.bietetTyp === 'materiezellen') window.playerMateriezellen = meinBestand + a.bietetMenge;
+            await window.setDoc(ref, { status: 'storniert' }, { merge: true });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Handelsangebot an ' + a.an + ' zurückgenommen.');
+        } catch (e) {
+            console.error(e);
+            window.zeigeInfo('Stornierung fehlgeschlagen.');
+        }
+    };
+
+    function renderAllianzBrowser(alleAllianzen) {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        let listHtml = '';
+        if (alleAllianzen.length === 0) {
+            listHtml = '<p style="color:#aaa; font-size:0.85em;">Noch keine Allianzen gegründet - sei die erste!</p>';
+        } else {
+            listHtml = '<div style="max-height:250px; overflow-y:auto; margin-bottom:15px;">';
+            alleAllianzen.sort((a, b) => (b.mitglieder || []).length - (a.mitglieder || []).length).forEach(a => {
+                listHtml += '<div style="display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(0,255,255,0.3); padding:8px; margin-bottom:6px;">' +
+                    '<span>' + window.escHtml(a.name) + ' <span style="opacity:0.6; font-size:0.8em;">(' + (a.mitglieder || []).length + ')</span></span>' +
+                    '<button class="nz-tab-btn" onclick="window.allianzBeitreten(\'' + a.id + '\')">BEITRETEN</button>' +
+                '</div>';
+            });
+            listHtml += '</div>';
+        }
+        content.innerHTML =
+            '<p style="font-size:0.8em; color:#aaa;">Du bist noch in keiner Allianz.</p>' +
+            listHtml +
+            '<div style="display:flex; gap:5px; margin-top:10px;">' +
+                '<input type="text" id="allianz-name-input" placeholder="Name für neue Allianz..." maxlength="40" style="flex-grow:1; background:#000; border:1px solid #0ff; color:#0ff; padding:8px; font-family:inherit;">' +
+                '<button class="modell-btn" onclick="window.allianzGruenden()">GRÜNDEN</button>' +
+            '</div>';
+    }
+
+    window.allianzGruenden = async function() {
+        const input = document.getElementById('allianz-name-input');
+        const name = input ? input.value.trim() : '';
+        if (!name) return;
+        const mySlug = window.agentSlug(window.agentName);
+        const allianzId = window.agentSlug(name) + '_' + Date.now();
+        try {
+            await window.setDoc(window.doc(window.db, "allianzen", allianzId), {
+                name: name,
+                ownerSlug: mySlug,
+                mitglieder: [mySlug],
+                createdAt: Date.now()
+            });
+            await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: allianzId }, { merge: true });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + name + '" gegründet.');
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            window.zeigeInfo('Allianz konnte nicht gegründet werden.');
+        }
+    };
+
+    window.allianzBeitreten = async function(allianzId) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "allianzen", allianzId);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists()) return;
+            const data = snap.data();
+            if (Array.isArray(data.mitglieder) && data.mitglieder.includes(mySlug)) return;
+            await window.setDoc(ref, { mitglieder: [...(data.mitglieder || []), mySlug] }, { merge: true });
+            await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: allianzId }, { merge: true });
+            if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + data.name + '" beigetreten.');
+            renderAllianz();
+        } catch (e) {
+            console.error(e);
+            window.zeigeInfo('Beitritt fehlgeschlagen.');
+        }
+    };
+
+    window.allianzVerlassen = function(allianzId) {
+        const ausfuehren = async () => {
+            const mySlug = window.agentSlug(window.agentName);
+            try {
+                const ref = window.doc(window.db, "allianzen", allianzId);
+                const snap = await window.getDoc(ref);
+                if (!snap.exists()) return;
+                const data = snap.data();
+                const restMitglieder = (data.mitglieder || []).filter(s => s !== mySlug);
+                const amOwner = (data.ownerSlug === mySlug);
+
+                if (restMitglieder.length === 0) {
+                    await window.deleteDoc(ref);
+                    await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
+                    if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + data.name + '" aufgelöst.');
+                    renderAllianz();
+                    return;
+                }
+
+                if (!amOwner) {
+                    await window.setDoc(ref, { mitglieder: restMitglieder }, { merge: true });
+                    await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
+                    if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + data.name + '" verlassen.');
+                    renderAllianz();
+                    return;
+                }
+
+                // Ich bin Besitzer und verlasse die Allianz - manuelle Auswahl hat Vorrang vor dem
+                // Algorithmus.
+                const selectEl = document.getElementById('allianz-nachfolger-select');
+                const manualChoice = selectEl ? selectEl.value : '';
+                const newOwner = manualChoice || await waehleNachfolger(restMitglieder);
+
+                await window.setDoc(ref, { mitglieder: restMitglieder, ownerSlug: newOwner }, { merge: true });
+                await window.setDoc(window.doc(window.db, "agenten", mySlug), { allianzId: null }, { merge: true });
+                if (typeof window.logEreignis === 'function') window.logEreignis('Allianz "' + data.name + '" verlassen.');
+                renderAllianz();
+            } catch (e) {
+                console.error(e);
+                window.zeigeInfo('Aktion fehlgeschlagen.');
+            }
+        };
+        if (typeof window.zeigeBestaetigung === 'function') {
+            window.zeigeBestaetigung('Willst du die Allianz wirklich verlassen bzw. auflösen?', ausfuehren);
+        } else {
+            console.error('zeigeBestaetigung nicht verfügbar.');
+        }
+    };
+
+    // Nachfolge-Algorithmus (nur wenn der Besitzer verlässt, OHNE selbst einen Nachfolger zu
+    // bestimmen): betrachtet die ERSTEN 10 beigetretenen Mitglieder (Array-Reihenfolge = exakte
+    // Beitrittsreihenfolge, da neue Mitglieder immer nur ans Ende angehängt werden). Von diesen
+    // wird per kombiniertem Punktwert aus Level (stärker gewichtet) und Aktivitätstagen der
+    // letzten 10 Tage der/die Beste ausgewählt.
+    async function waehleNachfolger(restMitglieder) {
+        const kandidaten = restMitglieder.slice(0, 10);
+        let bester = kandidaten[0];
+        let besterScore = -1;
+        for (const slug of kandidaten) {
+            try {
+                const snap = await window.getDoc(window.doc(window.db, "agenten", slug));
+                const d = snap.exists() ? snap.data() : {};
+                const lvl = d.lvl || 1;
+                const aktiveTage = Array.isArray(d.activeDays) ? d.activeDays.length : 0;
+                const score = lvl * 10 + aktiveTage;
+                if (score > besterScore) { besterScore = score; bester = slug; }
+            } catch (e) {}
+        }
+        return bester;
+    }
+
+    // --- SAISON (rollierende 7-Tage-Rangliste) ---
+    // Ohne eigenen Server/Cron-Job ist ein "harter" Wochenreset zum exakt gleichen Zeitpunkt für
+    // alle Spieler nicht sauber umsetzbar. Stattdessen führt jeder Spieler selbst einen
+    // täglichen Verlaufs-Snapshot (siehe app.js/saveProgress, Feld "dailyHistory", 14 Tage
+    // Historie). Die Saison-Rangliste vergleicht den AKTUELLEN Stand mit dem Snapshot von vor
+    // rund 7 Tagen (oder dem ältesten verfügbaren, falls noch keine 7 Tage Historie vorliegen)
+    // und zeigt den reinen Zuwachs seither - ehrlich benannt als "Fortschritt der letzten 7 Tage",
+    // nicht als klassischer Wochenreset.
+    function findSevenDaySnapshot(dailyHistory) {
+        if (!Array.isArray(dailyHistory) || dailyHistory.length === 0) return null;
+        const targetTs = Date.now() - 7 * 86400000;
+        const sorted = [...dailyHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
+        let best = sorted[0];
+        for (const h of sorted) {
+            if (new Date(h.date + 'T00:00:00').getTime() <= targetTs) best = h;
+            else break;
+        }
+        return best;
+    }
+
+    async function renderSaison() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = '<p style="color:#0f8; text-align:center;">Lade Saison-Rangliste...</p>';
+        if (!window.db || !window.getDocs || !window.collection) {
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Keine Verbindung zur Datenbank.</p>';
+            return;
+        }
+        try {
+            const agentenSnap = await window.getDocs(window.collection(window.db, "agenten"));
+            const entries = [];
+            agentenSnap.forEach(d => {
+                const data = d.data();
+                if (data.isAdmin) return; // Admin soll im Netzwerk komplett unsichtbar sein
+                const snapshot = findSevenDaySnapshot(data.dailyHistory);
+                if (!snapshot) return; // noch keine Historie vorhanden - taucht in der Saison-Liste noch nicht auf
+                const creditsGain = (data.credits || 0) - (snapshot.credits || 0);
+                const lvlGain = (data.lvl || 1) - (snapshot.lvl || 1);
+                if (creditsGain <= 0 && lvlGain <= 0) return; // kein Fortschritt seither
+                entries.push({ slug: d.id, creditsGain, lvlGain, seitDatum: snapshot.date });
+            });
+            entries.sort((a, b) => (b.creditsGain + b.lvlGain * 1000) - (a.creditsGain + a.lvlGain * 1000));
+
+            const myName = window.agentSlug(window.agentName);
+            let html = '<p style="font-size:0.7em; color:#888; margin-bottom:10px;">Fortschritt der letzten 7 Tage (kein klassischer Reset, sondern gleitender Vergleich zum jeweils eigenen Stand von vor rund einer Woche).</p>';
+            if (entries.length === 0) {
+                html += '<p style="color:#aaa; font-size:0.85em;">Noch keine Saison-Daten vorhanden - schau in ein paar Tagen wieder rein.</p>';
+            } else {
+                html += '<div style="max-height:400px; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:0.78em;">';
+                html += '<tr style="color:#0ff; border-bottom:1px solid #0ff;"><th style="text-align:left; padding:4px;">#</th><th style="text-align:left; padding:4px;">Agent</th><th style="padding:4px;">Credits</th><th style="padding:4px;">Level</th></tr>';
+                entries.slice(0, 25).forEach((e, i) => {
+                    const isMe = (e.slug === myName);
+                    // WICHTIG: Vorher wurde vor den Wert immer stur ein "+" gesetzt - bei einem
+                    // NEGATIVEN Credits-Zuwachs (Level gestiegen, aber gleichzeitig mehr Credits
+                    // ausgegeben als verdient, z.B. durch Basisausbau) entstand daraus "+-3914",
+                    // was wie ein Plus-Minus-Zeichen aussah. Jetzt nur noch bei tatsächlich
+                    // positiven Werten ein "+" voranstellen, negative Werte zeigen ihr eigenes
+                    // Minuszeichen (zusätzlich rot eingefärbt zur Unterscheidung).
+                    const creditsVorzeichen = e.creditsGain > 0 ? '+' : '';
+                    const creditsFarbe = e.creditsGain < 0 ? 'color:#f66;' : '';
+                    const lvlVorzeichen = e.lvlGain > 0 ? '+' : '';
+                    html += '<tr style="' + (isMe ? 'background:rgba(0,255,255,0.15); font-weight:bold;' : '') + ' border-bottom:1px solid rgba(0,255,255,0.15);">' +
+                        '<td style="padding:4px;">' + (i + 1) + '</td>' +
+                        '<td style="padding:4px; text-align:left;">' + window.escHtml(e.slug) + (isMe ? ' (Du)' : '') + '</td>' +
+                        '<td style="padding:4px; ' + creditsFarbe + '">' + creditsVorzeichen + e.creditsGain.toLocaleString('de-DE') + '</td>' +
+                        '<td style="padding:4px;">' + lvlVorzeichen + e.lvlGain + '</td>' +
+                    '</tr>';
+                });
+                html += '</table></div>';
+            }
+            content.innerHTML = html;
+        } catch (e) {
+            console.error(e);
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Saison-Rangliste konnte nicht geladen werden.</p>';
+        }
+    }
+
+    // --- KOMM-LINK (portiert aus app.js, rendert jetzt in #netzwerk-content statt #content-body) ---
+    let nzChatListListener = null;
+    let nzCurrentChatListener = null;
+    window.currentChatTarget = null;
+
+    function renderKommLinkUebersicht() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        window.currentChatTarget = null;
+        if (nzCurrentChatListener) { nzCurrentChatListener(); nzCurrentChatListener = null; }
+
+        content.innerHTML = `
+            <h3 style="color: #0f8; margin-top:0;">[ KOMM-LINK ]</h3>
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 0.6em; color: #0f8; margin-bottom: 5px;">AGENTEN-ID EINGEBEN:</div>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="chat-target-input" placeholder="NAME..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none; text-transform: uppercase;">
+                    <button class="modell-btn" style="margin: 0; width: auto; padding: 0 15px;" onclick="window.startDirectFunkNz()">FUNK</button>
+                </div>
+            </div>
+            <div style="text-align: left; margin-bottom: 15px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <span style="font-size: 0.6em; opacity: 0.6;">GESPEICHERTE KANÄLE:</span>
+                    <span style="font-size: 0.7em; color:#0f8; cursor:pointer;" onclick="window.renderKommLinkUebersichtNz()">🔄 AKTUALISIEREN</span>
+                </div>
+                <div id="active-chat-list"><div style="color:#0f8; font-size: 0.8em; margin: 10px 0;">Synchronisiere Funkwellen...</div></div>
+            </div>
+            <button class="modell-btn" style="border-color: #ffcc00; color: #ffcc00; width:100%;" onclick="window.renderRadarViewNz()">📡 RADAR AKTIVIEREN</button>
+        `;
+
+        const mySlug = window.agentSlug(window.agentName);
+        console.log('[Komm-Link] Lade Kanäle für Teilnehmer-Wert:', JSON.stringify(mySlug));
+
+        function renderKanalListe(docs) {
+            const listContainer = document.getElementById('active-chat-list');
+            if (!listContainer) return;
+            // Normale Spieler sollen die Administration im normalen Komm-Link NIE zu Gesicht
+            // bekommen - Kontakt läuft für sie ausschließlich über den Holoprojektor im
+            // VIP-Raum. Die Administration selbst sieht diese Kanäle ganz normal, aber mit einer
+            // Kennzeichnung, dass sie über den VIP-Raum entstanden sind.
+            const sichtbareDocs = window.istAdminNz ? docs : docs.filter(d => !d.viaVip);
+            if (sichtbareDocs.length === 0) {
+                listContainer.innerHTML = '<div style="color: #555; font-size: 0.8em; margin: 10px 0;">Keine aktiven Verbindungen.</div>';
+                return;
+            }
+            let html = "";
+            sichtbareDocs.forEach(data => {
+                const other = data.teilnehmer.find(n => n !== mySlug) || mySlug;
+                const style = (data.ungelesen_fuer === mySlug) ? "color: #ffcc00; text-shadow: 0 0 10px #ffcc00;" : "color: #0f8;";
+                const vipMarker = (window.istAdminNz && data.viaVip) ? ' <span style="color:#ffd700;" title="Über VIP-Raum-Holoprojektor">👑 VIP</span>' : '';
+                html += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,204,0.1); padding: 8px 0;">
+                    <span style="cursor: pointer; flex-grow: 1; ${style}" onclick="window.openPrivateChatNz('${other}')">> AGENT: ${window.escHtml(other.toUpperCase())}${vipMarker}${data.ungelesen_fuer === mySlug ? " [NEUE NACHRICHT]" : ""}</span>
+                    <span style="cursor: pointer; color: #f44; padding: 0 10px;" onclick="window.deleteChatNz('${other}')">🗑️</span>
+                </div>`;
+            });
+            listContainer.innerHTML = html;
+        }
+
+        function zeigeKanalFehler(quelle, error) {
+            console.error('[Komm-Link] Kanal-Liste (' + quelle + ') fehlgeschlagen. Code: ' + (error && error.code) + ' Nachricht: ' + (error && error.message), error);
+            const listContainer = document.getElementById('active-chat-list');
+            if (listContainer) listContainer.innerHTML = '<div style="color:#f44; font-size:0.8em;">Fehler beim Laden der Kanäle (' + quelle + '): ' + window.escHtml((error && error.code) || '') + ' ' + window.escHtml((error && error.message) || String(error)) + '</div>';
+        }
+
+        if (window.db) {
+            if (nzChatListListener) nzChatListListener();
+            const funkRef = window.collection(window.db, "agenten_funk");
+            const q = window.query(funkRef, window.where("teilnehmer", "array-contains", mySlug));
+
+            // Einmaliger Direktabruf ZUSÄTZLICH zum Live-Listener - falls der Live-Listener aus
+            // irgendeinem Grund (noch) nicht feuert oder fehlschlägt, füllt dieser Fallback die
+            // Liste trotzdem, und die Konsole zeigt, ob EINER von beiden Wegen funktioniert.
+            window.getDocs(q).then(snap => {
+                console.log('[Komm-Link] Einmaliger Direktabruf erfolgreich, Kanäle gefunden:', snap.size);
+            }).catch(err => zeigeKanalFehler('Direktabruf', err));
+
+            nzChatListListener = window.onSnapshot(q, (snapshot) => {
+                console.log('[Komm-Link] Live-Listener aktualisiert, Kanäle:', snapshot.size);
+                renderKanalListe(snapshot.docs.map(d => d.data()));
+            }, (error) => zeigeKanalFehler('Live-Listener', error));
+        }
+    }
+    window.renderKommLinkUebersichtNz = renderKommLinkUebersicht;
+
+    window.startDirectFunkNz = function() {
+        const input = document.getElementById('chat-target-input');
+        const target = input ? input.value.trim() : '';
+        if (!target) return;
+        window.openPrivateChatNz(target);
+    };
+
+    let nzTradeListener = null;
+    let nzLatestMessages = [];
+    let nzLatestTrades = [];
+
+    function renderMergedChat() {
+        const win = document.getElementById('chat-window');
+        if (!win) return;
+        const mySlug = window.agentSlug(window.agentName);
+        const eintraege = [];
+        nzLatestMessages.forEach(m => eintraege.push({ art: 'nachricht', ts: m.ts, data: m }));
+        nzLatestTrades.forEach(t => eintraege.push({ art: 'handel', ts: t.createdAt || 0, data: t }));
+        eintraege.sort((a, b) => a.ts - b.ts);
+
+        win.innerHTML = '';
+        eintraege.forEach(e => {
+            if (e.art === 'nachricht') {
+                const data = e.data;
+                const isMe = (data.absender === window.agentName);
+                const msgDiv = document.createElement('div');
+                msgDiv.style.cssText = isMe ? "color:#aaa; align-self:flex-end; text-align:right;" : "color:#0f8; align-self:flex-start; text-align:left;";
+                const senderEl = document.createElement('b');
+                senderEl.textContent = (isMe ? 'Du' : String(data.absender || '')) + ': ';
+                const textEl = document.createElement('span');
+                textEl.textContent = String(data.text || '');
+                msgDiv.appendChild(senderEl);
+                msgDiv.appendChild(textEl);
+                win.appendChild(msgDiv);
+            } else {
+                const a = e.data;
+                const istEmpfaenger = (a.an === mySlug);
+                const kartenDiv = document.createElement('div');
+                kartenDiv.style.cssText = 'align-self:center; width:90%; border:1px solid #b0f; border-radius:6px; padding:8px; background:rgba(187,0,255,0.08); font-size:0.9em;';
+                let inhaltHtml = '💱 <b>Handelsangebot</b><br>' +
+                    window.escHtml(a.von) + ' will <b>' + a.willMenge + ' ' + HANDEL_LABEL[a.willTyp] + '</b>, bietet dafür <b>' + a.bietetMenge + ' ' + HANDEL_LABEL[a.bietetTyp] + '</b>.';
+                if (a.status === 'offen' && istEmpfaenger) {
+                    inhaltHtml += '<div style="display:flex; gap:5px; margin-top:6px;">' +
+                        '<button class="modell-btn" style="flex:1; border-color:#0f8; color:#0f8;" onclick="window.handelAnnehmen(\'' + a.id + '\')">ANNEHMEN</button>' +
+                        '<button class="modell-btn" style="flex:1; border-color:#f44; color:#f44;" onclick="window.handelAblehnen(\'' + a.id + '\')">ABLEHNEN</button>' +
+                    '</div>';
+                } else if (a.status === 'offen' && !istEmpfaenger) {
+                    inhaltHtml += '<div style="margin-top:6px; opacity:0.8;">Warte auf Antwort...</div>' +
+                        '<button class="modell-btn" style="width:100%; margin-top:6px; border-color:#f44; color:#f44;" onclick="window.handelStornieren(\'' + a.id + '\')">ZURÜCKZIEHEN</button>';
+                } else if (a.status === 'angenommen') {
+                    inhaltHtml += '<div style="margin-top:6px; color:#0f8; font-weight:bold;">✓ Handelsangebot angenommen</div>';
+                } else if (a.status === 'abgelehnt') {
+                    inhaltHtml += '<div style="margin-top:6px; color:#f44; font-weight:bold;">✗ Handelsangebot abgelehnt</div>';
+                } else if (a.status === 'storniert') {
+                    inhaltHtml += '<div style="margin-top:6px; color:#888; font-weight:bold;">Zurückgezogen</div>';
+                }
+                kartenDiv.innerHTML = inhaltHtml;
+                win.appendChild(kartenDiv);
+            }
+        });
+        win.scrollTop = win.scrollHeight;
+    }
+
+    // Eigenständige "Schließen"-Funktion für den offenen Chat - wird sowohl vom "FUNK
+    // TRENNEN"-Button als auch (indirekt über den Zurück-Stack, siehe backnav.js) von der
+    // Android-Zurück-Taste genutzt, damit beide Wege synchron bleiben.
+    window.closeChatNzUeberZurueck = function() {
+        if (window.currentChatListener) window.currentChatListener();
+        if (window.currentTradeListener) window.currentTradeListener();
+        // Falls über die Zurück-Taste geschlossen (Stack-Eintrag noch vorhanden), diesen
+        // konsolidieren - über dieselbe öffentliche Schnittstelle wie in backnav.js.
+        if (typeof window._backStack !== 'undefined' && window._backStack.length > 0 && window._backStack[window._backStack.length - 1] === 'closeChatNzUeberZurueck') {
+            window._backStack.pop();
+            if (typeof window._unterdrueckeNaechstesPopstate === 'function') window._unterdrueckeNaechstesPopstate();
+            history.back();
+        }
+        window.switchNetzwerkTab('chat');
+    };
+
+    window.openPrivateChatNz = async function(targetAgentName) {
+        const myName = window.agentSlug(window.agentName);
+        const targetName = window.agentSlug(targetAgentName);
+
+        // Existenzprüfung: verhindert, dass Nachrichten an nicht existierende Agentennamen
+        // geschickt werden können (führte vorher zu Verwirrung - ein "Kanal" konnte mit JEDEM
+        // beliebigen Text als Ziel angelegt werden, auch wenn niemand mit diesem Namen existiert).
+        let targetSnap;
+        try {
+            targetSnap = await window.getDoc(window.doc(window.db, "agenten", targetName));
+        } catch (e) { console.error('Ziel-Existenzprüfung fehlgeschlagen:', e); }
+        if (!targetSnap || !targetSnap.exists()) {
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Kein Agent mit diesem Namen gefunden.');
+            return;
+        }
+
+        // Frischer Direkt-Check statt sich auf window.istAdminNz zu verlassen - das wurde nur
+        // EINMAL beim Laden der Seite gesetzt und könnte durch eine Race Condition noch nicht
+        // bereitgestanden haben, wenn sehr schnell geklickt wird.
+        let binIchAdmin = window.istAdminNz;
+        if (binIchAdmin === undefined) {
+            try {
+                const snap = await window.getDoc(window.doc(window.db, "agenten", myName));
+                binIchAdmin = snap.exists() && !!snap.data().isAdmin;
+                window.istAdminNz = binIchAdmin;
+            } catch (e) { console.error('Admin-Status-Check fehlgeschlagen:', e); binIchAdmin = false; }
+        }
+
+        const channelId = [myName, targetName].sort().join("_");
+
+        // WICHTIG: Die Sperre "Administration nur über VIP-Raum erreichbar" darf NICHT greifen,
+        // wenn die Administration selbst den Kontakt schon normal über Komm-Link begonnen hat -
+        // vorher wurde JEDER Chat mit der Administration blockiert, sobald man selbst nicht Admin
+        // war, unabhängig davon, wer ihn begonnen hatte. Das hat fälschlich auch admin-seitig
+        // begonnene, normale Unterhaltungen für den Empfänger komplett unerreichbar gemacht.
+        // Jetzt: nur blockieren, wenn entweder noch GAR KEIN Kanal existiert (ein Spieler
+        // versucht selbst, den Kontakt zu initiieren) ODER der bestehende Kanal ausdrücklich als
+        // VIP-exklusiv markiert ist (kam über den Holoprojektor zustande).
+        if (!binIchAdmin && window.adminSlugNz && targetName === window.adminSlugNz) {
+            let bestehenderKanal = null;
+            try {
+                const kanalSnap = await window.getDoc(window.doc(window.db, "agenten_funk", channelId));
+                if (kanalSnap.exists()) bestehenderKanal = kanalSnap.data();
+            } catch (e) { console.error('Kanal-Check fehlgeschlagen:', e); }
+
+            if (!bestehenderKanal || bestehenderKanal.viaVip) {
+                if (typeof window.zeigeInfo === 'function') {
+                    window.zeigeInfo('Die Administration ist über den normalen Komm-Link nicht erreichbar. Schalte den VIP-Raum frei und nutze den Holoprojektor dort.');
+                }
+                return;
+            }
+            // Sonst: ein normaler, von der Administration selbst begonnener Kanal - ganz normal
+            // weiter öffnen lassen.
+        }
+
+        window.currentChatTarget = targetName;
+        // Zurück-Taste/-Geste (Android TWA): erst HIER (nach allen möglichen Early-Returns oben -
+        // Ziel existiert nicht, VIP-Sperre) einen History-Eintrag setzen, da der Chat ab dieser
+        // Stelle GARANTIERT tatsächlich geöffnet wird. Ein generischer Wrapper um die ganze
+        // Funktion hätte auch bei einem abgebrochenen Öffnen fälschlich einen Eintrag gesetzt.
+        if (typeof window._backStack !== 'undefined') {
+            window._backStack.push('closeChatNzUeberZurueck');
+            history.pushState({ zurueckTiefe: window._backStack.length }, '', location.href);
+        }
+
+        if (window.db) {
+            window.setDoc(window.doc(window.db, "agenten_funk", channelId), { ungelesen_fuer: "" }, { merge: true })
+                .catch(e => console.error('Kanal-Platzhalter konnte nicht angelegt werden:', e));
+        }
+        if (nzChatListListener) { nzChatListListener(); nzChatListListener = null; }
+
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = `
+            <h3 style="color: #0f8; margin-top:0;">[ FUNK: <span id="chat-target-name"></span> ]</h3>
+            <div id="chat-window" style="height: 280px; border: 1px solid #0f8; background: rgba(0,0,0,0.8); margin-bottom: 10px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 0.8em;"></div>
+            <div style="display: flex; gap: 5px;">
+                <button onclick="window.openHandelAusChat && window.openHandelAusChat('${targetName}')" title="Handelsangebot senden" style="background:none; border:1px solid #b0f; color:#b0f; border-radius:4px; cursor:pointer; padding:0 10px; font-size:1.2em;">💱</button>
+                <input type="text" id="msg-input" placeholder="Nachricht..." autocomplete="off" style="flex-grow: 1; background: #000; border: 1px solid #0f8; color: #0f8; padding: 8px; font-family: monospace; outline: none;">
+                <button class="modell-btn" id="chat-send-btn" style="margin: 0; width: auto; padding: 0 15px;">SENDEN</button>
+            </div>
+            <button class="modell-btn" style="margin-top: 15px; border-style: dashed; width:100%;" onclick="window.closeChatNzUeberZurueck()">FUNK TRENNEN</button>
+        `;
+        document.getElementById('chat-target-name').textContent = targetAgentName.toUpperCase();
+        document.getElementById('chat-send-btn').addEventListener('click', () => window.sendMsgNz(channelId, targetName));
+        const msgInput = document.getElementById('msg-input');
+        if (msgInput) msgInput.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') window.sendMsgNz(channelId, targetName); });
+
+        nzLatestMessages = [];
+        nzLatestTrades = [];
+
+        if (window.db) {
+            if (nzCurrentChatListener) nzCurrentChatListener();
+            const q = window.query(window.collection(window.db, "agenten_funk", channelId, "nachrichten"), window.orderBy("zeitstempel", "asc"), window.limit(50));
+            nzCurrentChatListener = window.onSnapshot(q, (snapshot) => {
+                nzLatestMessages = snapshot.docs.map(d => {
+                    const data = d.data();
+                    const tsMillis = (data.zeitstempel && typeof data.zeitstempel.toMillis === 'function') ? data.zeitstempel.toMillis() : Date.now();
+                    return { absender: data.absender, text: data.text, ts: tsMillis };
+                });
+                renderMergedChat();
+            }, (error) => {
+                // Vorher wurde ein Fehler hier komplett stillschweigend verschluckt - das
+                // Chat-Fenster blieb dann einfach leer, obwohl das Senden selbst funktioniert
+                // haben könnte, ohne jeden sichtbaren Hinweis auf den eigentlichen Grund.
+                console.error('[Komm-Link] Nachrichten-Liste fehlgeschlagen. Code: ' + (error && error.code) + ' Nachricht: ' + (error && error.message), error);
+                const win = document.getElementById('chat-window');
+                if (win) win.innerHTML = '<div style="color:#f44; font-size:0.85em;">Fehler beim Laden der Nachrichten: ' + window.escHtml((error && error.code) || '') + ' ' + window.escHtml((error && error.message) || String(error)) + '</div>';
+            });
+
+            // Handelsangebote zwischen mir und diesem Chat-Partner - ALLE Status (nicht nur
+            // "offen"), damit angenommene/abgelehnte/zurückgezogene Angebote als dauerhafter
+            // Eintrag im Chat-Verlauf stehen bleiben, genau wie eine Nachricht. Firestore erlaubt
+            // nur eine einzige "in"-Klausel pro Abfrage, deshalb zwei getrennte Listener
+            // (einmal pro Richtung), die zusammengeführt werden.
+            if (nzTradeListener) nzTradeListener();
+            let nzTradesAusgehend = [], nzTradesEingehend = [];
+            const mergeTrades = () => { nzLatestTrades = [...nzTradesAusgehend, ...nzTradesEingehend]; renderMergedChat(); };
+            const qAusgehend = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', myName), window.where('an', '==', targetName));
+            const qEingehend = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', targetName), window.where('an', '==', myName));
+            const unsub1 = window.onSnapshot(qAusgehend, (snapshot) => { nzTradesAusgehend = snapshot.docs.map(d => ({ id: d.id, ...d.data() })); mergeTrades(); });
+            const unsub2 = window.onSnapshot(qEingehend, (snapshot) => { nzTradesEingehend = snapshot.docs.map(d => ({ id: d.id, ...d.data() })); mergeTrades(); });
+            nzTradeListener = () => { unsub1(); unsub2(); };
+        }
+        window.currentChatListener = nzCurrentChatListener;
+        window.currentTradeListener = nzTradeListener;
+    };
+
+    window.sendMsgNz = async function(channelId, targetName) {
+        const inp = document.getElementById('msg-input');
+        const text = inp.value.trim();
+        if (text === "" || !window.db) return;
+        inp.value = "";
+        try {
+            const myName = window.agentSlug(window.agentName);
+            // WICHTIG: Erst den Kanal mit "teilnehmer" versehen, DANN die Nachricht schreiben -
+            // die Sicherheitsregel für /nachrichten prüft, ob der Sender bereits im
+            // "teilnehmer"-Feld des Kanal-Dokuments steht. Bei der allerersten Nachricht eines
+            // neuen Chats existierte dieses Feld vorher noch gar nicht (nur "ungelesen_fuer" aus
+            // dem Platzhalter-Dokument) - der Schreibvorgang wurde dadurch für JEDE erste
+            // Nachricht eines neuen Chats von der Regel abgelehnt, ohne dass das im Interface
+            // sichtbar wurde.
+            const channelRef = window.doc(window.db, "agenten_funk", channelId);
+            await window.setDoc(channelRef, {
+                teilnehmer: [myName, targetName],
+                ungelesen_fuer: targetName,
+                last_ping: Date.now()
+            }, { merge: true });
+            const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+            await window.addDoc(msgRef, { absender: window.agentName, text: text, zeitstempel: window.serverTimestamp() });
+        } catch (e) {
+            console.error('Nachricht konnte nicht gesendet werden:', e);
+            inp.value = text; // Getippten Text nicht verlieren, wenn das Senden fehlschlägt
+            if (typeof window.zeigeInfo === 'function') window.zeigeInfo('Nachricht konnte nicht gesendet werden: ' + (e && e.message ? e.message : 'unbekannter Fehler'));
+        }
+    };
+
+    window.deleteChatNz = function(targetName) {
+        window.zeigeBestaetigung(`Kanal mit ${targetName.toUpperCase()} wirklich im Briefkasten löschen?`, async () => {
+            const myName = window.agentSlug(window.agentName);
+            const channelId = [myName, targetName].sort().join("_");
+            if (window.db && window.getDocs && window.deleteDoc) {
+                try {
+                    const msgRef = window.collection(window.db, "agenten_funk", channelId, "nachrichten");
+                    const snapshot = await window.getDocs(msgRef);
+                    await Promise.all(snapshot.docs.map(mDoc => window.deleteDoc(mDoc.ref)));
+                    await window.deleteDoc(window.doc(window.db, "agenten_funk", channelId));
+
+                    // WICHTIG: Vorher blieben Handelsangebote zwischen den beiden Beteiligten
+                    // beim Löschen eines Kanals bestehen - öffnete man den Chat später erneut
+                    // (z.B. weil der andere wieder schreibt), tauchten alte, längst
+                    // abgeschlossene Angebote (angenommen/abgelehnt) wieder auf. Jetzt werden
+                    // beide Richtungen mitgelöscht.
+                    const qAusgehend = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', myName), window.where('an', '==', targetName));
+                    const qEingehend = window.query(window.collection(window.db, "handelsangebote"), window.where('von', '==', targetName), window.where('an', '==', myName));
+                    const [snapAus, snapEin] = await Promise.all([window.getDocs(qAusgehend), window.getDocs(qEingehend)]);
+                    await Promise.all([...snapAus.docs, ...snapEin.docs].map(d => window.deleteDoc(d.ref)));
+                } catch (e) { console.error('Kanal-Löschung fehlgeschlagen:', e); }
+            }
+            renderKommLinkUebersicht();
+        });
+    };
+
+    // --- SEKTOR-RADAR (ebenfalls aus app.js portiert) ---
+    let nzRadarListener = null;
+    window.renderRadarViewNz = function() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = `
+            <h3 style="color: #ffcc00; margin-top:0;">[ SEKTOR-RADAR ]</h3>
+            <div id="radar-container" style="position: relative; height: 150px; border: 1px solid rgba(255,204,0,0.3); background: rgba(0,20,0,0.5); margin-bottom: 15px; overflow: hidden; border-radius: 4px;">
+                <div style="position: absolute; width: 100%; height: 100%; background: conic-gradient(from 0deg, transparent, rgba(255,204,0,0.1)); animation: radar-spin-nz 4s linear infinite;"></div>
+                <div id="radar-agents" style="position: absolute; width: 100%; height: 100%;"></div>
+            </div>
+            <div id="online-list" style="max-height: 150px; overflow-y: auto; text-align: left;"></div>
+            <button class="modell-btn" style="width:100%; margin-top:10px;" onclick="if(window.currentRadarListenerNz) window.currentRadarListenerNz(); window.switchNetzwerkTab('chat');">RADAR DEAKTIVIEREN</button>
+        `;
+        if (!document.getElementById('nz-radar-keyframe')) {
+            const styleTag = document.createElement('style');
+            styleTag.id = 'nz-radar-keyframe';
+            styleTag.textContent = '@keyframes radar-spin-nz { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+            document.head.appendChild(styleTag);
+        }
+        if (!window.db) return;
+        const listEl = document.getElementById('online-list');
+        const radarAgents = document.getElementById('radar-agents');
+        if (window.currentRadarListenerNz) window.currentRadarListenerNz();
+
+        // WICHTIG: Vorher ein Live-Listener auf die KOMPLETTE, ungefilterte "agenten"-Collection -
+        // jede Änderung IRGENDEINES Spielers weltweit hat bei JEDEM offenen Radar eine erneute
+        // Vollübertragung ausgelöst. Ein "wer ist gerade online"-Radar kann (anders als die
+        // Rangliste) nicht einfach auf einen Tages-Stand umgestellt werden, ohne seinen Zweck zu
+        // verlieren - aber es braucht auch keine Sekunden-Aktualität. Statt eines Live-Listeners
+        // jetzt ein einfacher, fester Abruf-Rhythmus (alle 60 Sekunden): der Lesevorgang ist
+        // dadurch komplett unabhängig davon, wie viel fremde Aktivität anderswo im Spiel gerade
+        // passiert - vorher konnte JEDE Änderung irgendeines Spielers weltweit einen erneuten
+        // Abruf auslösen, jetzt maximal einmal pro Minute, unabhängig von der Gesamtaktivität.
+        const agentRef = window.collection(window.db, "agenten");
+
+        // Haversine-Formel für die Entfernung zwischen zwei Punkten (in Metern) - dieselbe
+        // Berechnung wie im Hauptterminal für GPS-Missionen, hier lokal nachgebaut, da
+        // netzwerk-app.js ein eigenständiges Skript ist und app.js auf dieser Seite nicht lädt.
+        function radarHaversine(lat1, lng1, lat2, lng2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2) * Math.sin(dLng/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        async function radarAbrufen() {
+            try {
+                const snapshot = await window.getDocs(window.query(agentRef, window.where("last_ping", ">", Date.now() - 300000)));
+                const now = Date.now();
+
+                // Eigene Position bestimmen (bereits gespeichert über die ungefähre
+                // IP-Standortermittlung aus window.saveProgress - keine zusätzliche Datenerhebung
+                // nötig, dieselben Felder werden hier lediglich wiederverwendet).
+                const mySlug = window.agentSlug(window.agentName);
+                let meinLat = 0, meinLon = 0;
+                snapshot.forEach((doc) => {
+                    if (doc.id === mySlug) { meinLat = doc.data().lat || 0; meinLon = doc.data().lon || 0; }
+                });
+
+                const kandidaten = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.isAdmin) return; // Admin soll im Radar komplett unsichtbar sein
+                    if (data.last_ping && (now - data.last_ping < 120000) && doc.id !== mySlug) {
+                        // Entfernung nur berechnen, wenn für BEIDE Seiten eine ungefähre Position
+                        // bekannt ist (0/0 bedeutet: IP-Standortermittlung ist fehlgeschlagen oder
+                        // noch nie gelaufen) - solche Kandidaten ans Ende sortieren, statt sie
+                        // fälschlich als "Entfernung 0" ganz oben erscheinen zu lassen.
+                        const hatPosition = (meinLat !== 0 || meinLon !== 0) && (data.lat || data.lon);
+                        const distanz = hatPosition ? radarHaversine(meinLat, meinLon, data.lat || 0, data.lon || 0) : Infinity;
+                        kandidaten.push({ slug: doc.id, distanz });
+                    }
+                });
+                // Nur die 40 nächsten Spieler (nach ungefährer, aus der IP abgeleiteter Position) -
+                // reduziert sowohl die übertragene Menge als auch die Relevanz der Anzeige, statt
+                // einfach alle kürzlich aktiven Spieler ungeordnet anzuzeigen.
+                kandidaten.sort((a, b) => a.distanz - b.distanz);
+                const naechste40 = kandidaten.slice(0, 40);
+
+                let htmlList = "", htmlRadar = "";
+                naechste40.forEach(k => {
+                    const top = Math.floor(Math.random() * 70) + 15, left = Math.floor(Math.random() * 70) + 15;
+                    htmlRadar += `<div style="position: absolute; top:${top}%; left:${left}%; width:6px; height:6px; background:#0f8; border-radius:50%; box-shadow:0 0 5px #0f8;"></div>`;
+                    htmlList += `<div style="color:#0f8; cursor:pointer; padding:3px 0;" onclick="window.openPrivateChatNz('${k.slug.toUpperCase()}')">> ${window.escHtml(k.slug.toUpperCase())} (Online)</div>`;
+                });
+                if (listEl) listEl.innerHTML = naechste40.length > 0 ? htmlList : '<div style="color:#555; font-size:0.8em;">Keine Agenten im Sektor...</div>';
+                if (radarAgents) radarAgents.innerHTML = htmlRadar;
+            } catch (e) { console.error('Radar-Abruf fehlgeschlagen:', e); }
+        }
+
+        radarAbrufen(); // Sofortiger erster Abruf, nicht erst nach 60 Sekunden warten
+        const radarIntervall = setInterval(radarAbrufen, 60000);
+        window.currentRadarListenerNz = () => clearInterval(radarIntervall);
+    };
+
+    // --- MENTORENPROGRAMM ---
+    const MENTOR_MIN_LEVEL = 15;
+    const MENTEE_MAX_LEVEL = 5;
+    const MENTEE_WILLKOMMEN = { credits: 500, materiezellen: 5 };
+    const MENTOR_TRICKLE_CREDITS = 20;
+    const GRADUATION_MENTOR = { credits: 800, materiezellen: 0 };
+    const GRADUATION_MENTEE = { credits: 300, materiezellen: 0 };
+    const MENTORSHIP_TAGE = 30;
+    const MENTEE_GRADUATE_LEVEL = 10;
+
+    async function findeEigeneMentorschaft() {
+        const mySlug = window.agentSlug(window.agentName);
+        const qAlsMentor = window.query(window.collection(window.db, "mentorships"), window.where('mentorSlug', '==', mySlug), window.where('status', 'in', ['offen', 'aktiv']));
+        const qAlsMentee = window.query(window.collection(window.db, "mentorships"), window.where('menteeSlug', '==', mySlug), window.where('status', 'in', ['offen', 'aktiv']));
+        const [snapMentor, snapMentee] = await Promise.all([window.getDocs(qAlsMentor), window.getDocs(qAlsMentee)]);
+        const alsMentor = snapMentor.empty ? null : { id: snapMentor.docs[0].id, ...snapMentor.docs[0].data() };
+        const alsMentee = snapMentee.empty ? null : { id: snapMentee.docs[0].id, ...snapMentee.docs[0].data() };
+        return { alsMentor, alsMentee };
+    }
+
+    const MENTOR_COOLDOWN_MS = 90 * 86400000; // ca. drei Monate zwischen zwei Mentorschaften
+
+    window.renderMentorenTab = async function() {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+        content.innerHTML = '<p style="color:#0f8; text-align:center;">Lade Mentorenprogramm...</p>';
+        try {
+            const { alsMentor, alsMentee } = await findeEigeneMentorschaft();
+
+            if (alsMentor) { await renderMentorDashboard(alsMentor); return; }
+            if (alsMentee) { renderMenteeDashboard(alsMentee); return; }
+
+            // Keine aktive Rolle - Berechtigung prüfen und passende Ansicht zeigen.
+            const meineDaten = (window.playerLevel || 1);
+            const mySlug = window.agentSlug(window.agentName);
+            const meinSnap = await window.getDoc(window.doc(window.db, "agenten", mySlug));
+            const meinData = meinSnap.exists() ? meinSnap.data() : {};
+            const letzterStart = meinData.letzterMentorStart || 0;
+            const abwarten = letzterStart ? Math.max(0, MENTOR_COOLDOWN_MS - (Date.now() - letzterStart)) : 0;
+            const gesperrtBis = abwarten > 0 ? new Date(letzterStart + MENTOR_COOLDOWN_MS) : null;
+
+            let html = '<div style="text-align:left;">';
+            html += '<p style="font-size:0.8em; color:#aaa; margin-bottom:15px;">Erfahrene Agenten (Level ' + MENTOR_MIN_LEVEL + '+) können neue Spieler (Level unter ' + MENTEE_MAX_LEVEL + ', noch ohne eigenen Mentor) unter ihre Fittiche nehmen. Beide profitieren. Man kann höchstens einmal alle drei Monate eine neue Mentorschaft beginnen.</p>';
+
+            if (meineDaten < MENTOR_MIN_LEVEL) {
+                html += '<p style="font-size:0.8em; color:#888;">Du erreichst die Mentor-Berechtigung ab Level ' + MENTOR_MIN_LEVEL + ' (aktuell: Level ' + meineDaten + ').</p>';
+            } else if (gesperrtBis) {
+                html += '<p style="font-size:0.8em; color:#888;">Du warst zuletzt Mentor - eine neue Mentorschaft ist erst wieder ab <b>' + gesperrtBis.toLocaleDateString('de-DE') + '</b> möglich.</p>';
+            } else {
+                html += '<b style="color:#0ff; font-size:0.85em;">NEUEN MENTEE EINLADEN</b>' +
+                    '<div style="display:flex; gap:5px; margin-top:6px;">' +
+                        '<input type="text" id="mentor-such-input" placeholder="Spielername..." style="flex-grow:1; background:#000; border:1px solid #0ff; color:#0ff; padding:8px; font-family:inherit;">' +
+                        '<button class="modell-btn" style="margin:0; width:auto; padding:0 15px;" onclick="window.mentorEinladen()">EINLADEN</button>' +
+                    '</div><div id="mentor-such-status" style="font-size:0.75em; color:#aaa; margin-top:6px;"></div>';
+            }
+            html += '</div>';
+            content.innerHTML = html;
+        } catch (e) {
+            console.error(e);
+            content.innerHTML = '<p style="color:#f44; text-align:center;">Mentorenprogramm konnte nicht geladen werden.</p>';
+        }
+    };
+
+    window.mentorEinladen = async function() {
+        const input = document.getElementById('mentor-such-input');
+        const status = document.getElementById('mentor-such-status');
+        const name = input ? input.value.trim() : '';
+        if (!name) return;
+        const menteeSlug = window.agentSlug(name);
+        const mySlug = window.agentSlug(window.agentName);
+        if (menteeSlug === mySlug) { status.innerText = 'Du kannst nicht dich selbst einladen.'; return; }
+        status.innerText = 'Prüfe Berechtigung...';
+        try {
+            const snap = await window.getDoc(window.doc(window.db, "agenten", menteeSlug));
+            if (!snap.exists() || snap.data().isAdmin) { status.innerText = 'Kein Agent mit diesem Namen gefunden.'; return; }
+            const data = snap.data();
+            if (data.hatteMentor) { status.innerText = 'Dieser Spieler hatte bereits einen Mentor.'; return; }
+            if ((data.lvl || 1) >= MENTEE_MAX_LEVEL) { status.innerText = 'Dieser Spieler ist bereits zu erfahren (Level ' + MENTEE_MAX_LEVEL + '+ ) für das Mentorenprogramm.'; return; }
+            const mentorshipId = mySlug + '_' + menteeSlug;
+            await window.setDoc(window.doc(window.db, "mentorships", mentorshipId), {
+                mentorSlug: mySlug, menteeSlug: menteeSlug, status: 'offen',
+                missionsAbgeschlossen: 0, erstelltAm: Date.now()
+            });
+            status.innerText = 'Einladung an ' + name + ' gesendet.';
+        } catch (e) {
+            console.error(e);
+            status.innerText = 'Einladung fehlgeschlagen.';
+        }
+    };
+
+    async function renderMentorDashboard(m) {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+
+        if (m.status === 'offen') {
+            content.innerHTML = '<div style="text-align:center; padding:20px;">' +
+                '<p style="color:#0ff;">Einladung an <b>' + window.escHtml(m.menteeSlug) + '</b> wartet auf Antwort.</p>' +
+                '<button class="modell-btn" style="border-color:#f44; color:#f44; margin-top:10px;" onclick="window.mentorschaftZuruecknehmen(\'' + m.id + '\')">EINLADUNG ZURÜCKZIEHEN</button>' +
+            '</div>';
+            return;
+        }
+
+        // Aktive Mentorschaft: einmalig protokollieren, sobald der Mentor das selbst zum ersten
+        // Mal sieht (die Mentee-Seite kann nicht direkt ins Mentor-eigene Protokoll schreiben).
+        // Im selben Moment wird auch die Drei-Monats-Sperre auf dem eigenen Konto gestartet -
+        // eigenes Dokument, daher uneingeschränkt erlaubt (im Gegensatz zu einem Schreibzugriff
+        // durch den Mentee).
+        if (!m.mentorBenachrichtigt) {
+            if (typeof window.logEreignis === 'function') window.logEreignis('Mentor geworden für ' + m.menteeSlug + '.');
+            window.setDoc(window.doc(window.db, "mentorships", m.id), { mentorBenachrichtigt: true }, { merge: true }).catch(() => {});
+            window.setDoc(window.doc(window.db, "agenten", window.agentSlug(window.agentName)), { letzterMentorStart: Date.now() }, { merge: true }).catch(() => {});
+        }
+
+        let menteeLevel = 1, menteeName = m.menteeSlug;
+        try {
+            const snap = await window.getDoc(window.doc(window.db, "agenten", m.menteeSlug));
+            if (snap.exists()) menteeLevel = snap.data().lvl || 1;
+        } catch (e) {}
+
+        const tageVergangen = Math.floor((Date.now() - (m.erstelltAm || Date.now())) / 86400000);
+        const tageUebrig = Math.max(0, MENTORSHIP_TAGE - tageVergangen);
+        const missionen = m.missionsAbgeschlossen || 0;
+        const verdient = missionen * MENTOR_TRICKLE_CREDITS;
+
+        content.innerHTML = `
+            <div style="text-align:left;">
+                <h4 style="color:#0ff; margin-top:0;">👨‍🏫 MEIN MENTEE</h4>
+                <div style="border:1px solid rgba(0,255,255,0.4); border-radius:6px; padding:12px; margin-bottom:12px;">
+                    <div style="font-size:1em; color:#0ff; font-weight:bold;">${window.escHtml(menteeName)}</div>
+                    <div style="font-size:0.8em; color:#ccc; margin-top:4px;">Aktuelles Level: ${menteeLevel} / ${MENTEE_GRADUATE_LEVEL} (Ziel)</div>
+                    <div style="font-size:0.8em; color:#ccc;">Noch ${tageUebrig} Tage bis zum automatischen Ablauf</div>
+                </div>
+                <b style="color:#0ff; font-size:0.85em;">MEINE BELOHNUNGEN ALS MENTOR</b>
+                <div style="border:1px solid rgba(0,255,204,0.3); border-radius:6px; padding:12px; margin-top:6px; font-size:0.85em;">
+                    <div>${missionen} Mission${missionen === 1 ? '' : 'en'} des Mentees abgeschlossen</div>
+                    <div style="color:#0f8; margin-top:4px;">Bisher verdient: ${verdient} Credits (${MENTOR_TRICKLE_CREDITS} pro Mission)</div>
+                    <div style="opacity:0.7; margin-top:4px; font-size:0.85em;">+ Abschlussbonus von ${GRADUATION_MENTOR.credits} Credits, sobald der Mentee graduiert</div>
+                </div>
+                <button class="modell-btn" style="border-color:#f44; color:#f44; margin-top:14px; width:100%;" onclick="window.mentorschaftBeenden('${m.id}')">MENTORSCHAFT BEENDEN</button>
+            </div>
+        `;
+    }
+
+    function renderMenteeDashboard(m) {
+        const content = document.getElementById('netzwerk-content');
+        if (!content) return;
+
+        if (m.status === 'offen') {
+            content.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <p style="color:#0ff;">📨 Mentoren-Einladung von <b>${window.escHtml(m.mentorSlug)}</b></p>
+                    <div style="display:flex; gap:8px; margin-top:14px;">
+                        <button class="modell-btn" style="flex:1; border-color:#0f8; color:#0f8;" onclick="window.menteeAntworten('${m.id}', true)">ANNEHMEN</button>
+                        <button class="modell-btn" style="flex:1; border-color:#f44; color:#f44;" onclick="window.menteeAntworten('${m.id}', false)">ABLEHNEN</button>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        const tageVergangen = Math.floor((Date.now() - (m.erstelltAm || Date.now())) / 86400000);
+        const tageUebrig = Math.max(0, MENTORSHIP_TAGE - tageVergangen);
+        content.innerHTML = `
+            <div style="text-align:left;">
+                <h4 style="color:#0ff; margin-top:0;">🎓 MEIN MENTOR</h4>
+                <div style="border:1px solid rgba(0,255,255,0.4); border-radius:6px; padding:12px;">
+                    <div style="font-size:1em; color:#0ff; font-weight:bold;">${window.escHtml(m.mentorSlug)}</div>
+                    <div style="font-size:0.8em; color:#0f8; margin-top:4px;">+20% Bonus auf alle Missions-Belohnungen aktiv</div>
+                    <div style="font-size:0.8em; color:#ccc;">Noch ${tageUebrig} Tage, oder bis Level ${MENTEE_GRADUATE_LEVEL}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    window.menteeAntworten = async function(mentorshipId, angenommen) {
+        const mySlug = window.agentSlug(window.agentName);
+        try {
+            const ref = window.doc(window.db, "mentorships", mentorshipId);
+            if (!angenommen) {
+                await window.setDoc(ref, { status: 'abgelehnt' }, { merge: true });
+                window.renderMentorenTab();
+                return;
+            }
+            await window.setDoc(ref, { status: 'aktiv', erstelltAm: Date.now() }, { merge: true });
+            // Einmaliges Willkommensgeschenk + Markierung "hatte schon einen Mentor" (verhindert
+            // ein erneutes Mentorenprogramm für denselben Account).
+            const meinRef = window.doc(window.db, "agenten", mySlug);
+            const meinSnap = await window.getDoc(meinRef);
+            const meinData = meinSnap.exists() ? meinSnap.data() : {};
+            const neueCredits = (meinData.credits || 0) + MENTEE_WILLKOMMEN.credits;
+            const neueMZ = (meinData.materiezellen || 0) + MENTEE_WILLKOMMEN.materiezellen;
+            await window.setDoc(meinRef, { credits: neueCredits, materiezellen: neueMZ, hatteMentor: true }, { merge: true });
+            window.playerCredits = neueCredits;
+            window.playerMateriezellen = neueMZ;
+            window.zeigeInfo('Mentorschaft angenommen! Willkommensgeschenk: ' + MENTEE_WILLKOMMEN.credits + ' Credits, ' + MENTEE_WILLKOMMEN.materiezellen + ' Materiezellen.');
+            window.renderMentorenTab();
+        } catch (e) {
+            console.error(e);
+            window.zeigeInfo('Antwort fehlgeschlagen.');
+        }
+    };
+
+    window.mentorschaftZuruecknehmen = async function(mentorshipId) {
+        try {
+            await window.deleteDoc(window.doc(window.db, "mentorships", mentorshipId));
+            window.renderMentorenTab();
+        } catch (e) { console.error(e); }
+    };
+
+    window.mentorschaftBeenden = function(mentorshipId) {
+        window.zeigeBestaetigung('Mentorschaft wirklich vorzeitig beenden? Der Abschlussbonus entfällt dann.', async () => {
+            try {
+                await window.setDoc(window.doc(window.db, "mentorships", mentorshipId), { status: 'beendet' }, { merge: true });
+                window.renderMentorenTab();
+            } catch (e) { console.error(e); }
+        });
+    };
+})();

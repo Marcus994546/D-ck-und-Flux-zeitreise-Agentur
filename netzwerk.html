@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Agentur-Netzwerk | Dück & Flux Zeitreise-Agentur</title>
+<style>
+    :root {
+        --nz-cyan: #0ff; --nz-purple: #b0f; --nz-green: #0f8; --nz-bg: #030308;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; min-height: 100vh; min-height: 100dvh; background: var(--nz-bg); color: var(--nz-cyan);
+        font-family: 'Courier New', monospace; overflow-x: hidden;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    #nz-grid-bg {
+        position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background-image:
+            linear-gradient(rgba(0,255,255,0.07) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,255,255,0.07) 1px, transparent 1px);
+        background-size: 40px 40px;
+        animation: nzGridDrift 20s linear infinite;
+        mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 75%);
+    }
+    @keyframes nzGridDrift { from { background-position: 0 0; } to { background-position: 40px 40px; } }
+    #nz-scanline {
+        position: fixed; left: 0; right: 0; height: 2px; z-index: 1; pointer-events: none;
+        background: linear-gradient(90deg, transparent, rgba(0,255,255,0.6), transparent);
+        animation: nzScan 6s linear infinite;
+    }
+    @keyframes nzScan { 0% { top: -2px; } 100% { top: 100%; } }
+
+    #nz-wrap { position: relative; z-index: 2; max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    #nz-header { text-align: center; margin-bottom: 18px; }
+    #nz-header h1 {
+        font-size: 1.4em; margin: 0; letter-spacing: 2px;
+        background: linear-gradient(90deg, var(--nz-cyan), var(--nz-purple));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        text-shadow: 0 0 25px rgba(0,255,255,0.4);
+    }
+    #nz-header .sub { font-size: 0.65em; color: #778; letter-spacing: 3px; margin-top: 4px; }
+
+    #nz-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 18px; }
+    .nz-tab-btn {
+        background: rgba(0,255,255,0.05); color: var(--nz-cyan); border: 1px solid rgba(0,255,255,0.35);
+        padding: 8px 14px; border-radius: 20px; cursor: pointer; font-family: inherit; font-size: 0.72em;
+        letter-spacing: 1px; transition: all 0.2s ease;
+    }
+    .nz-tab-btn:hover { background: rgba(0,255,255,0.15); }
+    .nz-tab-active { background: rgba(0,255,255,0.2)!important; box-shadow: 0 0 14px rgba(0,255,255,0.5); border-color: var(--nz-cyan)!important; }
+    .nz-tab-pulse-green { animation: nzGreenPulse 1.2s ease-in-out infinite; border-color: var(--nz-green)!important; color: var(--nz-green)!important; }
+    @keyframes nzGreenPulse { 0%, 100% { box-shadow: 0 0 6px rgba(0,255,136,0.4); } 50% { box-shadow: 0 0 18px rgba(0,255,136,0.9); } }
+
+    #nz-content {
+        border: 1px solid rgba(0,255,255,0.3); border-radius: 10px; background: rgba(5,10,15,0.75);
+        backdrop-filter: blur(6px); padding: 18px; box-shadow: 0 0 30px rgba(0,255,255,0.08), inset 0 0 30px rgba(0,255,255,0.03);
+        min-height: 300px;
+    }
+
+    #nz-back-btn {
+        display: block; width: 100%; margin-top: 22px; background: none; color: #789;
+        border: 1px dashed #456; padding: 10px; border-radius: 6px; cursor: pointer; font-family: inherit;
+    }
+    #nz-back-btn:hover { color: var(--nz-cyan); border-color: var(--nz-cyan); }
+
+    .modell-btn, .setup-btn {
+        background: #000; color: var(--nz-green); border: 1px solid var(--nz-green);
+        padding: 10px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.85em;
+    }
+    table { width: 100%; }
+
+    .nz-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; }
+    .nz-modal-box { width:100%; max-width:380px; padding:20px; border-radius:8px; }
+</style>
+</head>
+<body>
+
+<div id="nz-grid-bg"></div>
+<div id="nz-scanline"></div>
+
+<div id="nz-wrap">
+    <div id="nz-header">
+        <h1>⧗ AGENTUR-NETZWERK ⧗</h1>
+        <div class="sub">SUBRAUM-VERBINDUNG AKTIV</div>
+    </div>
+
+    <div id="nz-tabs">
+        <button class="nz-tab-btn" data-tab="profil" onclick="window.switchNetzwerkTab('profil')">MEIN PROFIL</button>
+        <button class="nz-tab-btn" data-tab="rangliste" onclick="window.switchNetzwerkTab('rangliste')">RANGLISTE</button>
+        <button class="nz-tab-btn" data-tab="suche" onclick="window.switchNetzwerkTab('suche')">SPIELER SUCHEN</button>
+        <button class="nz-tab-btn" data-tab="allianz" onclick="window.switchNetzwerkTab('allianz')">ALLIANZEN</button>
+        <button class="nz-tab-btn" data-tab="saison" onclick="window.switchNetzwerkTab('saison')">SAISON</button>
+        <button class="nz-tab-btn" data-tab="chat" onclick="window.switchNetzwerkTab('chat')">KOMM-LINK</button>
+        <button class="nz-tab-btn" data-tab="mentoren" onclick="window.switchNetzwerkTab('mentoren')">MENTOREN</button>
+    </div>
+
+    <div id="netzwerk-content"></div>
+
+    <button id="nz-back-btn" onclick="window.location.href='index.html'">« ZURÜCK ZUM TERMINAL</button>
+</div>
+
+<div id="bestaetigungs-modal" class="nz-modal">
+    <div class="nz-modal-box" style="border:1px solid #f44; box-shadow:0 0 25px rgba(255,68,68,0.5); background:rgba(25,0,0,0.95); text-align:center;">
+        <div id="bestaetigungs-modal-text" style="color:#ffd8d8; font-size:0.9em; margin-bottom:18px; line-height:1.5;"></div>
+        <div style="display:flex; gap:8px;">
+            <button class="setup-btn" style="flex:1; border-color:#f44; color:#f44;" id="bestaetigungs-modal-ja">JA</button>
+            <button class="setup-btn" style="flex:1;" onclick="document.getElementById('bestaetigungs-modal').style.display='none';">ABBRECHEN</button>
+        </div>
+    </div>
+</div>
+
+<div id="info-modal" class="nz-modal">
+    <div class="nz-modal-box" style="border:1px solid #0ff; box-shadow:0 0 25px rgba(0,255,255,0.5); background:rgba(0,20,20,0.95); text-align:center;">
+        <div id="info-modal-text" style="color:#dfffff; font-size:0.9em; margin-bottom:18px; line-height:1.5;"></div>
+        <button class="setup-btn" style="width:100%;" onclick="document.getElementById('info-modal').style.display='none';">OK</button>
+    </div>
+</div>
+
+<div id="handel-chat-modal" class="nz-modal" style="z-index:9500;">
+    <div class="nz-modal-box" style="border:1px solid #b0f; box-shadow:0 0 25px rgba(187,0,255,0.4); background:rgba(15,0,20,0.95); text-align:left;">
+        <h3 style="color:#b0f; margin-top:0; text-align:center;">HANDELSANGEBOT AN <span id="handel-chat-empfaenger"></span></h3>
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
+            <span style="font-size:0.75em; color:#0f8;">ICH WILL</span>
+            <input type="number" id="handel-chat-will-menge" min="1" placeholder="Menge" style="width:70px; background:#000; border:1px solid #0f8; color:#0f8; padding:6px; font-family:inherit;">
+            <select id="handel-chat-will-typ" style="flex:1; background:#000; border:1px solid #0f8; color:#0f8; padding:6px; font-family:inherit;">
+                <option value="credits">Credits (max 1000)</option>
+                <option value="materiezellen">Materiezellen (max 5)</option>
+                <option value="chronoszellen">Chronos-Zellen (max 2)</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+            <span style="font-size:0.75em; color:#ffcc00;">ICH BIETE</span>
+            <input type="number" id="handel-chat-bietet-menge" min="1" placeholder="Menge" style="width:70px; background:#000; border:1px solid #ffcc00; color:#ffcc00; padding:6px; font-family:inherit;">
+            <select id="handel-chat-bietet-typ" style="flex:1; background:#000; border:1px solid #ffcc00; color:#ffcc00; padding:6px; font-family:inherit;">
+                <option value="credits">Credits (max 1000)</option>
+                <option value="materiezellen">Materiezellen (max 5)</option>
+                <option value="chronoszellen">Chronos-Zellen (max 2)</option>
+            </select>
+        </div>
+        <button class="setup-btn" style="width:100%; border-color:#b0f; color:#b0f;" onclick="window.handelAusChatErstellen()">ANGEBOT ERSTELLEN</button>
+        <button class="setup-btn" style="width:100%; margin-top:8px;" onclick="document.getElementById('handel-chat-modal').style.display='none';">ABBRECHEN</button>
+    </div>
+</div>
+
+<div id="spieler-profil-modal" class="nz-modal">
+    <div class="nz-modal-box" style="border:1px solid #0ff; box-shadow:0 0 25px rgba(0,255,255,0.4); background:rgba(0,20,20,0.95);">
+        <div id="spieler-profil-inhalt" style="text-align:left; color:#ddd; font-size:0.85em;"><p style="color:#0f8; text-align:center;">Lade...</p></div>
+        <button class="setup-btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('spieler-profil-modal').style.display='none';">SCHLIESSEN</button>
+    </div>
+</div>
+
+<script type="module" src="netzwerk-firebase-init.js?v=20260828c"></script>
+<script src="protokoll.js?v=20260828c"></script>
+<script src="netzwerk-app.js?v=20260828c"></script>
+<script src="backnav.js?v=20260828c"></script>
+</body>
+</html>
