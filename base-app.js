@@ -62,6 +62,18 @@
     // --- GAME STATE & RÄUME ---
     let gameState = { baseData: [{x:2, y:2, type:'ZENTRALE', lvl:1}], credits: 0, materieZellen: 0, chronosZellen: 0, collectedArtifacts: [], horizonMissions: [], overdriveStartTs: null, overdriveEndTs: null, overdrivePct: 100, deadAgents: [], pendingDrop: null, userLevel: 1, agents: [], agentSystemUnlocked: false, pendingRewards: { credits: 0, materiezellen: 0, chronoszellen: 0 } };
 
+    // Diagnose-Helfer für den Offline-Fortschritt-Bug (Agenten, die scheinbar nicht weiterarbeiten):
+    // in der Browser-Konsole auf der Base-Seite "window._debugAgents()" aufrufen, um den echten
+    // Rohzustand aller Agenten inkl. Zeitstempel zu sehen - zeigt sofort, ob taskStartTs/
+    // taskDurationMs plausible Zahlen sind oder wo genau ein Agent hängen bleibt.
+    window._debugAgents = () => gameState.agents.map(a => ({
+        id: a.id, isStarter: !!a.isStarter, level: a.level, state: a.state,
+        location: a.location, targetRoom: a.targetRoom,
+        taskStartTs: a.taskStartTs, taskDurationMs: a.taskDurationMs,
+        vergangenMs: a.taskStartTs ? (Date.now() - a.taskStartTs) : null,
+        verbleibendMs: (a.taskStartTs && a.taskDurationMs) ? (a.taskDurationMs - (Date.now() - a.taskStartTs)) : null
+    }));
+
     // ============================================================
     // AGENTEN-LOGIK: State-Machine für Bewegung, Aufgaben-Timer und Belohnungen.
     // Random-Spawning ist komplett entfernt - jeder Agent hat jetzt einen klaren,
@@ -1158,15 +1170,22 @@
                 // wurde übernommen, auch wenn er nur lokal im Browser verändert wurde).
                 let maxLevel = 1;
 
-                try {
-                    const snap1 = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)));
-                    if (snap1.exists() && snap1.data().lvl) maxLevel = Math.max(maxLevel, snap1.data().lvl);
-                } catch(e) {}
+                // WICHTIG (Performance): Die drei Lesevorgänge sind voneinander unabhängig und
+                // liefen vorher NACHEINANDER (je ein await) - bei jedem einzelnen Netzwerk-
+                // Roundtrip von z.B. 300ms macht das spürbar langsame ~0,9s+ nur fürs Laden aus,
+                // bevor die Basis überhaupt anzeigbar ist. Jetzt parallel per Promise.all, plus:
+                // "agenten" wurde vorher SOGAR ZWEIMAL nacheinander gelesen (einmal fürs Level,
+                // einmal für die Credits-Fusion) - beide nutzen jetzt denselben snap1-Lesevorgang.
+                // .catch(() => null) pro Promise erhält das bisherige Verhalten, dass ein
+                // fehlschlagender Lesevorgang die anderen nicht mit reißt.
+                const [snap1, snap2, baseSnap] = await Promise.all([
+                    window.getDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName))).catch(() => null),
+                    window.getDoc(window.doc(window.db, "SLAs Agent", window.agentSlug(currentAgentName))).catch(() => null),
+                    window.getDoc(window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName))).catch(() => null)
+                ]);
 
-                try {
-                    const snap2 = await window.getDoc(window.doc(window.db, "SLAs Agent", window.agentSlug(currentAgentName)));
-                    if (snap2.exists() && snap2.data().lvl) maxLevel = Math.max(maxLevel, snap2.data().lvl);
-                } catch(e) {}
+                if (snap1 && snap1.exists() && snap1.data().lvl) maxLevel = Math.max(maxLevel, snap1.data().lvl);
+                if (snap2 && snap2.exists() && snap2.data().lvl) maxLevel = Math.max(maxLevel, snap2.data().lvl);
 
                 gameState.userLevel = maxLevel;
 
@@ -1176,21 +1195,16 @@
                 // Einmalig wird der jeweils höhere Wert übernommen, damit beim Umstieg nichts
                 // verloren geht; danach schreibt/liest nur noch "agenten".
                 let fusedCredits = 0, fusedMz = 0, fusedChronos = 0;
-                try {
-                    const agentSnap = await window.getDoc(window.doc(window.db, "agenten", window.agentSlug(currentAgentName)));
-                    if (agentSnap.exists()) {
-                        const ad = agentSnap.data();
-                        fusedCredits = Math.max(fusedCredits, ad.credits || 0);
-                        fusedMz = Math.max(fusedMz, (ad.materiezellen !== undefined ? ad.materiezellen : (ad.materialzellen || 0)));
-                        fusedChronos = Math.max(fusedChronos, ad.chronoszellen || 0);
-                    }
-                } catch(e) {}
+                if (snap1 && snap1.exists()) {
+                    const ad = snap1.data();
+                    fusedCredits = Math.max(fusedCredits, ad.credits || 0);
+                    fusedMz = Math.max(fusedMz, (ad.materiezellen !== undefined ? ad.materiezellen : (ad.materialzellen || 0)));
+                    fusedChronos = Math.max(fusedChronos, ad.chronoszellen || 0);
+                }
 
-                // 4. Räume aus der Basis-Datenbank laden (Credits/MZ dort sind Legacy und werden nur
-                // noch für die einmalige Fusion gelesen, s.o.)
-                const baseRef = window.doc(window.db, "Agent - Base", window.agentSlug(currentAgentName));
-                const baseSnap = await window.getDoc(baseRef);
-                if (baseSnap.exists()) {
+                // Räume aus der Basis-Datenbank (Credits/MZ dort sind Legacy und werden nur noch
+                // für die einmalige Fusion gelesen, s.o.)
+                if (baseSnap && baseSnap.exists()) {
                     const data = baseSnap.data();
                     fusedCredits = Math.max(fusedCredits, data.credits || 0);
                     fusedMz = Math.max(fusedMz, data.mz || 0);

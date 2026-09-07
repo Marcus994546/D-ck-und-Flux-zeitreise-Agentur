@@ -36,6 +36,18 @@
     <meta property="og:image" content="https://marcus994546.github.io/D-ck-und-Flux-zeitreise-Agentur/Audio%20%26%20Bild/Milchstra%C3%9Fe.jpeg">
     
     <link rel="stylesheet" href="style.css?v=20260904a">
+
+    <!-- Lädt die Agentur-Basis-Seite im Hintergrund vor, während der Spieler noch im Terminal
+         ist (Klick auf "AGENTUR-BASIS" fühlt sich dadurch sofort statt langsam an) - reine
+         Browser-Cache-Vorbereitung, führt keinerlei Code aus, kein doppelter Auth-Listener o.ä.
+         WICHTIG: Die ?v=-Versionen hier müssen mit den echten Einbindungen in base.html
+         übereinstimmen, sonst greift der Cache beim tatsächlichen Wechsel nicht (Versions-Mismatch
+         = Cache-Verfehler). Bei jeder Versionsänderung von base-style.css/base-app.js/
+         base-firebase-init.js in base.html hier mit nachziehen. -->
+    <link rel="prefetch" href="base.html">
+    <link rel="prefetch" href="base-style.css?v=20260904a">
+    <link rel="prefetch" href="base-app.js?v=20260907a">
+    <link rel="prefetch" href="base-firebase-init.js?v=20260828e">
 </head>
 <body onload="initSystem()">
 
