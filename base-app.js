@@ -1098,7 +1098,6 @@
         // Kurze, rein optische Aufzug-Fahrt vom alten Standort zu den Quartieren. Die eigentliche
         // Wartezeit wird danach durch den Agenten sichtbar IN den Quartieren dargestellt, nicht im
         // Aufzug selbst (siehe renderBunkerAgentVisuals).
-        _naechsteFahrtMitKamera = true; // Spieler hat gerade selbst diesen Agenten zugewiesen
         if (typeof playElevatorAnimation === 'function') playElevatorAnimation(oldLocation, 'AGENTEN-QUARTIERE', agent.isStarter, agent.id);
 
         if (typeof showInfoToast === 'function') showInfoToast('Agent bewegt sich in die Agenten-Quartiere.');
@@ -1226,14 +1225,11 @@
                 gameState.chronosZellen = fusedChronos;
                 ensureAgentsInitialized();
                 // Reale, seit dem letzten Speichern vergangene Zeit sofort nachholen (auch wenn
-                // die Seite zwischenzeitlich Stunden geschlossen war). Das Mitscrollen wird dabei
-                // bewusst unterdrückt - sonst würde die Seite beim bloßen Laden ungewollt
-                // herumspringen, wenn dabei mehrere nachgeholte Aufzugfahrten hintereinander
-                // ablaufen, bevor der Spieler die Ansicht überhaupt gesehen hat.
-                // WICHTIG: Zeitstempel statt manuell umzuschaltendem Flag - kann sich dadurch
-                // NIEMALS dauerhaft "verklemmen" (z.B. falls tickAgents() eine Ausnahme wirft),
-                // da es sich um einen reinen Zeitvergleich ohne zurückzusetzenden Zustand handelt.
-                window._aufzugScrollSperreBis = Date.now() + 500;
+                // die Seite zwischenzeitlich Stunden geschlossen war). Ein ungewolltes Herumspringen
+                // der Ansicht beim bloßen Laden passiert dabei nicht mehr von selbst, weil das
+                // Mitscrollen jetzt ausschließlich an die Aufzug-Lampe gekoppelt ist (siehe
+                // folgeAufzugScroll) - die startet bei jedem Laden aus, ganz unabhängig davon, wie
+                // viele nachgeholte Aufzugfahrten hier gerade automatisch ablaufen.
                 try {
                     tickAgents();
                     tickPassiveRooms();
@@ -1536,7 +1532,9 @@
     // des Agenten, (2) steht dort GENAU 10s lang, während (3) das Männchen sichtbar aus der
     // Raummitte in den Aufzug hineinläuft (dauert 5s, läuft innerhalb der 10s Standzeit ab),
     // (4) erst nach den vollen 10s fährt der Aufzug weiter. Kein Countdown/Timer wird angezeigt.
-    // Kleine anklickbare Lampe im Aufzug - rein kosmetisch, hat keine Spielmechanik-Wirkung.
+    // Kleine anklickbare Lampe im Aufzug - steuert NICHTS an der Spiel-Mechanik selbst (keine
+    // Agenten-Logik), bestimmt aber, ob die Ansicht der aktuellen Aufzug-Fahrt folgt: Lampe an ->
+    // jede Aufzugbewegung scrollt mit, Lampe aus -> keine (siehe folgeAufzugScroll).
     window.toggleElevatorLamp = function() {
         const lamp = document.getElementById('bunker-elevator-lamp');
         if (!lamp) return;
@@ -1626,10 +1624,20 @@
         return document.scrollingElement || document.documentElement;
     }
 
+    // Ob mitgescrollt wird, hängt AUSSCHLIESSLICH vom aktuellen Ein/Aus-Zustand der kleinen
+    // Aufzug-Lampe ab (window.toggleElevatorLamp) - nicht mehr davon, welcher Agent gerade fährt
+    // oder ob die Fahrt vom Spieler ausgelöst wurde oder automatisch im Hintergrund passiert.
+    // Lampe an -> JEDE Aufzugbewegung scrollt mit, Lampe aus -> gar keine. Wird bei jedem
+    // einzelnen Animations-Frame frisch geprüft (nicht nur einmal beim Start der Fahrt), damit
+    // ein Umschalten der Lampe MITTEN in einer laufenden Fahrt sofort wirkt.
+    function elevatorLampAn() {
+        const lamp = document.getElementById('bunker-elevator-lamp');
+        return !!(lamp && lamp.classList.contains('an'));
+    }
+
     function folgeAufzugScroll(durationMs) {
-        if (window._aufzugScrollSperreBis && Date.now() < window._aufzugScrollSperreBis) return;
-        // WICHTIG: aktiv-Flag und Sicherheits-Timer sind jetzt PRO AUFRUF (im Funktionsumfang von
-        // "schritt" gefangen), nicht mehr geteilte Modul-Variablen. Vorher konnte eine FRÜHER
+        // WICHTIG: aktiv-Flag und Sicherheits-Timer sind PRO AUFRUF (im Funktionsumfang von
+        // "schritt" gefangen), nicht geteilte Modul-Variablen. Vorher konnte eine FRÜHER
         // gestartete, kürzere Fahrt (z.B. die Abhol-Etappe) beim eigenen regulären Ende das
         // gemeinsame Flag auf false setzen und dadurch eine GLEICHZEITIG noch laufende zweite
         // Verfolgung (z.B. eine kurz danach gestartete zweite Fahrt) vorzeitig abbrechen - das
@@ -1640,7 +1648,7 @@
         function schritt(jetzt) {
             if (!aktiv) return;
             const car = document.getElementById('bunker-elevator-car');
-            if (car) {
+            if (car && elevatorLampAn()) {
                 const scrollContainer = findeScrollbarenVorfahren(car);
                 const rect = car.getBoundingClientRect();
                 const containerRect = (scrollContainer === document.scrollingElement || scrollContainer === document.documentElement)
@@ -1657,18 +1665,8 @@
         requestAnimationFrame(schritt);
     }
 
-    // Wird NUR unmittelbar vor einer Fahrt gesetzt, die direkt durch eine bewusste Spieler-Aktion
-    // ausgelöst wurde (Agent manuell zuweisen, Agent wiederbeleben) - alle automatischen
-    // Zustandsübergänge im Hintergrund (tickAgents, alle 15s) setzen dieses Flag NICHT. So folgt
-    // die Kamera nur noch Fahrten, die der Spieler gerade selbst verursacht hat, statt bei jeder
-    // beliebigen automatischen Hintergrund-Fahrt ungefragt mitzuspringen - genau das wurde als
-    // störend gemeldet.
-    let _naechsteFahrtMitKamera = false;
-
     function playElevatorAnimation(oldLocation, newLocation, isStarter, agentId) {
         if (!bunkerActive || typeof bunkerFloorIndexForType !== 'function') return;
-        const folgeKamera = _naechsteFahrtMitKamera;
-        _naechsteFahrtMitKamera = false; // sofort konsumieren - gilt nur für GENAU diese eine Fahrt
         if (bunkerElevatorAnimating) {
             // Aufzug gerade beschäftigt - Anfrage einreihen, wird automatisch gestartet, sobald
             // die aktuell laufende Fahrt fertig ist (siehe finish() unten). WICHTIG: der Agent
@@ -1678,14 +1676,14 @@
             // er "eigentlich" noch auf den Aufzug wartet. Das war die Ursache für gemeldete
             // Kopien/falsch wandernde Agenten, sobald der Aufzug schon unterwegs war.
             if (agentId) bunkerAnimatingAgentIds.add(agentId);
-            elevatorQueue.push({ oldLocation, newLocation, isStarter, agentId, folgeKamera });
+            elevatorQueue.push({ oldLocation, newLocation, isStarter, agentId });
             if (typeof renderBunkerAgentVisuals === 'function') renderBunkerAgentVisuals();
             return;
         }
-        runElevatorRide(oldLocation, newLocation, isStarter, agentId, folgeKamera);
+        runElevatorRide(oldLocation, newLocation, isStarter, agentId);
     }
 
-    function runElevatorRide(oldLocation, newLocation, isStarter, agentId, folgeKamera) {
+    function runElevatorRide(oldLocation, newLocation, isStarter, agentId) {
         const car = document.getElementById('bunker-elevator-car');
         const riderSlot = document.getElementById('bunker-elevator-rider-slot');
         const newIdx = bunkerFloorIndexForType(newLocation);
@@ -1693,7 +1691,7 @@
         if (!car || newIdx < 0) {
             // Auch bei einem übersprungenen Versuch weiter mit der nächsten Warteschlangen-
             // Anfrage, sonst bliebe die Schlange stecken.
-            if (elevatorQueue.length > 0) { const next = elevatorQueue.shift(); runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId, next.folgeKamera); }
+            if (elevatorQueue.length > 0) { const next = elevatorQueue.shift(); runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId); }
             return;
         }
         const starterClass = isStarter ? ' bunker-agent-starter' : '';
@@ -1720,7 +1718,7 @@
             // Nächste wartende Fahrt automatisch starten, falls vorhanden.
             if (elevatorQueue.length > 0) {
                 const next = elevatorQueue.shift();
-                runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId, next.folgeKamera);
+                runElevatorRide(next.oldLocation, next.newLocation, next.isStarter, next.agentId);
             }
         }
 
@@ -1746,7 +1744,7 @@
             setDuration(DEPART_MS);
             requestAnimationFrame(() => {
                 car.style.top = (newIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-                if (folgeKamera) folgeAufzugScroll(DEPART_MS);
+                folgeAufzugScroll(DEPART_MS);
             });
             setTimeout(() => setTimeout(disembark, ARRIVE_MS), DEPART_MS);
         }
@@ -1779,7 +1777,7 @@
             setDuration(PICKUP_MS);
             requestAnimationFrame(() => {
                 car.style.top = (oldIdx * BUNKER_FLOOR_HEIGHT + 8) + 'px';
-                if (folgeKamera) folgeAufzugScroll(PICKUP_MS);
+                folgeAufzugScroll(PICKUP_MS);
             });
             setTimeout(boardAndWait, PICKUP_MS);
         } else {
@@ -5835,7 +5833,6 @@ window.reviveDeadAgent = async function(idx) {
     // wir gerade, da die Kapsel nur von dort aus geöffnet werden kann) nicht der Fall ist. Ohne
     // diesen Wechsel lief die komplette Fahrt bisher unsichtbar im Hintergrund ab.
     if (typeof window.showAktiveBasis === 'function') window.showAktiveBasis();
-    _naechsteFahrtMitKamera = true; // Spieler hat gerade selbst wiederbelebt
     if (typeof sendAgentHome === 'function') sendAgentHome(newAgent);
     await saveGameState();
 };
